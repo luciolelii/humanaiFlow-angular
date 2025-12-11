@@ -1,3 +1,89 @@
 /* You can add global styles to this file, and also import other style files */
 
-@import "tailwindcss";
+@import 'tailwindcss';
+
+@theme {
+  /* Dark mode */
+  --dark-mode-selector: .dark;
+
+  /* Estensioni */
+  --color-primary-50: #eff6ff;
+  --color-primary-100: #dbeafe;
+  --color-primary-200: #bfdbfe;
+  --color-primary-300: #93c5fd;
+  --color-primary-400: #60a5fa;
+  --color-primary-500: #3b82f6;
+  --color-primary-600: #2563eb;
+  --color-primary-700: #1d4ed8;
+  --color-primary-800: #1e40af;
+  --color-primary-900: #1e3a8a;
+  --color-primary-950: #172554;
+
+  /* Font families */
+  --font-body: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue',
+    Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
+    'Noto Color Emoji';
+
+  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue',
+    Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
+    'Noto Color Emoji';
+}
+
+body {
+  @apply bg-gray-50 dark:bg-gray-900;
+}
+
+.container-centered {
+  @apply flex flex-col items-center justify-center px-6 py-8 mx-auto md:h-screen lg:py-0;
+}
+
+.input {
+  @apply bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-primary-600 focus:border-primary-600 block p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500;
+}
+
+.card-container {
+  @apply w-full bg-white rounded-lg shadow dark:border md:mt-0 sm:max-w-md xl:p-0 dark:bg-gray-800 dark:border-gray-700;
+}
+.card {
+  @apply p-6 space-y-4 md:space-y-6 sm:p-8;
+}
+.label {
+  @apply block mb-2 text-sm font-medium text-gray-900 dark:text-white;
+}
+
+.title {
+  @apply text-xl font-bold leading-tight tracking-tight text-gray-900 md:text-2xl dark:text-white;
+}
+
+.button {
+  @apply text-white bg-primary-600 hover:bg-primary-700 focus:ring-4 focus:outline-none focus:ring-primary-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-primary-600 dark:hover:bg-primary-700 dark:focus:ring-primary-800;
+}
+
+.button:disabled {
+  @apply bg-primary-500 opacity-40;
+}
+.link {
+  @apply font-medium text-primary-600 hover:underline dark:text-primary-500;
+}
+.link-active {
+  @apply text-purple-600 dark:text-white;
+}
+
+.form-control {
+  @apply flex flex-col gap-0.5;
+}
+
+.form-group {
+  @apply flex flex-col gap-4;
+}
+
+.helper-text {
+  @apply text-sm font-light text-gray-500 dark:text-gray-400;
+}
+
+.nav-header {
+  @apply bg-white border-gray-200 px-4 lg:px-6 py-2.5 dark:bg-gray-800;
+}
+.inner-nav {
+  @apply flex flex-wrap justify-center gap-4 items-center max-w-7xl;
+}
