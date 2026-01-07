@@ -1,0 +1,25 @@
+/* Header fisso */
+.app-header {
+  font-family: 'Roboto', sans-serif;
+  border-bottom: 1px solid #ddd;
+}
+
+/* Logo */
+.logo {
+  height: 40px;
+}
+
+/* User section */
+.user-section i {
+  font-size: 24px;
+}
+
+/* Contenuto principale */
+.main-content {
+  min-height: 0; /* necessario per overflow-auto su flex */
+}
+
+/* Tabs sticky */
+.nav-tabs {
+  border-bottom: 1px solid #ccc;
+}

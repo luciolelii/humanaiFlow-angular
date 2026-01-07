@@ -5,13 +5,33 @@
   "compilerOptions": {
     "baseUrl": "./src",
     "paths": {
-      "@pages/*" : ["app/pages/*"],
-      "@layouts/*" : ["app/layouts/*"],
-      "@services/*" : ["app/services/*"],
-      "@environment" : ["environments/environment"],
-      "@models/*" : ["app/models/*"],
-      "@utilities/*" : ["app/utilities/*"],
-      "@guards/*" : ["app/guards/*"]
+      "@pages/*": [
+        "app/pages/*"
+      ],
+      "@layouts/*": [
+        "app/layouts/*"
+      ],
+      "@services/*": [
+        "app/services/*"
+      ],
+      "@environment": [
+        "environments/environment"
+      ],
+      "@models/*": [
+        "app/models/*"
+      ],
+      "@utilities/*": [
+        "app/utilities/*"
+      ],
+      "@guards/*": [
+        "app/guards/*"
+      ],
+      "@shared/*": [
+        "app/shared/*"
+      ],
+      "@assets/*": [
+        "/assets/*"
+      ]
     },
     "strict": true,
     "noImplicitOverride": true,

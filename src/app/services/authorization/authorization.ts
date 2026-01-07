@@ -1,5 +1,5 @@
-import { inject, Injectable, signal } from '@angular/core';
-import { User } from '@models/user';
+import { Injectable, signal } from '@angular/core';
+import { User, UserRegistration } from '@models/user';
 import { AuthorizationCallServiceBase } from './authorization-call.base';
 import { environment } from '@environment';
 import { take, tap } from 'rxjs';
@@ -14,7 +14,9 @@ export class Authorization {
 
   authCall: AuthorizationCallServiceBase = new environment.authorizationCallService();
 
-  user = signal<User | null>(null);
+  private user = signal<User | null>(null);
+
+  loggedInUser = this.user.asReadonly();
 
   login(username: string, password: string) {
     return this.authCall.login(username, password).pipe(
@@ -25,6 +27,11 @@ export class Authorization {
     );
   }
 
+  signup(userRegistration: UserRegistration) {
+    return this.authCall.register(userRegistration).pipe(
+      take(1)
+    );
+  }
 
   logout() {
     this.user.set(null);

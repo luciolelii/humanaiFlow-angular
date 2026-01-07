@@ -1,7 +1,11 @@
 import { NgModel } from "@angular/forms";
+import { FieldState } from "@angular/forms/signals";
 
 export class FormUtility {
-  isInvalid(formControl: NgModel) {
-    return formControl.touched && formControl.dirty && formControl.invalid;
+  isInvalid(input: FieldState<any>) {
+    if (input.touched() && input.dirty() && input.invalid()) {
+      return true;
+    }
+    return false;
   }
 }

@@ -1,42 +1,48 @@
 import { Observable } from "rxjs";
 import { AuthorizationCallServiceBase } from "./authorization-call.base";
-import { User } from "@models/user";
+import { User, UserRegistration } from "@models/user";
 
 export class AuthorizationCallFakeService extends AuthorizationCallServiceBase {
-    
 
-   private users: User[] = [
-       { id: 1, email: 'testuser@example.com' },
-   ];
 
-     login(email: string, password: string): Observable<User> {
-         return new Observable<User>((observer) => {
-               const user = this.users.find(u => u.email === email);
-               if (!user || password !== 'password') {
-                   observer.error(new Error('Invalid username or password'));
-                   return;
-               }
-               observer.next(user);
-               observer.complete();
-         });
+    private users: UserRegistration[] = [
+        { username: 'testuser', email: 'testuser@example.com', password: 'password123', fullname: 'Test User' },
+    ];
+
+    login(username: string, password: string): Observable<User> {
+        return new Observable<User>((observer) => {
+            const user = this.users.find(u => u.username === username);
+            if (!user) {
+                observer.error(new Error('Invalid username'));
+                return;
+            }
+            if (password !== user.password) {
+                observer.error(new Error(`Invalid password for ${username}`));
+                return;
+            }
+            observer.next(user);
+            observer.complete();
+        });
     }
 
-   register(username: string, password: string, email: string): Observable<void> {
-         return new Observable<void>((observer) => {
-               // Simulate a successful registration response
-               if (this.users.find(user => user.email === email)) {
-                   observer.error(new Error('Email already exists'));
-                   return;
-               }
-               this.users.push({ id: this.users.length + 1, email });
-               observer.next();
-               observer.complete();
-         });
-    } 
+    register(userRegistration: UserRegistration): Observable<void> {
+        return new Observable<void>((observer) => {
+            setTimeout(() => {
+                // Simulate a successful registration response
+                if (this.users.find(user => user.email === userRegistration.email)) {
+                    observer.error(new Error('Email already exists'));
+                    return;
+                }
+                this.users.push(userRegistration);
+                observer.next();
+                observer.complete();
+            }, 3000);
+        });
+    }
 
 
 
 
 
-     
- }
+
+}
