@@ -1,43 +1,72 @@
 <div class="main-layout min-h-screen flex flex-col">
 
-  <!-- Header fisso -->
-  <header class="app-header fixed top-0 left-0 right-0 z-50 flex justify-between items-center px-4 h-16 bg-[#d8f4e7] border-b border-gray-300">
-    <div class="left-section flex items-center gap-4">
-      <img src="/logoNoName.png" alt="Logo" class="logo h-10" />
-      <h1 class="app-title text-lg font-medium text-gray-800 m-0">HumAIn Flow</h1>
+    <!-- Header fisso -->
+    <header
+        class="app-header fixed top-0 left-0 right-0 z-50 flex justify-between items-center px-4 h-16 bg-[#d8f4e7] border-b-none">
+        <div class="left-section flex items-center gap-4">
+            <img src="/logoNoName.png" alt="Logo" class="logo h-10" />
+            <h1 class="app-title text-lg font-medium text-gray-800 m-0">HumAIn Flow</h1>
+        </div>
+
+        <div class="user-section flex items-center gap-2 text-gray-700 font-medium">
+            <i class="bi bi-person-circle fs-4"></i>
+            <span class="username">{{ loggedUser()?.username }}</span>
+            <div class="relative group inline-flex">
+                <i class="bi bi-box-arrow-right
+           text-secondary hover:text-red-600
+           cursor-pointer transition" (click)="logout()" aria-label="Logout" role="button" tabindex="-1">
+                </i>
+
+                <!-- Tooltip -->
+                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2
+           opacity-0 group-hover:opacity-100
+           pointer-events-none
+           whitespace-nowrap
+           rounded-md bg-gray-800 px-3 py-1.5
+           text-xs text-white shadow-lg
+           transition-opacity duration-200">
+                    Logout
+                </div>
+            </div>
+
+        </div>
+    </header>
+
+    <!-- Wrapper per compensare header fisso -->
+    <div class="flex-1 pt-16 flex flex-col">
+
+        <ul class="nav sticky-top top-16 z-40
+         flex gap-1 px-3
+        bg-[#d8f4e7] border-b-none shadow-sm">
+
+            <li class="nav-item">
+                <a routerLink="/editor" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }" tabindex="-1" class="nav-link
+             px-4 py-2 rounded-t-md
+             text-gray-700 font-medium
+             transition-all duration-200
+             hover:bg-white/60">
+                    <i class="bi bi-diagram-3 me-2"></i>
+                    Editor
+                </a>
+            </li>
+
+            <li class="nav-item">
+                <a routerLink="/tasks" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }" tabindex="-1" class="nav-link
+             px-4 py-2 rounded-t-md
+             text-gray-700 font-medium
+             transition-all duration-200
+             hover:bg-white/60">
+                    <i class="bi bi-list-check me-2"></i>
+                    Tasks
+                </a>
+            </li>
+        </ul>
+
+
+        <!-- Contenuto principale scrollabile -->
+        <main class="main-content flex-1 overflow-auto p-4 bg-gray-50">
+            <router-outlet></router-outlet>
+        </main>
+
     </div>
-
-    <div class="user-section flex items-center gap-2 text-gray-700 font-medium">
-      <i class="bi bi-person-circle fs-4"></i>
-      <span class="username">{{ loggedUser()?.username }}</span>
-      <button class="btn btn-sm btn-light border-0 p-1" (click)="logout()" title="Logout" aria-label="Logout">
-        <i class="bi bi-box-arrow-right text-secondary"></i>
-      </button>
-    </div>
-  </header>
-
-  <!-- Wrapper per compensare header fisso -->
-  <div class="flex-1 pt-16 flex flex-col">
-
-    <!-- Tabs sticky sotto header -->
-    <ul class="nav nav-tabs sticky-top top-16 z-40 bg-[#d8f4e7]">
-      <li class="nav-item">
-        <a class="nav-link active" href="#">Active</a>
-      </li>
-      <li class="nav-item">
-        <a class="nav-link" href="#">Link</a>
-      </li>
-      <li class="nav-item">
-        <a class="nav-link" href="#">Link</a>
-      </li>
-    </ul>
-
-    <!-- Contenuto principale scrollabile -->
-    <main class="main-content flex-1 overflow-auto p-4 bg-gray-50">
-      <p>Qui va il contenuto principale...</p>
-      <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit...</p>
-      <p>Puoi aggiungere tutto ciò che vuoi, scrollando rimane visibile header + tabs.</p>
-    </main>
-
-  </div>
 </div>

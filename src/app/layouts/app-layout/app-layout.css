@@ -1,7 +1,6 @@
 /* Header fisso */
 .app-header {
   font-family: 'Roboto', sans-serif;
-  border-bottom: 1px solid #ddd;
 }
 
 /* Logo */
@@ -22,4 +21,12 @@
 /* Tabs sticky */
 .nav-tabs {
   border-bottom: 1px solid #ccc;
+}
+
+.nav-link.active {
+  background-color: #ffffff;
+  color: #0f766e;              /* verde elegante */
+  border: 1px solid #d1d5db;
+  border-bottom-color: white;
+  box-shadow: 0 -1px 6px rgba(0, 0, 0, 0.05);
 }

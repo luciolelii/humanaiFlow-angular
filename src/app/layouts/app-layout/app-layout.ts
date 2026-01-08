@@ -1,10 +1,10 @@
 import { Component, inject } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { Authorization } from '@services/authorization/authorization';
 
 @Component({
   selector: 'app-app-layout',
-  imports: [],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive],
   templateUrl: './app-layout.html',
   styleUrl: './app-layout.css',
 })
