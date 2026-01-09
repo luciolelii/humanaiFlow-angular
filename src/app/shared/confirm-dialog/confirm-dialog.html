@@ -1,0 +1,35 @@
+@if(!!this.state()) {
+
+<div class="fixed inset-0 z-50 flex items-center justify-center">
+
+    <!-- Backdrop -->
+    <div class="absolute inset-0 bg-black/40" (click)="close(false)">
+    </div>
+
+    <!-- Modal -->
+    <div class="relative z-10 w-full max-w-md
+                 rounded-lg bg-white shadow-xl
+                 p-5 animate-fade-in">
+
+        <h3 class="text-lg font-semibold mb-3">
+            Confirm
+        </h3>
+
+        <p class="text-sm text-gray-700 mb-5">
+            {{ this.state()!.message }}
+        </p>
+
+        <div class="flex justify-end gap-2">
+            <button class="btn btn-outline-secondary" (click)="close(false)">
+                Cancel
+            </button>
+
+            <button class="btn btn-primary" (click)="close(true)">
+                OK
+            </button>
+        </div>
+    </div>
+
+</div>
+
+}

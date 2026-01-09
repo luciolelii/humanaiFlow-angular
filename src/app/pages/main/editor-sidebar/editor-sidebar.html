@@ -1,0 +1,13 @@
+<app-accordion title="Flows" icon="bi-lightning-charge-fill" [open]="true" [open]="openAccordion === 'flows'"
+  (toggle)="toggle('flows')">
+    <app-flows-list></app-flows-list>
+</app-accordion>
+
+<app-accordion title="Blocks" icon="bi-boxes" [open]="openAccordion === 'blocks'"
+  (toggle)="toggle('blocks')">
+  <div class="space-y-2">
+    <div class="block-item">Input</div>
+    <div class="block-item">Transform</div>
+    <div class="block-item">Output</div>
+  </div>
+</app-accordion>

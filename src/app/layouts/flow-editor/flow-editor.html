@@ -1,1 +1,32 @@
-<p>flow-editor works!</p>
+<div class="app-layout min-h-screen flex flex-col">
+
+  <!-- HEADER -->
+  <!--<app-header></app-header> -->
+
+  <!-- BODY -->
+  <div class="flex flex-1 overflow-hidden">
+
+    <!-- LEFT SIDEBAR -->
+    <div class="w-lg border-r bg-white shadow-sm p-2 overflow-auto">
+      <app-editor-sidebar></app-editor-sidebar>
+    </div>
+
+    <!-- CENTER EDITOR -->
+    <main class="flex-1 bg-gray-100 overflow-auto">
+      @if (flow()) {
+      <div>
+        <h2 class="text-sm font-semibold">{{ flow()?.name }}</h2>
+        <!-- editor canvas -->
+      </div>
+      } @else {
+      <div class="text-gray-400 text-center mt-10">
+        Select a document
+      </div>
+      }
+    </main>
+
+    <!-- RIGHT PANEL -->
+    <!-- <app-right-panel></app-right-panel> -->
+
+  </div>
+</div>
