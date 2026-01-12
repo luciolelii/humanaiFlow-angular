@@ -1,0 +1,67 @@
+<div class="flex items-center justify-between
+            px-4 py-2
+            bg-white border-b border-gray-200
+            shadow-sm">
+
+  <!-- Title -->
+  <div class="flex items-center gap-2">
+    <i class="bi bi-pencil-square text-indigo-500"></i>
+    <h2 class="m-0 text-sm font-semibold text-gray-800">
+        <input type="text" class="border-0 text-sm font-semibold text-gray-800
+       focus:ring-0 p-0 m-0 box-border
+       min-w-[4ch] max-w-[16ch]
+       bg-transparent"
+               [value]="title()"
+               (blur)="changeTitle(titleInput.value)"
+                (keydown.enter)="changeTitle(titleInput.value); $event.target.blur()"
+                [style.width.ch]="titleWidth()"
+               maxlength="20"
+               size="20"
+               (input)="tempTitle.set(titleInput.value)"
+               #titleInput
+                />
+    </h2>
+    @if (unsaved()) {
+    <span class="inline-flex items-center gap-x-1.5 py-1.5 px-3 rounded-full text-xs font-medium border border-yellow-500 text-yellow-500">not saved</span>
+    }
+  </div>
+
+
+  <!-- Actions -->
+  <div class="flex items-center gap-2" >
+    <button tabindex="-1"
+      class="border-0
+             flex items-center gap-1
+             hover:bg-green-200 text-green-600
+             p-1"
+      title="Save" (click)="save()">
+      <i class="bi bi-save"></i>
+    </button>
+
+    <button tabindex="-1"
+      class="border-0
+             flex items-center gap-1
+             hover:bg-gray-100 text-gray-600 p-1"
+      title="Undo">
+      <i class="bi bi-arrow-counterclockwise"></i>
+    </button>
+
+    <button tabindex="-1"
+      class="border-0
+             flex items-center gap-1
+             hover:bg-gray-100 text-gray-600 p-1"
+      title="Redo">
+      <i class="bi bi-arrow-clockwise"></i>
+    </button>
+
+    <div class="w-px h-5 bg-gray-200 mx-2"></div>
+
+    <button tabindex="-1"
+      class="border-0 
+             flex items-center gap-1
+             hover:bg-red-200 text-red-600 p-1"
+      title="Clear">
+      <i class="bi bi-trash"></i>
+    </button>
+  </div>
+</div>

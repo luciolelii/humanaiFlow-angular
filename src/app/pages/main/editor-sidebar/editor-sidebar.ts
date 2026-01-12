@@ -1,26 +1,35 @@
-import { Component } from '@angular/core';
-import { Accordion } from '@shared/accordion/accordion';
+import { Component, computed, inject, signal } from '@angular/core';
+import { GroupHolder } from '@shared/group-holder/group-holder';
 import { FlowsList } from '@shared/flows-list/flows-list';
+import { EditorStateHolder } from 'app/stores/editor';
+import { CommonModule } from '@angular/common';
 
-type AccordionId = 'flows' | 'blocks';
+type OpenedId = 'flows' | 'blocks';
 
 @Component({
   selector: 'app-editor-sidebar',
-  imports: [Accordion, FlowsList],
+  imports: [GroupHolder, FlowsList, CommonModule],
   templateUrl: './editor-sidebar.html',
   styleUrl: './editor-sidebar.css',
 })
 export class EditorSidebar {
 
-  collapsed = false;
+  flowState = inject(EditorStateHolder);
 
-  openAccordion: AccordionId | null = null;
+  blockDisabled = computed(() => !this.flowState.hasFlow());
+
+  collapsed = signal(true);
+
+  open: OpenedId | null = null;
+
+
+  openSide(id: OpenedId) {
+    this.open = id;
+    this.collapsed.set(false);
+  }
 
   collapse() {
-    this.collapsed = !this.collapsed;
+    this.collapsed.set(true);
   }
-
-  toggle(id: AccordionId) {
-    this.openAccordion = this.openAccordion === id ? null : id;
-  }
+ 
 }

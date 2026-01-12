@@ -28,6 +28,7 @@
     "@angular/common": "^21.0.4",
     "@angular/compiler": "^21.0.4",
     "@angular/core": "^21.0.4",
+    "@angular/elements": "^21.0.8",
     "@angular/forms": "^21.0.4",
     "@angular/platform-browser": "^21.0.4",
     "@angular/platform-browser-dynamic": "^21.0.4",
@@ -37,6 +38,8 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-angular": "^0.561.0",
+    "rete-angular-plugin": "^2.6.0",
+    "rete-render-utils": "^2.0.3",
     "rxjs": "~7.8.0",
     "tailwind-merge": "^3.4.0",
     "tslib": "^2.3.0"

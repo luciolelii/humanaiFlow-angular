@@ -1,6 +1,9 @@
-import { computed, Injectable, signal } from '@angular/core';
+import { computed, inject, Injectable, signal } from '@angular/core';
 import { Flow } from '@models/flow';
 import { ConfirmDialogService } from '@services/dialogs/confirm-dialog';
+import { FlowsService } from '@services/flows/flows';
+import { FlowsCallService } from '@services/flows/flows-call';
+import { tap } from 'rxjs';
 
 @Injectable({ providedIn: 'root' })
 export class EditorStateHolder {
@@ -12,16 +15,20 @@ export class EditorStateHolder {
   /** Derived state */
   readonly hasFlow = computed(() => !!this.currentFlow());
 
+  flowsService: FlowsService = inject(FlowsService);
+
   constructor(private confirm: ConfirmDialogService) { }
+
 
   /** Intent: open document */
   async openDocument(doc: Flow): Promise<boolean> {
-    const confirmed = await this.confirm.open(
-      'You have unsaved changes. Open another document?'
-    );
+    if (this.isDirty()) {
+      const confirmed = await this.confirm.open(
+        'You have unsaved changes. Open another document?'
+      );
 
-    if (!confirmed) return false;
-
+      if (!confirmed) return false;
+    }
 
     this.currentFlow.set(doc);
     this.isDirty.set(false);
@@ -29,12 +36,12 @@ export class EditorStateHolder {
   }
 
   /** Intent: mark editor dirty */
-  markDirty() {
+  private markDirty() {
     this.isDirty.set(true);
   }
 
   /** Intent: save document */
-  markSaved() {
+  private markSaved() {
     this.isDirty.set(false);
   }
 
@@ -42,5 +49,16 @@ export class EditorStateHolder {
   closeDocument() {
     this.currentFlow.set(null);
     this.isDirty.set(false);
+  }
+
+  updateFlow(updated: Flow) {
+    this.currentFlow.set(updated);
+    this.markDirty();
+  }
+
+  save() {
+    return this.flowsService.updateFlow(this.currentFlow()!).pipe(
+      tap(() =>  this.markSaved())
+    )
   }
 }

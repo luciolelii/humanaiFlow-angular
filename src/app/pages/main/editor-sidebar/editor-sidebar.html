@@ -1,13 +1,55 @@
-<app-accordion title="Flows" icon="bi-lightning-charge-fill" [open]="true" [open]="openAccordion === 'flows'"
-  (toggle)="toggle('flows')">
-    <app-flows-list></app-flows-list>
-</app-accordion>
+<aside
+  class="relative h-full
+         bg-white border-r border-gray-200
+         transition-all duration-300
+         overflow-hidden"
+  [class.w-72]="!collapsed()"
+  [class.w-14]="collapsed()">
 
-<app-accordion title="Blocks" icon="bi-boxes" [open]="openAccordion === 'blocks'"
-  (toggle)="toggle('blocks')">
-  <div class="space-y-2">
-    <div class="block-item">Input</div>
-    <div class="block-item">Transform</div>
-    <div class="block-item">Output</div>
+  @if (!collapsed()) {
+    <button
+      (click)="collapse()"
+      class="absolute top-3 right-3
+             w-6 h-6 rounded-full
+             bg-white border shadow
+             flex items-center justify-center
+             hover:bg-gray-50 z-10">
+
+      <i class="bi bi-chevron-left text-xs transition-transform"></i>
+    </button>
+  }
+
+  <!-- CONTENT -->
+  <div class="h-full p-4">
+    @if(!collapsed()) {
+    <div class="pt-6 space-y-6">  
+    <!-- ACCORDION -->
+      @switch (open) {
+        @case ('flows') {
+          <app-group-holder title="Flows" icon="bi-lightning-charge-fill">
+            <app-flows-list></app-flows-list>
+          </app-group-holder>
+        }
+        @case ('blocks') {
+          <app-group-holder title="Blocks" icon="bi-boxes">
+            <div class="space-y-2">
+              <div class="block-item">Input</div>
+              <div class="block-item">Transform</div>
+              <div class="block-item">Output</div>
+            </div>
+          </app-group-holder>
+        }
+      }
+    </div>
+
+    } @else {
+    <!-- ICON MODE -->
+    <div class="flex flex-col gap-4 items-center pt-6">
+      <i class="bi bi-lightning-charge-fill text-indigo-500 text-xl cursor-pointer enabled p-2" (click)="openSide('flows')"></i>
+      <i [ngClass]="{'cursor-pointer text-gray-600 enabled' : !blockDisabled()}"
+         class="bi bi-boxes  text-gray-200 text-xl p-2" (click)="!blockDisabled() && openSide('blocks')"></i>
+    </div>
+    }
+
   </div>
-</app-accordion>
+</aside>

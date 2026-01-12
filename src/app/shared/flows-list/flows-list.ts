@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject } from '@angular/core';
+import { Component, computed, inject, signal, Signal, WritableSignal } from '@angular/core';
 import { Flow } from '@models/flow';
+import { FlowsService } from '@services/flows/flows';
 import { EditorStateHolder } from 'app/stores/editor';
 
 type FlowFilter = 'all' | 'public' | 'private';
@@ -12,21 +13,27 @@ type FlowFilter = 'all' | 'public' | 'private';
   styleUrl: './flows-list.css',
 })
 export class FlowsList {
-  filter: FlowFilter = 'all';
+  filter = signal<FlowFilter>('all');
 
   private editorState = inject(EditorStateHolder);
+  private flowsService = inject(FlowsService);
 
-  flows : Flow[] = [
-    { id: '1', name: 'Flow One', visibility: 'public', data: {} },
-    { id: '2', name: 'Flow Two', visibility: 'private', data: {} },
-    { id: '3', name: 'Flow Three', visibility: 'public', data: {} },
-    { id: '4', name: 'Flow Four', visibility: 'private', data: {} },
-  ]
+  loading: WritableSignal<boolean> = signal(true);
 
-  get filteredFlows() {
-    if (this.filter === 'all') return this.flows;
-    return this.flows.filter(f => f.visibility === this.filter);
+  flows: Signal<Flow[]> | undefined;
+
+  ngOnInit() {
+    this.flowsService.getAllFlows().then(flowsSignal => {
+      this.flows = flowsSignal;
+      this.loading.set(false);
+    });
   }
+  
+  filteredFlows = computed(() => {
+    if (!this.flows) return [];
+    if (this.filter() === 'all') return this.flows();
+    return this.flows().filter(f => f.visibility === this.filter());
+  });
 
   open(flow: Flow) {
     console.log('Opening flow:', flow);

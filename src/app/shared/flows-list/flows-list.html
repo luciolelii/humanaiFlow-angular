@@ -1,29 +1,36 @@
+@if (loading()) {
+<div class="flex items-center justify-center h-32">
+    <div class="spinner-border text-indigo-500" role="status">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+</div>
+} @else if (filteredFlows.length === 0) {
 <div class="btn-group w-full mb-3" role="group">
 
-    <button type="button" class="btn btn-sm w-full transition" [class.btn-primary]="filter === 'all'"
-        [class.btn-outline-primary]="filter !== 'all'" (click)="filter = 'all'">
+    <button type="button" class="btn btn-sm w-full transition" [class.btn-primary]="filter() === 'all'"
+        [class.btn-outline-primary]="filter() !== 'all'" (click)="filter.set('all')">
         All
     </button>
 
-    <button type="button" class="btn btn-sm w-full transition" [class.btn-primary]="filter === 'public'"
-        [class.btn-outline-primary]="filter !== 'public'" (click)="filter = 'public'">
+    <button type="button" class="btn btn-sm w-full transition" [class.btn-primary]="filter() === 'public'"
+        [class.btn-outline-primary]="filter() !== 'public'" (click)="filter.set('public')">
         Public
     </button>
 
-    <button type="button" class="btn btn-sm w-full transition" [class.btn-primary]="filter === 'private'"
-        [class.btn-outline-primary]="filter !== 'private'" (click)="filter = 'private'">
+    <button type="button" class="btn btn-sm w-full transition" [class.btn-primary]="filter() === 'private'"
+        [class.btn-outline-primary]="filter() !== 'private'" (click)="filter.set('private')">
         Private
     </button>
 
 </div>
 
 <div class="space-y-2">
-    @for (flow of filteredFlows; track flow.id) {
+    @for (flow of filteredFlows(); track flow.id) {
     <div class="group rounded-lg border
            px-3 py-2 cursor-pointer
            transition
            hover:shadow-[0_0_12px_rgba(99,102,241,0.6)]
-           bg-indigo-50 border-indigo-200" (click)="open(flow)">
+           bg-indigo-50 border-indigo-200 select-none" (dblclick)="open(flow)">
 
         <div class="flex items-center justify-between text-sm">
 
@@ -46,3 +53,4 @@
     }
 
 </div>
+}

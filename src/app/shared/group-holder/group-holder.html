@@ -1,0 +1,29 @@
+<div
+  class="rounded-xl border border-gray-200
+         bg-white shadow-sm
+         transition overflow-hidden">
+
+  <!-- Header -->
+  <div
+    class="w-full flex items-center justify-between
+           px-4 py-3
+           text-sm font-semibold text-gray-700
+        bg-gray-50 "
+    >
+
+    <div class="flex items-center gap-2">
+      <i class="bi {{ icon }} text-lg"></i>
+      <span>{{ title }}</span>
+  </div>
+</div>
+  <!-- Body -->
+  <div
+    class="overflow-hidden transition-all duration-300 max-h-96"
+    >
+
+    <div class="p-3 space-y-2">
+      <ng-content></ng-content>
+    </div>
+
+  </div>
+</div>
