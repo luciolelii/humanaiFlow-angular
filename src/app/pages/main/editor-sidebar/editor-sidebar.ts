@@ -1,7 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { GroupHolder } from '@shared/group-holder/group-holder';
 import { FlowsList } from '@shared/flows-list/flows-list';
-import { EditorStateHolder } from 'app/stores/editor';
+import { EditorStateHolder } from '@stores/flow-editor';
 import { CommonModule } from '@angular/common';
 
 type OpenedId = 'flows' | 'blocks';

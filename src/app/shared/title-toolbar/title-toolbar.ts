@@ -1,5 +1,5 @@
 import { Component, computed, ElementRef, inject, linkedSignal, ViewChild, WritableSignal } from '@angular/core';
-import { EditorStateHolder } from 'app/stores/editor';
+import { EditorStateHolder } from '@stores/flow-editor';
 
 @Component({
   selector: 'app-title-toolbar',
@@ -28,7 +28,7 @@ export class TitleToolbar {
     return Math.min(len, 20)-2;
   });
 
-  unsaved = computed(() => this.editorState.isDirty());
+  notSaved = computed(() => this.editorState.isDirty());
 
 
   changeTitle(value: string) {
@@ -45,6 +45,7 @@ export class TitleToolbar {
   }
 
   save() {
+    if (!this.notSaved()) return;
     this.editorState.save().subscribe(
       err => console.error('Save failed', err)
     );

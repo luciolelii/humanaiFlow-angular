@@ -3,8 +3,14 @@ import { Observable } from "rxjs";
 
 export abstract class FlowsCallServiceBase {
    
+    abstract getFlowById(flowId: string) : Observable<Flow>;
+
     abstract retrieveAllFlows() : Observable<Flow[]>;
 
     abstract updateFlow(flow: Flow) : Observable<void>;
+
+    abstract createNewFlow() : Observable<Flow>;
+
+    abstract deleteFlow(flowId: string) : Observable<void>;
 
 }

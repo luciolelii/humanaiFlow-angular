@@ -21,7 +21,7 @@
                #titleInput
                 />
     </h2>
-    @if (unsaved()) {
+    @if (notSaved()) {
     <span class="inline-flex items-center gap-x-1.5 py-1.5 px-3 rounded-full text-xs font-medium border border-yellow-500 text-yellow-500">not saved</span>
     }
   </div>
@@ -32,16 +32,16 @@
     <button tabindex="-1"
       class="border-0
              flex items-center gap-1
-             hover:bg-green-200 text-green-600
+             enabled:hover:bg-green-200 text-green-600
              p-1"
-      title="Save" (click)="save()">
+      title="Save" [disabled]="!notSaved()" (click)="save()">
       <i class="bi bi-save"></i>
     </button>
 
     <button tabindex="-1"
       class="border-0
              flex items-center gap-1
-             hover:bg-gray-100 text-gray-600 p-1"
+             enabled:hover:bg-gray-100 text-gray-600 p-1"
       title="Undo">
       <i class="bi bi-arrow-counterclockwise"></i>
     </button>
@@ -49,7 +49,7 @@
     <button tabindex="-1"
       class="border-0
              flex items-center gap-1
-             hover:bg-gray-100 text-gray-600 p-1"
+             enabled:hover:bg-gray-100 text-gray-600 p-1"
       title="Redo">
       <i class="bi bi-arrow-clockwise"></i>
     </button>
@@ -59,7 +59,7 @@
     <button tabindex="-1"
       class="border-0 
              flex items-center gap-1
-             hover:bg-red-200 text-red-600 p-1"
+             enabled:hover:bg-red-200 text-red-600 p-1"
       title="Clear">
       <i class="bi bi-trash"></i>
     </button>

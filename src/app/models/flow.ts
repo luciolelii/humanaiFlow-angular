@@ -3,4 +3,7 @@ export type Flow = {
     name: string;
     visibility: 'public' | 'private';
     data: any;
+    author: string;
+    createdAt: Date;
+    updatedAt: Date;
 };
