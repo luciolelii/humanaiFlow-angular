@@ -22,6 +22,8 @@ export class FlowsList {
 
   flows: Signal<Flow[]> | undefined;
 
+  detailOpenedId = signal<string | null>(null);
+
   ngOnInit() {
     this.flowsService.getAllFlows().then(flowsSignal => {
       this.flows = flowsSignal;
@@ -30,10 +32,11 @@ export class FlowsList {
   }
   
   filteredFlows = computed(() => {
-    if (!this.flows) return [];
-    if (this.filter() === 'all') return this.flows();
-    return this.flows().filter(f => f.visibility === this.filter());
+    const flows = this.flows?.();
+    console.log('Filtering flows', flows?.map(f => f.name));
+    if (!flows) return [];
+    if (this.filter() === 'all') return flows;
+    return flows.filter(f => f.visibility === this.filter());
   });
-
   
 }

@@ -1,4 +1,4 @@
-<div class="main-layout min-h-screen flex flex-col">
+<div class="main-layout h-screen flex flex-col">
 
     <!-- Header fisso -->
     <header
@@ -33,9 +33,9 @@
     </header>
 
     <!-- Wrapper per compensare header fisso -->
-    <div class="flex-1 pt-16 flex flex-col">
+    <div class="pt-16 flex flex-col flex-1 h-full overflow-hidden">
 
-        <ul class="nav sticky-top top-16 z-40
+        <ul class="nav fixed w-full top-16 z-40
          flex gap-1 px-3
         bg-[#d8f4e7] border-b-none shadow-sm">
 
@@ -64,7 +64,7 @@
 
 
         <!-- Contenuto principale scrollabile -->
-        <main class="main-content flex-1 overflow-auto p-4 bg-gray-50">
+        <main class="main-content w-full h-full mt-12 overflow-hidden ml-2 bg-white pb-4 pr-4 rounded-md shadow-sm">
             <router-outlet></router-outlet>
         </main>
 

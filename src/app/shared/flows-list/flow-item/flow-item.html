@@ -1,0 +1,77 @@
+<div class="group border
+         px-3 py-2 cursor-pointer
+         transition
+         hover:shadow-[0_0_12px_rgba(99,102,241,0.6)]
+         bg-indigo-50 border-indigo-200 select-none" (click)="toggleDetails()" (dblclick)="open()">
+
+    <!-- Header -->
+    <div class="flex items-center justify-between text-sm">
+        <div class="flex items-center gap-2 text-indigo-700 font-medium">
+            <i class="bi" [ngClass]="{
+          'bi-globe': flow().visibility === 'public',
+          'bi-lock-fill': flow().visibility === 'private'
+        }" [class.text-indigo-500]="flow().visibility === 'public'"
+                [class.text-gray-500]="flow().visibility === 'private'">
+            </i>
+
+            {{ flow().name }}
+        </div>
+
+        <i class="bi bi-chevron-down text-xs text-indigo-400
+             transition-transform duration-200" [class.rotate-180]="expanded()">
+        </i>
+    </div>
+
+    <!-- Dettagli -->
+    <div class="overflow-hidden transition-all duration-300" [class.max-h-0]="!expanded()"
+        [class.max-h-36]="expanded()">
+
+        <div class="mt-2 pt-2 border-t border-indigo-200
+              text-xs text-gray-600
+              flex row items-center gap-1">
+
+            <!-- Author -->
+            <div class="flex items-baseline gap-2">
+                <span class="text-[11px] tracking-wide text-gray-400">
+                    Author:
+                </span>
+                <span class="font-small text-gray-700">
+                    {{ flow().author }}
+                </span>
+            </div>
+
+            <!-- Created -->
+            <div class="flex items-baseline gap-2">
+                <span class="text-[11px] tracking-wide text-gray-400">
+                    Created:
+                </span>
+                <span class="font-small text-gray-700">
+                    {{ flow().createdAt | date:'dd/MM/yyyy' }}
+                </span>
+            </div>
+
+
+        </div>
+        <div class="w-full h-px bg-linear-to-r from-transparent via-indigo-200 to-transparent my-3"></div>
+
+            <!-- Actions -->
+            <div class="flex items-center gap-2 text-sm">
+                <button class="p-1 rounded enabled:hover:bg-indigo-100 enabled:text-indigo-600 disabled:text-indigo-200" title="Open"
+                [disabled]="this.flow().id == this.openedFlowId()"    
+                (click)="$event.stopPropagation(); open()">
+                    <i class="bi bi-box-arrow-in-right"></i>
+                </button>
+
+                <button class="p-1 rounded enabled:hover:bg-indigo-100 enabled:text-indigo-600 disabled:text-indigo-200" title="Clone"
+                    (click)="$event.stopPropagation(); clone()" [disabled]="this.flow().visibility!=='private'">
+                    <i class="bi bi-files"></i>
+                </button>
+
+                <button class="p-1 rounded enabled:hover:bg-red-100 enabled:text-red-600 disabled:text-red-200" title="Delete"
+                    (click)="$event.stopPropagation(); remove()" [disabled]="this.flow().visibility!=='private'">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+    </div>
+
+</div>

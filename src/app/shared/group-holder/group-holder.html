@@ -1,13 +1,13 @@
 <div
-  class="rounded-xl border border-gray-200
+  class=" border-gray-200
          bg-white shadow-sm
-         transition overflow-hidden">
+         transition flex-1 h-full">
 
   <!-- Header -->
   <div
     class="w-full flex items-center justify-between
            px-4 py-3
-           text-sm font-semibold text-gray-700
+           text-sm font-semibold text-gray-700 user-select-none
         bg-gray-50 "
     >
 
@@ -15,15 +15,14 @@
       <i class="bi {{ icon }} text-lg"></i>
       <span>{{ title }}</span>
   </div>
+  <span>
+  <ng-content select="header-button"></ng-content>
+  </span>
 </div>
   <!-- Body -->
   <div
-    class="overflow-hidden transition-all duration-300 max-h-96"
-    >
-
-    <div class="p-3 space-y-2">
+    class="transition-all duration-300 px-2 pb-2 flex flex-col flex-1 overflow-hidden">
       <ng-content></ng-content>
-    </div>
-
+    
   </div>
 </div>

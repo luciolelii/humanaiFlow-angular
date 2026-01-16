@@ -1,23 +1,25 @@
-<div class="app-layout min-h-screen flex flex-col">
+<div class="flex flex-col flex-1 h-full">
 
   <!-- HEADER -->
   <!--<app-header></app-header> -->
 
   <!-- BODY -->
-  <div class="flex flex-1 overflow-hidden">
+  <div class="flex flex-row flex-1 overflow-hidden">
 
     <!-- LEFT SIDEBAR -->
     <app-editor-sidebar></app-editor-sidebar>
-    
+
     <!-- CENTER EDITOR -->
-    <main class="flex-1 bg-gray-100 overflow-auto">
+    <main class="flex flex-col w-full bg-gray-100 overflow-hidden">
       @if (flow()) {
-      <div>
+      <div class="flex-1 overflow-hidden">
         <app-title-toolbar></app-title-toolbar>
         <!-- editor canvas -->
+        <div class="flex-1 bg-amber-200 h-full">
+        </div>
       </div>
       } @else {
-      <div class="text-gray-400 text-center mt-10">
+      <div class="text-gray-400 text-center mt-10 flex flex-col flex-1">
         Select a document
       </div>
       }

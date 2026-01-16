@@ -1,33 +1,41 @@
+
 @if (loading()) {
 <div class="flex items-center justify-center h-32">
     <div class="spinner-border text-indigo-500" role="status">
         <span class="visually-hidden">Loading...</span>
     </div>
 </div>
-} @else if (filteredFlows.length === 0) {
-<div class="btn-group w-full mb-3" role="group">
+} @else {
+    <div class="h-screen flex flex-col">
+        <div class="btn-group w-full mb-3" role="group">
 
-    <button type="button" class="btn btn-sm w-full transition" [class.btn-primary]="filter() === 'all'"
-        [class.btn-outline-primary]="filter() !== 'all'" (click)="filter.set('all')">
-        All
-    </button>
+            <button type="button" class="btn btn-sm w-full transition" [class.btn-primary]="filter() === 'all'"
+                [class.btn-outline-primary]="filter() !== 'all'" (click)="filter.set('all')">
+                All
+            </button>
 
-    <button type="button" class="btn btn-sm w-full transition" [class.btn-primary]="filter() === 'public'"
-        [class.btn-outline-primary]="filter() !== 'public'" (click)="filter.set('public')">
-        Public
-    </button>
+            <button type="button" class="btn btn-sm w-full transition" [class.btn-primary]="filter() === 'public'"
+                [class.btn-outline-primary]="filter() !== 'public'" (click)="filter.set('public')">
+                Public
+            </button>
 
-    <button type="button" class="btn btn-sm w-full transition" [class.btn-primary]="filter() === 'private'"
-        [class.btn-outline-primary]="filter() !== 'private'" (click)="filter.set('private')">
-        Private
-    </button>
+            <button type="button" class="btn btn-sm w-full transition" [class.btn-primary]="filter() === 'private'"
+                [class.btn-outline-primary]="filter() !== 'private'" (click)="filter.set('private')">
+                Private
+            </button>
 
-</div>
+        </div>
 
-<div class="space-y-2">
-    @for (flow of filteredFlows(); track flow.id) {
-        <app-flow-item [flow]="flow"></app-flow-item>
-    }
-
-</div>
+        @if (filteredFlows().length === 0) {
+            <div class="text-gray-400 text-center mt-10 flex flex-col flex-1 justify-center">
+                No flows found
+            </div>
+        } @else {
+            <div class="flex-1 overflow-y-auto h-full py-2 gap-2 flex flex-col items-center max-h-[calc(100vh-16rem)]">
+                @for (flow of filteredFlows(); track flow.id) {
+                    <app-flow-item [(detailOpenedId)]="detailOpenedId" [flow]="flow"></app-flow-item>
+                }
+            </div>
+        }
+    </div>
 }

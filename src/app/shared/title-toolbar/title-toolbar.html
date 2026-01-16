@@ -32,36 +32,30 @@
     <button tabindex="-1"
       class="border-0
              flex items-center gap-1
-             enabled:hover:bg-green-200 text-green-600
+             enabled:hover:bg-green-200 enabled:text-green-600 disabled:text-green-300
              p-1"
       title="Save" [disabled]="!notSaved()" (click)="save()">
       <i class="bi bi-save"></i>
     </button>
 
+     <div class="w-px h-5 bg-gray-200 mx-2"></div>
+
     <button tabindex="-1"
       class="border-0
              flex items-center gap-1
-             enabled:hover:bg-gray-100 text-gray-600 p-1"
-      title="Undo">
+             enabled:hover:bg-gray-100 enabled:text-gray-600 disabled:text-gray-300 p-1"
+      title="Undo" [disabled]="!editorState.undoEnabled()" (click)="undo()">
       <i class="bi bi-arrow-counterclockwise"></i>
     </button>
 
     <button tabindex="-1"
       class="border-0
              flex items-center gap-1
-             enabled:hover:bg-gray-100 text-gray-600 p-1"
-      title="Redo">
+             enabled:hover:bg-gray-100 enabled:text-gray-600 disabled:text-gray-300 p-1"
+             [disabled]="!editorState.redoEnabled()"
+      title="Redo" (click)="redo()">
       <i class="bi bi-arrow-clockwise"></i>
     </button>
 
-    <div class="w-px h-5 bg-gray-200 mx-2"></div>
-
-    <button tabindex="-1"
-      class="border-0 
-             flex items-center gap-1
-             enabled:hover:bg-red-200 text-red-600 p-1"
-      title="Clear">
-      <i class="bi bi-trash"></i>
-    </button>
   </div>
 </div>

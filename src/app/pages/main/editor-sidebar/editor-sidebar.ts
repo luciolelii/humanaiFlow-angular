@@ -3,6 +3,7 @@ import { GroupHolder } from '@shared/group-holder/group-holder';
 import { FlowsList } from '@shared/flows-list/flows-list';
 import { EditorStateHolder } from '@stores/flow-editor';
 import { CommonModule } from '@angular/common';
+import { FlowsService } from '@services/flows/flows';
 
 type OpenedId = 'flows' | 'blocks';
 
@@ -15,6 +16,8 @@ type OpenedId = 'flows' | 'blocks';
 export class EditorSidebar {
 
   flowState = inject(EditorStateHolder);
+
+  flowService = inject(FlowsService);
 
   blockDisabled = computed(() => !this.flowState.hasFlow());
 
@@ -30,6 +33,19 @@ export class EditorSidebar {
 
   collapse() {
     this.collapsed.set(true);
+  }
+
+  createNewFlow() {
+    console.log('Creating new flow...');
+    this.flowService.createNewFlow().subscribe({
+      next: flow => {
+        console.log('New flow created:', flow);
+        this.flowState.openDocument(flow);
+      },
+      error: err => {
+        console.error('Error creating new flow:', err);
+      },
+    });
   }
  
 }

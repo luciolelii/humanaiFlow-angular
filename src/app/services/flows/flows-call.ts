@@ -6,7 +6,7 @@ export class FlowsCallService extends FlowsCallServiceBase {
     override getFlowById(flowId: string): Observable<Flow> {
         throw new Error("Method not implemented.");
     }
-    override createNewFlow(): Observable<Flow> {
+    override createNewFlow(name?: string): Observable<Flow> {
         throw new Error("Method not implemented.");
     }
     override deleteFlow(flowId: string): Observable<void> {

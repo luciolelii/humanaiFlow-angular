@@ -54,12 +54,13 @@ export class FlowsService {
 
   cloneFlow(flowId: string): Observable<void> {
     const originalFlow$ = this.flowsCallService.getFlowById(flowId);
+
     const newFlow$ = this.flowsCallService.createNewFlow();
 
     return combineLatest([originalFlow$, newFlow$]).pipe(
       switchMap(([originalFlow, newFlow]) => {
-        newFlow.name = originalFlow.name + ' (Clone)';
-        newFlow.data = { ...originalFlow.data };
+        newFlow.name = this.nextFileName(originalFlow.name);
+        newFlow.data = originalFlow.data ;
 
         return this.flowsCallService.updateFlow(newFlow);
       }),
@@ -72,14 +73,29 @@ export class FlowsService {
 
   }
 
-  createNewFlow() {
-    return this.flowsCallService.createNewFlow().pipe(
+  createNewFlow(name? : string) {
+    return this.flowsCallService.createNewFlow(name || this.nextFileName('New Flow')).pipe(
       tap(() => this.refresh()),
       catchError(err => {
         console.error('Create new flow failed', err);
         return throwError(() => err);
       })
     );
+  }
+
+
+  private nextFileName(base: string): string {
+    let n = 0;
+
+    while (true) {
+      const name =
+        n === 0 ? `${base}` : `${base}(${n})`;
+      const exists = this._flows().some(flow => flow.name === name);
+      if (!exists) {
+        return name;
+      }
+      n++;
+    }
   }
 
 }

@@ -11,7 +11,7 @@ export class TitleToolbar {
 
   @ViewChild('titleInput') myInputRef!: ElementRef;
 
-  private editorState: EditorStateHolder = inject(EditorStateHolder);
+  editorState: EditorStateHolder = inject(EditorStateHolder);
   title = computed(() => {
     const flow = this.editorState.currentFlow();
     return flow ? flow.name : 'No Flow Opened';
@@ -41,7 +41,7 @@ export class TitleToolbar {
     }
     console.log('Updating flow title to:', trimmed);
     const flow = this.editorState.currentFlow()!;
-    this.editorState.updateFlow({ ...flow, name: trimmed });
+    this.editorState.updateFlowTitle(trimmed );
   }
 
   save() {
@@ -51,4 +51,11 @@ export class TitleToolbar {
     );
   }
 
+  undo() {
+    this.editorState.undo();
+  }
+
+  redo() {
+    this.editorState.redo();
+  } 
 }

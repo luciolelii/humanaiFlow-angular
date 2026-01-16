@@ -9,7 +9,7 @@ export abstract class FlowsCallServiceBase {
 
     abstract updateFlow(flow: Flow) : Observable<void>;
 
-    abstract createNewFlow() : Observable<Flow>;
+    abstract createNewFlow(name?: string) : Observable<Flow>;
 
     abstract deleteFlow(flowId: string) : Observable<void>;
 
