@@ -1,0 +1,42 @@
+<div class="flex items-center w-full justify-between gap-2">
+<div class="form-floating">  
+<select  id="orderSelect"
+    class="form-select form-select-sm text-sm w-auto"
+    [(ngModel)]="orderBy"
+    placeholder="Order By"
+  >
+ 
+    @for (opt of orderFields(); track opt.field) {
+      <option [ngValue]="opt.field">
+        {{ opt.label || opt.field }}
+      </option>
+    }
+  </select>
+    <label for="orderSelect">Order by</label>
+</div>
+  <!-- direzione -->
+  <div class="btn-group">
+    <button
+      type="button"
+      class="btn btn-sm px-1 w-6 h-14 flex items-center justify-center"
+      [class.btn-primary]="orderDir() === 'asc'"
+      [class.btn-outline-primary]="orderDir() !== 'asc'"
+      (click)="orderDir.set('asc')"
+      title="Ascending"
+    >
+      ↑
+    </button>
+
+    <button
+      type="button"
+      class="btn btn-sm px-1 w-6 h-14 flex items-center justify-center"
+      [class.btn-primary]="orderDir() === 'desc'"
+      [class.btn-outline-primary]="orderDir() !== 'desc'"
+      (click)="orderDir.set('desc')"
+      title="Descending"
+      
+    >
+      ↓
+    </button>
+  </div>
+</div>

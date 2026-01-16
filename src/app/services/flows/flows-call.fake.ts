@@ -16,8 +16,8 @@ export class FlowsCallServiceFake extends FlowsCallServiceBase {
   authorizationService = inject(Authorization);
 
   private data: Record<string, Flow> = {
-    '1': { id: '1', name: 'Test Flow 1', data: new FlowData(), visibility: 'public', author: 'Alice', createdAt: new Date(), updatedAt: new Date() },
-    '2': { id: '2', name: 'Test Flow 2', data: new FlowData(), visibility: 'private', author: 'Bob', createdAt: new Date(), updatedAt: new Date() },
+    '1': { id: '1', name: 'A Flow', data: new FlowData(), visibility: 'public', author: 'Alice', createdAt: new Date("December 17, 2023 03:24:00"), updatedAt: new Date("January 7, 2026 12:24:00") },
+    '2': { id: '2', name: 'Test Flow', data: new FlowData(), visibility: 'private', author: 'Bob', createdAt: new Date("April 25, 2025 12:24:00"), updatedAt: new Date("April 27, 2025 18:42:00") },
   };
 
   override retrieveAllFlows() {
