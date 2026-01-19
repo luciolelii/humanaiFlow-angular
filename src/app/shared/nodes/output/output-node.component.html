@@ -1,0 +1,21 @@
+<div class="rounded-xl bg-white shadow-md border border-gray-200">
+  <div class="p-3 flex items-center justify-center">
+    <p class="text-sm font-semibold text-gray-700">Output</p>
+    <div class="w-full flex justify-end">
+      <div
+        class="cursor-pointer"
+        refComponent
+        [data]="{
+          type: 'socket',
+          side: 'input',
+          key: data.inputs[0]?.id,
+          nodeId: data.id,
+          payload: data.inputs[0]?.socket,
+          seed: seed
+        }"
+        [emit]="emit"
+        data-testid="output-socket"
+      ></div>
+    </div>
+  </div>
+</div>

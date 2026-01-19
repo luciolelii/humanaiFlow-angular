@@ -35,6 +35,7 @@ export class EditorSidebar {
 
   collapse() {
     this.collapsed.set(true);
+    this.open = null;
   }
 
   createNewFlow() {

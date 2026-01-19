@@ -1,0 +1,22 @@
+.io-card {
+  height: 60px;
+  width: 100px;
+  transform: skew(-20deg);
+  background-color: rgb(238, 173, 161);
+}
+
+.body {
+  transform: skew(20deg);
+}
+
+.title {
+  text-align: center ;
+  font-size: 20px;
+  font-weight:bolder;
+  margin: 0;
+  padding: 0;
+  font-size: 13px;
+  padding: 0;
+  color:white;
+  font-weight: bolder;
+}

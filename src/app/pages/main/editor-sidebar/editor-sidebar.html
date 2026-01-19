@@ -1,23 +1,26 @@
-<aside class="h-full flex flex-row 
-         bg-white border-r border-gray-200
-         transition-all duration-300 p-1" [class.w-82]="!collapsed()" [class.w-14]="collapsed()">
-
+<div
+    class="transition-all duration-300 ease-in-out overflow-hidden"
+    [class.w-14]="collapsed()"
+    [class.w-72]="!collapsed()"
+  >
+<aside class="h-full w-72 bg-white border-r border-gray-200 flex">
   <div class="flex flex-col h-full">
-
 
     <button (click)="collapse()" class="relative
              w-6 h-6 rounded-full
              bg-white border shadow
              flex items-center justify-center
-             hover:bg-gray-50 z-10" [class.invisible]="collapsed()">
+             hover:bg-gray-50 z-10" [class.invisible]="open == null">
 
       <i class="bi bi-chevron-left text-xs transition-transform"></i>
     </button>
 
     <!-- ICON MODE -->
     <div class="flex flex-col gap-4 items-center pt-6 flex-1">
-      <i class="bi bi-lightning-charge-fill text-indigo-500 text-xl cursor-pointer enabled p-2"
-        (click)="openSide('flows')"></i>
+      <i [ngClass]="{'cursor-none bg-gray-200' : open == 'flows'}"
+         [ngClass]="{'cursor-pointer enabled' : open != 'flows'}"
+         class="bi bi-lightning-charge-fill text-indigo-500 text-xl p-2" 
+        (click)="open != 'flows' && openSide('flows')"></i>
       <i [ngClass]="{'cursor-pointer text-gray-600 enabled' : !blockDisabled()}"
         class="bi bi-boxes  text-gray-200 text-xl p-2" (click)="!blockDisabled() && openSide('blocks')"></i>
     </div>
@@ -52,3 +55,4 @@
   </div>
   }
 </aside>
+</div>
