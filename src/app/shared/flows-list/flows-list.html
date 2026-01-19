@@ -41,7 +41,7 @@
     </div>
 
     <div class="flex pt-2 pb-1 text-sm w-full items-center text-center justify-center">
-        <app-ordering [orderFields]="orderFields" (orderChanged)="onOrderChanged($event)"></app-ordering>
+        <app-ordering [orderFields]="orderFields" [orderView]="orderView" (orderChanged)="onOrderChanged($event)" ></app-ordering>
     </div>
     @if (filteredFlows().length === 0) {
     <div class="text-gray-400 text-center mt-10 flex flex-col flex-1 pt-10">
