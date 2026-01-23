@@ -68,7 +68,7 @@ const testDataFlow ={
     "visibility": "PUBLIC",
     "createdAt": "2026-01-21T10:38:50.671+00:00",
     "updatedAt": "2026-01-21T10:38:50.671+00:00",
-    "name": "Test Flow",
+    "name": "my test flow",
     "description": "This is a test flow",
     "nodes": [
         {
@@ -154,13 +154,17 @@ const testDataFlow ={
     "connections": [
         {
             "key": "c335e3da-2af3-4e8f-a8ee-9bfc236196ee",
-            "from": "3ec4a0e5-914a-41e0-ab74-d4e64a4dba09:phrase",
-            "to": "80519c40-20ba-49cf-800a-598ee2e64f65:phrase"
+            "sourceNode": "3ec4a0e5-914a-41e0-ab74-d4e64a4dba09",
+            "sourceField": "phrase",
+            "targetNode": "80519c40-20ba-49cf-800a-598ee2e64f65",
+            "targetField": "phrase"
         },
         {
             "key": "e0239aef-d570-463d-b453-c3906ab0e4b0",
-            "from": "80519c40-20ba-49cf-800a-598ee2e64f65:translated",
-            "to": "ff349078-dce1-4ecd-8b2f-bd43100633fc:translated"
+            "sourceNode": "80519c40-20ba-49cf-800a-598ee2e64f65",
+            "sourceField": "translated",
+            "targetNode": "ff349078-dce1-4ecd-8b2f-bd43100633fc",
+            "targetField": "translated"
         }
     ]
 }; 

@@ -126,8 +126,8 @@ async function loadFlowData(editor: NodeEditor<HFSchemes>, flowData: FlowData) {
   for (const connections of flowData.connections) { {
       const targetNode = editor.getNode(nodeMapping.get(connections.targetNode) || "");
       const node = editor.getNode(nodeMapping.get(connections.sourceNode) || "");
-      console.log("Creating connection from", connections.sourceNode, "to", connections.targetNode);
       if (node && targetNode) {
+        console.log("Creating connection from", node.id, "to", targetNode.id);
         const connection = new ClassicPreset.Connection(
           node,
           connections.sourceField,

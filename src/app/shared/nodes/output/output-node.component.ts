@@ -15,10 +15,10 @@ import { HFNode } from "@models/nodes";
   styleUrls: ["./output-node.component.scss"],
   imports: [CommonModule, ReteModule],
   host: {
-    "data-testid": "output-node"
+    "data-testid": "node"
   }
 })
-export class OutputNodeComponent implements OnChanges {
+export class OutputNodeComponent {
   @Input() data!: ClassicPreset.Node;
   @Input() emit!: (data: any) => void;
   @Input() rendered!: () => void;
@@ -29,23 +29,19 @@ export class OutputNodeComponent implements OnChanges {
     return this.data.selected;
   }
 
-  constructor(private cdr: ChangeDetectorRef) {
-    this.cdr.detach();
+  inputKey!: string;
+  inputSocket!: ClassicPreset.Socket;
+
+  ngAfterViewInit() {
+    this.rendered();
   }
 
-  ngOnChanges(): void {
-    this.cdr.detectChanges();
-    requestAnimationFrame(() => this.rendered());
-    this.seed++; // force render sockets
-  }
+  ngOnInit(): void {
+    const entries = Object.entries(this.data.inputs);
+    const [key, input] = entries[0];
 
-  sortByIndex<
-    N extends object,
-    T extends KeyValue<string, N & { index?: number }>
-  >(a: T, b: T) {
-    const ai = a.value.index || 0;
-    const bi = b.value.index || 0;
+    this.inputKey = key;
+    this.inputSocket = (input as any).socket;
 
-    return ai - bi;
   }
 }

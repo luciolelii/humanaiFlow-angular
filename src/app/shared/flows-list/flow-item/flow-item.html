@@ -8,10 +8,10 @@
     <div class="flex items-center justify-between text-sm ">
         <div class="flex items-center gap-2 text-indigo-700 font-medium">
             <i class="bi" [ngClass]="{
-          'bi-globe': flow().visibility === 'public',
-          'bi-lock-fill': flow().visibility === 'private'
-        }" [class.text-indigo-500]="flow().visibility === 'public'"
-                [class.text-gray-500]="flow().visibility === 'private'">
+          'bi-globe': flow().visibility === 'PUBLIC',
+          'bi-lock-fill': flow().visibility === 'PRIVATE'
+        }" [class.text-indigo-500]="flow().visibility === 'PUBLIC'"
+                [class.text-gray-500]="flow().visibility === 'PRIVATE'">
             </i>
 
             {{ flow().name }}
@@ -63,12 +63,12 @@
                 </button>
 
                 <button class="p-1 rounded enabled:hover:bg-indigo-100 enabled:text-indigo-600 disabled:text-indigo-200" title="Clone"
-                    (click)="$event.stopPropagation(); clone()" [disabled]="this.flow().visibility!=='private'">
+                    (click)="$event.stopPropagation(); clone()" [disabled]="this.flow().visibility!=='PRIVATE'">
                     <i class="bi bi-files"></i>
                 </button>
 
                 <button class="p-1 rounded enabled:hover:bg-red-100 enabled:text-red-600 disabled:text-red-200" title="Delete"
-                    (click)="$event.stopPropagation(); remove()" [disabled]="this.flow().visibility!=='private'">
+                    (click)="$event.stopPropagation(); remove()" [disabled]="this.flow().visibility!=='PRIVATE'">
                     <i class="bi bi-trash"></i>
                 </button>
             </div>

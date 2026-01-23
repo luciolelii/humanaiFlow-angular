@@ -1,21 +1,20 @@
-<div class="rounded-xl bg-white shadow-md border border-gray-200">
-  <div class="p-3 flex items-center justify-center">
-    <p class="text-sm font-semibold text-gray-700">Output</p>
-    <div class="w-full flex justify-end">
+<div class="rounded-xl bg-white shadow-md border border-gray-200 cursor-pointer">
+  <div class="p-3 flex items-center justify-between gap-2">
+    <div class="flex justify-start">
       <div
-        class="cursor-pointer"
         refComponent
         [data]="{
           type: 'socket',
           side: 'input',
-          key: data.inputs[0]?.id,
+          key: inputKey,
           nodeId: data.id,
-          payload: data.inputs[0]?.socket,
-          seed: seed
+          payload: inputSocket
         }"
         [emit]="emit"
-        data-testid="output-socket"
       ></div>
     </div>
+    <p class="text-sm font-semibold text-gray-700">
+      {{ data.label }}
+    </p>
   </div>
 </div>

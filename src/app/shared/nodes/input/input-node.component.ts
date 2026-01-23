@@ -7,6 +7,7 @@ import {
 import { CommonModule, KeyValue } from "@angular/common";
 import { ReteModule } from "rete-angular-plugin/21";
 import { HFNode } from "@models/nodes";
+import { ClassicPreset } from "rete";
 
 @Component({
   templateUrl: "./input-node.component.html",
@@ -27,20 +28,19 @@ export class InputNodeComponent {
     return this.data.selected;
   }
 
-  constructor(private cdr: ChangeDetectorRef) {
-    this.cdr.detach();
+  outputKey!: string;
+  outputSocket!: ClassicPreset.Socket;
+
+  ngOnInit() {
+    const entries = Object.entries(this.data.outputs);
+    const [key, output] = entries[0];
+
+    this.outputKey = key;
+    this.outputSocket = (output as any).socket;
   }
 
-  ngOnChanges(): void {
-    this.cdr.detectChanges();
-    requestAnimationFrame(() => this.rendered());
-    this.seed++; // force render sockets
+  ngAfterViewInit() {
+    this.rendered();
   }
 
-  sortByIndex(
-  a: KeyValue<string, { index?: number } | undefined>,
-  b: KeyValue<string, { index?: number } | undefined>
-): number {
-  return (a.value?.index ?? 0) - (b.value?.index ?? 0);
-}
 }
