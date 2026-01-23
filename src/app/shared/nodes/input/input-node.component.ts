@@ -3,22 +3,21 @@ import {
   Input,
   HostBinding,
   ChangeDetectorRef,
-  OnChanges
 } from "@angular/core";
-import { ClassicPreset } from "rete";
 import { CommonModule, KeyValue } from "@angular/common";
 import { ReteModule } from "rete-angular-plugin/21";
+import { HFNode } from "@models/nodes";
 
 @Component({
   templateUrl: "./input-node.component.html",
   styleUrls: ["./input-node.component.scss"],
   imports: [CommonModule, ReteModule],
   host: {
-    "data-testid": "input-node"
+    "data-testid": "node"
   }
 })
-export class InputNodeComponent implements OnChanges {
-  @Input() data!: ClassicPreset.Node;
+export class InputNodeComponent {
+  @Input() data!: any;
   @Input() emit!: (data: any) => void;
   @Input() rendered!: () => void;
 

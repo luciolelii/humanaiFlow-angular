@@ -1,13 +1,13 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, effect, inject, model, output, signal, Signal, WritableSignal } from '@angular/core';
-import { Flow } from '@models/flow';
+import { Flow, FlowVisibility } from '@models/flow';
 import { FlowsService } from '@services/flows/flows';
 import { FlowItem } from './flow-item/flow-item';
 import { FormsModule } from '@angular/forms';
 import { OrderEvent, OrderField, Ordering } from "@shared/ordering/ordering";
 import { ListStateViewHolder, OrderViewState } from '@utilities/list-state-holder';
 
-type FlowFilter = 'all' | 'public' | 'private';
+type FlowFilter = FlowVisibility | 'all';
 
 @Component({
   selector: 'app-flows-list',
@@ -17,7 +17,6 @@ type FlowFilter = 'all' | 'public' | 'private';
 })
 export class FlowsList extends ListStateViewHolder<Flow> {
   filter = signal<FlowFilter>('all');
-
 
   orderFields: OrderField[] = [
     { field: 'name', label: 'Name' },
@@ -30,7 +29,6 @@ export class FlowsList extends ListStateViewHolder<Flow> {
   private flowsService = inject(FlowsService);
 
   loading: WritableSignal<boolean> = signal(true);
-
   
   get orderView() {
     const existingState = this.view;

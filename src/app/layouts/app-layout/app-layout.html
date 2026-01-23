@@ -33,11 +33,11 @@
     </header>
 
     <!-- Wrapper per compensare header fisso -->
-    <div class="pt-16 flex flex-col flex-1 h-full overflow-hidden">
+    <div class="pt-16 flex flex-col flex-1 h-[calc(100vh-64px)] overflow-hidden">
 
         <ul class="nav fixed w-full top-16 z-40
          flex gap-1 px-3
-        bg-[#d8f4e7] border-b-none shadow-sm">
+        bg-[#d8f4e7] border-b-none shadow-sm h-10">
 
             <li class="nav-item">
                 <a routerLink="/editor" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }" tabindex="-1" class="nav-link
@@ -64,7 +64,7 @@
 
 
         <!-- Contenuto principale scrollabile -->
-        <main class="main-content w-full h-full mt-12 overflow-hidden ml-2 bg-white pb-4 pr-4 rounded-md shadow-sm">
+        <main class="main-content w-full h-[calc(100vh-104px)] mt-12 overflow-hidden ml-2 bg-white pb-4 pr-4 rounded-md shadow-sm">
             <router-outlet></router-outlet>
         </main>
 

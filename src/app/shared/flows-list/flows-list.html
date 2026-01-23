@@ -5,8 +5,8 @@
     </div>
 </div>
 } @else {
-<div class="h-screen flex flex-col">
-    <div class="w-full max-w-sm py-2">
+<div class="h-full flex flex-col">
+    <div class="w-full max-w-sm py-2 h-15">
         <div class="relative flex items-center">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
                 class="absolute w-5 h-5 top-2.5 left-2.5 text-slate-600">
@@ -21,26 +21,26 @@
         </div>
     </div>
     
-    <div class="btn-group w-full mb-3" role="group">
+    <div class="btn-group w-full mb-3 h-8" role="group">
 
         <button type="button" class="btn btn-sm w-full transition" [class.btn-primary]="filter() === 'all'"
             [class.btn-outline-primary]="filter() !== 'all'" (click)="filter.set('all')">
             All
         </button>
 
-        <button type="button" class="btn btn-sm w-full transition" [class.btn-primary]="filter() === 'public'"
-            [class.btn-outline-primary]="filter() !== 'public'" (click)="filter.set('public')">
+        <button type="button" class="btn btn-sm w-full transition" [class.btn-primary]="filter() === 'PUBLIC'"
+            [class.btn-outline-primary]="filter() !== 'PUBLIC'" (click)="filter.set('PUBLIC')">
             Public
         </button>
 
-        <button type="button" class="btn btn-sm w-full transition" [class.btn-primary]="filter() === 'private'"
-            [class.btn-outline-primary]="filter() !== 'private'" (click)="filter.set('private')">
+        <button type="button" class="btn btn-sm w-full transition" [class.btn-primary]="filter() === 'PRIVATE'"
+            [class.btn-outline-primary]="filter() !== 'PRIVATE'" (click)="filter.set('PRIVATE')">
             Private
         </button>
 
     </div>
 
-    <div class="flex pt-2 pb-1 text-sm w-full items-center text-center justify-center">
+    <div class="flex py-2 text-sm w-full items-center text-center justify-center h-18">
         <app-ordering [orderFields]="orderFields" [orderView]="orderView" (orderChanged)="onOrderChanged($event)" ></app-ordering>
     </div>
     @if (filteredFlows().length === 0) {
@@ -48,7 +48,7 @@
         No flows found
     </div>
     } @else {
-    <div class="flex-1 overflow-y-auto h-full w-full py-2 gap-2 flex flex-col items-stretch max-h-[calc(100vh-32rem)]">
+    <div class="flex-1 overflow-y-auto w-full h-full py-2 gap-2 flex flex-col items-stretch max-h-[calc(100vh-380px)]">
         @for (flow of filteredFlows(); track flow.id) {
         <app-flow-item [(detailOpenedId)]="detailOpenedId" [flow]="flow"></app-flow-item>
         }

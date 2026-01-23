@@ -8,6 +8,7 @@ import {
 import { ClassicPreset } from "rete";
 import { CommonModule, KeyValue } from "@angular/common";
 import { ReteModule } from "rete-angular-plugin/21";
+import { HFNode } from "@models/nodes";
 
 @Component({
   templateUrl: "./output-node.component.html",
