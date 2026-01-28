@@ -1,4 +1,4 @@
-import { Injector } from "@angular/core";
+import { Injector, Input } from "@angular/core";
 import { NodeEditor, GetSchemes, ClassicPreset } from "rete";
 import { AreaPlugin, AreaExtensions } from "rete-area-plugin";
 import {
@@ -8,8 +8,11 @@ import {
 import { AngularPlugin, Presets, AngularArea2D, NodeComponent } from "rete-angular-plugin/21";
 import { InputNodeComponent } from "@shared/nodes/input/input-node.component";
 import { OutputNodeComponent } from "@shared/nodes/output/output-node.component";
-import { HFSchemes } from "@models/nodes";
-import { FlowData } from "@models/flow";
+import { HFNode, HFSchemes } from "@models/nodes";
+import { FlowData, INodeModel } from "@models/flow";
+import { LLMNodeComponent } from "@shared/nodes/llm/llm";
+import { OutputSocket } from "@shared/sockets/output/output";
+import { InputSocket } from "@shared/sockets/input/input";
 
 type Schemes = GetSchemes<
   ClassicPreset.Node,
@@ -19,8 +22,8 @@ type AreaExtra = AngularArea2D<Schemes>;
 
 export async function createEditor(container: HTMLElement, injector: Injector, flowData: FlowData) {
 
-  const editor = new NodeEditor<Schemes>();
-  const area = new AreaPlugin<Schemes, AreaExtra>(container);
+  const editor = new NodeEditor<HFSchemes>();
+  const area = new AreaPlugin<HFSchemes, AreaExtra>(container);
   const connection = new ConnectionPlugin<Schemes, AreaExtra>();
   const render = new AngularPlugin<Schemes, AreaExtra>({ injector });
 
@@ -38,11 +41,13 @@ export async function createEditor(container: HTMLElement, injector: Injector, f
           if (context.payload.label === "Output") {
             return OutputNodeComponent;
           }
-
-          return NodeComponent;
-
+          return LLMNodeComponent;
         },
-        
+        socket(context) {
+          const side = context.side;
+          return side === "input" ? InputSocket : OutputSocket;
+
+        }
       },
     })
   );
@@ -63,15 +68,17 @@ export async function createEditor(container: HTMLElement, injector: Injector, f
   if (flowData)
     await loadFlowData(editor, flowData);
 
-
   AreaExtensions.zoomAt(area, editor.getNodes());
-
-
   return editor;
 }
 
 export function exportGraph(editor: NodeEditor<HFSchemes>) {
-  const nodes = editor.getNodes().map(schema => ({
+  const nodes: INodeModel[] = editor.getNodes().map(node => ({
+    key: node.data.key,
+    name: node.data.name,
+    position: node.data.position,
+    nodeDefinition: node.data.nodeDefinition,
+    parameters: node.data.parameters,
 
   }));
 
@@ -99,7 +106,9 @@ async function loadFlowData(editor: NodeEditor<HFSchemes>, flowData: FlowData) {
   const socket = new ClassicPreset.Socket("socket");
   const nodeMapping = new Map<string, string>();
   for (const nodeData of flowData.nodes) {
-    const node = new ClassicPreset.Node(nodeData.nodeDefinition?.category || "Undefined");
+    if (!nodeData.nodeDefinition) continue;
+    const node: HFNode = new ClassicPreset.Node(nodeData.nodeDefinition.category) as HFNode;
+    node.data = nodeData;
     nodeMapping.set(nodeData.key, node.id);
     Object.entries(nodeData.nodeDefinition?.outputs).forEach(([output, def]) => {
       console.log("Adding output", output);
@@ -123,9 +132,14 @@ async function loadFlowData(editor: NodeEditor<HFSchemes>, flowData: FlowData) {
         area.translate(node.id, { x: nodeData.position.x, y: nodeData.position.y });*/
   }
 
-  for (const connections of flowData.connections) { {
-      const targetNode = editor.getNode(nodeMapping.get(connections.targetNode) || "");
-      const node = editor.getNode(nodeMapping.get(connections.sourceNode) || "");
+  for (const connections of flowData.connections) {
+    {
+      if (!nodeMapping.has(connections.sourceNode) || !nodeMapping.has(connections.targetNode)) {
+        console.warn("Cannot create connection, node not found", connections);
+        continue;
+      }
+      const targetNode = editor.getNode(nodeMapping.get(connections.targetNode)!) as HFNode;
+      const node = editor.getNode(nodeMapping.get(connections.sourceNode)!) as HFNode;
       if (node && targetNode) {
         console.log("Creating connection from", node.id, "to", targetNode.id);
         const connection = new ClassicPreset.Connection(

@@ -1,0 +1,46 @@
+<div class="relative w-55 rounded-2xl bg-white border border-gray-200 shadow-lg overflow-visible font-sans">
+  <!-- Header -->
+  <div
+    class=" cursor-move flex items-center gap-2 px-3 py-2 bg-linear-to-br from-violet-600 to-indigo-500 text-white rounded-t-2xl">
+    <div class="w-12 h-8 rounded-lg bg-white/20 flex items-center justify-center">
+      <img src="llm_node.png" alt="LLM" class="w-12 h-8" />
+    </div>
+    <span class="text-sm font-semibold truncate">LLM Node</span>
+  </div>
+
+  <!-- Body -->
+  <div class="p-3 grid grid-cols-2 gap-4">
+
+    <div class="grid grid-rows-2 gap-1">
+
+      <div refComponent class="absolute left-1" 
+      [data]="{
+      type: 'socket',
+      side: 'input',
+      key: inputKey,
+      nodeId: data.id,
+      payload: inputSocket }" [emit]="emit"></div>
+
+      <div class="text-xs text-gray-700 pl-4">
+        {{ inputKey }}
+      </div>
+
+    </div>
+
+    <div class="grid grid-rows-2 gap-1">
+      <div class="text-xs text-gray-700 text-right pr-4">
+        {{ outputKey }}
+      </div>
+      
+      <div refComponent class="absolute right-1" 
+      [data]="{
+      type: 'socket',
+      side: 'output',
+      key: outputKey,
+      nodeId: data.id,
+      payload: outputSocket}" [emit]="emit"></div>
+    </div>
+
+  </div>
+
+</div>

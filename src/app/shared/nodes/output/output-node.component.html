@@ -1,20 +1,15 @@
-<div class="rounded-xl bg-white shadow-md border border-gray-200 cursor-pointer">
-  <div class="p-3 flex items-center justify-between gap-2">
-    <div class="flex justify-start">
-      <div
-        refComponent
-        [data]="{
+<div class="relative rounded-xl bg-white shadow-md border border-gray-200 overflow-visible">
+  <!-- header/row relativa -->
+  <div class="relative p-3 flex items-center justify-between overflow-visible">
+    <div refComponent [data]="{
           type: 'socket',
           side: 'input',
           key: inputKey,
           nodeId: data.id,
           payload: inputSocket
-        }"
-        [emit]="emit"
-      ></div>
-    </div>
-    <p class="text-sm font-semibold text-gray-700">
-      {{ data.label }}
-    </p>
+        }" [emit]="emit"></div>
+    <p class="text-sm font-semibold text-gray-700">{{ data.label }}</p>
+
+    
   </div>
 </div>

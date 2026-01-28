@@ -2,9 +2,7 @@ import { GetSchemes, ClassicPreset } from "rete";
 import { INodeModel } from "./flow";
 
 export type HFNode = ClassicPreset.Node & {
-  data?: {
-    value: INodeModel;
-  };
+  data: INodeModel;
 };
 
 export type HFConnection = ClassicPreset.Connection<HFNode, HFNode>;

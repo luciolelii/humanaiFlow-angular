@@ -2,11 +2,9 @@ import {
   Component,
   Input,
   HostBinding,
-  ChangeDetectorRef,
 } from "@angular/core";
 import { CommonModule, KeyValue } from "@angular/common";
 import { ReteModule } from "rete-angular-plugin/21";
-import { HFNode } from "@models/nodes";
 import { ClassicPreset } from "rete";
 
 @Component({
@@ -22,7 +20,6 @@ export class InputNodeComponent {
   @Input() emit!: (data: any) => void;
   @Input() rendered!: () => void;
 
-  seed = 0;
 
   @HostBinding("class.selected") get selected() {
     return this.data.selected;
@@ -34,6 +31,8 @@ export class InputNodeComponent {
   ngOnInit() {
     const entries = Object.entries(this.data.outputs);
     const [key, output] = entries[0];
+
+    console.log("InputNodeComponent ngOnInit", key, output);
 
     this.outputKey = key;
     this.outputSocket = (output as any).socket;
