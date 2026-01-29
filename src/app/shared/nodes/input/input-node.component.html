@@ -1,17 +1,20 @@
-<div class="relative rounded-xl bg-white shadow-md border border-gray-200 overflow-visible">
+<div class="cursor-move user-select-none rounded-xl bg-emerald-100 shadow-lg border border-gray-200 overflow-visible">
   <!-- header/row relativa -->
   <div class="relative w-full p-3 flex items-center justify-between">
-    <p class="text-sm font-semibold text-gray-700">{{ data.label }}</p>
-
-     <div refComponent 
-     [data]="{
+    <div class="grid grid-cols-4 h-full">
+      <div class="col-span-3 align-middle h-full flex justify-center flex-col">
+        <p class="text-ls font-bold text-gray-700">{{ data.label }}</p>
+        <p class="text-xs text-gray-500">Text</p>
+      </div>
+      <div class="align-middle h-full flex flex-col justify-center items-end">
+        <div refComponent class="absolute right-1" [data]="{
         type: 'socket',
         side: 'output',
         key: outputKey,
         nodeId: data.id,
         payload: outputSocket
-      }"
-      [emit]="emit"
-    ></div>
+      }" [emit]="emit"></div>
+      </div>
+    </div>
   </div>
 </div>
