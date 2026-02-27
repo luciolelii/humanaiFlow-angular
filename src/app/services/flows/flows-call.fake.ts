@@ -3,7 +3,6 @@ import { FlowsCallServiceBase } from "./flows-call.base";
 import { BehaviorSubject, Observable, of } from "rxjs";
 import { Authorization } from "@services/authorization/authorization";
 import { inject } from "@angular/core";
-import { IOType } from "@models/node-types";
 
 export class FlowsCallServiceFake extends FlowsCallServiceBase {
   override getFlowById(flowId: string): Observable<Flow> {
@@ -17,8 +16,8 @@ export class FlowsCallServiceFake extends FlowsCallServiceBase {
   authorizationService = inject(Authorization);
 
   private data: Record<string, Flow> = {
-    '1': { id: '1', name: 'A Flow', data: { nodes: [], connections: [] }, visibility: 'PUBLIC', author: 'Alice', createdAt: new Date("December 17, 2023 03:24:00"), updatedAt: new Date("January 7, 2026 12:24:00") },
-    '2': { id: '2', name: 'Test Flow', data: { nodes: [], connections: [] }, visibility: 'PRIVATE', author: 'Bob', createdAt: new Date("April 25, 2025 12:24:00"), updatedAt: new Date("April 27, 2025 18:42:00") },
+    '1': { id: '1', name: 'A Flow', data: { blocks: [], connections: [] }, visibility: 'PUBLIC', author: 'Alice', createdAt: new Date("December 17, 2023 03:24:00"), updatedAt: new Date("January 7, 2026 12:24:00") },
+    '2': { id: '2', name: 'Test Flow', data: { blocks: [], connections: [] }, visibility: 'PRIVATE', author: 'Bob', createdAt: new Date("April 25, 2025 12:24:00"), updatedAt: new Date("April 27, 2025 18:42:00") },
     'testFlow': flowFromJson(testDataFlow)
   }
 
@@ -33,7 +32,7 @@ export class FlowsCallServiceFake extends FlowsCallServiceBase {
 
   override createNewFlow(name?: string): Observable<Flow> {
     const newId = (Object.keys(this.data).length + 1).toString();
-    this.data[newId] = { id: newId, name: name || `New Flow`, data: { nodes: [], connections: [] }, visibility: 'PRIVATE', author: this.authorizationService.loggedInUser()!.username, createdAt: new Date(), updatedAt: new Date() };
+    this.data[newId] = { id: newId, name: name || `New Flow`, data: { blocks: [], connections: [] }, visibility: 'PRIVATE', author: this.authorizationService.loggedInUser()!.username, createdAt: new Date(), updatedAt: new Date() };
     return of(this.data[newId]);
   }
 
@@ -55,7 +54,7 @@ export function flowFromJson(raw: any): Flow {
     name: raw.name,
     description: raw.description,
     data: {
-      nodes: raw.nodes,
+      blocks: raw.blocks,
       connections: raw.connections
     }
   };
@@ -63,108 +62,69 @@ export function flowFromJson(raw: any): Flow {
 
 
 const testDataFlow ={
-    "id": "my test flow",
-    "author": "lucio.lelii",
-    "visibility": "PUBLIC",
-    "createdAt": "2026-01-21T10:38:50.671+00:00",
-    "updatedAt": "2026-01-21T10:38:50.671+00:00",
-    "name": "my test flow",
-    "description": "This is a test flow",
-    "nodes": [
-        {
-            "key": "3ec4a0e5-914a-41e0-ab74-d4e64a4dba09",
-            "name": "Input Node",
-            "position": null,
-            "parameters": null,
-            "nodeDefinition": {
-                "category": "Input",
-                "runtimeParameters": null,
-                "fixedParameters": null,
-                "inputs": {},
-                "outputs": {
-                    "phrase": {
-                        "type": "TEXT",
-                        "multiple": false
-                    }
-                },
-                "simulable": false,
-                "name": "Phrase"
-            }
-        },
-        {
-            "key": "80519c40-20ba-49cf-800a-598ee2e64f65",
-            "name": "translator to french",
-            "position": null,
-            "parameters": {
-                "LLMProvider": "OllamaTestProvider",
-                "LLMModel": "sam860/gemma3:270m"
-            },
-            "nodeDefinition": {
-                "category": "Execution",
-                "executor": "genericAIExecutorTest",
-                "inputMappers": {
-                    "prompt": {
-                        "type": "translator",
-                        "translation": "translate the following phrase : \"${{phrase}}\" in french, return only the translation"
-                    }
-                },
-                "outputMappers": {
-                    "translated": {
-                        "type": "direct",
-                        "fieldName": "response"
-                    }
-                },
-                "name": "French Translator",
-                "runtimeParameters": null,
-                "fixedParameters": null,
-                "inputs": {
-                    "phrase": {
-                        "type": "TEXT",
-                        "multiple": false
-                    }
-                },
-                "outputs": {
-                    "translated": {
-                        "type": "TEXT",
-                        "multiple": false
-                    }
-                }
-            }
-        },
-        {
-            "key": "ff349078-dce1-4ecd-8b2f-bd43100633fc",
-            "name": "Output Node",
-            "position": null,
-            "parameters": null,
-            "nodeDefinition": {
-                "category": "Output",
-                "runtimeParameters": null,
-                "fixedParameters": null,
-                "outputs": {},
-                "inputs": {
-                    "translated": {
-                        "type": "TEXT",
-                        "multiple": false
-                    }
-                },
-                "name": "Translated Phrase"
-            }
-        }
-    ],
-    "connections": [
-        {
-            "key": "c335e3da-2af3-4e8f-a8ee-9bfc236196ee",
-            "sourceNode": "3ec4a0e5-914a-41e0-ab74-d4e64a4dba09",
-            "sourceField": "phrase",
-            "targetNode": "80519c40-20ba-49cf-800a-598ee2e64f65",
-            "targetField": "phrase"
-        },
-        {
-            "key": "e0239aef-d570-463d-b453-c3906ab0e4b0",
-            "sourceNode": "80519c40-20ba-49cf-800a-598ee2e64f65",
-            "sourceField": "translated",
-            "targetNode": "ff349078-dce1-4ecd-8b2f-bd43100633fc",
-            "targetField": "translated"
-        }
-    ]
+  "name" : "Test Flow",
+  "visibility": "PRIVATE",
+  "author": "lucio",
+  "description" : "This is a test flow",
+  "createdAt": "2023-12-17T03:24:00.000Z",
+  "updatedAt": "2026-01-07T12:24:00.000Z",
+  "blocks" : [ {
+    "id" : "cabd6f4e-5a05-41f8-9bf7-4de20391ac4e",
+    "sink" : false,
+    "name" : "first",
+    "inputs" : [ {
+      "name" : "name",
+      "type" : "TEXT",
+      "multiple" : false
+    } ],
+    "outputs" : [ {
+      "name" : "response",
+      "type" : "TEXT",
+      "multiple" : false
+    } ],
+    "specificConfiguration" : {
+      "type" : "LLMBlockConfiguration",
+      "name" : "first",
+      "llmDescriptor" : {
+        "provider" : "testProvider",
+        "model" : "testModel"
+      },
+      "prompt" : "Make a question about ${{name}}"
+    },
+    "typeName" : "LLMBlock"
+  }, {
+    "id" : "0063a3ec-3863-4045-bd3b-61eaf87b4604",
+    "sink" : true,
+    "name" : "interactive",
+    "inputs" : [ {
+      "name" : "input",
+      "type" : "TEXT",
+      "multiple" : false
+    } ],
+    "outputs" : [ {
+      "name" : "output",
+      "type" : "TEXT",
+      "multiple" : false
+    } ],
+    "specificConfiguration" : {
+      "type" : "HumanInteractiveBlockConfiguration",
+      "name" : "interactive",
+      "actionDescription" : "Answer the question in input",
+      "llmDescriptor" : {
+        "provider" : "testProvider",
+        "model" : "testModel"
+      },
+      "inputAsList" : false,
+      "outputAsList" : false
+    },
+    "typeName" : "HumanInteractionBlock"
+  } ],
+  "connections" : [ {
+    "id" : "8da696c2-dc03-4717-b2ce-18637ae6f7f8",
+    "sourceId" : "cabd6f4e-5a05-41f8-9bf7-4de20391ac4e",
+    "sourceName" : "response",
+    "targetId" : "0063a3ec-3863-4045-bd3b-61eaf87b4604",
+    "targetName" : "input"
+  } ]
 }; 
+

@@ -9,8 +9,6 @@ import { take, tap } from 'rxjs';
 })
 export class Authorization {
 
-  private readonly apiUrl = environment.apiUrl + '/auth';
-
   private user = signal<User | null>(null);
 
   authCall: AuthorizationCallServiceBase = new environment.authorizationCallService();

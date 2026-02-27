@@ -1,4 +1,4 @@
-import { Component, ElementRef, HostBinding, Input } from '@angular/core';
+import { ChangeDetectorRef, Component,  HostBinding, HostListener, Input } from '@angular/core';
 import { ReteModule } from 'rete-angular-plugin/21';
 
 @Component({
@@ -7,8 +7,8 @@ import { ReteModule } from 'rete-angular-plugin/21';
   host: {
     refComponent: '',
     class: `
-      cursor-pointer relative -right-1 w-[15px] h-[15px] flex items-center justify-center rounded-full bg-indigo-500 border-2 border-white
-           shadow-[0_0_0_1px_rgb(99,102,241)]
+       cursor-crosshair relative -right-2 w-1 h-6 flex items-center justify-center rounded-full bg-red-500 
+           shadow-[0_0_0_1px_rgb(239,68,68)]
       `
   },
   template: ``
@@ -25,10 +25,19 @@ export class OutputSocket {
   ngOnInit(): void {
     console.log("OutputSocket ngOnInit", this.data);
   }
-
+  
  ngAfterViewInit() {
   requestAnimationFrame(() => {
     this.rendered?.();
   });
 }
+
+constructor(private cdr: ChangeDetectorRef) {
+    this.cdr.detach();
+  }
+
+  ngOnChanges(): void {
+    this.cdr.detectChanges();
+    requestAnimationFrame(() => this.rendered());
+  }
 }

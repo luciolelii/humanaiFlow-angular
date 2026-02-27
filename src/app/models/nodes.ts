@@ -1,8 +1,8 @@
 import { GetSchemes, ClassicPreset } from "rete";
-import { INodeModel } from "./flow";
+import { FlowBlock } from "./flow";
 
 export type HFNode = ClassicPreset.Node & {
-  data: INodeModel;
+  data?: FlowBlock;
 };
 
 export type HFConnection = ClassicPreset.Connection<HFNode, HFNode>;

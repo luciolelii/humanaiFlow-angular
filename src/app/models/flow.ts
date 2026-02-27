@@ -1,4 +1,4 @@
-import { INodeDefinitionType } from "./node-types";
+
 
 export type FlowVisibility = 'PUBLIC' | 'PRIVATE';
 
@@ -14,16 +14,66 @@ export type Flow = {
 };
 
 export type FlowData = {
-    nodes: INodeModel[];
-    connections: IConnectionModel[];
-}
+  blocks: FlowBlock[];
+  connections: FlowBlockConnection[];
+};
+
+export type FlowBlock = {
+  id: string;
+  sink: boolean;
+  name: string;
+  position?: { x: number, y: number };
+  inputs: FlowPort[];
+  outputs: FlowPort[];
+  specificConfiguration: FlowBlockConfiguration;
+  typeName: "LLMBlock" | "HumanInteractionBlock" | string;
+};
+
+export type FlowPort = {
+  name: string;
+  type: string;
+  multiple: boolean;
+};
+
+export type FlowBlockConnection = {
+  id: string;
+  sourceId: string;
+  sourceName: string;
+  targetId: string;
+  targetName: string;
+};
+
+export type FlowBlockConfiguration =
+  | LLMBlockConfiguration
+  | HumanInteractiveBlockConfiguration
+  | Record<string, unknown>;
+
+export type LLMDescriptor = {
+  provider: string;
+  model: string;
+};
+
+export type LLMBlockConfiguration = {
+  type: "LLMBlockConfiguration";
+  name: string;
+  llmDescriptor: LLMDescriptor;
+  prompt: string;
+};
+
+export type HumanInteractiveBlockConfiguration = {
+  type: "HumanInteractiveBlockConfiguration";
+  name: string;
+  actionDescription: string;
+  llmDescriptor: LLMDescriptor;
+  inputAsList: boolean;
+  outputAsList: boolean;
+};
 
 export type INodeModel = {
   key: string;
   name?: string;
   position: { x: number, y: number } | null;
   parameters?: Record<string, any> | null;
-  nodeDefinition: INodeDefinitionType;
 }
 
 export type IConnectionModel = {
@@ -33,5 +83,4 @@ export type IConnectionModel = {
   targetNode: string;
   targetField: string;
 }
-
 

@@ -35,16 +35,20 @@ export class LLMNodeComponent {
 
     this.outputKey = outKey;
     this.outputSocket = (output as any).socket;
+    console.log("output data", this.outputSocket);
 
     const inputEntries = Object.entries(this.data.inputs);
     const [inKey, input] = inputEntries[0];
 
     this.inputKey = inKey;
     this.inputSocket = (input as any).socket;
+    console.log("input data", this.inputSocket);
   }
 
   ngAfterViewInit() {
     this.rendered();
   }
+
+  
 
 }
