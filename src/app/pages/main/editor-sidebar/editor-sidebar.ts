@@ -1,6 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { GroupHolder } from '@shared/group-holder/group-holder';
 import { FlowsList } from '@shared/flows-list/flows-list';
+import { BlocksList } from '@shared/blocks-list/blocks-list';
 import { EditorStateHolder } from '@stores/flow-editor';
 import { CommonModule } from '@angular/common';
 import { FlowsService } from '@services/flows/flows';
@@ -10,7 +11,7 @@ type OpenedId = 'flows' | 'blocks';
 
 @Component({
   selector: 'app-editor-sidebar',
-  imports: [GroupHolder, FlowsList, CommonModule],
+  imports: [GroupHolder, FlowsList, BlocksList, CommonModule],
   templateUrl: './editor-sidebar.html',
   styleUrl: './editor-sidebar.css',
   providers:[ListState]
@@ -49,6 +50,10 @@ export class EditorSidebar {
         console.error('Error creating new flow:', err);
       },
     });
+  }
+
+  createNewBlock() {
+    console.log('Creating new block...');
   }
  
 }

@@ -14,8 +14,18 @@ import { LLMNodeComponent } from "@shared/nodes/llm/llm";
 import { CustomSocket } from "@shared/custom-socket/custom-socket";
 
 type AreaExtra = AngularArea2D<HFSchemes>;
+const editorSockets = new WeakMap<NodeEditor<HFSchemes>, Map<string, ClassicPreset.Socket>>();
 
-export async function createEditor(container: HTMLElement, injector: Injector, flowData: FlowData) {
+export type ReteEditorInstance = {
+  editor: NodeEditor<HFSchemes>;
+  area: AreaPlugin<HFSchemes, AreaExtra>;
+};
+
+export async function createEditor(
+  container: HTMLElement,
+  injector: Injector,
+  flowData: FlowData
+): Promise<ReteEditorInstance> {
 
   const editor = new NodeEditor<HFSchemes>();
   const area = new AreaPlugin<HFSchemes, AreaExtra>(container);
@@ -59,10 +69,10 @@ export async function createEditor(container: HTMLElement, injector: Injector, f
   AreaExtensions.simpleNodesOrder(area);
 
   if (flowData)
-    await loadFlowData(editor, flowData);
+    await loadFlowData(editor, area, flowData);
 
   AreaExtensions.zoomAt(area, editor.getNodes());
-  return editor;
+  return { editor, area };
 }
 
 export function exportGraph(editor: NodeEditor<HFSchemes>) {
@@ -110,38 +120,45 @@ export function exportGraph(editor: NodeEditor<HFSchemes>) {
   };
 }
 
-async function loadFlowData(editor: NodeEditor<HFSchemes>, flowData: FlowData) {
-  if (!flowData.blocks?.length) return;
+export async function addBlockToEditor(
+  editor: NodeEditor<HFSchemes>,
+  area: AreaPlugin<HFSchemes, AreaExtra>,
+  block: FlowBlock,
+  position?: { x: number; y: number }
+) {
+  const node = new ClassicPreset.Node(toNodeLabel(block.typeName)) as HFNode;
+  node.data = { ...block, position: position ?? block.position };
 
-  const sockets = new Map<string, ClassicPreset.Socket>();
-  const getSocket = (type: string) => {
-    if (!sockets.has(type)) sockets.set(type, new ClassicPreset.Socket(type));
-    return sockets.get(type)!;
-  };
+  for (const output of block.outputs ?? []) {
+    node.addOutput(output.name, new ClassicPreset.Output(getSocket(editor, output.type ?? "ANY")));
+  }
+
+  for (const input of block.inputs ?? []) {
+    node.addInput(input.name, new ClassicPreset.Input(getSocket(editor, input.type ?? "ANY")));
+  }
+
+  await editor.addNode(node);
+
+  const targetPosition = position ?? block.position;
+  if (targetPosition) {
+    await area.translate(node.id, targetPosition);
+  }
+
+  return node;
+}
+
+async function loadFlowData(
+  editor: NodeEditor<HFSchemes>,
+  area: AreaPlugin<HFSchemes, AreaExtra>,
+  flowData: FlowData
+) {
+  if (!flowData.blocks?.length) return;
 
   const nodeMapping = new Map<string, any>();
 
   for (const block of flowData.blocks) {
-    const nodeLabel =
-      block.typeName === "InputBlock"
-        ? "Input"
-        : block.typeName === "OutputBlock"
-          ? "Output"
-          : block.typeName;
-    const node = new ClassicPreset.Node(nodeLabel) as HFNode;
-    node.data = block;
-
+    const node = await addBlockToEditor(editor, area, block, block.position);
     nodeMapping.set(block.id, node.id);
-
-    for (const output of block.outputs ?? []) {
-      node.addOutput(output.name, new ClassicPreset.Output(getSocket(output.type ?? "ANY")));
-    }
-
-    for (const input of block.inputs ?? []) {
-      node.addInput(input.name, new ClassicPreset.Input(getSocket(input.type ?? "ANY")));
-    }
-
-    await editor.addNode(node);
   }
 
   for (const c of flowData.connections ?? []) {
@@ -155,6 +172,22 @@ async function loadFlowData(editor: NodeEditor<HFSchemes>, flowData: FlowData) {
     );
   }
 }
-  
 
+function getSocket(editor: NodeEditor<HFSchemes>, type: string) {
+  if (!editorSockets.has(editor)) {
+    editorSockets.set(editor, new Map<string, ClassicPreset.Socket>());
+  }
+  const map = editorSockets.get(editor)!;
+  if (!map.has(type)) {
+    map.set(type, new ClassicPreset.Socket(type));
+  }
+  return map.get(type)!;
+}
+
+function toNodeLabel(typeName: string) {
+  if (typeName === "InputBlock" || typeName === "SourceBlock") return "Input";
+  if (typeName === "OutputBlock") return "Output";
+  return typeName;
+}
+  
 

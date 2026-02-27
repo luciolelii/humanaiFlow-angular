@@ -18,6 +18,15 @@ export type FlowData = {
   connections: FlowBlockConnection[];
 };
 
+export type BlockTypeName = "HumanInteractionBlock" | "LLMBlock" | "SourceBlock" | string;
+
+export type BlockType = {
+  userInteractive: boolean;
+  blockConfigurationClass: string | null;
+  description: string;
+  name: BlockTypeName;
+};
+
 export type FlowBlock = {
   id: string;
   sink: boolean;
@@ -26,7 +35,7 @@ export type FlowBlock = {
   inputs: FlowPort[];
   outputs: FlowPort[];
   specificConfiguration: FlowBlockConfiguration;
-  typeName: "LLMBlock" | "HumanInteractionBlock" | string;
+  typeName: BlockTypeName;
 };
 
 export type FlowPort = {
@@ -83,4 +92,3 @@ export type IConnectionModel = {
   targetNode: string;
   targetField: string;
 }
-

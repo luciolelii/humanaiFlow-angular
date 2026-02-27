@@ -1,0 +1,57 @@
+@if (loading()) {
+<div class="flex items-center justify-center h-32">
+  <div class="spinner-border text-indigo-500" role="status">
+    <span class="visually-hidden">Loading...</span>
+  </div>
+</div>
+} @else {
+<div class="h-full flex flex-col w-full min-w-0 overflow-x-hidden">
+  <div class="w-full max-w-sm py-2 h-15">
+    <div class="relative flex items-center">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
+        class="absolute w-5 h-5 top-2.5 left-2.5 text-slate-600">
+        <path fill-rule="evenodd"
+          d="M10.5 3.75a6.75 6.75 0 1 0 0 13.5 6.75 6.75 0 0 0 0-13.5ZM2.25 10.5a8.25 8.25 0 1 1 14.59 5.28l4.69 4.69a.75.75 0 1 1-1.06 1.06l-4.69-4.69A8.25 8.25 0 0 1 2.25 10.5Z"
+          clip-rule="evenodd" />
+      </svg>
+
+      <input
+        class="w-full bg-transparent placeholder:text-slate-400 text-slate-700 text-sm border border-slate-200 rounded-md pl-10 pr-3 py-2 transition duration-300 ease focus:outline-none focus:border-slate-400 hover:border-slate-300 shadow-sm focus:shadow"
+        placeholder="Search blocks..." [(ngModel)]="searchTerm" />
+    </div>
+  </div>
+
+  <!--
+  <div class="flex py-2 text-sm w-full min-w-0 items-center text-center justify-center h-18 overflow-x-hidden">
+    <app-ordering [orderFields]="orderFields" [orderView]="orderView" (orderChanged)="onOrderChanged($event)"></app-ordering>
+  </div>
+  -->
+
+  @if (filteredBlocks().length === 0) {
+  <div class="text-gray-400 text-center mt-10 flex flex-col flex-1 pt-10">
+    No blocks found
+  </div>
+  } @else {
+  <div class="flex-1 overflow-y-auto overflow-x-hidden w-full min-w-0 h-full py-2 gap-2 flex flex-col items-stretch max-h-[calc(100vh-320px)]">
+    @for (block of filteredBlocks(); track block.name) {
+    <div
+      class="border px-3 py-2 w-full min-w-0 bg-slate-50 border-slate-200 overflow-hidden cursor-grab active:cursor-grabbing"
+      draggable="true"
+      (dragstart)="onDragStart($event, block)">
+      <div class="flex items-center justify-between gap-2 text-sm min-w-0">
+        <span class="font-medium text-slate-700 min-w-0 truncate">{{ block.name }}</span>
+      </div>
+      <p class="text-xs text-slate-500 mt-1">{{ block.description }}</p>
+      <span class="text-xs px-2 py-0.5 rounded"
+          [class.bg-amber-100]="block.userInteractive"
+          [class.text-amber-700]="block.userInteractive"
+          [class.bg-sky-100]="!block.userInteractive"
+          [class.text-sky-700]="!block.userInteractive">
+          {{ block.userInteractive ? 'Interactive' : 'Automatic' }}
+        </span>
+    </div>
+    }
+  </div>
+  }
+</div>
+}

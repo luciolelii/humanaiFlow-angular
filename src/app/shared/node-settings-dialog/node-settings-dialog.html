@@ -1,0 +1,68 @@
+@if (state()) {
+<div class="fixed inset-0 z-9999">
+  <div class="absolute inset-0 bg-black/50" (click)="cancel($event)"></div>
+
+  <div class="absolute inset-6 rounded-xl bg-white shadow-2xl border border-slate-200 p-5 flex flex-col gap-4 overflow-auto">
+    <div class="flex items-center justify-between">
+      <h3 class="text-lg font-semibold text-slate-900">{{ state()!.title }}</h3>
+      <button type="button" class="btn btn-sm btn-outline-secondary" (click)="cancel($event)">Close</button>
+    </div>
+
+    <div class="grid gap-4">
+      @for (field of fields; track field.key) {
+      <label class="text-sm font-medium text-slate-700">
+        {{ field.label }}
+
+        @switch (field.type) {
+          @case ('textarea') {
+            <textarea
+              class="form-control mt-1"
+              [rows]="field.rows ?? 8"
+              [placeholder]="field.placeholder ?? ''"
+              [ngModel]="draft[field.key]"
+              (ngModelChange)="setFieldValue(field.key, $event)">
+            </textarea>
+          }
+          @case ('select') {
+            <select
+              class="form-select mt-1"
+              [ngModel]="draft[field.key]"
+              (ngModelChange)="setFieldValue(field.key, $event)">
+              @for (option of field.options ?? []; track option.value) {
+              <option [ngValue]="option.value">{{ option.label }}</option>
+              }
+            </select>
+          }
+          @case ('checkbox') {
+            <div class="mt-2">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                [ngModel]="draft[field.key]"
+                (ngModelChange)="setFieldValue(field.key, $event)" />
+            </div>
+          }
+          @default {
+            <input
+              class="form-control mt-1"
+              type="text"
+              [placeholder]="field.placeholder ?? ''"
+              [ngModel]="draft[field.key]"
+              (ngModelChange)="setFieldValue(field.key, $event)" />
+          }
+        }
+
+        @if (field.tip) {
+        <small class="text-red-600 mt-1 block">{{ field.tip }}</small>
+        }
+      </label>
+      }
+    </div>
+
+    <div class="mt-auto flex justify-end gap-2">
+      <button type="button" class="btn btn-outline-secondary" (click)="cancel($event)">Cancel</button>
+      <button type="button" class="btn btn-primary" (click)="save($event)">Save</button>
+    </div>
+  </div>
+</div>
+}

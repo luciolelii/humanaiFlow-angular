@@ -1,72 +1,122 @@
-<div
-  class=" relative user-select-none w-55 rounded-2xl bg-white border border-gray-200 shadow-lg overflow-visible font-sans">
-  <!-- Header -->
-  <div class="cursor-move flex items-center gap-2 px-3 py-2 bg-linear-to-br from-violet-600 to-indigo-500 text-white rounded-t-2xl">
-    <div class="w-12 h-8 rounded-lg bg-white/20 flex items-center justify-center">
-      <img src="llm_node.png" alt="LLM" class="w-12 h-8" />
+<div class="llm-node">
+  <div class="llm-header cursor-move">
+    <div class="llm-icon">
+      <img src="llm_node.png" alt="LLM" class="llm-icon-image" />
     </div>
-    <span class="text-sm font-semibold truncate">LLM Node</span>
+    <div class="llm-header-content">
+      <span class="llm-title">LLM Node</span>
+      <span class="llm-subtitle">{{ name }}</span>
+    </div>
   </div>
 
-  <!-- Body -->
- <div class="pt-3 pb-3 grid grid-cols-2 gap-4 w-full items-start">
-
-  <!-- COLONNA INPUT (sinistra) -->
-  <div class="grid grid-cols-[16px_1fr] items-center h-6 w-full">
-
-    <!-- Socket input -->
-    <div
-      refComponent
-      class="relative z-20"
-      [data]="{
-        type: 'socket',
-        side: 'input',
-        key: inputKey,
-        nodeId: data.id,
-        payload: inputSocket
-      }"
-      [emit]="emit">
+  <div class="llm-body">
+    <div class="llm-column">
+      <div class="llm-column-title">Inputs</div>
+      @for (input of inputs; track input.key) {
+      <div class="llm-row llm-row-input">
+        <div
+          refComponent
+          class="llm-socket"
+          [data]="{
+            type: 'socket',
+            side: 'input',
+            key: input.key,
+            nodeId: data.id,
+            payload: input.socket
+          }"
+          [emit]="emit">
+        </div>
+        <span class="llm-pill llm-pill-input">{{ input.key }}</span>
+      </div>
+      }
     </div>
 
-    <!-- Label input -->
-    <span
-      class="inline-flex items-center justify-start px-2 h-6 w-full
-             text-xs font-medium
-             bg-emerald-50 text-emerald-700 border border-emerald-200">
-      {{ inputKey }}
-    </span>
-
+    <div class="llm-column">
+      <div class="llm-column-title llm-column-title-right">Outputs</div>
+      @for (output of outputs; track output.key) {
+      <div class="llm-row llm-row-output">
+        <span class="llm-pill llm-pill-output">{{ output.key }}</span>
+        <div
+          refComponent
+          class="llm-socket llm-socket-right"
+          [data]="{
+            type: 'socket',
+            side: 'output',
+            key: output.key,
+            nodeId: data.id,
+            payload: output.socket
+          }"
+          [emit]="emit">
+        </div>
+      </div>
+      }
+    </div>
   </div>
 
-
-  <!-- COLONNA OUTPUT (destra) -->
-  <div class="grid grid-cols-[1fr_16px] items-center h-6 w-full">
-
-    <!-- Label output -->
-    <span
-      class="inline-flex items-center justify-end px-2 h-6 w-full
-             text-xs font-medium
-             bg-red-50 text-red-700 border border-red-200">
-      {{ outputKey }}
-    </span>
-
-    <!-- Socket output -->
-    <div
-      refComponent
-      class="relative z-20 justify-self-end"
-      [data]="{
-        type: 'socket',
-        side: 'output',
-        key: outputKey,
-        nodeId: data.id,
-        payload: outputSocket
-      }"
-      [emit]="emit">
+  <div class="llm-params">
+    <div class="llm-params-head">
+      <div class="llm-params-title">Parameters</div>
     </div>
 
+    <div class="llm-param-grid">
+      <div class="llm-param-chip">
+        <div class="llm-param-row-head">
+          <span class="llm-param-key">Provider</span>
+          <button type="button" class="llm-edit-btn" title="Edit provider" (pointerdown)="$event.stopPropagation()" (click)="openSimpleParamEditor('provider', $event)">
+            <i class="bi bi-pen"></i>
+          </button>
+        </div>
+        <span class="llm-param-value">{{ provider || '-' }}</span>
+      </div>
+
+      <div class="llm-param-chip">
+        <div class="llm-param-row-head">
+          <span class="llm-param-key">Model</span>
+          <button type="button" class="llm-edit-btn" title="Edit model" (pointerdown)="$event.stopPropagation()" (click)="openSimpleParamEditor('model', $event)">
+            <i class="bi bi-pen"></i>
+          </button>
+        </div>
+        <span class="llm-param-value">{{ model || '-' }}</span>
+      </div>
+    </div>
+
+    <div class="llm-param-block">
+      <div class="llm-param-row-head">
+        <div class="llm-param-key">Prompt</div>
+        <button type="button" class="llm-edit-btn" title="Edit prompt" (pointerdown)="$event.stopPropagation()" (click)="openPromptEditor($event)">
+          <i class="bi bi-pen"></i>
+        </button>
+      </div>
+      <div class="llm-param-text">
+        @if (!promptParts.length) {
+        -
+        } @else {
+          @for (part of promptParts; track $index) {
+            @if (part.isDynamicInput) {
+            <span class="llm-inline-token">{{ formatDynamicInputToken(part.text) }}</span>
+            } @else {
+            <span>{{ part.text }}</span>
+            }
+          }
+        }
+      </div>
+    </div>
   </div>
 
-</div>
+  @if (localEditorOpen) {
+  <div class="llm-modal-backdrop" (pointerdown)="$event.stopPropagation()" (click)="closeSimpleParamEditor($event)">
+    <div class="llm-modal" (pointerdown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
+      <div class="llm-modal-title">Edit {{ localEditorLabel }}</div>
+      <div class="llm-modal-field">
+        <label>{{ localEditorLabel }}</label>
+        <input type="text" [(ngModel)]="localEditorValue" placeholder="Value..." (pointerdown)="$event.stopPropagation()" />
+      </div>
+      <div class="llm-modal-actions">
+        <button type="button" class="llm-btn llm-btn-ghost" (pointerdown)="$event.stopPropagation()" (click)="closeSimpleParamEditor($event)">Cancel</button>
+        <button type="button" class="llm-btn llm-btn-primary" (pointerdown)="$event.stopPropagation()" (click)="saveSimpleParamEditor($event)">Save</button>
+      </div>
+    </div>
+  </div>
+  }
 
-  
 </div>

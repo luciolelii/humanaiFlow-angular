@@ -42,11 +42,10 @@
       }
       @case ('blocks') {
       <app-group-holder title="Blocks" icon="bi-boxes">
-        <div class="space-y-2 overflow-auto">
-          <div class="block-item">Input</div>
-          <div class="block-item">Transform</div>
-          <div class="block-item">Output</div>
-        </div>
+        <i ngProjectAs="header-button" 
+          class="bi bi-plus-circle-fill text-blue-600 hover:cursor-pointer hover:text-blue-400 text-lg"
+          (click)="createNewBlock()"></i>
+        <app-blocks-list></app-blocks-list>
       </app-group-holder>
       }
       }
