@@ -1,11 +1,10 @@
-import { Component, computed, effect, ElementRef, inject, signal, ViewChild, viewChild } from '@angular/core';
+import { Component, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { form, Field, minLength, email, required, validate, maxLength, disabled } from '@angular/forms/signals'
 import { Router, RouterLink } from '@angular/router';
 import { UserRegistration } from '@models/user';
 import { Authorization } from '@services/authorization/authorization';
 import { FormUtility } from '@utilities/form-utility';
-import { max, min } from 'rxjs';
 
 
 @Component({

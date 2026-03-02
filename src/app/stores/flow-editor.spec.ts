@@ -1,13 +1,13 @@
 import { TestBed } from '@angular/core/testing';
 
-import { EditorStateHolder as Editor } from './editor';
+import { EditorStateHolder } from './flow-editor';
 
-describe('Editor', () => {
-  let service: Editor;
+describe('EditorStateHolder', () => {
+  let service: EditorStateHolder;
 
   beforeEach(() => {
     TestBed.configureTestingModule({});
-    service = TestBed.inject(Editor);
+    service = TestBed.inject(EditorStateHolder);
   });
 
   it('should be created', () => {

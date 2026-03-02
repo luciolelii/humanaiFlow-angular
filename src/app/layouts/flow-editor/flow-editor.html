@@ -16,7 +16,7 @@
         <app-title-toolbar></app-title-toolbar>
         <!-- editor canvas -->
         <div class="flex-1 h-full">
-          <app-rete-editor></app-rete-editor>
+          <app-rete-editor [flowId]="flow()!.id" [flowData]="flow()!.data"></app-rete-editor>
         </div>
       </div>
       } @else {

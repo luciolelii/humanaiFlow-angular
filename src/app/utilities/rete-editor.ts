@@ -11,6 +11,7 @@ import { OutputNodeComponent } from "@shared/nodes/output/output-node.component"
 import { HFNode, HFSchemes } from "@models/nodes";
 import { FlowBlock, FlowData } from "@models/flow";
 import { LLMNodeComponent } from "@shared/nodes/llm/llm";
+import { HumanInteractionNodeComponent } from "@shared/nodes/human-interaction/human-interaction";
 import { CustomSocket } from "@shared/custom-socket/custom-socket";
 
 type AreaExtra = AngularArea2D<HFSchemes>;
@@ -43,6 +44,9 @@ export async function createEditor(
           }
           if (context.payload.label === "Output") {
             return OutputNodeComponent;
+          }
+          if (context.payload.label === "HumanInteractionBlock") {
+            return HumanInteractionNodeComponent;
           }
           return LLMNodeComponent;
         },
@@ -190,4 +194,3 @@ function toNodeLabel(typeName: string) {
   return typeName;
 }
   
-

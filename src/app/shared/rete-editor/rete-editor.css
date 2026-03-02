@@ -1,0 +1,10 @@
+:host ::ng-deep [data-testid="node"] {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+:host ::ng-deep [data-testid="node"] input,
+:host ::ng-deep [data-testid="node"] textarea {
+  user-select: text;
+  -webkit-user-select: text;
+}

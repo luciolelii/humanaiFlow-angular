@@ -2,7 +2,7 @@ import { Injectable, signal } from '@angular/core';
 import { environment } from '@environment';
 import { Flow } from '@models/flow';
 import { FlowsCallServiceBase } from './flows-call.base';
-import { BehaviorSubject, catchError, combineLatest, Observable, switchMap, tap, throwError } from 'rxjs';
+import { catchError, combineLatest, Observable, switchMap, tap, throwError } from 'rxjs';
 
 @Injectable({
   providedIn: 'root',

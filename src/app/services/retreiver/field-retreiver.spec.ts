@@ -1,13 +1,13 @@
 import { TestBed } from '@angular/core/testing';
 
-import { FlowsService } from './flows';
+import { FieldRetreiver } from './field-retreiver';
 
-describe('FlowsService', () => {
-  let service: FlowsService;
+describe('FieldRetreiver', () => {
+  let service: FieldRetreiver;
 
   beforeEach(() => {
     TestBed.configureTestingModule({});
-    service = TestBed.inject(FlowsService);
+    service = TestBed.inject(FieldRetreiver);
   });
 
   it('should be created', () => {

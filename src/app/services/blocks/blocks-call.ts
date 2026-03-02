@@ -7,7 +7,11 @@ export class BlocksCallService extends BlocksCallServiceBase {
     throw new Error("Method not implemented.");
   }
 
-  override createNewBlock(configuration: any): Observable<FlowBlock> {
+  override createEmptyBlock(_blockType: string): Observable<FlowBlock> {
+    throw new Error("Method not implemented.");
+  }
+
+  override updateBlock(_blockId: string, _configuration: any): Observable<FlowBlock> {
     throw new Error("Method not implemented.");
   }
 }

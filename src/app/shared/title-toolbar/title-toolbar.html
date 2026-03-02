@@ -9,15 +9,13 @@
     <h2 class="m-0 text-sm font-semibold text-gray-800">
         <input type="text" class="border-0 text-sm font-semibold text-gray-800
        focus:ring-0 p-0 m-0 box-border
-       min-w-[4ch] max-w-[16ch]
+       w-52 max-w-52
        bg-transparent"
                [value]="title()"
                (blur)="changeTitle(titleInput.value)"
                 (keydown.enter)="changeTitle(titleInput.value); $event.target.blur()"
-                [style.width.ch]="titleWidth()"
                maxlength="20"
                size="20"
-               (input)="tempTitle.set(titleInput.value)"
                #titleInput
                 />
     </h2>

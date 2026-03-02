@@ -1,4 +1,4 @@
-import { Component, inject, Input } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { ConfirmDialogService } from '@services/dialogs/confirm-dialog';
 
 @Component({

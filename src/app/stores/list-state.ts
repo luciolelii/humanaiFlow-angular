@@ -1,4 +1,4 @@
-import { Injectable, Signal, signal } from '@angular/core';
+import { Injectable } from '@angular/core';
 import { ListView, OrderViewState } from '@utilities/list-state-holder';
 
 

@@ -20,11 +20,15 @@ export type FlowData = {
 
 export type BlockTypeName = "HumanInteractionBlock" | "LLMBlock" | "SourceBlock" | string;
 
+export type BlockTypeSchema = Record<string, unknown> | null;
+
 export type BlockType = {
-  userInteractive: boolean;
-  blockConfigurationClass: string | null;
+  type: BlockTypeName;
   description: string;
-  name: BlockTypeName;
+  userInteractive: boolean;
+  configurationType: string | null;
+  configurationClass: string | null;
+  schema: BlockTypeSchema;
 };
 
 export type FlowBlock = {

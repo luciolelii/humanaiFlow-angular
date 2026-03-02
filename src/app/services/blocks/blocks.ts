@@ -1,6 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 import { environment } from '@environment';
-import { BlockType } from '@models/flow';
+import { BlockType, BlockTypeName } from '@models/flow';
 import { BlocksCallServiceBase } from './block-call.base';
 import { catchError, throwError } from 'rxjs';
 
@@ -29,10 +29,19 @@ export class BlocksService {
     });
   }
 
-  createNewBlock(configuration: any) {
-    return this.blocksCallService.createNewBlock(configuration).pipe(
+  createEmptyBlock(blockType: BlockTypeName) {
+    return this.blocksCallService.createEmptyBlock(blockType).pipe(
       catchError((err) => {
-        console.error('Create block failed', err);
+        console.error('Create empty block failed', err);
+        return throwError(() => err);
+      })
+    );
+  }
+
+  updateBlock(blockId: string, configuration: any) {
+    return this.blocksCallService.updateBlock(blockId, configuration).pipe(
+      catchError((err) => {
+        console.error('Update block failed', err);
         return throwError(() => err);
       })
     );

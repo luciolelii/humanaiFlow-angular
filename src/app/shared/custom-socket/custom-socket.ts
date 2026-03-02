@@ -1,5 +1,4 @@
-import { Component, AfterViewInit, Input, HostListener, HostBinding, ChangeDetectorRef } from "@angular/core";
-import { ReteModule } from "rete-angular-plugin/21";
+import { Component, Input, HostBinding, ChangeDetectorRef } from "@angular/core";
 
 @Component({
   template: ``,

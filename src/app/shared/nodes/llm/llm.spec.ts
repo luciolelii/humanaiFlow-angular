@@ -1,18 +1,18 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { Llm } from './llm';
+import { LLMNodeComponent } from './llm';
 
-describe('Llm', () => {
-  let component: Llm;
-  let fixture: ComponentFixture<Llm>;
+describe('LLMNodeComponent', () => {
+  let component: LLMNodeComponent;
+  let fixture: ComponentFixture<LLMNodeComponent>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [Llm]
+      imports: [LLMNodeComponent]
     })
     .compileComponents();
 
-    fixture = TestBed.createComponent(Llm);
+    fixture = TestBed.createComponent(LLMNodeComponent);
     component = fixture.componentInstance;
     await fixture.whenStable();
   });

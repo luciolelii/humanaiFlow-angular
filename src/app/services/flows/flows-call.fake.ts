@@ -1,6 +1,6 @@
-import { Flow, FlowData, FlowVisibility } from "@models/flow";
+import { Flow, FlowVisibility } from "@models/flow";
 import { FlowsCallServiceBase } from "./flows-call.base";
-import { BehaviorSubject, Observable, of } from "rxjs";
+import { Observable, of } from "rxjs";
 import { Authorization } from "@services/authorization/authorization";
 import { inject } from "@angular/core";
 
@@ -45,8 +45,9 @@ export class FlowsCallServiceFake extends FlowsCallServiceBase {
 
 
 export function flowFromJson(raw: any): Flow {
+  const flowId = raw.id ?? raw.name ?? crypto.randomUUID();
   return {
-    id: raw.id,
+    id: flowId,
     author: raw.author,
     visibility: raw.visibility as FlowVisibility,
     createdAt: new Date(raw.createdAt),
@@ -62,6 +63,7 @@ export function flowFromJson(raw: any): Flow {
 
 
 const testDataFlow ={
+  "id": "testFlow",
   "name" : "Test Flow",
   "visibility": "PRIVATE",
   "author": "lucio",
@@ -127,4 +129,3 @@ const testDataFlow ={
     "targetName" : "input"
   } ]
 }; 
-

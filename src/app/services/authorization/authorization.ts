@@ -1,4 +1,4 @@
-import { effect, Injectable, signal } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
 import { User, UserRegistration } from '@models/user';
 import { AuthorizationCallServiceBase } from './authorization-call.base';
 import { environment } from '@environment';

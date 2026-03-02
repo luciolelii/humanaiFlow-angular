@@ -5,8 +5,26 @@
     </div>
     <div class="llm-header-content">
       <span class="llm-title">LLM Node</span>
-      <span class="llm-subtitle">{{ name }}</span>
+      <div class="llm-subtitle-row">
+        <span class="llm-subtitle">{{ name }}</span>
+        <button type="button" class="llm-name-edit-btn" title="Edit name" (pointerdown)="$event.stopPropagation()" (click)="openNameEditor($event)">
+          <i class="bi bi-pencil-square"></i>
+        </button>
+      </div>
     </div>
+    @if (missingRequiredParams.length) {
+    <div class="llm-warning-wrap">
+      <div class="llm-warning">
+        <i class="bi bi-exclamation-triangle-fill"></i>
+      </div>
+      <div class="llm-warning-tooltip">
+        <div class="llm-warning-title">Missing required fields</div>
+        @for (missing of missingRequiredParams; track missing) {
+        <div class="llm-warning-item">{{ missing }}</div>
+        }
+      </div>
+    </div>
+    }
   </div>
 
   <div class="llm-body">
@@ -54,10 +72,6 @@
   </div>
 
   <div class="llm-params">
-    <div class="llm-params-head">
-      <div class="llm-params-title">Parameters</div>
-    </div>
-
     <div class="llm-param-grid">
       <div class="llm-param-chip">
         <div class="llm-param-row-head">
@@ -109,7 +123,18 @@
       <div class="llm-modal-title">Edit {{ localEditorLabel }}</div>
       <div class="llm-modal-field">
         <label>{{ localEditorLabel }}</label>
-        <input type="text" [(ngModel)]="localEditorValue" placeholder="Value..." (pointerdown)="$event.stopPropagation()" />
+        @if (localEditorLoading) {
+        <input type="text" [ngModel]="localEditorValue" placeholder="Loading..." disabled (pointerdown)="$event.stopPropagation()" />
+        } @else if (localEditorKey !== 'name' && localEditorOptions.length) {
+        <select [(ngModel)]="localEditorValue" (pointerdown)="$event.stopPropagation()">
+          <option value="">Select {{ localEditorLabel | lowercase }}...</option>
+          @for (option of localEditorOptions; track option) {
+          <option [value]="option">{{ option }}</option>
+          }
+        </select>
+        } @else {
+        <input type="text" [(ngModel)]="localEditorValue" [attr.maxlength]="localEditorKey === 'name' ? 20 : null" [placeholder]="localEditorKey === 'name' ? 'Max 20 characters' : 'Value...'" (pointerdown)="$event.stopPropagation()" />
+        }
       </div>
       <div class="llm-modal-actions">
         <button type="button" class="llm-btn llm-btn-ghost" (pointerdown)="$event.stopPropagation()" (click)="closeSimpleParamEditor($event)">Cancel</button>

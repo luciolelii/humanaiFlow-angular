@@ -1,5 +1,4 @@
-import { CommonModule } from '@angular/common';
-import { Component, computed, effect, inject, model, output, signal, Signal, WritableSignal } from '@angular/core';
+import { Component, computed, effect, inject, model, signal, Signal, WritableSignal } from '@angular/core';
 import { Flow, FlowVisibility } from '@models/flow';
 import { FlowsService } from '@services/flows/flows';
 import { FlowItem } from './flow-item/flow-item';

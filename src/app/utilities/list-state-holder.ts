@@ -1,4 +1,4 @@
-import { inject, signal, Signal } from "@angular/core";
+import { inject, Signal } from "@angular/core";
 import { ListState } from "@stores/list-state";
 
 export class OrderViewState {

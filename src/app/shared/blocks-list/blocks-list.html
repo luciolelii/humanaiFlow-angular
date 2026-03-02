@@ -33,13 +33,13 @@
   </div>
   } @else {
   <div class="flex-1 overflow-y-auto overflow-x-hidden w-full min-w-0 h-full py-2 gap-2 flex flex-col items-stretch max-h-[calc(100vh-320px)]">
-    @for (block of filteredBlocks(); track block.name) {
+    @for (block of filteredBlocks(); track block.type) {
     <div
       class="border px-3 py-2 w-full min-w-0 bg-slate-50 border-slate-200 overflow-hidden cursor-grab active:cursor-grabbing"
       draggable="true"
       (dragstart)="onDragStart($event, block)">
       <div class="flex items-center justify-between gap-2 text-sm min-w-0">
-        <span class="font-medium text-slate-700 min-w-0 truncate">{{ block.name }}</span>
+        <span class="font-medium text-slate-700 min-w-0 truncate">{{ block.type }}</span>
       </div>
       <p class="text-xs text-slate-500 mt-1">{{ block.description }}</p>
       <span class="text-xs px-2 py-0.5 rounded"

@@ -1,4 +1,4 @@
-import { Component, computed, ElementRef, inject, linkedSignal, ViewChild, WritableSignal } from '@angular/core';
+import { Component, computed, ElementRef, inject, ViewChild } from '@angular/core';
 import { EditorStateHolder } from '@stores/flow-editor';
 
 @Component({
@@ -17,22 +17,10 @@ export class TitleToolbar {
     return flow ? flow.name : 'No Flow Opened';
   });
 
-  tempTitle: WritableSignal<string | null> = linkedSignal(() =>null);
-
-  titleWidth = computed(() => {
-    const temp = this.tempTitle();
-    if (temp !== null) {
-      return Math.max(temp.length-1, 4)
-    }
-    const len = this.title().length || 4;
-    return Math.min(len, 20)-2;
-  });
-
   notSaved = computed(() => this.editorState.isDirty());
 
 
   changeTitle(value: string) {
-    this.tempTitle.set(null);
     const trimmed = value.trim();
     if (value === this.title()) return;
     if (trimmed.length < 4) {
@@ -40,7 +28,6 @@ export class TitleToolbar {
       return;
     }
     console.log('Updating flow title to:', trimmed);
-    const flow = this.editorState.currentFlow()!;
     this.editorState.updateFlowTitle(trimmed );
   }
 

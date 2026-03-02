@@ -2,7 +2,6 @@ import { computed, inject, Injectable, signal } from '@angular/core';
 import { Flow, FlowData } from '@models/flow';
 import { ConfirmDialogService } from '@services/dialogs/confirm-dialog';
 import { FlowsService } from '@services/flows/flows';
-import { FlowsCallService } from '@services/flows/flows-call';
 import { tap } from 'rxjs';
 
 @Injectable({ providedIn: 'root' })
@@ -27,8 +26,8 @@ export class EditorStateHolder {
   undoEnabled = computed(() => this.previousDataStack.length > 1);
 
   /** Intent: open document */
-  async openDocument(doc: Flow): Promise<boolean> {
-    if (this.isDirty()) {
+  async openDocument(doc: Flow, options?: { skipDirtyCheck?: boolean }): Promise<boolean> {
+    if (this.isDirty() && !options?.skipDirtyCheck) {
       const confirmed = await this.confirm.open(
         'You have unsaved changes. Open another document?'
       );

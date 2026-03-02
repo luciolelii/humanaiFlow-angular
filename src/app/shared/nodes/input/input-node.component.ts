@@ -3,7 +3,7 @@ import {
   Input,
   HostBinding,
 } from "@angular/core";
-import { CommonModule, KeyValue } from "@angular/common";
+import { CommonModule } from "@angular/common";
 import { ReteModule } from "rete-angular-plugin/21";
 import { ClassicPreset } from "rete";
 

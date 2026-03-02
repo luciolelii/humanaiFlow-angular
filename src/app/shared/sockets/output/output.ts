@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component,  HostBinding, HostListener, Input } from '@angular/core';
+import { ChangeDetectorRef, Component,  HostBinding, Input } from '@angular/core';
 import { ReteModule } from 'rete-angular-plugin/21';
 
 @Component({

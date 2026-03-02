@@ -1,8 +1,10 @@
-import { Component, ElementRef, Injector, output, ViewChild } from '@angular/core';
+import { Component, ElementRef, Injector, input, OnChanges, OnDestroy, output, SimpleChanges, ViewChild } from '@angular/core';
 import { BlockType, FlowBlock, FlowData } from '@models/flow';
+import { BlocksService } from '@services/blocks/blocks';
 import { BLOCK_TYPE_DRAG_MIME } from '@shared/blocks-list/block-drag';
 import { EditorStateHolder } from '@stores/flow-editor';
-import { addBlockToEditor, createEditor, ReteEditorInstance } from '@utilities/rete-editor';
+import { addBlockToEditor, createEditor, exportGraph, ReteEditorInstance } from '@utilities/rete-editor';
+import { firstValueFrom } from 'rxjs';
 
 @Component({
   selector: 'app-rete-editor',
@@ -10,35 +12,46 @@ import { addBlockToEditor, createEditor, ReteEditorInstance } from '@utilities/r
   templateUrl: './rete-editor.html',
   styleUrl: './rete-editor.css',
 })
-export class ReteEditor {
+export class ReteEditor implements OnChanges, OnDestroy {
+  readonly flowData = input.required<FlowData>();
+  readonly flowId = input.required<string>();
 
-  flowData: FlowData;
-
-  constructor(private injector: Injector, private flowState: EditorStateHolder ) {
-    this.flowData = this.flowState.currentFlow()!.data;
-  }
+  constructor(
+    private injector: Injector,
+    private flowState: EditorStateHolder,
+    private blocksService: BlocksService
+  ) {}
 
   @ViewChild("editor") container!: ElementRef;
 
   private rete?: ReteEditorInstance;
+  private viewReady = false;
+  private loadVersion = 0;
+  private readonly dirtyEventTypes = new Set([
+    'nodecreated',
+    'noderemoved',
+    'connectioncreated',
+    'connectionremoved'
+  ]);
 
   flowChanged = output<any>();
 
 
   ngAfterViewInit(): void {
-    const el = this.container.nativeElement;
+    this.viewReady = true;
+    void this.reloadEditor();
+  }
 
-    if (el) {
-      createEditor(el, this.injector, this.flowData).then((rete) => {
-        this.rete = rete;
-        rete.editor.addPipe(
-          (context) => {
-            this.flowChanged.emit({});
-            return context;
-          }
-        );
-      });
+  ngOnChanges(changes: SimpleChanges): void {
+    if (!this.viewReady) return;
+    if (changes['flowId']) {
+      void this.reloadEditor();
     }
+  }
+
+  ngOnDestroy(): void {
+    this.rete?.area.destroy();
+    this.rete = undefined;
   }
 
   onDragOver(event: DragEvent) {
@@ -55,10 +68,54 @@ export class ReteEditor {
 
     const blockType: BlockType = JSON.parse(payload);
     const position = this.getDropPosition(event);
-    const newBlock = this.createBlockFromType(blockType, position);
+    let newBlock: FlowBlock;
+    try {
+      newBlock = await firstValueFrom(this.blocksService.createEmptyBlock(blockType.type));
+    } catch (error) {
+      console.error('Failed to create empty block', error);
+      return;
+    }
+
+    newBlock = {
+      ...newBlock,
+      position
+    };
 
     await addBlockToEditor(this.rete.editor, this.rete.area, newBlock, position);
-    this.flowChanged.emit({});
+    const updatedData = exportGraph(this.rete.editor);
+    this.flowState.updateData(updatedData);
+    this.flowChanged.emit(updatedData);
+  }
+
+  private async reloadEditor() {
+    const host = this.container?.nativeElement as HTMLElement | undefined;
+    if (!host) return;
+
+    const currentVersion = ++this.loadVersion;
+    this.rete?.area.destroy();
+    this.rete = undefined;
+    host.innerHTML = '';
+
+    const rete = await createEditor(host, this.injector, this.flowData());
+    if (currentVersion !== this.loadVersion) {
+      rete.area.destroy();
+      return;
+    }
+
+    this.rete = rete;
+    rete.editor.addPipe((context) => {
+      if (this.dirtyEventTypes.has(context.type)) {
+        this.markFlowChanged(rete, context);
+      }
+      return context;
+    });
+
+    rete.area.addPipe((context: any) => {
+      if (context?.type === 'nodetranslated') {
+        this.markFlowChanged(rete, context);
+      }
+      return context;
+    });
   }
 
   private getDropPosition(event: DragEvent) {
@@ -71,52 +128,23 @@ export class ReteEditor {
     return { x, y };
   }
 
-  private createBlockFromType(blockType: BlockType, position: { x: number; y: number }): FlowBlock {
-    const id = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}`;
-    const common = {
-      id,
-      sink: false,
-      name: blockType.name,
-      position,
-      typeName: blockType.name
-    } as const;
+  private syncNodePositionFromContext(rete: ReteEditorInstance, context: any) {
+    if (context?.type !== 'nodetranslated') return;
 
-    if (blockType.name === 'SourceBlock') {
-      return {
-        ...common,
-        inputs: [],
-        outputs: [{ name: 'output', type: 'TEXT', multiple: false }],
-        specificConfiguration: {}
-      };
-    }
+    const movedNode = rete.editor.getNode(context?.data?.id) as any;
+    const pos = context?.data?.position;
+    if (!movedNode?.data || !pos) return;
 
-    if (blockType.name === 'HumanInteractionBlock') {
-      return {
-        ...common,
-        sink: true,
-        inputs: [{ name: 'input', type: 'TEXT', multiple: false }],
-        outputs: [{ name: 'output', type: 'TEXT', multiple: false }],
-        specificConfiguration: {
-          type: 'HumanInteractiveBlockConfiguration',
-          name: blockType.name,
-          actionDescription: 'Human task',
-          llmDescriptor: { provider: 'default', model: 'default' },
-          inputAsList: false,
-          outputAsList: false
-        }
-      };
-    }
-
-    return {
-      ...common,
-      inputs: [{ name: 'input', type: 'TEXT', multiple: false }],
-      outputs: [{ name: 'output', type: 'TEXT', multiple: false }],
-      specificConfiguration: {
-        type: 'LLMBlockConfiguration',
-        name: blockType.name,
-        llmDescriptor: { provider: 'default', model: 'default' },
-        prompt: ''
-      }
+    movedNode.data = {
+      ...movedNode.data,
+      position: { x: pos.x, y: pos.y }
     };
+  }
+
+  private markFlowChanged(rete: ReteEditorInstance, context: any) {
+    this.syncNodePositionFromContext(rete, context);
+    const updatedData = exportGraph(rete.editor);
+    this.flowState.updateData(updatedData);
+    this.flowChanged.emit(updatedData);
   }
 }

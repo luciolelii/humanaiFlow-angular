@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, effect, EventEmitter, inject, input, model, output, signal, untracked } from '@angular/core';
+import { Component, computed, effect, inject, input, model, signal } from '@angular/core';
 import { Flow } from '@models/flow';
+import { ConfirmDialogService } from '@services/dialogs/confirm-dialog';
 import { FlowsService } from '@services/flows/flows';
 import { EditorStateHolder } from '@stores/flow-editor';
 
@@ -13,6 +14,7 @@ import { EditorStateHolder } from '@stores/flow-editor';
 export class FlowItem {
 
   private editorState = inject(EditorStateHolder);
+  private confirm = inject(ConfirmDialogService);
 
   private flowsService = inject(FlowsService);
 
@@ -34,9 +36,17 @@ export class FlowItem {
     });
   }
 
-  open() {
+  async open() {
     console.log('Opening flow:', this.flow());
-    this.editorState.openDocument(this.flow());
+    if (this.editorState.isDirty() && this.openedFlowId() !== this.flow().id) {
+      const confirmed = await this.confirm.open(
+        'You have unsaved changes in the current flow. Open another flow anyway?'
+      );
+      if (!confirmed) return;
+      await this.editorState.openDocument(this.flow(), { skipDirtyCheck: true });
+      return;
+    }
+    await this.editorState.openDocument(this.flow());
   }
 
   clone() {
@@ -48,7 +58,14 @@ export class FlowItem {
     });
   }
 
-  remove() {
+  async remove() {
+    const confirmed = await this.confirm.open(
+      this.editorState.isDirty()
+        ? 'You have unsaved changes in the current flow. Delete this flow anyway?'
+        : 'Are you sure you want to delete this flow?'
+    );
+    if (!confirmed) return;
+
     this.flowsService.deleteFlow(this.flow().id).subscribe({
       next: () => {
         console.log('Flow deleted:', this.flow().id);
@@ -69,4 +86,3 @@ export class FlowItem {
     }
   }
 }
-
