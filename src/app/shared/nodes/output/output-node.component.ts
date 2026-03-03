@@ -41,4 +41,17 @@ export class OutputNodeComponent {
     this.inputSocket = (input as any).socket;
 
   }
+
+  async confirmDelete(event?: Event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+
+    const confirmed = window.confirm('Do you want to delete this node from the flow?');
+    if (!confirmed) return;
+
+    const deleteNode = (this.data as any)?.data?.deleteNode;
+    if (typeof deleteNode === 'function') {
+      await deleteNode();
+    }
+  }
 }

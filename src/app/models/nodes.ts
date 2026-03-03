@@ -1,8 +1,12 @@
 import { GetSchemes, ClassicPreset } from "rete";
 import { FlowBlock } from "./flow";
 
+export type HFNodeData = FlowBlock & {
+  deleteNode?: () => Promise<void>;
+};
+
 export type HFNode = ClassicPreset.Node & {
-  data?: FlowBlock;
+  data?: HFNodeData;
 };
 
 export type HFConnection = ClassicPreset.Connection<HFNode, HFNode>;

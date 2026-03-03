@@ -36,3 +36,24 @@
 .input-socket {
     text-align: left; margin-left: -1px; display: inline-block;
 }
+
+.node-delete-btn {
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(185, 28, 28, 0.12);
+  color: #991b1b;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 20;
+}
+
+.node-delete-btn:hover {
+  background: rgba(185, 28, 28, 0.2);
+}

@@ -4,7 +4,7 @@ import { Signup } from '@pages/auth/signup/signup';
 import { AppLayout } from '@layouts/app-layout/app-layout';
 import { authGuard } from '@guards/auth-guard';
 import { FlowEditor } from '@layouts/flow-editor/flow-editor';
-import { Tasks } from '@pages/main/tasks/tasks';
+import { TasksExecutor } from '@layouts/tasks-executor/tasks-executor';
 
 export const routes: Routes = [
  {
@@ -22,7 +22,7 @@ export const routes: Routes = [
       },
       { 
         path: 'tasks',
-        component: Tasks
+        component: TasksExecutor
       }
     ],
     canActivate: [authGuard]

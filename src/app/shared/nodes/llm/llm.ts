@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, HostBinding, inject, Input } from '@angular/core';
+import { ChangeDetectorRef, Component, HostBinding, inject, Input } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ClassicPreset } from 'rete';
 import { ReteModule } from 'rete-angular-plugin/21';
@@ -25,6 +25,7 @@ export class LLMNodeComponent {
   private editorState = inject(EditorStateHolder);
   private fieldRetreiver = inject(FieldRetreiver);
   private blocksService = inject(BlocksService);
+  private cdr = inject(ChangeDetectorRef);
 
   @Input() data!: any;
   @Input() emit!: (data: any) => void;
@@ -79,8 +80,7 @@ export class LLMNodeComponent {
       this.inputs.push({ key: inKey, socket: (input as any).socket });
     });
 
-    const config = this.blockConfiguration;
-    if (!config) return;
+    const config = this.ensureBlockConfiguration();
 
     this.name = this.toStringOrNull(config['name']) || this.name; 
 
@@ -211,6 +211,19 @@ export class LLMNodeComponent {
     this.openSimpleParamEditor('name', event);
   }
 
+  async confirmDelete(event?: Event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+
+    const confirmed = window.confirm('Do you want to delete this node from the flow?');
+    if (!confirmed) return;
+
+    const deleteNode = this.data?.data?.deleteNode;
+    if (typeof deleteNode === 'function') {
+      await deleteNode();
+    }
+  }
+
   private get blockConfiguration(): Record<string, any> | null {
     return this.data?.data?.specificConfiguration ?? null;
   }
@@ -280,6 +293,8 @@ export class LLMNodeComponent {
     if (!this.refreshingConditionalRequirements) {
       void this.refreshConditionalRequirements();
     }
+
+    this.refreshView();
   }
 
   private getByPath(source: Record<string, any>, path: string): unknown {
@@ -385,6 +400,16 @@ export class LLMNodeComponent {
   formatDynamicInputToken(token: string): string {
     const match = token.match(/^\$\{\{\s*([^}]+?)\s*\}\}$/);
     return match ? match[1] : token;
+  }
+
+  private refreshView() {
+    queueMicrotask(() => {
+      try {
+        this.cdr.detectChanges();
+      } catch {
+        // Node may have been removed while async validation was running.
+      }
+    });
   }
 
 }

@@ -51,6 +51,10 @@ export class BlocksCallServiceFake extends BlocksCallServiceBase {
         "LLMDescriptor": {
           "type": "object",
           "additionalProperties": false,
+          "required": [
+            "provider",
+            "model"
+          ],
           "properties": {
             "provider": {
               "type": "string",
@@ -111,6 +115,10 @@ export class BlocksCallServiceFake extends BlocksCallServiceBase {
         "LLMDescriptor": {
           "type": "object",
           "additionalProperties": false,
+          "required": [
+            "provider",
+            "model"
+          ],
           "properties": {
             "provider": {
               "type": "string",

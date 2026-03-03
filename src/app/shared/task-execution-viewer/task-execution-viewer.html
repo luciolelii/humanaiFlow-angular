@@ -1,0 +1,35 @@
+<section class="h-full p-4">
+  @if (execution()) {
+  <div class="h-full bg-white border border-slate-200 rounded-md flex flex-col overflow-hidden">
+    <div class="px-5 py-4 border-b border-slate-200">
+      <h2 class="text-base font-semibold text-slate-900">{{ execution()!.title }}</h2>
+      <p class="text-sm text-slate-500">Execution ID: {{ execution()!.id }}</p>
+    </div>
+
+    <div class="p-5 grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div class="bg-slate-50 border border-slate-200 rounded-md p-3">
+        <div class="text-xs text-slate-500">Flow</div>
+        <div class="text-sm font-medium text-slate-800">{{ execution()!.flowName }}</div>
+      </div>
+      <div class="bg-slate-50 border border-slate-200 rounded-md p-3">
+        <div class="text-xs text-slate-500">Status</div>
+        <div class="text-sm font-medium text-slate-800">{{ execution()!.status }}</div>
+      </div>
+      <div class="bg-slate-50 border border-slate-200 rounded-md p-3">
+        <div class="text-xs text-slate-500">Duration</div>
+        <div class="text-sm font-medium text-slate-800">{{ execution()!.duration || '-' }}</div>
+      </div>
+    </div>
+
+    <div class="flex-1 p-5 pt-0 overflow-auto">
+      <div class="h-full rounded-md border border-dashed border-slate-300 bg-slate-50 text-slate-500 text-sm flex items-center justify-center">
+        Execution details viewer placeholder
+      </div>
+    </div>
+  </div>
+  } @else {
+  <div class="h-full bg-white border border-slate-200 rounded-md text-slate-400 text-center flex items-center justify-center">
+    Select an execution from the left panel
+  </div>
+  }
+</section>

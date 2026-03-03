@@ -50,7 +50,14 @@ export async function createEditor(
           }
           return LLMNodeComponent;
         },
-        socket() {
+        socket(context: any) {
+          // rete-angular passes only `payload` to socket component props,
+          // so we persist side on the payload to style input/output sockets.
+          const socketPayload = context?.payload;
+          const socketSide = context?.side;
+          if (socketPayload && (socketSide === "input" || socketSide === "output")) {
+            (socketPayload as any).__hfSide = socketSide;
+          }
           return CustomSocket;
         }
       },
@@ -131,7 +138,11 @@ export async function addBlockToEditor(
   position?: { x: number; y: number }
 ) {
   const node = new ClassicPreset.Node(toNodeLabel(block.typeName)) as HFNode;
-  node.data = { ...block, position: position ?? block.position };
+  const removeNode = async () => {
+    if (!editor.getNode(node.id)) return;
+    await editor.removeNode(node.id);
+  };
+  node.data = { ...block, position: position ?? block.position, deleteNode: removeNode };
 
   for (const output of block.outputs ?? []) {
     node.addOutput(output.name, new ClassicPreset.Output(getSocket(editor, output.type ?? "ANY")));

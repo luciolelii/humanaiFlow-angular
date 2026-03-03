@@ -42,4 +42,17 @@ export class InputNodeComponent {
     this.rendered();
   }
 
+  async confirmDelete(event?: Event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+
+    const confirmed = window.confirm('Do you want to delete this node from the flow?');
+    if (!confirmed) return;
+
+    const deleteNode = this.data?.data?.deleteNode;
+    if (typeof deleteNode === 'function') {
+      await deleteNode();
+    }
+  }
+
 }

@@ -12,19 +12,24 @@
         </button>
       </div>
     </div>
-    @if (missingRequiredParams.length) {
-    <div class="llm-warning-wrap">
-      <div class="llm-warning">
-        <i class="bi bi-exclamation-triangle-fill"></i>
+    <div class="llm-header-actions">
+      @if (missingRequiredParams.length) {
+      <div class="llm-warning-wrap">
+        <div class="llm-warning">
+          <i class="bi bi-exclamation-triangle-fill"></i>
+        </div>
+        <div class="llm-warning-tooltip">
+          <div class="llm-warning-title">Missing required fields</div>
+          @for (missing of missingRequiredParams; track missing) {
+          <div class="llm-warning-item">{{ missing }}</div>
+          }
+        </div>
       </div>
-      <div class="llm-warning-tooltip">
-        <div class="llm-warning-title">Missing required fields</div>
-        @for (missing of missingRequiredParams; track missing) {
-        <div class="llm-warning-item">{{ missing }}</div>
-        }
-      </div>
+      }
+      <button type="button" class="llm-delete-btn" title="Delete node" (pointerdown)="$event.stopPropagation()" (click)="confirmDelete($event)">
+        <i class="bi bi-trash"></i>
+      </button>
     </div>
-    }
   </div>
 
   <div class="llm-body">

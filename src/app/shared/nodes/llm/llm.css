@@ -52,6 +52,13 @@
   min-width: 0;
 }
 
+.llm-header-actions {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .llm-warning {
   width: 24px;
   height: 24px;
@@ -102,7 +109,25 @@
 
 .llm-warning-wrap {
   position: relative;
-  margin-left: auto;
+  margin-left: 0;
+}
+
+.llm-delete-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  border: 1px solid rgba(185, 28, 28, 0.45);
+  background: rgba(127, 29, 29, 0.2);
+  color: #fff1f2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.llm-delete-btn:hover {
+  background: rgba(127, 29, 29, 0.35);
 }
 
 .llm-warning-tooltip {

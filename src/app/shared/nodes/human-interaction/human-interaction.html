@@ -12,19 +12,24 @@
         </button>
       </div>
     </div>
-    @if (missingRequiredParams.length) {
-    <div class="hi-warning-wrap">
-      <div class="hi-warning">
-        <i class="bi bi-exclamation-triangle-fill"></i>
+    <div class="hi-header-actions">
+      @if (missingRequiredParams.length) {
+      <div class="hi-warning-wrap">
+        <div class="hi-warning">
+          <i class="bi bi-exclamation-triangle-fill"></i>
+        </div>
+        <div class="hi-warning-tooltip">
+          <div class="hi-warning-title">Missing required fields</div>
+          @for (missing of missingRequiredParams; track missing) {
+          <div class="hi-warning-item">{{ missing }}</div>
+          }
+        </div>
       </div>
-      <div class="hi-warning-tooltip">
-        <div class="hi-warning-title">Missing required fields</div>
-        @for (missing of missingRequiredParams; track missing) {
-        <div class="hi-warning-item">{{ missing }}</div>
-        }
-      </div>
+      }
+      <button type="button" class="hi-delete-btn" title="Delete node" (pointerdown)="$event.stopPropagation()" (click)="confirmDelete($event)">
+        <i class="bi bi-trash"></i>
+      </button>
     </div>
-    }
   </div>
 
   <div class="hi-body">

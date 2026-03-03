@@ -1,6 +1,14 @@
 <div class="cursor-move user-select-none rounded-xl bg-red-100 shadow-lg border border-gray-200 overflow-visible">
   <!-- header/row relativa -->
   <div class="relative w-full p-3 pt-0 flex items-center justify-between">
+    <button
+      type="button"
+      class="node-delete-btn"
+      title="Delete node"
+      (pointerdown)="$event.stopPropagation()"
+      (click)="confirmDelete($event)">
+      <i class="bi bi-trash"></i>
+    </button>
     <div class="grid grid-cols-4 h-full">
       <div class="col-span-4 text-ls mb-2 p-1 rounded-md text-red-700 font-bold">
        {{ data.label }}
@@ -22,5 +30,4 @@
     </div>
   </div>
 </div>
-
 

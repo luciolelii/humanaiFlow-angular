@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, HostBinding, inject, Input } from '@angular/core';
+import { ChangeDetectorRef, Component, HostBinding, inject, Input } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ClassicPreset } from 'rete';
 import { ReteModule } from 'rete-angular-plugin/21';
@@ -24,6 +24,7 @@ export class HumanInteractionNodeComponent {
   private editorState = inject(EditorStateHolder);
   private fieldRetreiver = inject(FieldRetreiver);
   private blocksService = inject(BlocksService);
+  private cdr = inject(ChangeDetectorRef);
 
   @Input() data!: any;
   @Input() emit!: (data: any) => void;
@@ -181,6 +182,19 @@ export class HumanInteractionNodeComponent {
     this.openSimpleParamEditor('name', event);
   }
 
+  async confirmDelete(event?: Event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+
+    const confirmed = window.confirm('Do you want to delete this node from the flow?');
+    if (!confirmed) return;
+
+    const deleteNode = this.data?.data?.deleteNode;
+    if (typeof deleteNode === 'function') {
+      await deleteNode();
+    }
+  }
+
   private ensureBlockConfiguration(): Record<string, any> {
     if (!this.data?.data) {
       this.data.data = {};
@@ -241,6 +255,8 @@ export class HumanInteractionNodeComponent {
     if (!this.refreshingConditionalRequirements) {
       void this.refreshConditionalRequirements();
     }
+
+    this.refreshView();
   }
 
   private getByPath(source: Record<string, any>, path: string): unknown {
@@ -308,5 +324,15 @@ export class HumanInteractionNodeComponent {
 
   isConditionallyRequired(path: string) {
     return !!this.conditionalRequiredByPath.get(path);
+  }
+
+  private refreshView() {
+    queueMicrotask(() => {
+      try {
+        this.cdr.detectChanges();
+      } catch {
+        // Node may have been removed while async validation was running.
+      }
+    });
   }
 }
