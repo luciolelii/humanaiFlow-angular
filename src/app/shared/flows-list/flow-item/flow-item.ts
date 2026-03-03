@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, effect, inject, input, model, signal } from '@angular/core';
+import { Component, computed, inject, input, model } from '@angular/core';
 import { Flow } from '@models/flow';
 import { ConfirmDialogService } from '@services/dialogs/confirm-dialog';
 import { FlowsService } from '@services/flows/flows';
@@ -23,18 +23,6 @@ export class FlowItem {
   detailOpenedId = model<string | null>(null);
 
   openedFlowId = computed(() => this.editorState.currentFlow()?.id);
-
-  expanded = signal(false);
-
-  constructor() {
-    effect(() => {
-      if (this.expanded()) {
-        if (this.detailOpenedId() !== this.flow().id) {
-          this.expanded.set(false);
-        }
-      }
-    });
-  }
 
   async open() {
     console.log('Opening flow:', this.flow());
@@ -77,12 +65,4 @@ export class FlowItem {
     });
   }
 
-  toggleDetails() {
-    this.expanded.update(v => !v);
-    if (this.expanded()) {
-      this.detailOpenedId.set(this.flow().id);
-    } else {
-      this.detailOpenedId.set(null);
-    }
-  }
 }

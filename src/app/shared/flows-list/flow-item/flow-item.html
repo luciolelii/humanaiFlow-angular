@@ -1,93 +1,40 @@
-<div class="group border
-         px-3 py-2 w-full
-         transition
-         hover:shadow-[0_0_12px_rgba(99,102,241,0.6)]
-         select-none"
+<div class="w-full text-left p-3 rounded-md border transition-all duration-150 select-none hover:-translate-y-0.5 hover:border-blue-300 hover:bg-blue-100 hover:shadow-md"
     [class.cursor-pointer]="flow().id !== openedFlowId()"
     [class.cursor-default]="flow().id === openedFlowId()"
-    [class.bg-indigo-50]="flow().id !== openedFlowId()"
-    [class.border-indigo-200]="flow().id !== openedFlowId()"
-    [class.bg-emerald-50]="flow().id === openedFlowId()"
-    [class.border-emerald-300]="flow().id === openedFlowId()"
-    [class.ring-1]="flow().id === openedFlowId()"
-    [class.ring-emerald-200]="flow().id === openedFlowId()"
+    [class.border-blue-300]="flow().id === openedFlowId()"
+    [class.bg-blue-50]="flow().id === openedFlowId()"
+    [class.border-slate-200]="flow().id !== openedFlowId()"
+    [class.bg-white]="flow().id !== openedFlowId()"
     (click)="flow().id !== openedFlowId() && open()">
 
-    <!-- Header -->
-    <div class="flex items-center justify-between text-sm ">
-        <div class="flex items-center gap-2 font-medium"
-            [class.text-indigo-700]="flow().id !== openedFlowId()"
-            [class.text-emerald-700]="flow().id === openedFlowId()">
-            <i class="bi" [ngClass]="{
-          'bi-globe': flow().visibility === 'PUBLIC',
-          'bi-lock-fill': flow().visibility === 'PRIVATE'
-        }" [class.text-indigo-500]="flow().visibility === 'PUBLIC'"
-                [class.text-gray-500]="flow().visibility === 'PRIVATE'">
-            </i>
-
-            {{ flow().name }}
+    <div class="flex items-start justify-between gap-2">
+        <div class="min-w-0">
+            <div class="text-sm font-medium text-slate-800 truncate">{{ flow().name }}</div>
+            <div class="text-xs text-slate-500 truncate">{{ flow().author }}</div>
         </div>
-
-        <button
-            type="button"
-            class="p-0 m-0 border-0 bg-transparent text-indigo-400 hover:text-indigo-600"
-            (click)="$event.stopPropagation(); toggleDetails()"
-            title="Details">
-            <i class="bi bi-chevron-down text-xs transition-transform duration-200" [class.rotate-180]="expanded()">
-            </i>
-        </button>
+        <span class="text-[10px] px-2 py-0.5 rounded-full border font-semibold"
+              [class.bg-indigo-100]="flow().visibility === 'PUBLIC'"
+              [class.text-indigo-700]="flow().visibility === 'PUBLIC'"
+              [class.border-indigo-200]="flow().visibility === 'PUBLIC'"
+              [class.bg-slate-100]="flow().visibility === 'PRIVATE'"
+              [class.text-slate-700]="flow().visibility === 'PRIVATE'"
+              [class.border-slate-200]="flow().visibility === 'PRIVATE'">
+            {{ flow().visibility }}
+        </span>
     </div>
 
-    <!-- Dettagli -->
-    <div class="overflow-hidden transition-all duration-300" [class.max-h-0]="!expanded()"
-        [class.max-h-36]="expanded()">
-
-        <div class="mt-2 pt-2 border-t border-indigo-200
-              text-xs text-gray-600
-              flex row items-center gap-1">
-
-            <!-- Author -->
-            <div class="flex items-baseline gap-2">
-                <span class="text-[11px] tracking-wide text-gray-400">
-                    Author:
-                </span>
-                <span class="font-small text-gray-700">
-                    {{ flow().author }}
-                </span>
-            </div>
-
-            <!-- Created -->
-            <div class="flex items-baseline gap-2">
-                <span class="text-[11px] tracking-wide text-gray-400">
-                    Created:
-                </span>
-                <span class="font-small text-gray-700">
-                    {{ flow().createdAt | date:'dd/MM/yyyy' }}
-                </span>
-            </div>
-
-
+    <div class="mt-2 text-[11px] text-slate-500 flex justify-between items-center gap-2" (click)="$event.stopPropagation()">
+        <span>{{ flow().createdAt | date:'dd/MM/yyyy' }}</span>
+        <div class="flex items-center gap-1.5 text-sm">
+            <button class="p-1 rounded enabled:hover:bg-blue-100 enabled:text-blue-600 disabled:text-blue-200" title="Clone"
+                (click)="clone()" [disabled]="this.flow().visibility!=='PRIVATE'">
+                <i class="bi bi-files"></i>
+            </button>
+            <button class="p-1 rounded enabled:hover:bg-red-100 enabled:text-red-600 disabled:text-red-200" title="Delete"
+                (click)="remove()" [disabled]="this.flow().visibility!=='PRIVATE'">
+                <i class="bi bi-trash"></i>
+            </button>
         </div>
-        <div class="w-full h-px bg-linear-to-r from-transparent via-indigo-200 to-transparent my-3"></div>
-
-            <!-- Actions -->
-            <div class="flex items-center gap-2 text-sm">
-                <button class="p-1 rounded enabled:hover:bg-indigo-100 enabled:text-indigo-600 disabled:text-indigo-200" title="Open"
-                [disabled]="this.flow().id == this.openedFlowId()"    
-                (click)="$event.stopPropagation(); open()">
-                    <i class="bi bi-box-arrow-in-right"></i>
-                </button>
-
-                <button class="p-1 rounded enabled:hover:bg-indigo-100 enabled:text-indigo-600 disabled:text-indigo-200" title="Clone"
-                    (click)="$event.stopPropagation(); clone()" [disabled]="this.flow().visibility!=='PRIVATE'">
-                    <i class="bi bi-files"></i>
-                </button>
-
-                <button class="p-1 rounded enabled:hover:bg-red-100 enabled:text-red-600 disabled:text-red-200" title="Delete"
-                    (click)="$event.stopPropagation(); remove()" [disabled]="this.flow().visibility!=='PRIVATE'">
-                    <i class="bi bi-trash"></i>
-                </button>
-            </div>
     </div>
 
 </div>

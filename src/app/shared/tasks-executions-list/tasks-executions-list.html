@@ -1,10 +1,6 @@
 <aside class="h-full bg-white border border-slate-200 rounded-md flex flex-col overflow-hidden">
-  <div class="px-4 py-3 border-b border-slate-200">
-    <h2 class="text-sm font-semibold text-slate-800">Task Executions</h2>
-    <p class="text-xs text-slate-500">Running and completed runs</p>
-  </div>
-
-  <div class="px-3 pt-2">
+  
+  <div class="px-3 pt-4">
     <div class="relative flex items-center">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
            class="absolute w-5 h-5 top-2.5 left-2.5 text-slate-600">
@@ -19,7 +15,7 @@
     </div>
   </div>
 
-  <div class="px-3 pt-2">
+  <div class="px-3 pt-4">
     <div class="btn-group w-full h-8" role="group">
       <button type="button" class="btn btn-sm w-full transition"
               [class.btn-primary]="filter() === 'all'"
@@ -40,7 +36,7 @@
     </div>
   </div>
 
-  <div class="px-3 py-2">
+  <div class="px-3 py-4">
     <app-ordering
       [orderFields]="orderFields"
       [orderView]="orderView"
@@ -55,7 +51,7 @@
       @for (execution of filteredExecutions(); track execution.id) {
       <button
         type="button"
-        class="w-full text-left p-3 rounded-md border transition-colors"
+        class="w-full text-left p-3 rounded-md border transition-all duration-150 hover:-translate-y-0.5 hover:border-blue-300 hover:bg-blue-100 hover:shadow-md"
         [class.border-blue-300]="execution.id === selectedExecutionId()"
         [class.bg-blue-50]="execution.id === selectedExecutionId()"
         [class.border-slate-200]="execution.id !== selectedExecutionId()"
