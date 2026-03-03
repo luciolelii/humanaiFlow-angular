@@ -275,16 +275,30 @@
   flex-direction: column;
   gap: 2px;
   min-width: 0;
+  overflow: hidden;
+}
+
+.hi-meta-chip-wide {
+  grid-column: 1 / -1;
 }
 
 .hi-meta-chip-head {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
   gap: 4px;
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.03em;
+  min-width: 0;
+}
+
+.hi-meta-chip-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal;
+  line-height: 1.15;
 }
 
 .hi-meta-chip-value {

@@ -21,4 +21,17 @@ export class FieldRetreiver {
       })
     );
   }
+
+  isFieldRequired(
+    blockType: string,
+    key: string,
+    context?: Record<string, string>
+  ) {
+    return this.fieldRetreiverCallService.isFieldRequired(blockType, key, context).pipe(
+      catchError((err) => {
+        console.error('Field required check failed', err);
+        return throwError(() => err);
+      })
+    );
+  }
 }

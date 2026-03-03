@@ -262,13 +262,19 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
+  overflow: hidden;
+}
+
+.llm-param-chip-wide {
+  grid-column: 1 / -1;
 }
 
 .llm-param-row-head {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
   gap: 6px;
+  min-width: 0;
 }
 
 .llm-edit-btn {
@@ -349,6 +355,14 @@
   text-transform: uppercase;
   letter-spacing: 0.03em;
   flex-shrink: 0;
+}
+
+.llm-param-key-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal;
+  line-height: 1.15;
 }
 
 .llm-param-value {

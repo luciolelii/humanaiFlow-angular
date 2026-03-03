@@ -2,7 +2,7 @@ import { Injectable, signal } from '@angular/core';
 import { environment } from '@environment';
 import { BlockType, BlockTypeName } from '@models/flow';
 import { BlocksCallServiceBase } from './block-call.base';
-import { catchError, throwError } from 'rxjs';
+import { catchError, firstValueFrom, throwError } from 'rxjs';
 
 @Injectable({
   providedIn: 'root',
@@ -27,6 +27,15 @@ export class BlocksService {
     this.blocksCallService.retrieveAllBlocksTypes().subscribe((blockTypes) => {
       this._blockTypes.set(blockTypes);
     });
+  }
+
+  async getBlockType(typeName: BlockTypeName) {
+    const current = this._blockTypes().find((blockType) => blockType.type === typeName);
+    if (current) return current;
+
+    const blockTypes = await firstValueFrom(this.blocksCallService.retrieveAllBlocksTypes());
+    this._blockTypes.set(blockTypes);
+    return blockTypes.find((blockType) => blockType.type === typeName);
   }
 
   createEmptyBlock(blockType: BlockTypeName) {

@@ -6,4 +6,10 @@ export abstract class FieldRetreiverCallServiceBase {
     key: string,
     context?: Record<string, string>
   ): Observable<string[]>;
+
+  abstract isFieldRequired(
+    blockType: string,
+    key: string,
+    context?: Record<string, string>
+  ): Observable<boolean>;
 }

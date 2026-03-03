@@ -103,6 +103,17 @@
           </span>
           <span class="hi-meta-chip-value">{{ model || '-' }}</span>
         </span>
+        @if (isConditionallyRequired('llmDescriptor.authorization')) {
+        <span class="hi-meta-chip hi-meta-chip-wide">
+          <span class="hi-meta-chip-head">
+            <span class="hi-meta-chip-label">Authorization</span>
+            <button type="button" class="hi-edit-btn" title="Edit authorization" (pointerdown)="$event.stopPropagation()" (click)="openSimpleParamEditor('authorization', $event)">
+              <i class="bi bi-pen"></i>
+            </button>
+          </span>
+          <span class="hi-meta-chip-value">{{ authorization || '-' }}</span>
+        </span>
+        }
       </div>
     </div>
   </div>
@@ -123,7 +134,7 @@
           }
         </select>
         } @else {
-        <input type="text" [(ngModel)]="localEditorValue" [attr.maxlength]="localEditorKey === 'name' ? 20 : null" [placeholder]="localEditorKey === 'name' ? 'Max 20 characters' : 'Value...'" (pointerdown)="$event.stopPropagation()" />
+        <input type="text" [(ngModel)]="localEditorValue" [attr.maxlength]="localEditorKey === 'name' ? 20 : null" [placeholder]="localEditorKey === 'name' ? 'Max 20 characters' : (localEditorKey === 'authorization' ? 'Token / key...' : 'Value...')" (pointerdown)="$event.stopPropagation()" />
         }
       </div>
       <div class="hi-modal-actions">

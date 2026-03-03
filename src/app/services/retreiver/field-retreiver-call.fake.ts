@@ -29,4 +29,21 @@ export class FieldRetreiverCallServiceFake extends FieldRetreiverCallServiceBase
 
     return of([]);
   }
+
+  override isFieldRequired(
+    blockType: string,
+    key: string,
+    context?: Record<string, string>
+  ): Observable<boolean> {
+    if (key !== "authorization") {
+      return of(false);
+    }
+
+    const provider = context?.["provider"] ?? "";
+    if (blockType === "LLMBlock") {
+      return of(provider === "Anthropic");
+    }
+
+    return of(false);
+  }
 }

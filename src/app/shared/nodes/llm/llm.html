@@ -92,6 +92,18 @@
         </div>
         <span class="llm-param-value">{{ model || '-' }}</span>
       </div>
+
+      @if (isConditionallyRequired('llmDescriptor.authorization')) {
+      <div class="llm-param-chip llm-param-chip-wide">
+        <div class="llm-param-row-head">
+          <span class="llm-param-key llm-param-key-label">Authorization</span>
+          <button type="button" class="llm-edit-btn" title="Edit authorization" (pointerdown)="$event.stopPropagation()" (click)="openSimpleParamEditor('authorization', $event)">
+            <i class="bi bi-pen"></i>
+          </button>
+        </div>
+        <span class="llm-param-value">{{ authorization || '-' }}</span>
+      </div>
+      }
     </div>
 
     <div class="llm-param-block">
@@ -133,7 +145,7 @@
           }
         </select>
         } @else {
-        <input type="text" [(ngModel)]="localEditorValue" [attr.maxlength]="localEditorKey === 'name' ? 20 : null" [placeholder]="localEditorKey === 'name' ? 'Max 20 characters' : 'Value...'" (pointerdown)="$event.stopPropagation()" />
+        <input type="text" [(ngModel)]="localEditorValue" [attr.maxlength]="localEditorKey === 'name' ? 20 : null" [placeholder]="localEditorKey === 'name' ? 'Max 20 characters' : (localEditorKey === 'authorization' ? 'Token / key...' : 'Value...')" (pointerdown)="$event.stopPropagation()" />
         }
       </div>
       <div class="llm-modal-actions">

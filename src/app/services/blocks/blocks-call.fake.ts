@@ -66,9 +66,6 @@ export class BlocksCallServiceFake extends BlocksCallServiceBase {
               "x-retriever-depends-on": [
                 "provider"
               ]
-            },
-            "authorization": {
-              "type": "string"
             }
           }
         }
@@ -129,9 +126,6 @@ export class BlocksCallServiceFake extends BlocksCallServiceBase {
               "x-retriever-depends-on": [
                 "provider"
               ]
-            },
-            "authorization": {
-              "type": "string"
             }
           }
         }
@@ -146,7 +140,7 @@ export class BlocksCallServiceFake extends BlocksCallServiceBase {
     "configurationClass": null,
     "schema": null
   }
-]
+];
 
   override retrieveAllBlocksTypes(): Observable<BlockType[]> {
     return of(this.blockTypes);

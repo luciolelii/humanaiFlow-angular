@@ -19,4 +19,17 @@ export class FieldRetreiverCallService extends FieldRetreiverCallServiceBase {
     }
     return this.http.get<string[]>(url, { params });
   }
+
+  override isFieldRequired(
+    blockType: string,
+    key: string,
+    context?: Record<string, string>
+  ): Observable<boolean> {
+    const url = `${environment.apiUrl}/retriever/${encodeURIComponent(blockType)}/${encodeURIComponent(key)}/required`;
+    let params = new HttpParams();
+    for (const [ctxKey, ctxValue] of Object.entries(context ?? {})) {
+      params = params.set(ctxKey, ctxValue);
+    }
+    return this.http.get<boolean>(url, { params });
+  }
 }
