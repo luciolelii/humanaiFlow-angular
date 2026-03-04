@@ -1,10 +1,15 @@
-<div class="llm-node">
+<div class="llm-node"
+  [class.llm-node--human]="isHumanNode()">
   <div class="llm-header cursor-move">
     <div class="llm-icon">
+      @if (isHumanNode()) {
+      <i class="bi bi-person-check-fill"></i>
+      } @else {
       <img src="llm_node.png" alt="LLM" class="llm-icon-image" />
+      }
     </div>
     <div class="llm-header-content">
-      <span class="llm-title">LLM Node</span>
+      <span class="llm-title">{{ nodeTitle() }}</span>
       <div class="llm-subtitle-row">
         <span class="llm-subtitle">{{ name }}</span>
         <button type="button" class="llm-name-edit-btn" title="Edit name" (pointerdown)="$event.stopPropagation()" (click)="openNameEditor($event)">
@@ -49,7 +54,9 @@
           }"
           [emit]="emit">
         </div>
-        <span class="llm-pill llm-pill-input">{{ input.key }}</span>
+        <span class="llm-pill llm-pill-input">
+          {{ input.key }}
+        </span>
       </div>
       }
     </div>
@@ -77,52 +84,68 @@
   </div>
 
   <div class="llm-params">
+    @if (parameterFieldGroups.length) {
+    <div class="llm-param-groups">
+      @for (group of parameterFieldGroups; track group.key) {
+      <fieldset class="llm-param-fieldset">
+        <legend class="llm-param-legend">{{ group.legend }}</legend>
+        <div class="llm-param-grid">
+          @for (field of group.fields; track field.path) {
+          <div class="llm-param-chip">
+            <div class="llm-param-row-head">
+              <span class="llm-param-key">{{ field.label }}</span>
+              <button
+                type="button"
+                class="llm-edit-btn"
+                [attr.title]="'Edit ' + field.label.toLowerCase()"
+                (pointerdown)="$event.stopPropagation()"
+                (click)="openParameterEditor(field.path, $event)">
+                <i class="bi bi-pen"></i>
+              </button>
+            </div>
+            <span class="llm-param-value">{{ field.value }}</span>
+          </div>
+          }
+        </div>
+      </fieldset>
+      }
+    </div>
+    }
+
+    @if (parameterFields.length) {
     <div class="llm-param-grid">
+      @for (field of parameterFields; track field.path) {
       <div class="llm-param-chip">
         <div class="llm-param-row-head">
-          <span class="llm-param-key">Provider</span>
-          <button type="button" class="llm-edit-btn" title="Edit provider" (pointerdown)="$event.stopPropagation()" (click)="openSimpleParamEditor('provider', $event)">
+          <span class="llm-param-key">{{ field.label }}</span>
+          <button
+            type="button"
+            class="llm-edit-btn"
+            [attr.title]="'Edit ' + field.label.toLowerCase()"
+            (pointerdown)="$event.stopPropagation()"
+            (click)="openParameterEditor(field.path, $event)">
             <i class="bi bi-pen"></i>
           </button>
         </div>
-        <span class="llm-param-value">{{ provider || '-' }}</span>
-      </div>
-
-      <div class="llm-param-chip">
-        <div class="llm-param-row-head">
-          <span class="llm-param-key">Model</span>
-          <button type="button" class="llm-edit-btn" title="Edit model" (pointerdown)="$event.stopPropagation()" (click)="openSimpleParamEditor('model', $event)">
-            <i class="bi bi-pen"></i>
-          </button>
-        </div>
-        <span class="llm-param-value">{{ model || '-' }}</span>
-      </div>
-
-      @if (isConditionallyRequired('llmDescriptor.authorization')) {
-      <div class="llm-param-chip llm-param-chip-wide">
-        <div class="llm-param-row-head">
-          <span class="llm-param-key llm-param-key-label">Authorization</span>
-          <button type="button" class="llm-edit-btn" title="Edit authorization" (pointerdown)="$event.stopPropagation()" (click)="openSimpleParamEditor('authorization', $event)">
-            <i class="bi bi-pen"></i>
-          </button>
-        </div>
-        <span class="llm-param-value">{{ authorization || '-' }}</span>
+        <span class="llm-param-value">{{ field.value }}</span>
       </div>
       }
     </div>
+    }
 
+    @if (hasMainContent()) {
     <div class="llm-param-block">
       <div class="llm-param-row-head">
-        <div class="llm-param-key">Prompt</div>
-        <button type="button" class="llm-edit-btn" title="Edit prompt" (pointerdown)="$event.stopPropagation()" (click)="openPromptEditor($event)">
+        <div class="llm-param-key">{{ mainContentLabel() }}</div>
+        <button type="button" class="llm-edit-btn" [attr.title]="'Edit ' + mainContentLabel().toLowerCase()" (pointerdown)="$event.stopPropagation()" (click)="openMainContentEditor($event)">
           <i class="bi bi-pen"></i>
         </button>
       </div>
       <div class="llm-param-text">
-        @if (!promptParts.length) {
+        @if (!mainContentParts().length) {
         -
         } @else {
-          @for (part of promptParts; track $index) {
+          @for (part of mainContentParts(); track $index) {
             @if (part.isDynamicInput) {
             <span class="llm-inline-token">{{ formatDynamicInputToken(part.text) }}</span>
             } @else {
@@ -132,6 +155,7 @@
         }
       </div>
     </div>
+    }
   </div>
 
   @if (localEditorOpen) {
@@ -142,7 +166,12 @@
         <label>{{ localEditorLabel }}</label>
         @if (localEditorLoading) {
         <input type="text" [ngModel]="localEditorValue" placeholder="Loading..." disabled (pointerdown)="$event.stopPropagation()" />
-        } @else if (localEditorKey !== 'name' && localEditorOptions.length) {
+        } @else if (localEditorType === 'boolean') {
+        <select [(ngModel)]="localEditorValue" (pointerdown)="$event.stopPropagation()">
+          <option value="true">true</option>
+          <option value="false">false</option>
+        </select>
+        } @else if (localEditorOptions.length) {
         <select [(ngModel)]="localEditorValue" (pointerdown)="$event.stopPropagation()">
           <option value="">Select {{ localEditorLabel | lowercase }}...</option>
           @for (option of localEditorOptions; track option) {
@@ -150,7 +179,12 @@
           }
         </select>
         } @else {
-        <input type="text" [(ngModel)]="localEditorValue" [attr.maxlength]="localEditorKey === 'name' ? 20 : null" [placeholder]="localEditorKey === 'name' ? 'Max 20 characters' : (localEditorKey === 'authorization' ? 'Token / key...' : 'Value...')" (pointerdown)="$event.stopPropagation()" />
+        <input
+          [type]="localEditorType === 'number' || localEditorType === 'integer' ? 'number' : 'text'"
+          [(ngModel)]="localEditorValue"
+          [attr.maxlength]="localEditorMaxLength"
+          [placeholder]="localEditorMaxLength ? 'Max ' + localEditorMaxLength + ' characters' : 'Value...'"
+          (pointerdown)="$event.stopPropagation()" />
         }
       </div>
       <div class="llm-modal-actions">

@@ -31,19 +31,11 @@ export class FieldRetreiverCallServiceFake extends FieldRetreiverCallServiceBase
   }
 
   override isFieldRequired(
-    blockType: string,
-    key: string,
+    _blockType: string,
+    _key: string,
     context?: Record<string, string>
   ): Observable<boolean> {
-    if (key !== "authorization") {
-      return of(false);
-    }
-
-    const provider = context?.["provider"] ?? "";
-    if (blockType === "LLMBlock") {
-      return of(provider === "Anthropic");
-    }
-
+    void context;
     return of(false);
   }
 }

@@ -1,0 +1,156 @@
+<div class="llm-node"
+  [class.llm-node--human]="isHumanNode()"
+  [class.llm-node-error]="hasExecutionErrors()"
+  [class.llm-node-warning]="hasExecutionWarnings() && !hasExecutionErrors()">
+  @if (hasExecutionErrors()) {
+  <div class="llm-error-alert-wrap">
+    <div class="llm-error-alert">
+      <i class="bi bi-exclamation-triangle-fill"></i>
+    </div>
+    <div class="llm-error-tooltip">
+      <div class="llm-error-title">Execution errors</div>
+      @for (error of executionErrors(); track $index) {
+      <div class="llm-error-item">{{ error }}</div>
+      }
+    </div>
+  </div>
+  }
+  @if (hasExecutionWarnings()) {
+  <div class="llm-warning-alert-wrap">
+    <div class="llm-warning-alert">
+      <i class="bi bi-exclamation-circle-fill"></i>
+    </div>
+    <div class="llm-warning-list-tooltip">
+      <div class="llm-warning-list-title">Execution warnings</div>
+      @for (warning of executionWarnings(); track $index) {
+      <div class="llm-warning-list-item">{{ warning }}</div>
+      }
+    </div>
+  </div>
+  }
+
+  <div class="llm-header cursor-move">
+    <div class="llm-icon">
+      @if (isHumanNode()) {
+      <i class="bi bi-person-check-fill"></i>
+      } @else {
+      <img src="llm_node.png" alt="LLM" class="llm-icon-image" />
+      }
+    </div>
+    <div class="llm-header-content">
+      <span class="llm-title">{{ nodeTitle() }}</span>
+      <div class="llm-subtitle-row">
+        <span class="llm-subtitle">{{ name }}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="llm-body">
+    <div class="llm-column">
+      <div class="llm-column-title">Inputs</div>
+      @for (input of inputs; track input.key) {
+      <div class="llm-row llm-row-input">
+        <div
+          refComponent
+          class="llm-socket"
+          [data]="{
+            type: 'socket',
+            side: 'input',
+            key: input.key,
+            nodeId: data.id,
+            payload: input.socket
+          }"
+          [emit]="emit">
+        </div>
+        <span class="llm-pill llm-pill-input">
+          {{ input.key }}
+          @if (executionInputTooltip(input.key); as inputTooltip) {
+          <span class="llm-input-info-wrap" (pointerdown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
+            <button
+              type="button"
+              class="llm-input-info"
+              aria-label="Show input value">
+              <i class="bi bi-info-circle"></i>
+            </button>
+            <span class="llm-input-tooltip">{{ inputTooltip }}</span>
+          </span>
+          }
+        </span>
+      </div>
+      }
+    </div>
+
+    <div class="llm-column">
+      <div class="llm-column-title llm-column-title-right">Outputs</div>
+      @for (output of outputs; track output.key) {
+      <div class="llm-row llm-row-output">
+        <span class="llm-pill llm-pill-output">{{ output.key }}</span>
+        <div
+          refComponent
+          class="llm-socket llm-socket-right"
+          [data]="{
+            type: 'socket',
+            side: 'output',
+            key: output.key,
+            nodeId: data.id,
+            payload: output.socket
+          }"
+          [emit]="emit">
+        </div>
+      </div>
+      }
+    </div>
+  </div>
+
+  <div class="llm-params">
+    @if (parameterFieldGroups.length) {
+    <div class="llm-param-groups">
+      @for (group of parameterFieldGroups; track group.key) {
+      <fieldset class="llm-param-fieldset">
+        <legend class="llm-param-legend">{{ group.legend }}</legend>
+        <div class="llm-param-grid">
+          @for (field of group.fields; track field.path) {
+          <div class="llm-param-chip">
+            <div class="llm-param-row-head">
+              <span class="llm-param-key">{{ field.label }}</span>
+            </div>
+            <span class="llm-param-value">{{ field.value }}</span>
+          </div>
+          }
+        </div>
+      </fieldset>
+      }
+    </div>
+    }
+
+    @if (parameterFields.length) {
+    <div class="llm-param-grid">
+      @for (field of parameterFields; track field.path) {
+      <div class="llm-param-chip">
+        <div class="llm-param-row-head">
+          <span class="llm-param-key">{{ field.label }}</span>
+        </div>
+        <span class="llm-param-value">{{ field.value }}</span>
+      </div>
+      }
+    </div>
+    }
+
+    @if (hasMainContent()) {
+    <div class="llm-param-block">
+      <div class="llm-param-row-head">
+        <div class="llm-param-key">{{ mainContentLabel() }}</div>
+      </div>
+      <div class="llm-param-text">
+        @for (part of mainContentParts(); track $index) {
+          @if (part.isDynamicInput) {
+          <span class="llm-inline-token">{{ formatDynamicInputToken(part.text) }}</span>
+          } @else {
+          <span>{{ part.text }}</span>
+          }
+        }
+      </div>
+    </div>
+    }
+  </div>
+</div>

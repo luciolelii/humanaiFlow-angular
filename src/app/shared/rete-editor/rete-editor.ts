@@ -15,6 +15,8 @@ import { firstValueFrom } from 'rxjs';
 export class ReteEditor implements OnChanges, OnDestroy {
   readonly flowData = input.required<FlowData>();
   readonly flowId = input.required<string>();
+  readonly readonly = input<boolean>(false);
+  readonly nodeView = input<'editor' | 'execution'>('editor');
 
   constructor(
     private injector: Injector,
@@ -62,6 +64,7 @@ export class ReteEditor implements OnChanges, OnDestroy {
   }
 
   async onDrop(event: DragEvent) {
+    if (this.readonly()) return;
     event.preventDefault();
     const payload = event.dataTransfer?.getData(BLOCK_TYPE_DRAG_MIME);
     if (!payload || !this.rete) return;
@@ -96,26 +99,30 @@ export class ReteEditor implements OnChanges, OnDestroy {
     this.rete = undefined;
     host.innerHTML = '';
 
-    const rete = await createEditor(host, this.injector, this.flowData());
+    const rete = await createEditor(host, this.injector, this.flowData(), {
+      nodeView: this.nodeView()
+    });
     if (currentVersion !== this.loadVersion) {
       rete.area.destroy();
       return;
     }
 
     this.rete = rete;
-    rete.editor.addPipe((context) => {
-      if (this.dirtyEventTypes.has(context.type)) {
-        this.markFlowChanged(rete, context);
-      }
-      return context;
-    });
+    if (!this.readonly()) {
+      rete.editor.addPipe((context) => {
+        if (this.dirtyEventTypes.has(context.type)) {
+          this.markFlowChanged(rete, context);
+        }
+        return context;
+      });
 
-    rete.area.addPipe((context: any) => {
-      if (context?.type === 'nodetranslated') {
-        this.markFlowChanged(rete, context);
-      }
-      return context;
-    });
+      rete.area.addPipe((context: any) => {
+        if (context?.type === 'nodetranslated') {
+          this.markFlowChanged(rete, context);
+        }
+        return context;
+      });
+    }
   }
 
   private getDropPosition(event: DragEvent) {
@@ -142,7 +149,9 @@ export class ReteEditor implements OnChanges, OnDestroy {
   }
 
   private markFlowChanged(rete: ReteEditorInstance, context: any) {
+    if (this.readonly()) return;
     this.syncNodePositionFromContext(rete, context);
+    if (this.flowState.currentFlow()?.id !== this.flowId()) return;
     const updatedData = exportGraph(rete.editor);
     this.flowState.updateData(updatedData);
     this.flowChanged.emit(updatedData);

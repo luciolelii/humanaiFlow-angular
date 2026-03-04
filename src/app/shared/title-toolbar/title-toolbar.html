@@ -57,3 +57,15 @@
 
   </div>
 </div>
+
+@if (flow()) {
+<div class="px-4 py-2 bg-white border-b border-gray-200 text-xs text-slate-600 flex flex-wrap items-center gap-x-4 gap-y-1">
+  <span><span class="text-slate-400">Author:</span> {{ flow()!.author }}</span>
+  <span><span class="text-slate-400">Visibility:</span> {{ flow()!.visibility }}</span>
+  <span><span class="text-slate-400">Created:</span> {{ flow()!.createdAt | date:'dd/MM/yyyy HH:mm' }}</span>
+  <span><span class="text-slate-400">Updated:</span> {{ flow()!.updatedAt | date:'dd/MM/yyyy HH:mm' }}</span>
+  @if (flow()!.description) {
+  <span class="truncate max-w-[420px]"><span class="text-slate-400">Description:</span> {{ flow()!.description }}</span>
+  }
+</div>
+}

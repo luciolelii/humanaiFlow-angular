@@ -23,15 +23,15 @@
         </span>
     </div>
 
-    <div class="mt-2 text-[11px] text-slate-500 flex justify-between items-center gap-2" (click)="$event.stopPropagation()">
+    <div class="mt-2 text-[11px] text-slate-500 flex justify-between items-center gap-2">
         <span>{{ flow().createdAt | date:'dd/MM/yyyy' }}</span>
         <div class="flex items-center gap-1.5 text-sm">
             <button class="p-1 rounded enabled:hover:bg-blue-100 enabled:text-blue-600 disabled:text-blue-200" title="Clone"
-                (click)="clone()" [disabled]="this.flow().visibility!=='PRIVATE'">
+                (click)="$event.stopPropagation(); clone()" [disabled]="this.flow().visibility!=='PRIVATE'">
                 <i class="bi bi-files"></i>
             </button>
             <button class="p-1 rounded enabled:hover:bg-red-100 enabled:text-red-600 disabled:text-red-200" title="Delete"
-                (click)="remove()" [disabled]="this.flow().visibility!=='PRIVATE'">
+                (click)="$event.stopPropagation(); remove()" [disabled]="this.flow().visibility!=='PRIVATE'">
                 <i class="bi bi-trash"></i>
             </button>
         </div>

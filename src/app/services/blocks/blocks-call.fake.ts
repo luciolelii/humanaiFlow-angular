@@ -3,7 +3,7 @@ import { Observable, of } from "rxjs";
 import { BlocksCallServiceBase } from "./block-call.base";
 
 export class BlocksCallServiceFake extends BlocksCallServiceBase {
-  private readonly blockTypes: BlockType[] = [
+  private readonly blockTypes: BlockType[] =[
   {
     "type": "HumanInteractionBlock",
     "description": "A block that requires human interaction",
@@ -27,45 +27,36 @@ export class BlocksCallServiceFake extends BlocksCallServiceBase {
           "type": "string"
         },
         "actionDescription": {
-          "type": "string"
+          "type": "string",
+          "x-ui-widget": "textarea",
+          "x-ui-placeholder": "Describe the human task",
+          "x-ui-accept-variable-as-placeholder": false
         },
-        "llmDescriptor": {
+        "simulateWith": {
           "$ref": "#/definitions/LLMDescriptor"
-        },
-        "inputAsList": {
-          "type": "boolean"
-        },
-        "outputAsList": {
-          "type": "boolean"
         }
       },
       "required": [
         "type",
         "name",
         "actionDescription",
-        "llmDescriptor",
-        "inputAsList",
-        "outputAsList"
+        "simulateWith"
       ],
       "definitions": {
         "LLMDescriptor": {
           "type": "object",
           "additionalProperties": false,
-          "required": [
-            "provider",
-            "model"
-          ],
           "properties": {
             "provider": {
               "type": "string",
-              "x-retriever-name": "providers",
-              "x-retriever-url": "/retriever/{blockType}/providers",
+              "x-retriever-name": "LLM",
+              "x-retriever-url": "/retriever/LLM/providers",
               "x-retriever-owner": "LLMDescriptor"
             },
             "model": {
               "type": "string",
-              "x-retriever-name": "models",
-              "x-retriever-url": "/retriever/{blockType}/models",
+              "x-retriever-name": "LLM",
+              "x-retriever-url": "/retriever/LLM/models",
               "x-retriever-owner": "LLMDescriptor",
               "x-retriever-depends-on": [
                 "provider"
@@ -102,7 +93,11 @@ export class BlocksCallServiceFake extends BlocksCallServiceBase {
           "$ref": "#/definitions/LLMDescriptor"
         },
         "prompt": {
-          "type": "string"
+          "type": "string",
+          "x-ui-widget": "textarea",
+          "x-ui-placeholder": "Write the prompt to execute",
+          "x-ui-tip": "Use ${{}} to indicate variables, for example: What is the capital of ${{country}}?",
+          "x-ui-accept-variable-as-placeholder": true
         }
       },
       "required": [
@@ -115,21 +110,17 @@ export class BlocksCallServiceFake extends BlocksCallServiceBase {
         "LLMDescriptor": {
           "type": "object",
           "additionalProperties": false,
-          "required": [
-            "provider",
-            "model"
-          ],
           "properties": {
             "provider": {
               "type": "string",
-              "x-retriever-name": "providers",
-              "x-retriever-url": "/retriever/{blockType}/providers",
+              "x-retriever-name": "LLM",
+              "x-retriever-url": "/retriever/LLM/providers",
               "x-retriever-owner": "LLMDescriptor"
             },
             "model": {
               "type": "string",
-              "x-retriever-name": "models",
-              "x-retriever-url": "/retriever/{blockType}/models",
+              "x-retriever-name": "LLM",
+              "x-retriever-url": "/retriever/LLM/models",
               "x-retriever-owner": "LLMDescriptor",
               "x-retriever-depends-on": [
                 "provider"
@@ -139,14 +130,6 @@ export class BlocksCallServiceFake extends BlocksCallServiceBase {
         }
       }
     }
-  },
-  {
-    "type": "SourceBlock",
-    "description": "This type represents a source node in the workflow manager",
-    "userInteractive": true,
-    "configurationType": null,
-    "configurationClass": null,
-    "schema": null
   }
 ];
 

@@ -6,12 +6,10 @@ import {
   Presets as ConnectionPresets
 } from "rete-connection-plugin";
 import { AngularPlugin, Presets, AngularArea2D } from "rete-angular-plugin/21";
-import { InputNodeComponent } from "@shared/nodes/input/input-node.component";
-import { OutputNodeComponent } from "@shared/nodes/output/output-node.component";
 import { HFNode, HFSchemes } from "@models/nodes";
 import { FlowBlock, FlowData } from "@models/flow";
-import { LLMNodeComponent } from "@shared/nodes/llm/llm";
-import { HumanInteractionNodeComponent } from "@shared/nodes/human-interaction/human-interaction";
+import { GenericNodeComponent } from "@shared/nodes/generic-node/generic-node";
+import { TaskStepNodeComponent } from "@shared/nodes/task-step-node/task-step-node";
 import { CustomSocket } from "@shared/custom-socket/custom-socket";
 
 type AreaExtra = AngularArea2D<HFSchemes>;
@@ -25,13 +23,15 @@ export type ReteEditorInstance = {
 export async function createEditor(
   container: HTMLElement,
   injector: Injector,
-  flowData: FlowData
+  flowData: FlowData,
+  options?: { nodeView?: "editor" | "execution" }
 ): Promise<ReteEditorInstance> {
 
   const editor = new NodeEditor<HFSchemes>();
   const area = new AreaPlugin<HFSchemes, AreaExtra>(container);
   const connection = new ConnectionPlugin<HFSchemes, AreaExtra>();
   const render = new AngularPlugin<HFSchemes, AreaExtra>({ injector });
+  const nodeView = options?.nodeView ?? "editor";
 
   
 
@@ -39,25 +39,17 @@ export async function createEditor(
     Presets.classic.setup({
       customize: {
         node(context) {
-          if (context.payload.label === "Input") {
-            return InputNodeComponent;
-          }
-          if (context.payload.label === "Output") {
-            return OutputNodeComponent;
-          }
-          if (context.payload.label === "HumanInteractionBlock") {
-            return HumanInteractionNodeComponent;
-          }
-          return LLMNodeComponent;
+          return nodeView === "execution" ? TaskStepNodeComponent : GenericNodeComponent;
         },
         socket(context: any) {
-          // rete-angular passes only `payload` to socket component props,
-          // so we persist side on the payload to style input/output sockets.
+          // rete-angular passes only `payload` to the socket component.
+          // Build a per-render payload copy to avoid mutating shared socket objects.
           const socketPayload = context?.payload;
-          const socketSide = context?.side;
-          if (socketPayload && (socketSide === "input" || socketSide === "output")) {
-            (socketPayload as any).__hfSide = socketSide;
-          }
+          const socketSide = context?.side === "output" ? "output" : "input";
+          context.payload = {
+            ...(socketPayload ?? {}),
+            __hfSide: socketSide
+          };
           return CustomSocket;
         }
       },
@@ -204,4 +196,3 @@ function toNodeLabel(typeName: string) {
   if (typeName === "OutputBlock") return "Output";
   return typeName;
 }
-  

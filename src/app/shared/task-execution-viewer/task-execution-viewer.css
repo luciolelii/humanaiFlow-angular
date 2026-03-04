@@ -2,3 +2,55 @@
   display: block;
   height: 100%;
 }
+
+.execution-rete-readonly {
+  pointer-events: auto;
+}
+
+:host ::ng-deep .execution-rete-readonly :is(
+  .llm-socket,
+  .hi-socket,
+  .input-socket,
+  .output-socket
+) {
+  pointer-events: none;
+}
+
+:host ::ng-deep .execution-rete-readonly .llm-input-info,
+:host ::ng-deep .execution-rete-readonly .hi-input-info,
+:host ::ng-deep .execution-rete-readonly .llm-input-info-wrap,
+:host ::ng-deep .execution-rete-readonly .hi-input-info-wrap {
+  pointer-events: auto;
+}
+
+:host ::ng-deep .execution-rete-readonly :is(
+  .node-delete-btn,
+  .llm-delete-btn,
+  .hi-delete-btn,
+  .llm-edit-btn,
+  .hi-edit-btn,
+  .llm-name-edit-btn,
+  .hi-name-edit-btn
+) {
+  display: none !important;
+}
+
+.context-title {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.context-json {
+  margin: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #0f172a;
+  font-size: 11px;
+  line-height: 1.35;
+  padding: 8px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

@@ -1,9 +1,10 @@
+import { CommonModule } from '@angular/common';
 import { Component, computed, ElementRef, inject, ViewChild } from '@angular/core';
 import { EditorStateHolder } from '@stores/flow-editor';
 
 @Component({
   selector: 'app-title-toolbar',
-  imports: [],
+  imports: [CommonModule],
   templateUrl: './title-toolbar.html',
   styleUrl: './title-toolbar.css',
 })
@@ -12,8 +13,9 @@ export class TitleToolbar {
   @ViewChild('titleInput') myInputRef!: ElementRef;
 
   editorState: EditorStateHolder = inject(EditorStateHolder);
+  flow = computed(() => this.editorState.currentFlow());
   title = computed(() => {
-    const flow = this.editorState.currentFlow();
+    const flow = this.flow();
     return flow ? flow.name : 'No Flow Opened';
   });
 

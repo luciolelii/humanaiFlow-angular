@@ -112,7 +112,7 @@ const testDataFlow ={
       "type" : "HumanInteractiveBlockConfiguration",
       "name" : "interactive",
       "actionDescription" : "Answer the question in input",
-      "llmDescriptor" : {
+      "simulateWith" : {
         "provider" : "testProvider",
         "model" : "testModel"
       },

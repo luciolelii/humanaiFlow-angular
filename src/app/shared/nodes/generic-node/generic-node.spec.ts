@@ -1,18 +1,18 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { LLMNodeComponent } from './llm';
+import { GenericNodeComponent } from './generic-node';
 
-describe('LLMNodeComponent', () => {
-  let component: LLMNodeComponent;
-  let fixture: ComponentFixture<LLMNodeComponent>;
+describe('GenericNodeComponent', () => {
+  let component: GenericNodeComponent;
+  let fixture: ComponentFixture<GenericNodeComponent>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [LLMNodeComponent]
+      imports: [GenericNodeComponent]
     })
     .compileComponents();
 
-    fixture = TestBed.createComponent(LLMNodeComponent);
+    fixture = TestBed.createComponent(GenericNodeComponent);
     component = fixture.componentInstance;
     await fixture.whenStable();
   });

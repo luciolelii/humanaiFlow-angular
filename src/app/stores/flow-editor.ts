@@ -57,6 +57,9 @@ export class EditorStateHolder {
   }
 
   updateData(data: FlowData) {
+    const current = this.currentFlow();
+    if (!current) return;
+
     this.currentFlow.update(flow => {
       if (!flow) return flow;
       return { ...flow, data };

@@ -64,7 +64,6 @@ export type FlowBlockConfiguration =
 export type LLMDescriptor = {
   provider: string;
   model: string;
-  authorization?: string;
 };
 
 export type LLMBlockConfiguration = {

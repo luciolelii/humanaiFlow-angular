@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { OrderEvent, OrderField, Ordering, orderDirType } from '@shared/ordering/ordering';
 import { OrderViewState } from '@utilities/list-state-holder';
 
-export type TaskExecutionStatus = 'RUNNING' | 'COMPLETED' | 'FAILED' | 'QUEUED';
+export type TaskExecutionStatus = 'RUNNING' | 'COMPLETED' | 'FAILED' | 'ERROR' | 'QUEUED';
 
 export type TaskExecutionListItem = {
   id: string;
@@ -92,7 +92,7 @@ export class TasksExecutionsListComponent {
   statusBadgeClass(status: TaskExecutionStatus) {
     if (status === 'RUNNING') return 'bg-blue-100 text-blue-700 border-blue-200';
     if (status === 'COMPLETED') return 'bg-emerald-100 text-emerald-700 border-emerald-200';
-    if (status === 'FAILED') return 'bg-rose-100 text-rose-700 border-rose-200';
+    if (status === 'FAILED' || status === 'ERROR') return 'bg-rose-100 text-rose-700 border-rose-200';
     return 'bg-slate-100 text-slate-700 border-slate-200';
   }
 }
