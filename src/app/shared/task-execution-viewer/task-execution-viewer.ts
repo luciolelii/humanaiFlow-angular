@@ -19,14 +19,24 @@ export class TaskExecutionViewerComponent {
 
   readonly executionFlowData = computed<FlowData>(() => {
     const contextInputs = this.execution()?.context.inputs ?? {};
+    const contextResults = {
+      ...(this.execution()?.context.result ?? {}),
+      ...(this.execution()?.context.executionResult ?? {})
+    };
     const contextErrors = this.execution()?.context.errors ?? {};
     const contextWarnings = this.execution()?.context.warnings ?? {};
+    const waitingSteps = this.execution()?.context.waitingSteps ?? [];
     const steps = this.stepsArray();
     const blocks = steps.map((step, index) => ({
       ...step.block,
       specificConfiguration: {
         ...(step.block.specificConfiguration ?? {}),
+        __stepStatus: step.status,
+        __isWaitingStep: waitingSteps.includes(step.id),
         __executionInputs: this.getExecutionInputValues(step, contextInputs),
+        __connectedInputs: this.getConnectedInputs(step),
+        __executionOutputs: this.getExecutionOutputValues(step, contextResults),
+        __connectedOutputs: this.getConnectedOutputs(step),
         __executionErrors: this.getExecutionErrors(step.id, contextErrors),
         __executionWarnings: this.getExecutionWarnings(step.id, contextWarnings)
       },
@@ -105,6 +115,39 @@ export class TaskExecutionViewerComponent {
     }
 
     return result;
+  }
+
+  private getConnectedInputs(step: TaskExecutionStep): string[] {
+    return (step.inputs ?? [])
+      .filter((input) => input.registered)
+      .map((input) => input.descriptor?.name)
+      .filter((name): name is string => typeof name === 'string' && name.length > 0);
+  }
+
+  private getExecutionOutputValues(
+    step: TaskExecutionStep,
+    contextResults: Record<string, unknown>
+  ): Record<string, unknown> {
+    const result: Record<string, unknown> = {};
+
+    for (const output of step.outputs ?? []) {
+      const outputName = output.descriptor?.name;
+      if (!outputName) continue;
+
+      const key = `${step.id}:${outputName}`;
+      if (Object.prototype.hasOwnProperty.call(contextResults, key)) {
+        result[outputName] = contextResults[key];
+      }
+    }
+
+    return result;
+  }
+
+  private getConnectedOutputs(step: TaskExecutionStep): string[] {
+    return (step.outputs ?? [])
+      .filter((output) => output.connected)
+      .map((output) => output.descriptor?.name)
+      .filter((name): name is string => typeof name === 'string' && name.length > 0);
   }
 
   private getExecutionErrors(

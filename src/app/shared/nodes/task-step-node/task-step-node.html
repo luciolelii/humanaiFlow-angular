@@ -1,7 +1,20 @@
 <div class="llm-node"
   [class.llm-node--human]="isHumanNode()"
+  [class.llm-node-completed]="isCompleted() && !needsAttention() && !hasExecutionErrors() && !hasExecutionWarnings()"
+  [class.llm-node-attention]="needsAttention()"
   [class.llm-node-error]="hasExecutionErrors()"
   [class.llm-node-warning]="hasExecutionWarnings() && !hasExecutionErrors()">
+  @if (needsAttention()) {
+  <div class="llm-attention-wrap" (pointerdown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
+    <button
+      type="button"
+      class="llm-attention-trigger"
+      aria-label="Open waiting step details"
+      (click)="openInteractionModal($event)">
+      <i class="bi bi-hand-index-thumb-fill"></i>
+    </button>
+  </div>
+  }
   @if (hasExecutionErrors()) {
   <div class="llm-error-alert-wrap">
     <div class="llm-error-alert">
@@ -50,31 +63,37 @@
       <div class="llm-column-title">Inputs</div>
       @for (input of inputs; track input.key) {
       <div class="llm-row llm-row-input">
-        <div
-          refComponent
-          class="llm-socket"
-          [data]="{
-            type: 'socket',
-            side: 'input',
-            key: input.key,
-            nodeId: data.id,
-            payload: input.socket
-          }"
-          [emit]="emit">
-        </div>
-        <span class="llm-pill llm-pill-input">
-          {{ input.key }}
+        @if (isInputConnected(input.key)) {
+        <span class="llm-socket-wrap llm-socket-wrap-input">
+          <div
+            refComponent
+            class="llm-socket"
+            [data]="{
+              type: 'socket',
+              side: 'input',
+              key: input.key,
+              nodeId: data.id,
+              payload: input.socket
+            }"
+            [emit]="emit">
+          </div>
           @if (executionInputTooltip(input.key); as inputTooltip) {
-          <span class="llm-input-info-wrap" (pointerdown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
-            <button
-              type="button"
-              class="llm-input-info"
-              aria-label="Show input value">
-              <i class="bi bi-info-circle"></i>
-            </button>
-            <span class="llm-input-tooltip">{{ inputTooltip }}</span>
-          </span>
+          <span class="llm-io-tooltip llm-io-tooltip-input">{{ inputTooltip }}</span>
           }
+        </span>
+        } @else {
+        <span class="llm-input-value-wrap" (pointerdown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
+          <button
+            type="button"
+            class="llm-input-value-icon"
+            aria-label="Show input value">
+            <i class="bi bi-box-arrow-in-right"></i>
+          </button>
+          <span class="llm-io-tooltip llm-io-tooltip-input">{{ inputValueTooltip(input.key) }}</span>
+        </span>
+        }
+        <span class="llm-pill llm-pill-input">
+          <span class="llm-pill-label">{{ input.key }}</span>
         </span>
       </div>
       }
@@ -84,19 +103,38 @@
       <div class="llm-column-title llm-column-title-right">Outputs</div>
       @for (output of outputs; track output.key) {
       <div class="llm-row llm-row-output">
-        <span class="llm-pill llm-pill-output">{{ output.key }}</span>
-        <div
-          refComponent
-          class="llm-socket llm-socket-right"
-          [data]="{
-            type: 'socket',
-            side: 'output',
-            key: output.key,
-            nodeId: data.id,
-            payload: output.socket
-          }"
-          [emit]="emit">
-        </div>
+        <span class="llm-pill llm-pill-output">
+          <span class="llm-pill-label">{{ output.key }}</span>
+        </span>
+        @if (isOutputConnected(output.key)) {
+        <span class="llm-socket-wrap llm-socket-wrap-output">
+          <div
+            refComponent
+            class="llm-socket llm-socket-right"
+            [data]="{
+              type: 'socket',
+              side: 'output',
+              key: output.key,
+              nodeId: data.id,
+              payload: output.socket
+            }"
+            [emit]="emit">
+          </div>
+          @if (executionOutputTooltip(output.key); as outputTooltip) {
+          <span class="llm-io-tooltip llm-io-tooltip-output">{{ outputTooltip }}</span>
+          }
+        </span>
+        } @else {
+        <span class="llm-output-value-wrap" (pointerdown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
+          <button
+            type="button"
+            class="llm-output-value-icon"
+            aria-label="Show output result">
+            <i class="bi bi-box-arrow-right"></i>
+          </button>
+          <span class="llm-io-tooltip llm-io-tooltip-output">{{ outputValueTooltip(output.key) }}</span>
+        </span>
+        }
       </div>
       }
     </div>
@@ -153,4 +191,19 @@
     </div>
     }
   </div>
+
+  @if (interactionModalOpen) {
+  <div class="llm-modal-backdrop" (pointerdown)="$event.stopPropagation()" (click)="closeInteractionModal($event)">
+    <div class="llm-modal" (pointerdown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
+      <div class="llm-modal-title">Step Waiting</div>
+      <div class="llm-modal-content">
+        <div><strong>Node:</strong> {{ name }}</div>
+        <div><strong>Status:</strong> {{ stepStatus() || 'UNKNOWN' }}</div>
+      </div>
+      <div class="llm-modal-actions">
+        <button type="button" class="llm-btn llm-btn-primary" (click)="closeInteractionModal($event)">Close</button>
+      </div>
+    </div>
+  </div>
+  }
 </div>

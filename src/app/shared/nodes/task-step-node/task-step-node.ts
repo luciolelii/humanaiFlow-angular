@@ -3,6 +3,15 @@ import { ChangeDetectorRef, Component, HostBinding, Input, inject } from '@angul
 import { ClassicPreset } from 'rete';
 import { ReteModule } from 'rete-angular-plugin/21';
 import { BlocksService } from '@services/blocks/blocks';
+import {
+  flattenPrimitiveValues,
+  parentPath,
+  pathToLabel,
+  resolveSchemaRef,
+  splitTemplatedTextParts,
+  toStringOrNull,
+  valueToDisplayString
+} from '../node-utility';
 
 type DisplayField = {
   path: string;
@@ -50,6 +59,7 @@ export class TaskStepNodeComponent {
 
   name = 'Step';
   mainContent: MainContentView | null = null;
+  interactionModalOpen = false;
 
   private blockSchema: Record<string, any> | null = null;
   private variablePlaceholderPaths = new Set<string>();
@@ -74,14 +84,14 @@ export class TaskStepNodeComponent {
 
   private rebuildDisplayState() {
     const config = this.blockConfiguration ?? {};
-    this.name = this.toStringOrNull(config['name']) ?? this.name;
-    const primitiveEntries = this.flattenPrimitiveValues(config);
+    this.name = toStringOrNull(config['name']) ?? this.name;
+    const primitiveEntries = flattenPrimitiveValues(config);
     const contentEntry = this.pickMainContentEntry(primitiveEntries);
 
     this.mainContent = contentEntry
       ? {
           path: contentEntry.path,
-          label: this.pathToLabel(contentEntry.path),
+          label: pathToLabel(contentEntry.path),
           parts: this.toMainContentParts(contentEntry.path, String(contentEntry.value))
         }
       : null;
@@ -93,26 +103,26 @@ export class TaskStepNodeComponent {
       .filter((entry) => entry.path !== contentEntry?.path)
       .map((entry) => ({
         path: entry.path,
-        label: this.pathToLabel(entry.path),
-        value: this.valueToDisplayString(entry.value)
+        label: pathToLabel(entry.path),
+        value: valueToDisplayString(entry.value)
       }));
 
     for (const field of orderedFields) {
-      const parentPath = this.parentPath(field.path);
-      if (!parentPath) {
+      const parentKey = parentPath(field.path);
+      if (!parentKey) {
         rootFields.push(field);
         continue;
       }
-      if (!grouped.has(parentPath)) {
-        grouped.set(parentPath, []);
+      if (!grouped.has(parentKey)) {
+        grouped.set(parentKey, []);
       }
-      grouped.get(parentPath)!.push(field);
+      grouped.get(parentKey)!.push(field);
     }
 
     this.parameterFields = rootFields;
     this.parameterFieldGroups = Array.from(grouped.entries()).map(([key, fields]) => ({
       key,
-      legend: this.pathToLabel(key),
+      legend: pathToLabel(key),
       fields
     }));
 
@@ -158,6 +168,31 @@ export class TaskStepNodeComponent {
     if (!values || !Object.prototype.hasOwnProperty.call(values, inputName)) return null;
 
     const value = values[inputName];
+    if (value == null) return 'not ready yet';
+    if (typeof value === 'string') return value.trim().length > 0 ? value : null;
+
+    try {
+      return JSON.stringify(value, null, 2);
+    } catch {
+      return String(value);
+    }
+  }
+
+  isInputConnected(inputName: string): boolean {
+    const connectedInputs = this.blockConfiguration?.['__connectedInputs'];
+    if (!Array.isArray(connectedInputs)) return true;
+    return connectedInputs.includes(inputName);
+  }
+
+  inputValueTooltip(inputName: string): string {
+    return this.executionInputTooltip(inputName) ?? 'not ready yet';
+  }
+
+  executionOutputTooltip(outputName: string): string | null {
+    const values = this.blockConfiguration?.['__executionOutputs'] as Record<string, unknown> | undefined;
+    if (!values || !Object.prototype.hasOwnProperty.call(values, outputName)) return null;
+
+    const value = values[outputName];
     if (value === undefined) return null;
     if (typeof value === 'string') return value.trim().length > 0 ? value : null;
 
@@ -166,6 +201,16 @@ export class TaskStepNodeComponent {
     } catch {
       return String(value);
     }
+  }
+
+  isOutputConnected(outputName: string): boolean {
+    const connectedOutputs = this.blockConfiguration?.['__connectedOutputs'];
+    if (!Array.isArray(connectedOutputs)) return true;
+    return connectedOutputs.includes(outputName);
+  }
+
+  outputValueTooltip(outputName: string): string {
+    return this.executionOutputTooltip(outputName) ?? 'No output result';
   }
 
   executionErrors(): string[] {
@@ -184,6 +229,31 @@ export class TaskStepNodeComponent {
     return this.executionWarnings().length > 0;
   }
 
+  needsAttention(): boolean {
+    return this.blockConfiguration?.['__isWaitingStep'] === true;
+  }
+
+  isCompleted(): boolean {
+    return this.stepStatus() === 'COMPLETED';
+  }
+
+  stepStatus(): string {
+    const status = this.blockConfiguration?.['__stepStatus'];
+    return typeof status === 'string' ? status.toUpperCase() : '';
+  }
+
+  openInteractionModal(event?: Event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+    this.interactionModalOpen = true;
+  }
+
+  closeInteractionModal(event?: Event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+    this.interactionModalOpen = false;
+  }
+
   private get blockConfiguration(): Record<string, any> | null {
     return this.data?.data?.specificConfiguration ?? null;
   }
@@ -191,25 +261,6 @@ export class TaskStepNodeComponent {
   private get blockType(): string | null {
     const typeName = this.data?.data?.typeName;
     return typeof typeName === 'string' && typeName.length > 0 ? typeName : null;
-  }
-
-  private toStringOrNull(value: unknown): string | null {
-    if (typeof value === 'string' && value.trim().length > 0) return value;
-    return null;
-  }
-
-  private flattenPrimitiveValues(source: Record<string, any>, prefix = ''): Array<{ path: string; value: unknown }> {
-    const entries: Array<{ path: string; value: unknown }> = [];
-    for (const [key, value] of Object.entries(source ?? {})) {
-      const path = prefix ? `${prefix}.${key}` : key;
-      if (key.startsWith('__')) continue;
-      if (value != null && typeof value === 'object' && !Array.isArray(value)) {
-        entries.push(...this.flattenPrimitiveValues(value as Record<string, any>, path));
-      } else {
-        entries.push({ path, value });
-      }
-    }
-    return entries;
   }
 
   private pickMainContentEntry(entries: Array<{ path: string; value: unknown }>) {
@@ -235,32 +286,6 @@ export class TaskStepNodeComponent {
     return { path: chosen.path, value: chosen.text };
   }
 
-  private valueToDisplayString(value: unknown): string {
-    if (value == null) return '-';
-    if (typeof value === 'string') return value.trim().length ? value : '-';
-    if (typeof value === 'number' || typeof value === 'boolean') return String(value);
-    if (Array.isArray(value)) return value.length ? JSON.stringify(value) : '-';
-    try {
-      return JSON.stringify(value);
-    } catch {
-      return String(value);
-    }
-  }
-
-  private pathToLabel(path: string): string {
-    const lastSegment = path.split('.').at(-1) ?? path;
-    return lastSegment
-      .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-      .replace(/[_-]/g, ' ')
-      .replace(/^./, (c) => c.toUpperCase());
-  }
-
-  private parentPath(path: string): string | null {
-    const index = path.lastIndexOf('.');
-    if (index <= 0) return null;
-    return path.slice(0, index);
-  }
-
   private getExecutionMessages(key: '__executionErrors' | '__executionWarnings'): string[] {
     const values = this.blockConfiguration?.[key];
     if (!Array.isArray(values)) return [];
@@ -269,42 +294,9 @@ export class TaskStepNodeComponent {
 
   private toMainContentParts(path: string, value: string): { text: string; isDynamicInput: boolean }[] {
     if (this.variablePlaceholderPaths.has(path)) {
-      return this.splitTemplatedTextParts(value);
+      return splitTemplatedTextParts(value);
     }
     return [{ text: value, isDynamicInput: false }];
-  }
-
-  private splitTemplatedTextParts(text: string | null): { text: string; isDynamicInput: boolean }[] {
-    if (!text) return [];
-
-    const parts: { text: string; isDynamicInput: boolean }[] = [];
-    const re = /\$\{\{[^}]+\}\}/g;
-    let lastIndex = 0;
-    let match: RegExpExecArray | null;
-
-    while ((match = re.exec(text)) !== null) {
-      if (match.index > lastIndex) {
-        parts.push({
-          text: text.slice(lastIndex, match.index),
-          isDynamicInput: false
-        });
-      }
-
-      parts.push({
-        text: match[0],
-        isDynamicInput: true
-      });
-      lastIndex = re.lastIndex;
-    }
-
-    if (lastIndex < text.length) {
-      parts.push({
-        text: text.slice(lastIndex),
-        isDynamicInput: false
-      });
-    }
-
-    return parts;
   }
 
   private async loadSchemaContext() {
@@ -322,14 +314,14 @@ export class TaskStepNodeComponent {
     if (!schema) return paths;
 
     const walk = (node: Record<string, any>, pathPrefix: string) => {
-      const resolved = this.resolveRef(node, schema);
+      const resolved = resolveSchemaRef(node, schema);
       if (!resolved || typeof resolved !== 'object') return;
 
       const properties = resolved.properties as Record<string, any> | undefined;
       if (!properties) return;
 
       for (const [key, childSchema] of Object.entries(properties)) {
-        const childResolved = this.resolveRef(childSchema as Record<string, any>, schema);
+        const childResolved = resolveSchemaRef(childSchema as Record<string, any>, schema);
         const path = pathPrefix ? `${pathPrefix}.${key}` : key;
         const hasChildren = !!childResolved?.properties || childResolved?.type === 'object';
         if (hasChildren) {
@@ -350,20 +342,6 @@ export class TaskStepNodeComponent {
 
     walk(schema, '');
     return paths;
-  }
-
-  private resolveRef(node: Record<string, any>, root: Record<string, any>) {
-    if (!node || typeof node !== 'object') return node;
-    const ref = node['$ref'];
-    if (typeof ref !== 'string' || !ref.startsWith('#/')) return node;
-
-    const path = ref.slice(2).split('/');
-    let current: any = root;
-    for (const segment of path) {
-      current = current?.[segment];
-      if (current == null) return node;
-    }
-    return current;
   }
 
   private refreshView() {

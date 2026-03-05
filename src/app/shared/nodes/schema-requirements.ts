@@ -1,3 +1,5 @@
+import { resolveSchemaRef } from './node-utility';
+
 export type RequiredField = {
   path: string;
   label: string;
@@ -37,7 +39,7 @@ function walkSchema(
   seenRequired: Set<string>,
   seenConditional: Set<string>
 ) {
-  const resolved = resolveRef(node, root);
+  const resolved = resolveSchemaRef(node, root);
   if (!resolved || typeof resolved !== 'object') return;
 
   const properties = resolved.properties as Record<string, any> | undefined;
@@ -47,7 +49,7 @@ function walkSchema(
 
   for (const [key, propertySchema] of Object.entries(properties)) {
     const propertyPath = pathPrefix ? `${pathPrefix}.${key}` : key;
-    const propertyResolved = resolveRef(propertySchema as Record<string, any>, root);
+    const propertyResolved = resolveSchemaRef(propertySchema as Record<string, any>, root);
     const hasChildren = !!propertyResolved?.properties || propertyResolved?.type === 'object';
     const label = toLabel(key);
 
@@ -86,20 +88,6 @@ function walkSchema(
       walkSchema(propertyResolved as Record<string, any>, root, propertyPath, required, conditional, seenRequired, seenConditional);
     }
   }
-}
-
-function resolveRef(node: Record<string, any>, root: Record<string, any>) {
-  if (!node || typeof node !== 'object') return node;
-  const ref = node['$ref'];
-  if (typeof ref !== 'string' || !ref.startsWith('#/')) return node;
-
-  const path = ref.slice(2).split('/');
-  let current: any = root;
-  for (const segment of path) {
-    current = current?.[segment];
-    if (current == null) return node;
-  }
-  return current;
 }
 
 function toLabel(key: string): string {

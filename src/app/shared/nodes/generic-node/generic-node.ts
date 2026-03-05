@@ -5,10 +5,19 @@ import { ClassicPreset } from 'rete';
 import { ReteModule } from 'rete-angular-plugin/21';
 import { NodeSettingsDialogService } from '@services/dialogs/node-settings-dialog';
 import { EditorStateHolder } from '@stores/flow-editor';
-import { FieldRetreiver } from '@services/retreiver/field-retreiver';
+import { FieldRetreiver as FieldRetriever } from '@services/retreiver/field-retreiver';
 import { BlocksService } from '@services/blocks/blocks';
 import { firstValueFrom } from 'rxjs';
 import { ConditionalRequiredField, extractSchemaRequirements, SchemaRequirements } from '../schema-requirements';
+import {
+  flattenPrimitiveValues,
+  parentPath,
+  pathToLabel,
+  resolveSchemaRef,
+  splitTemplatedTextParts,
+  toStringOrNull,
+  valueToDisplayString
+} from '../node-utility';
 
 type FieldType = 'string' | 'number' | 'integer' | 'boolean' | 'unknown';
 
@@ -57,7 +66,7 @@ export class GenericNodeComponent {
 
   private settingsDialog = inject(NodeSettingsDialogService);
   private editorState = inject(EditorStateHolder);
-  private fieldRetreiver = inject(FieldRetreiver);
+  private fieldRetriever = inject(FieldRetriever);
   private blocksService = inject(BlocksService);
   private cdr = inject(ChangeDetectorRef);
 
@@ -108,7 +117,7 @@ export class GenericNodeComponent {
 
     const config = this.ensureBlockConfiguration();
 
-    this.name = this.toStringOrNull(config['name']) || this.name;
+    this.name = toStringOrNull(config['name']) || this.name;
 
     this.refreshValidationState();
     this.refreshParameterFields();
@@ -236,7 +245,7 @@ export class GenericNodeComponent {
   mainContentLabel(): string {
     const contentKey = this.mainContentKey();
     if (!contentKey) return 'Content';
-    return this.pathToLabel(contentKey);
+    return pathToLabel(contentKey);
   }
 
   hasMainContent(): boolean {
@@ -246,11 +255,11 @@ export class GenericNodeComponent {
   mainContentParts(): { text: string; isDynamicInput: boolean }[] {
     const contentKey = this.mainContentKey();
     if (!contentKey) return [];
-    const content = this.toStringOrNull(this.getByPath(this.blockConfiguration ?? {}, contentKey));
+    const content = toStringOrNull(this.getByPath(this.blockConfiguration ?? {}, contentKey));
     if (!content) return [];
     const ui = this.getFieldUiMeta(contentKey);
     if (ui.widget === 'textarea' && ui.acceptVariableAsPlaceholder) {
-      return this.splitTemplatedTextParts(content);
+      return splitTemplatedTextParts(content);
     }
     return [{ text: content, isDynamicInput: false }];
   }
@@ -277,11 +286,6 @@ export class GenericNodeComponent {
       this.data.data.specificConfiguration = {};
     }
     return this.data.data.specificConfiguration;
-  }
-
-  private toStringOrNull(value: unknown): string | null {
-    if (typeof value === 'string' && value.trim().length > 0) return value;
-    return null;
   }
 
   private markFlowDirty() {
@@ -341,14 +345,14 @@ export class GenericNodeComponent {
     const contentKey = this.mainContentKey();
 
     const walk = (node: Record<string, any>, pathPrefix: string) => {
-      const resolved = this.resolveRef(node, schema);
+      const resolved = resolveSchemaRef(node, schema);
       if (!resolved || typeof resolved !== 'object') return;
 
       const properties = resolved.properties as Record<string, any> | undefined;
       if (!properties) return;
 
       for (const [key, childSchema] of Object.entries(properties)) {
-        const childResolved = this.resolveRef(childSchema as Record<string, any>, schema);
+        const childResolved = resolveSchemaRef(childSchema as Record<string, any>, schema);
         const path = pathPrefix ? `${pathPrefix}.${key}` : key;
         const hasChildren = !!childResolved?.properties || childResolved?.type === 'object';
 
@@ -364,7 +368,7 @@ export class GenericNodeComponent {
         seen.add(path);
         definitions.push({
           path,
-          label: this.pathToLabel(path),
+          label: pathToLabel(path),
           type: this.toFieldType(childResolved?.type),
           retrieverKey: this.toRetrieverKey(childResolved),
           retrieverDependsOn: this.toRetrieverDependsOn(childResolved, pathPrefix),
@@ -415,10 +419,10 @@ export class GenericNodeComponent {
     let current: Record<string, any> | null = root;
     for (const segment of path.split('.')) {
       if (!current) return null;
-      const resolved = this.resolveRef(current, root);
+      const resolved = resolveSchemaRef(current, root);
       const properties = resolved?.properties as Record<string, unknown> | undefined;
       if (!properties || !properties[segment]) return null;
-      current = this.resolveRef(properties[segment] as Record<string, any>, root);
+      current = resolveSchemaRef(properties[segment] as Record<string, any>, root);
     }
 
     return current;
@@ -468,7 +472,7 @@ export class GenericNodeComponent {
 
     try {
       const options = await firstValueFrom(
-        this.fieldRetreiver.retrieveValues(blockType, definition.retrieverKey, context)
+        this.fieldRetriever.retrieveValues(blockType, definition.retrieverKey, context)
       );
       this.localEditorOptions = options ?? [];
     } catch {
@@ -489,25 +493,25 @@ export class GenericNodeComponent {
         return {
           path: definition.path,
           label: definition.label,
-          value: this.valueToDisplayString(value)
+          value: valueToDisplayString(value)
         };
       });
 
       for (const field of orderedFields) {
-        const parentPath = this.parentPath(field.path);
-        if (!parentPath) {
+        const parentKey = parentPath(field.path);
+        if (!parentKey) {
           rootFields.push(field);
           continue;
         }
-        if (!grouped.has(parentPath)) {
-          grouped.set(parentPath, []);
+        if (!grouped.has(parentKey)) {
+          grouped.set(parentKey, []);
         }
-        grouped.get(parentPath)!.push(field);
+        grouped.get(parentKey)!.push(field);
       }
       this.parameterFields = rootFields;
       this.parameterFieldGroups = Array.from(grouped.entries()).map(([key, fields]) => ({
         key,
-        legend: this.pathToLabel(key),
+        legend: pathToLabel(key),
         fields
       }));
       this.refreshView();
@@ -515,66 +519,34 @@ export class GenericNodeComponent {
     }
 
     const contentKey = this.mainContentKey();
-    const fallbackFields = this.flattenPrimitiveValues(config)
+    const fallbackFields = flattenPrimitiveValues(config)
       .filter((entry) => entry.path !== 'name' && entry.path !== 'type' && entry.path !== contentKey)
       .map((entry) => ({
         path: entry.path,
-        label: this.pathToLabel(entry.path),
-        value: this.valueToDisplayString(entry.value)
+        label: pathToLabel(entry.path),
+        value: valueToDisplayString(entry.value)
       }));
 
     for (const field of fallbackFields) {
-      const parentPath = this.parentPath(field.path);
-      if (!parentPath) {
+      const parentKey = parentPath(field.path);
+      if (!parentKey) {
         rootFields.push(field);
         continue;
       }
-      if (!grouped.has(parentPath)) {
-        grouped.set(parentPath, []);
+      if (!grouped.has(parentKey)) {
+        grouped.set(parentKey, []);
       }
-      grouped.get(parentPath)!.push(field);
+      grouped.get(parentKey)!.push(field);
     }
 
     this.parameterFields = rootFields;
     this.parameterFieldGroups = Array.from(grouped.entries()).map(([key, fields]) => ({
       key,
-      legend: this.pathToLabel(key),
+      legend: pathToLabel(key),
       fields
     }));
 
     this.refreshView();
-  }
-
-  private parentPath(path: string): string | null {
-    const index = path.lastIndexOf('.');
-    if (index <= 0) return null;
-    return path.slice(0, index);
-  }
-
-  private flattenPrimitiveValues(source: Record<string, any>, prefix = ''): Array<{ path: string; value: unknown }> {
-    const entries: Array<{ path: string; value: unknown }> = [];
-    for (const [key, value] of Object.entries(source ?? {})) {
-      const path = prefix ? `${prefix}.${key}` : key;
-      if (key.startsWith('__')) continue;
-      if (value != null && typeof value === 'object' && !Array.isArray(value)) {
-        entries.push(...this.flattenPrimitiveValues(value as Record<string, any>, path));
-      } else {
-        entries.push({ path, value });
-      }
-    }
-    return entries;
-  }
-
-  private valueToDisplayString(value: unknown): string {
-    if (value == null) return '-';
-    if (typeof value === 'string') return value.trim().length ? value : '-';
-    if (typeof value === 'number' || typeof value === 'boolean') return String(value);
-    if (Array.isArray(value)) return value.length ? JSON.stringify(value) : '-';
-    try {
-      return JSON.stringify(value);
-    } catch {
-      return String(value);
-    }
   }
 
   private valueToEditorString(value: unknown, type: FieldType): string {
@@ -631,14 +603,6 @@ export class GenericNodeComponent {
     }
 
     return null;
-  }
-
-  private pathToLabel(path: string): string {
-    const lastSegment = path.split('.').at(-1) ?? path;
-    return lastSegment
-      .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-      .replace(/[_-]/g, ' ')
-      .replace(/^./, (c) => c.toUpperCase());
   }
 
   private getByPath(source: Record<string, any>, path: string): unknown {
@@ -704,58 +668,11 @@ export class GenericNodeComponent {
 
     try {
       return await firstValueFrom(
-        this.fieldRetreiver.isFieldRequired(blockType, field.retrieverKey, context)
+        this.fieldRetriever.isFieldRequired(blockType, field.retrieverKey, context)
       );
     } catch {
       return false;
     }
-  }
-
-  private resolveRef(node: Record<string, any>, root: Record<string, any>) {
-    if (!node || typeof node !== 'object') return node;
-    const ref = node['$ref'];
-    if (typeof ref !== 'string' || !ref.startsWith('#/')) return node;
-
-    const path = ref.slice(2).split('/');
-    let current: any = root;
-    for (const segment of path) {
-      current = current?.[segment];
-      if (current == null) return node;
-    }
-    return current;
-  }
-
-  private splitTemplatedTextParts(prompt: string | null): { text: string; isDynamicInput: boolean }[] {
-    if (!prompt) return [];
-
-    const parts: { text: string; isDynamicInput: boolean }[] = [];
-    const re = /\$\{\{[^}]+\}\}/g;
-    let lastIndex = 0;
-    let match: RegExpExecArray | null;
-
-    while ((match = re.exec(prompt)) !== null) {
-      if (match.index > lastIndex) {
-        parts.push({
-          text: prompt.slice(lastIndex, match.index),
-          isDynamicInput: false
-        });
-      }
-
-      parts.push({
-        text: match[0],
-        isDynamicInput: true
-      });
-      lastIndex = re.lastIndex;
-    }
-
-    if (lastIndex < prompt.length) {
-      parts.push({
-        text: prompt.slice(lastIndex),
-        isDynamicInput: false
-      });
-    }
-
-    return parts;
   }
 
   private refreshView() {
