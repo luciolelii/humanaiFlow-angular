@@ -447,5 +447,65 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
   override retrieveAllTaskExecutions(): Observable<TaskExecution[]> {
     return of(this.data);
   }
-}
 
+  override createTaskExecution(flowId: string): Observable<TaskExecution> {
+    const execution: TaskExecution = {
+      id: crypto.randomUUID(),
+      name: flowId || 'Execution',
+      creationTime: Date.now(),
+      context: {
+        inputs: {},
+        result: {},
+        startTime: null,
+        endTime: null,
+        errors: {},
+        warnings: {},
+        steps: {},
+        status: 'CREATED',
+        waitingSteps: [],
+        executionResult: {}
+      }
+    };
+    this.data.unshift(execution);
+    return of(execution);
+  }
+
+  override startTaskExecution(executionId: string): Observable<TaskExecution> {
+    const execution = this.findExecution(executionId);
+    execution.context.status = 'RUNNING';
+    execution.context.startTime = execution.context.startTime ?? Date.now();
+    return of(execution);
+  }
+
+  override prepareStringInput(
+    executionId: string,
+    nodeId: string,
+    inputName: string,
+    value: string
+  ): Observable<TaskExecution> {
+    const execution = this.findExecution(executionId);
+    execution.context.inputs[`${nodeId}:${inputName}`] = value;
+    execution.context.status = execution.context.waitingSteps.length ? 'WAITING' : execution.context.status;
+    return of(execution);
+  }
+
+  override prepareFileInput(
+    executionId: string,
+    nodeId: string,
+    inputName: string,
+    file: File
+  ): Observable<TaskExecution> {
+    const execution = this.findExecution(executionId);
+    execution.context.inputs[`${nodeId}:${inputName}`] = file?.name ?? '';
+    execution.context.status = execution.context.waitingSteps.length ? 'WAITING' : execution.context.status;
+    return of(execution);
+  }
+
+  private findExecution(executionId: string): TaskExecution {
+    const execution = this.data.find((item) => item.id === executionId);
+    if (!execution) {
+      throw new Error(`Execution with id ${executionId} not found`);
+    }
+    return execution;
+  }
+}

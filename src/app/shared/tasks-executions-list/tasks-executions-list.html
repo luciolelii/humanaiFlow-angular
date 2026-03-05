@@ -22,17 +22,17 @@
               [class.btn-outline-primary]="filter() !== 'all'"
               (click)="filter.set('all')">All</button>
       <button type="button" class="btn btn-sm w-full transition"
+              [class.btn-primary]="filter() === 'INIT'"
+              [class.btn-outline-primary]="filter() !== 'INIT'"
+              (click)="filter.set('INIT')">Init</button>
+      <button type="button" class="btn btn-sm w-full transition"
               [class.btn-primary]="filter() === 'RUNNING'"
               [class.btn-outline-primary]="filter() !== 'RUNNING'"
               (click)="filter.set('RUNNING')">Running</button>
       <button type="button" class="btn btn-sm w-full transition"
-              [class.btn-primary]="filter() === 'COMPLETED'"
-              [class.btn-outline-primary]="filter() !== 'COMPLETED'"
-              (click)="filter.set('COMPLETED')">Completed</button>
-      <button type="button" class="btn btn-sm w-full transition"
-              [class.btn-primary]="filter() === 'FAILED'"
-              [class.btn-outline-primary]="filter() !== 'FAILED'"
-              (click)="filter.set('FAILED')">Failed</button>
+              [class.btn-primary]="filter() === 'FINAL'"
+              [class.btn-outline-primary]="filter() !== 'FINAL'"
+              (click)="filter.set('FINAL')">Final</button>
     </div>
   </div>
 

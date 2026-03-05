@@ -1,8 +1,7 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
-import { TaskExecution } from '@models/task-execution';
+import { normalizeExecutionStatus, TaskExecution } from '@models/task-execution';
 import {
   TaskExecutionListItem,
-  TaskExecutionStatus,
   TasksExecutionsListComponent
 } from '@shared/tasks-executions-list/tasks-executions-list';
 import { TaskExecutionViewerComponent } from '@shared/task-execution-viewer/task-execution-viewer';
@@ -24,7 +23,7 @@ export class TasksExecutor {
       id: execution.id,
       title: execution.name,
       flowName: execution.name,
-      status: this.toListStatus(execution.context.status),
+      status: normalizeExecutionStatus(execution.context.status),
       startedAt: this.formatDateTime(execution.creationTime),
       duration: this.formatDuration(execution.context.startTime ?? null, execution.context.endTime ?? null)
     }))
@@ -51,13 +50,6 @@ export class TasksExecutor {
 
   selectExecution(id: string) {
     this.selectedExecutionId.set(id);
-  }
-
-  private toListStatus(status: string): TaskExecutionStatus {
-    if (status === 'COMPLETED') return 'COMPLETED';
-    if (status === 'FAILED' || status === 'ERROR') return 'FAILED';
-    if (status === 'RUNNING' || status === 'WAITING' || status === 'WAITING_FOR_INPUT') return 'RUNNING';
-    return 'QUEUED';
   }
 
   private formatDateTime(timestamp: number): string {
