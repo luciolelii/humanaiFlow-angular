@@ -192,18 +192,4 @@
     }
   </div>
 
-  @if (interactionModalOpen) {
-  <div class="llm-modal-backdrop" (pointerdown)="$event.stopPropagation()" (click)="closeInteractionModal($event)">
-    <div class="llm-modal" (pointerdown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
-      <div class="llm-modal-title">Step Waiting</div>
-      <div class="llm-modal-content">
-        <div><strong>Node:</strong> {{ name }}</div>
-        <div><strong>Status:</strong> {{ stepStatus() || 'UNKNOWN' }}</div>
-      </div>
-      <div class="llm-modal-actions">
-        <button type="button" class="llm-btn llm-btn-primary" (click)="closeInteractionModal($event)">Close</button>
-      </div>
-    </div>
-  </div>
-  }
 </div>

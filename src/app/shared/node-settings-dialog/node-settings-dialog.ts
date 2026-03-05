@@ -1,4 +1,4 @@
-import { Component, effect, inject } from '@angular/core';
+import { Component, effect, ElementRef, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import {
   NodeSettingField,
@@ -14,6 +14,7 @@ import {
 })
 export class NodeSettingsDialogHostComponent {
   private dialog = inject(NodeSettingsDialogService);
+  private host = inject(ElementRef<HTMLElement>);
   state = this.dialog.state;
 
   draft: NodeSettingsValues = {};
@@ -25,6 +26,10 @@ export class NodeSettingsDialogHostComponent {
       if (!state) return;
       this.fields = state.fields;
       this.draft = this.buildDraft(state.fields, state.initial);
+      queueMicrotask(() => {
+        const target = this.host.nativeElement.querySelector('[data-autofocus="true"]') as HTMLElement | null;
+        target?.focus();
+      });
     });
   }
 
@@ -42,6 +47,19 @@ export class NodeSettingsDialogHostComponent {
 
   setFieldValue(key: string, value: string | boolean) {
     this.draft[key] = value;
+  }
+
+  async copyFieldValue(key: string, event?: Event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+    const value = this.draft[key];
+    const text = typeof value === 'string' ? value : String(value ?? '');
+
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // Ignore clipboard errors in unsupported/denied contexts.
+    }
   }
 
   private buildDraft(fields: NodeSettingField[], initial: NodeSettingsValues): NodeSettingsValues {

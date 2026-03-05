@@ -3,6 +3,7 @@ import { ChangeDetectorRef, Component, HostBinding, Input, inject } from '@angul
 import { ClassicPreset } from 'rete';
 import { ReteModule } from 'rete-angular-plugin/21';
 import { BlocksService } from '@services/blocks/blocks';
+import { NodeSettingsDialogService } from '@services/dialogs/node-settings-dialog';
 import {
   flattenPrimitiveValues,
   parentPath,
@@ -43,6 +44,7 @@ type MainContentView = {
 export class TaskStepNodeComponent {
   private blocksService = inject(BlocksService);
   private cdr = inject(ChangeDetectorRef);
+  private settingsDialog = inject(NodeSettingsDialogService);
 
   @Input() data!: any;
   @Input() emit!: (data: any) => void;
@@ -59,7 +61,6 @@ export class TaskStepNodeComponent {
 
   name = 'Step';
   mainContent: MainContentView | null = null;
-  interactionModalOpen = false;
 
   private blockSchema: Record<string, any> | null = null;
   private variablePlaceholderPaths = new Set<string>();
@@ -242,16 +243,41 @@ export class TaskStepNodeComponent {
     return typeof status === 'string' ? status.toUpperCase() : '';
   }
 
-  openInteractionModal(event?: Event) {
+  async openInteractionModal(event?: Event) {
     event?.preventDefault();
     event?.stopPropagation();
-    this.interactionModalOpen = true;
-  }
+    const currentInput = this.currentInputValue();
+    const actionDescription = this.actionDescriptionValue();
+    const currentOutput = this.currentOutputValue();
 
-  closeInteractionModal(event?: Event) {
-    event?.preventDefault();
-    event?.stopPropagation();
-    this.interactionModalOpen = false;
+    await this.settingsDialog.open({
+      title: `Filling output of ${this.name || 'Interaction Step'}`,
+      fields: [
+        {
+          key: 'actionDescription',
+          label: 'Action Description',
+          type: 'display'
+        },
+        {
+          key: 'currentInput',
+          label: 'Current Input',
+          type: 'display',
+          copyable: true
+        },
+        {
+          key: 'output',
+          label: '',
+          type: 'textarea',
+          rows: 12,
+          autofocus: true
+        }
+      ],
+      initial: {
+        actionDescription,
+        currentInput,
+        output: currentOutput
+      }
+    });
   }
 
   private get blockConfiguration(): Record<string, any> | null {
@@ -261,6 +287,22 @@ export class TaskStepNodeComponent {
   private get blockType(): string | null {
     const typeName = this.data?.data?.typeName;
     return typeof typeName === 'string' && typeName.length > 0 ? typeName : null;
+  }
+
+  private actionDescriptionValue(): string {
+    const value = this.blockConfiguration?.['actionDescription'];
+    if (typeof value === 'string') return value;
+    return '';
+  }
+
+  private currentInputValue(): string {
+    const inputKey = this.inputs[0]?.key ?? 'input';
+    return this.executionInputTooltip(inputKey) ?? 'not ready yet';
+  }
+
+  private currentOutputValue(): string {
+    const outputKey = this.outputs[0]?.key ?? 'output';
+    return this.executionOutputTooltip(outputKey) ?? '';
   }
 
   private pickMainContentEntry(entries: Array<{ path: string; value: unknown }>) {

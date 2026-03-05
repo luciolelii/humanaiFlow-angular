@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, input } from '@angular/core';
+import { Component, computed, input, signal } from '@angular/core';
 import { FlowData } from '@models/flow';
 import { TaskExecution, TaskExecutionStep } from '@models/task-execution';
 import { ReteEditor } from '@shared/rete-editor/rete-editor';
@@ -12,6 +12,7 @@ import { ReteEditor } from '@shared/rete-editor/rete-editor';
 })
 export class TaskExecutionViewerComponent {
   readonly execution = input<TaskExecution | null>(null);
+  readonly contextAsideOpen = signal(true);
 
   readonly stepsArray = computed(() =>
     Object.values(this.execution()?.context.steps ?? {})
@@ -55,6 +56,10 @@ export class TaskExecutionViewerComponent {
     if (!context?.startTime || !context?.endTime) return null;
     return Math.max(0, context.endTime - context.startTime);
   });
+
+  toggleContextAside() {
+    this.contextAsideOpen.update((open) => !open);
+  }
 
   private inferConnections(steps: TaskExecutionStep[]) {
     const connections: FlowData['connections'] = [];

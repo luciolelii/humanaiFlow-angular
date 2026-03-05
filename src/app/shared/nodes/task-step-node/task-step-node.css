@@ -414,63 +414,6 @@
   visibility: visible;
 }
 
-.llm-modal-backdrop {
-  position: absolute;
-  inset: 0;
-  border-radius: 16px;
-  background: rgba(15, 23, 42, 0.4);
-  z-index: 180;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 12px;
-}
-
-.llm-modal {
-  width: 100%;
-  max-width: 250px;
-  border: 1px solid #cbd5e1;
-  border-radius: 12px;
-  background: #ffffff;
-  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.28);
-  padding: 10px;
-}
-
-.llm-modal-title {
-  font-size: 12px;
-  font-weight: 700;
-  color: #0f172a;
-  margin-bottom: 8px;
-}
-
-.llm-modal-content {
-  font-size: 11px;
-  color: #334155;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-bottom: 10px;
-}
-
-.llm-modal-actions {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.llm-btn {
-  border: none;
-  border-radius: 8px;
-  padding: 6px 10px;
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.llm-btn-primary {
-  background: #2563eb;
-  color: #eff6ff;
-}
-
 @keyframes llmAttentionBorderPulse {
   0% {
     box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.38), 0 10px 24px rgba(15, 23, 42, 0.12);
