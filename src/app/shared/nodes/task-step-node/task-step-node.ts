@@ -189,6 +189,11 @@ export class TaskStepNodeComponent {
     return this.executionInputTooltip(inputName) ?? 'not ready yet';
   }
 
+  showInputTooltip(): boolean {
+    const statusGroup = this.blockConfiguration?.['__executionStatusGroup'];
+    return statusGroup !== 'INIT';
+  }
+
   executionOutputTooltip(outputName: string): string | null {
     const values = this.blockConfiguration?.['__executionOutputs'] as Record<string, unknown> | undefined;
     if (!values || !Object.prototype.hasOwnProperty.call(values, outputName)) return null;
@@ -212,6 +217,10 @@ export class TaskStepNodeComponent {
 
   outputValueTooltip(outputName: string): string {
     return this.executionOutputTooltip(outputName) ?? 'No output result';
+  }
+
+  showOutputTooltip(): boolean {
+    return this.showInputTooltip();
   }
 
   executionErrors(): string[] {

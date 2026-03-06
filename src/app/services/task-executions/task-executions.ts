@@ -1,15 +1,18 @@
 import { Injectable, signal } from '@angular/core';
 import { environment } from '@environment';
-import { TaskExecution } from '@models/task-execution';
-import { catchError, tap, throwError } from 'rxjs';
+import { getExecutionStatusGroup, TaskExecution } from '@models/task-execution';
+import { catchError, finalize, tap, throwError } from 'rxjs';
 import { TaskExecutionsCallServiceBase } from './task-executions-call.base';
 
 @Injectable({
   providedIn: 'root',
 })
 export class TaskExecutionsService {
+  private static readonly POLL_INTERVAL_MS = 5000;
   taskExecutionsCallService: TaskExecutionsCallServiceBase = new environment.taskExecutionsCallService();
   private initialized = false;
+  private refreshInFlight = false;
+  private pollTimer: ReturnType<typeof setInterval> | null = null;
   private _taskExecutions = signal<TaskExecution[]>([]);
 
   taskExecutions = this._taskExecutions.asReadonly();
@@ -21,8 +24,16 @@ export class TaskExecutionsService {
   }
 
   refresh() {
-    this.taskExecutionsCallService.retrieveAllTaskExecutions().subscribe((taskExecutions) => {
-      this._taskExecutions.set(taskExecutions);
+    if (this.refreshInFlight) return;
+    this.refreshInFlight = true;
+
+    this.taskExecutionsCallService.retrieveAllTaskExecutions().pipe(
+      finalize(() => {
+        this.refreshInFlight = false;
+      })
+    ).subscribe((taskExecutions) => {
+      this._taskExecutions.set([...taskExecutions]);
+      this.updatePollingState(taskExecutions);
     });
   }
 
@@ -31,6 +42,16 @@ export class TaskExecutionsService {
       tap(() => this.refresh()),
       catchError((err) => {
         console.error('Create execution failed', err);
+        return throwError(() => err);
+      })
+    );
+  }
+
+  deleteExecution(executionId: string) {
+    return this.taskExecutionsCallService.deleteTaskExecution(executionId).pipe(
+      tap(() => this.refresh()),
+      catchError((err) => {
+        console.error('Delete execution failed', err);
         return throwError(() => err);
       })
     );
@@ -64,5 +85,31 @@ export class TaskExecutionsService {
         return throwError(() => err);
       })
     );
+  }
+
+  private updatePollingState(taskExecutions: TaskExecution[]) {
+    const shouldPoll = taskExecutions.some((execution) =>
+      getExecutionStatusGroup(execution.context.status) === 'RUNNING'
+    );
+
+    if (shouldPoll) {
+      this.startPolling();
+      return;
+    }
+
+    this.stopPolling();
+  }
+
+  private startPolling() {
+    if (this.pollTimer) return;
+    this.pollTimer = setInterval(() => {
+      this.refresh();
+    }, TaskExecutionsService.POLL_INTERVAL_MS);
+  }
+
+  private stopPolling() {
+    if (!this.pollTimer) return;
+    clearInterval(this.pollTimer);
+    this.pollTimer = null;
   }
 }

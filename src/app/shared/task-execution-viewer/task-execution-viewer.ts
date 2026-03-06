@@ -1,24 +1,37 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, input, signal } from '@angular/core';
+import { Component, computed, inject, input, OnDestroy, signal } from '@angular/core';
 import { FlowData } from '@models/flow';
-import { TaskExecution, TaskExecutionStep } from '@models/task-execution';
+import { getExecutionStatusGroup, TaskExecution, TaskExecutionStep } from '@models/task-execution';
+import {
+  EditableExecutionInput,
+  TaskExecutionInputsPanelComponent
+} from '@shared/task-execution-inputs-panel/task-execution-inputs-panel';
 import { ReteEditor } from '@shared/rete-editor/rete-editor';
+import { TaskExecutionsService } from '@services/task-executions/task-executions';
 
 @Component({
   selector: 'app-task-execution-viewer',
-  imports: [CommonModule, ReteEditor],
+  imports: [CommonModule, ReteEditor, TaskExecutionInputsPanelComponent],
   templateUrl: './task-execution-viewer.html',
   styleUrl: './task-execution-viewer.css',
 })
-export class TaskExecutionViewerComponent {
+export class TaskExecutionViewerComponent implements OnDestroy {
+  private static readonly TEXT_INPUT_DEBOUNCE_MS = 1200;
+  private taskExecutionsService = inject(TaskExecutionsService);
+  private readonly textInputDebounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
   readonly execution = input<TaskExecution | null>(null);
   readonly contextAsideOpen = signal(true);
+  readonly startInProgress = signal(false);
+  readonly savingInputs = signal<Record<string, boolean>>({});
+  readonly savingErrors = signal<Record<string, string>>({});
+  readonly pendingTextInputs = signal<Record<string, string>>({});
 
   readonly stepsArray = computed(() =>
     Object.values(this.execution()?.context.steps ?? {})
   );
 
   readonly executionFlowData = computed<FlowData>(() => {
+    const executionStatusGroup = getExecutionStatusGroup(this.execution()?.context.status);
     const contextInputs = this.execution()?.context.inputs ?? {};
     const contextResults = {
       ...(this.execution()?.context.result ?? {}),
@@ -33,6 +46,7 @@ export class TaskExecutionViewerComponent {
       specificConfiguration: {
         ...(step.block.specificConfiguration ?? {}),
         __stepStatus: step.status,
+        __executionStatusGroup: executionStatusGroup,
         __isWaitingStep: waitingSteps.includes(step.id),
         __executionInputs: this.getExecutionInputValues(step, contextInputs),
         __connectedInputs: this.getConnectedInputs(step),
@@ -57,8 +71,172 @@ export class TaskExecutionViewerComponent {
     return Math.max(0, context.endTime - context.startTime);
   });
 
+  readonly inputsReadOnly = computed(() => {
+    const status = this.execution()?.context.status;
+    return getExecutionStatusGroup(status) !== 'INIT';
+  });
+
+  readonly canStartExecution = computed(() => {
+    const execution = this.execution();
+    if (!execution) return false;
+
+    const statusGroup = getExecutionStatusGroup(execution.context.status);
+    if (statusGroup !== 'INIT') return false;
+
+    const status = String(execution.context.status ?? '').toUpperCase();
+    if (status !== 'CREATED' && status !== 'READY') return false;
+
+    for (const step of Object.values(execution.context.steps ?? {})) {
+      for (const input of step.inputs ?? []) {
+        if (input.registered) continue;
+
+        const inputName = input.descriptor?.name;
+        if (!inputName) continue;
+
+        const key = `${step.id}:${inputName}`;
+        const value = Object.prototype.hasOwnProperty.call(execution.context.inputs ?? {}, key)
+          ? execution.context.inputs[key]
+          : input.value;
+
+        if (!this.isInputSet(value)) return false;
+      }
+    }
+
+    return true;
+  });
+
+  readonly editableInputs = computed<EditableExecutionInput[]>(() => {
+    const execution = this.execution();
+    if (!execution) return [];
+
+    const entries: EditableExecutionInput[] = [];
+    const contextInputs = execution.context.inputs ?? {};
+
+    for (const step of Object.values(execution.context.steps ?? {})) {
+      for (const input of step.inputs ?? []) {
+        if (input.registered) continue;
+
+        const inputName = input.descriptor?.name;
+        if (!inputName) continue;
+
+        const key = `${step.id}:${inputName}`;
+        const rawValue = Object.prototype.hasOwnProperty.call(contextInputs, key)
+          ? contextInputs[key]
+          : input.value;
+        const pendingValue = this.pendingTextInputs()[key];
+
+        entries.push({
+          key,
+          nodeId: step.id,
+          inputName,
+          label: `${step.block.name}.${inputName}`,
+          type: String(input.descriptor?.type ?? 'TEXT').toUpperCase(),
+          value: pendingValue ?? (rawValue == null ? '' : String(rawValue))
+        });
+      }
+    }
+
+    return entries.sort((a, b) => a.label.localeCompare(b.label));
+  });
+
   toggleContextAside() {
     this.contextAsideOpen.update((open) => !open);
+  }
+
+  startExecution() {
+    const executionId = this.execution()?.id;
+    if (!executionId || !this.canStartExecution() || this.startInProgress()) return;
+
+    this.startInProgress.set(true);
+    this.taskExecutionsService.startExecution(executionId).subscribe({
+      next: () => this.startInProgress.set(false),
+      error: () => this.startInProgress.set(false)
+    });
+  }
+
+  onTextInputChange(input: EditableExecutionInput, value: string) {
+    if (this.inputsReadOnly()) return;
+    const executionId = this.execution()?.id;
+    if (!executionId) return;
+
+    this.pendingTextInputs.update((current) => ({ ...current, [input.key]: value }));
+
+    const timerKey = `${executionId}:${input.key}`;
+    this.clearDebounceTimer(timerKey);
+    const timer = setTimeout(() => {
+      this.textInputDebounceTimers.delete(timerKey);
+      this.sendPreparedTextInput(input, executionId);
+    }, TaskExecutionViewerComponent.TEXT_INPUT_DEBOUNCE_MS);
+    this.textInputDebounceTimers.set(timerKey, timer);
+  }
+
+  onFileInputChange(input: EditableExecutionInput, file: File) {
+    if (this.inputsReadOnly()) return;
+    const executionId = this.execution()?.id;
+    if (!executionId) return;
+
+    this.setInputSaving(input.key, true);
+    this.taskExecutionsService.prepareFileInput(executionId, input.nodeId, input.inputName, file).subscribe({
+      next: () => this.clearInputSaving(input.key),
+      error: () => this.setInputError(input.key, 'Failed to upload file')
+    });
+  }
+
+  private setInputSaving(key: string, saving: boolean) {
+    this.savingInputs.update((current) => ({ ...current, [key]: saving }));
+    if (saving) {
+      this.savingErrors.update((current) => {
+        const next = { ...current };
+        delete next[key];
+        return next;
+      });
+    }
+  }
+
+  private clearInputSaving(key: string) {
+    this.savingInputs.update((current) => ({ ...current, [key]: false }));
+    this.savingErrors.update((current) => {
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
+  }
+
+  private setInputError(key: string, message: string) {
+    this.savingInputs.update((current) => ({ ...current, [key]: false }));
+    this.savingErrors.update((current) => ({ ...current, [key]: message }));
+  }
+
+  ngOnDestroy() {
+    for (const timer of this.textInputDebounceTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.textInputDebounceTimers.clear();
+  }
+
+  private sendPreparedTextInput(input: EditableExecutionInput, executionId: string) {
+    if (this.inputsReadOnly() || this.execution()?.id !== executionId) return;
+
+    const value = this.pendingTextInputs()[input.key] ?? '';
+    this.setInputSaving(input.key, true);
+    this.taskExecutionsService.prepareStringInput(executionId, input.nodeId, input.inputName, value).subscribe({
+      next: () => {
+        this.pendingTextInputs.update((current) => {
+          const next = { ...current };
+          delete next[input.key];
+          return next;
+        });
+        this.clearInputSaving(input.key);
+      },
+      error: () => this.setInputError(input.key, 'Failed to update input')
+    });
+  }
+
+  private clearDebounceTimer(timerKey: string) {
+    const timer = this.textInputDebounceTimers.get(timerKey);
+    if (!timer) return;
+    clearTimeout(timer);
+    this.textInputDebounceTimers.delete(timerKey);
   }
 
   private inferConnections(steps: TaskExecutionStep[]) {
@@ -173,5 +351,11 @@ export class TaskExecutionViewerComponent {
   ): string[] {
     const raw = contextWarnings[stepId];
     return raw && raw.trim().length > 0 ? [raw] : [];
+  }
+
+  private isInputSet(value: unknown): boolean {
+    if (value == null) return false;
+    if (typeof value === 'string') return value.trim().length > 0;
+    return true;
   }
 }

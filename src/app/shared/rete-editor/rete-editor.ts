@@ -46,7 +46,7 @@ export class ReteEditor implements OnChanges, OnDestroy {
 
   ngOnChanges(changes: SimpleChanges): void {
     if (!this.viewReady) return;
-    if (changes['flowId']) {
+    if (changes['flowId'] || (this.readonly() && changes['flowData'])) {
       void this.reloadEditor();
     }
   }

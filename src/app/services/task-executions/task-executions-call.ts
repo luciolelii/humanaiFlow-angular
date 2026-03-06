@@ -16,6 +16,10 @@ export class TaskExecutionsCallService extends TaskExecutionsCallServiceBase {
     return this.http.post<TaskExecution>(`${environment.apiUrl}/executions`, flowId);
   }
 
+  override deleteTaskExecution(executionId: string): Observable<void> {
+    return this.http.delete<void>(`${environment.apiUrl}/executions/${encodeURIComponent(executionId)}`);
+  }
+
   override startTaskExecution(executionId: string): Observable<TaskExecution> {
     return this.http.put<TaskExecution>(`${environment.apiUrl}/executions/${encodeURIComponent(executionId)}/start`, null);
   }

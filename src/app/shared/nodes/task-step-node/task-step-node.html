@@ -77,7 +77,7 @@
             }"
             [emit]="emit">
           </div>
-          @if (executionInputTooltip(input.key); as inputTooltip) {
+          @if (showInputTooltip() && executionInputTooltip(input.key); as inputTooltip) {
           <span class="llm-io-tooltip llm-io-tooltip-input">{{ inputTooltip }}</span>
           }
         </span>
@@ -89,7 +89,9 @@
             aria-label="Show input value">
             <i class="bi bi-box-arrow-in-right"></i>
           </button>
+          @if (showInputTooltip()) {
           <span class="llm-io-tooltip llm-io-tooltip-input">{{ inputValueTooltip(input.key) }}</span>
+          }
         </span>
         }
         <span class="llm-pill llm-pill-input">
@@ -120,7 +122,7 @@
             }"
             [emit]="emit">
           </div>
-          @if (executionOutputTooltip(output.key); as outputTooltip) {
+          @if (showOutputTooltip() && executionOutputTooltip(output.key); as outputTooltip) {
           <span class="llm-io-tooltip llm-io-tooltip-output">{{ outputTooltip }}</span>
           }
         </span>
@@ -132,7 +134,9 @@
             aria-label="Show output result">
             <i class="bi bi-box-arrow-right"></i>
           </button>
+          @if (showOutputTooltip()) {
           <span class="llm-io-tooltip llm-io-tooltip-output">{{ outputValueTooltip(output.key) }}</span>
+          }
         </span>
         }
       </div>

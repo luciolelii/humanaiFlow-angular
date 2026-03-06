@@ -26,6 +26,7 @@ export class TasksExecutionsListComponent {
   readonly executions = input<TaskExecutionListItem[]>([]);
   readonly selectedExecutionId = input<string | null>(null);
   readonly executionSelected = output<string>();
+  readonly executionDeleteRequested = output<string>();
   readonly searchTerm = model<string>('');
   readonly filter = signal<TaskExecutionFilter>('all');
   readonly orderBy = signal<string | null>('startedAt');
@@ -83,6 +84,11 @@ export class TasksExecutionsListComponent {
     this.executionSelected.emit(executionId);
   }
 
+  requestDeleteExecution(executionId: string, event?: Event) {
+    event?.stopPropagation();
+    this.executionDeleteRequested.emit(executionId);
+  }
+
   onOrderChanged(event: OrderEvent) {
     this.orderBy.set(event.orderBy);
     this.orderDir.set(event.orderDir);
@@ -98,6 +104,10 @@ export class TasksExecutionsListComponent {
     if (normalized === 'RUNNING') return 'bg-blue-100 text-blue-700 border-blue-200';
     if (normalized === 'CREATED' || normalized === 'READY') return 'bg-slate-100 text-slate-700 border-slate-200';
     return 'bg-slate-100 text-slate-700 border-slate-200';
+  }
+
+  isDeleteDisabled(status: TaskExecutionStatus): boolean {
+    return getExecutionStatusGroup(status) === 'RUNNING';
   }
 
   private matchesFilter(status: TaskExecutionStatus, filter: TaskExecutionFilter): boolean {

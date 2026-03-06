@@ -4,7 +4,8 @@
       class="w-[320px] shrink-0"
       [executions]="executions()"
       [selectedExecutionId]="selectedExecutionId()"
-      (executionSelected)="selectExecution($event)">
+      (executionSelected)="selectExecution($event)"
+      (executionDeleteRequested)="removeExecution($event)">
     </app-tasks-executions-list>
 
     <main class="flex flex-col w-full bg-gray-100 overflow-hidden rounded-md">

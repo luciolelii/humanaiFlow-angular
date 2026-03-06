@@ -49,8 +49,7 @@
     <div class="text-xs text-slate-500 px-2 py-4 text-center">No executions available</div>
     } @else {
       @for (execution of filteredExecutions(); track execution.id) {
-      <button
-        type="button"
+      <div
         class="w-full text-left p-3 rounded-md border transition-all duration-150 hover:-translate-y-0.5 hover:border-blue-300 hover:bg-blue-100 hover:shadow-md"
         [class.border-blue-300]="execution.id === selectedExecutionId()"
         [class.bg-blue-50]="execution.id === selectedExecutionId()"
@@ -67,11 +66,22 @@
             {{ execution.status }}
           </span>
         </div>
-        <div class="mt-2 text-[11px] text-slate-500 flex justify-between gap-2">
+        <div class="mt-2 text-[11px] text-slate-500 flex justify-between items-center gap-2">
           <span>{{ execution.startedAt }}</span>
-          <span>{{ execution.duration || '-' }}</span>
+          <div class="flex items-center gap-2">
+            <span>{{ execution.duration || '-' }}</span>
+            <button
+              type="button"
+              class="p-1 rounded enabled:hover:bg-red-100 enabled:text-red-600 disabled:text-red-200"
+              title="Delete"
+              aria-label="Delete execution"
+              [disabled]="isDeleteDisabled(execution.status)"
+              (click)="requestDeleteExecution(execution.id, $event)">
+              <i class="bi bi-trash"></i>
+            </button>
+          </div>
         </div>
-      </button>
+      </div>
       }
     }
   </div>

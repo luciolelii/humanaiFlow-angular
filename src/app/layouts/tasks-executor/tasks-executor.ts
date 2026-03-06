@@ -5,6 +5,7 @@ import {
   TasksExecutionsListComponent
 } from '@shared/tasks-executions-list/tasks-executions-list';
 import { TaskExecutionViewerComponent } from '@shared/task-execution-viewer/task-execution-viewer';
+import { ConfirmDialogService } from '@services/dialogs/confirm-dialog';
 import { TaskExecutionsService } from '@services/task-executions/task-executions';
 
 @Component({
@@ -15,6 +16,7 @@ import { TaskExecutionsService } from '@services/task-executions/task-executions
 })
 export class TasksExecutor {
   private taskExecutionsService = inject(TaskExecutionsService);
+  private confirm = inject(ConfirmDialogService);
 
   readonly executionDetails = this.taskExecutionsService.taskExecutions;
 
@@ -50,6 +52,20 @@ export class TasksExecutor {
 
   selectExecution(id: string) {
     this.selectedExecutionId.set(id);
+  }
+
+  async removeExecution(id: string) {
+    const confirmed = await this.confirm.open('Are you sure you want to delete this execution?');
+    if (!confirmed) return;
+
+    this.taskExecutionsService.deleteExecution(id).subscribe({
+      next: () => {
+        if (this.selectedExecutionId() === id) {
+          this.selectedExecutionId.set(null);
+        }
+      },
+      error: (err) => console.error('Error deleting execution:', err)
+    });
   }
 
   private formatDateTime(timestamp: number): string {

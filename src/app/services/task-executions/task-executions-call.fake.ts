@@ -470,6 +470,14 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
     return of(execution);
   }
 
+  override deleteTaskExecution(executionId: string): Observable<void> {
+    const index = this.data.findIndex((item) => item.id === executionId);
+    if (index >= 0) {
+      this.data.splice(index, 1);
+    }
+    return of(void 0);
+  }
+
   override startTaskExecution(executionId: string): Observable<TaskExecution> {
     const execution = this.findExecution(executionId);
     execution.context.status = 'RUNNING';
