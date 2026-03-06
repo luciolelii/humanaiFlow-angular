@@ -1,8 +1,9 @@
-import { Flow, FlowVisibility } from "@models/flow";
+import { Flow } from "@models/flow";
 import { FlowsCallServiceBase } from "./flows-call.base";
 import { Observable, of } from "rxjs";
 import { Authorization } from "@services/authorization/authorization";
 import { inject } from "@angular/core";
+import { flowFromApi } from "./flow-mapper";
 
 export class FlowsCallServiceFake extends FlowsCallServiceBase {
   override getFlowById(flowId: string): Observable<Flow> {
@@ -18,7 +19,7 @@ export class FlowsCallServiceFake extends FlowsCallServiceBase {
   private data: Record<string, Flow> = {
     '1': { id: '1', name: 'A Flow', data: { blocks: [], connections: [] }, visibility: 'PUBLIC', author: 'Alice', createdAt: new Date("December 17, 2023 03:24:00"), updatedAt: new Date("January 7, 2026 12:24:00") },
     '2': { id: '2', name: 'Test Flow', data: { blocks: [], connections: [] }, visibility: 'PRIVATE', author: 'Bob', createdAt: new Date("April 25, 2025 12:24:00"), updatedAt: new Date("April 27, 2025 18:42:00") },
-    'testFlow': flowFromJson(testDataFlow)
+    'testFlow': flowFromApi(testDataFlow)
   }
 
   override retrieveAllFlows() {
@@ -41,35 +42,16 @@ export class FlowsCallServiceFake extends FlowsCallServiceBase {
     return of(void 0);
   }
 }
-
-
-
-export function flowFromJson(raw: any): Flow {
-  const flowId = raw.id ?? raw.name ?? crypto.randomUUID();
-  return {
-    id: flowId,
-    author: raw.author,
-    visibility: raw.visibility as FlowVisibility,
-    createdAt: new Date(raw.createdAt),
-    updatedAt: new Date(raw.updatedAt),
-    name: raw.name,
-    description: raw.description,
-    data: {
-      blocks: raw.blocks,
-      connections: raw.connections
-    }
-  };
-}
-
-
 const testDataFlow ={
   "id": "testFlow",
   "name" : "Test Flow",
-  "visibility": "PRIVATE",
-  "author": "lucio",
+  "owner": "lucio",
+  "published": false,
+  "finalized": false,
   "description" : "This is a test flow",
   "createdAt": "2023-12-17T03:24:00.000Z",
-  "updatedAt": "2026-01-07T12:24:00.000Z",
+  "lastUpdateAt": "2026-01-07T12:24:00.000Z",
+  "flow" : {
   "blocks" : [ {
     "id" : "cabd6f4e-5a05-41f8-9bf7-4de20391ac4e",
     "sink" : false,
@@ -128,4 +110,5 @@ const testDataFlow ={
     "targetId" : "0063a3ec-3863-4045-bd3b-61eaf87b4604",
     "targetName" : "input"
   } ]
+}
 }; 

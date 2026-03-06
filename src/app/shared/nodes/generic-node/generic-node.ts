@@ -30,6 +30,7 @@ type EditableFieldDefinition = {
   path: string;
   label: string;
   type: FieldType;
+  retrieverBlockType: string | null;
   retrieverKey: string | null;
   retrieverDependsOn: RetrieverDependency[];
   ui: {
@@ -370,6 +371,7 @@ export class GenericNodeComponent {
           path,
           label: pathToLabel(path),
           type: this.toFieldType(childResolved?.type),
+          retrieverBlockType: this.toRetrieverBlockType(childResolved),
           retrieverKey: this.toRetrieverKey(childResolved),
           retrieverDependsOn: this.toRetrieverDependsOn(childResolved, pathPrefix),
           ui: this.toFieldUiMeta(childResolved)
@@ -438,8 +440,32 @@ export class GenericNodeComponent {
 
   private toRetrieverKey(schema: Record<string, any> | null | undefined): string | null {
     if (!schema || typeof schema !== 'object') return null;
+
+    const fromUrl = this.parseRetrieverUrl(schema['x-retriever-url'])?.key;
+    if (fromUrl) return fromUrl;
+
     const retrieverName = schema['x-retriever-name'];
     return typeof retrieverName === 'string' && retrieverName.length > 0 ? retrieverName : null;
+  }
+
+  private toRetrieverBlockType(schema: Record<string, any> | null | undefined): string | null {
+    if (!schema || typeof schema !== 'object') return null;
+    return this.parseRetrieverUrl(schema['x-retriever-url'])?.blockType ?? null;
+  }
+
+  private parseRetrieverUrl(rawUrl: unknown): { blockType: string; key: string } | null {
+    if (typeof rawUrl !== 'string' || rawUrl.trim().length === 0) return null;
+
+    const path = rawUrl.split('?')[0];
+    const parts = path.split('/').filter(Boolean);
+    const retrieverIndex = parts.findIndex((part) => part === 'retriever');
+    if (retrieverIndex < 0 || parts.length < retrieverIndex + 3) return null;
+
+    const blockType = parts[retrieverIndex + 1];
+    const key = parts[retrieverIndex + 2];
+    if (!blockType || !key) return null;
+
+    return { blockType, key };
   }
 
   private toRetrieverDependsOn(schema: Record<string, any> | null | undefined, pathPrefix: string): RetrieverDependency[] {
@@ -458,7 +484,7 @@ export class GenericNodeComponent {
   }
 
   private async loadLocalEditorOptions(definition: EditableFieldDefinition) {
-    const blockType = this.blockType;
+    const blockType = definition.retrieverBlockType ?? this.blockType;
     if (!blockType || !definition.retrieverKey) {
       this.localEditorLoading = false;
       return;
@@ -660,6 +686,7 @@ export class GenericNodeComponent {
   }
 
   private async fetchConditionalRequirement(blockType: string, field: ConditionalRequiredField) {
+    const retrieverBlockType = field.retrieverBlockType ?? blockType;
     const context: Record<string, string> = {};
     for (const dep of field.dependsOn) {
       const value = this.getByPath(this.blockConfiguration ?? {}, dep.path);
@@ -668,7 +695,7 @@ export class GenericNodeComponent {
 
     try {
       return await firstValueFrom(
-        this.fieldRetriever.isFieldRequired(blockType, field.retrieverKey, context)
+        this.fieldRetriever.isFieldRequired(retrieverBlockType, field.retrieverKey, context)
       );
     } catch {
       return false;

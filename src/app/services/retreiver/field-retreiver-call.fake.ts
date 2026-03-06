@@ -3,8 +3,7 @@ import { FieldRetreiverCallServiceBase } from "./field-retreiver-call.base";
 
 export class FieldRetreiverCallServiceFake extends FieldRetreiverCallServiceBase {
   private readonly providersByBlockType: Record<string, string[]> = {
-    LLMBlock: ["OpenAI", "Anthropic", "OllamaTestProvider"],
-    HumanInteractionBlock: ["OpenAI", "OllamaTestProvider"]
+    LLM: ["OpenAI", "Anthropic", "OllamaTestProvider"],
   };
 
   private readonly modelsByProvider: Record<string, string[]> = {

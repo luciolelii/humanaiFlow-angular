@@ -11,6 +11,8 @@ export type Flow = {
     description?: string;
     createdAt: Date;
     updatedAt: Date;
+    published?: boolean;
+    finalized?: boolean;
 };
 
 export type FlowData = {

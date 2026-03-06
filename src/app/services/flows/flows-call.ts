@@ -1,22 +1,40 @@
-import { Flow } from "@models/flow";
-import { FlowsCallServiceBase } from "./flows-call.base";
-import { Observable } from "rxjs";
+import { HttpClient } from '@angular/common/http';
+import { inject } from '@angular/core';
+import { environment } from '@environment';
+import { Flow } from '@models/flow';
+import { map, Observable } from 'rxjs';
+import { flowFromApi, toFlowCreateRequest, toFlowUpdateRequest } from './flow-mapper';
+import { FlowsCallServiceBase } from './flows-call.base';
 
 export class FlowsCallService extends FlowsCallServiceBase {
-    override getFlowById(_flowId: string): Observable<Flow> {
-        throw new Error("Method not implemented.");
-    }
-    override createNewFlow(_name?: string): Observable<Flow> {
-        throw new Error("Method not implemented.");
-    }
-    override deleteFlow(_flowId: string): Observable<void> {
-        throw new Error("Method not implemented.");
-    }
-    override retrieveAllFlows(): Observable<Flow[]> {
-        throw new Error("Method not implemented.");
-    }
-    override updateFlow(_flow: Flow): Observable<void> {
-        throw new Error("Method not implemented.");
-    }
-    
+  private readonly http = inject(HttpClient);
+
+  override getFlowById(flowId: string): Observable<Flow> {
+    const encodedId = encodeURIComponent(flowId);
+    return this.http
+      .get<unknown>(`${environment.apiUrl}/flows/${encodedId}`)
+      .pipe(map((raw) => flowFromApi(raw)));
+  }
+
+  override createNewFlow(name?: string): Observable<Flow> {
+    return this.http
+      .post<unknown>(`${environment.apiUrl}/flows`, toFlowCreateRequest(name ?? 'New Flow'))
+      .pipe(map((raw) => flowFromApi(raw)));
+  }
+
+  override deleteFlow(flowId: string): Observable<void> {
+    const encodedId = encodeURIComponent(flowId);
+    return this.http.delete<void>(`${environment.apiUrl}/flows/${encodedId}`);
+  }
+
+  override retrieveAllFlows(): Observable<Flow[]> {
+    return this.http
+      .get<unknown[]>(`${environment.apiUrl}/flows`)
+      .pipe(map((raw) => raw.map((flow) => flowFromApi(flow))));
+  }
+
+  override updateFlow(flow: Flow): Observable<void> {
+    const encodedId = encodeURIComponent(flow.id);
+    return this.http.put<void>(`${environment.apiUrl}/flows/${encodedId}`, toFlowUpdateRequest(flow));
+  }
 }

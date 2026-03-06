@@ -8,6 +8,7 @@ export type RequiredField = {
 export type ConditionalRequiredField = {
   path: string;
   label: string;
+  retrieverBlockType: string | null;
   retrieverKey: string;
   dependsOn: Array<{ key: string; path: string }>;
 };
@@ -60,7 +61,9 @@ function walkSchema(
 
     const retrieverRequiredUrl = propertyResolved?.['x-retriever-required-url'];
     if (typeof retrieverRequiredUrl === 'string') {
-      const retrieverKey = String(propertyResolved?.['x-retriever-name'] ?? key);
+      const parsedRetriever = parseRetrieverUrl(retrieverRequiredUrl);
+      const retrieverKey = parsedRetriever?.key ?? String(propertyResolved?.['x-retriever-name'] ?? key);
+      const retrieverBlockType = parsedRetriever?.blockType ?? null;
       const rawDepends = Array.isArray(propertyResolved?.['x-retriever-required-depends-on'])
         ? (propertyResolved['x-retriever-required-depends-on'] as unknown[])
         : [];
@@ -78,6 +81,7 @@ function walkSchema(
         conditional.push({
           path: propertyPath,
           label,
+          retrieverBlockType,
           retrieverKey,
           dependsOn
         });
@@ -95,4 +99,20 @@ function toLabel(key: string): string {
     .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
     .replace(/[_-]/g, ' ')
     .replace(/^./, (c) => c.toUpperCase());
+}
+
+function parseRetrieverUrl(rawUrl: unknown): { blockType: string; key: string } | null {
+  if (typeof rawUrl !== 'string' || rawUrl.trim().length === 0) return null;
+
+  const path = rawUrl.split('?')[0];
+  const normalized = path.endsWith('/required') ? path.slice(0, -'/required'.length) : path;
+  const parts = normalized.split('/').filter(Boolean);
+  const retrieverIndex = parts.findIndex((part) => part === 'retriever');
+  if (retrieverIndex < 0 || parts.length < retrieverIndex + 3) return null;
+
+  const blockType = parts[retrieverIndex + 1];
+  const key = parts[retrieverIndex + 2];
+  if (!blockType || !key) return null;
+
+  return { blockType, key };
 }
