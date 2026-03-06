@@ -5,7 +5,7 @@ import { ClassicPreset } from 'rete';
 import { ReteModule } from 'rete-angular-plugin/21';
 import { NodeSettingsDialogService } from '@services/dialogs/node-settings-dialog';
 import { EditorStateHolder } from '@stores/flow-editor';
-import { FieldRetreiver as FieldRetriever } from '@services/retreiver/field-retreiver';
+import { FieldRetriever } from '@services/retriever/field-retriever';
 import { BlocksService } from '@services/blocks/blocks';
 import { firstValueFrom } from 'rxjs';
 import { ConditionalRequiredField, extractSchemaRequirements, SchemaRequirements } from '../schema-requirements';

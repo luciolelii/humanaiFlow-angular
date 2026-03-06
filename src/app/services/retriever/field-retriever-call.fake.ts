@@ -1,7 +1,7 @@
 import { Observable, of } from "rxjs";
-import { FieldRetreiverCallServiceBase } from "./field-retreiver-call.base";
+import { FieldRetrieverCallServiceBase } from "./field-retriever-call.base";
 
-export class FieldRetreiverCallServiceFake extends FieldRetreiverCallServiceBase {
+export class FieldRetrieverCallServiceFake extends FieldRetrieverCallServiceBase {
   private readonly providersByBlockType: Record<string, string[]> = {
     LLM: ["OpenAI", "Anthropic", "OllamaTestProvider"],
   };

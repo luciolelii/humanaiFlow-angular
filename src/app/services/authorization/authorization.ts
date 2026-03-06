@@ -8,6 +8,8 @@ import { take, tap } from 'rxjs';
   providedIn: 'root',
 })
 export class Authorization {
+  static readonly USER_STORAGE_KEY = 'loggedInUser';
+  static readonly TOKEN_STORAGE_KEY = 'authToken';
 
   private user = signal<User | null>(null);
 
@@ -20,7 +22,12 @@ export class Authorization {
       take(1),
       tap(res => {
         this.user.set(res);
-        localStorage.setItem('loggedInUser', JSON.stringify(res));
+        localStorage.setItem(Authorization.USER_STORAGE_KEY, JSON.stringify(res));
+        if (res.token) {
+          localStorage.setItem(Authorization.TOKEN_STORAGE_KEY, res.token);
+        } else {
+          localStorage.removeItem(Authorization.TOKEN_STORAGE_KEY);
+        }
       })
     );
   }
@@ -32,12 +39,17 @@ export class Authorization {
   }
 
   logout() {
-    localStorage.removeItem('loggedInUser');
+    localStorage.removeItem(Authorization.USER_STORAGE_KEY);
+    localStorage.removeItem(Authorization.TOKEN_STORAGE_KEY);
     this.user.set(null);
   }
 
+  token(): string | null {
+    return localStorage.getItem(Authorization.TOKEN_STORAGE_KEY);
+  }
+
   isLoggedIn(): boolean {
-    const storedUser = localStorage.getItem('loggedInUser');
+    const storedUser = localStorage.getItem(Authorization.USER_STORAGE_KEY);
     this.user.set(storedUser != null ? JSON.parse(storedUser) : null);
     return storedUser != null;
   }

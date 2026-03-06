@@ -34,8 +34,15 @@ export function flowFromApi(raw: unknown): Flow {
   };
 }
 
-export function toFlowCreateRequest(name: string) {
-  return { name };
+export function toFlowCreateRequest(name: string, description?: string, flow?: FlowData) {
+  return {
+    name,
+    description: description ?? '',
+    flow: flow ?? {
+      blocks: [],
+      connections: []
+    }
+  };
 }
 
 export function toFlowUpdateRequest(flow: Flow) {

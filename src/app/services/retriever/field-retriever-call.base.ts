@@ -1,6 +1,6 @@
 import { Observable } from "rxjs";
 
-export abstract class FieldRetreiverCallServiceBase {
+export abstract class FieldRetrieverCallServiceBase {
   abstract retrieveValues(
     blockType: string,
     key: string,

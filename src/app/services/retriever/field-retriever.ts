@@ -1,20 +1,20 @@
 import { Injectable } from '@angular/core';
 import { environment } from '@environment';
 import { catchError, throwError } from 'rxjs';
-import { FieldRetreiverCallServiceBase } from './field-retreiver-call.base';
+import { FieldRetrieverCallServiceBase } from './field-retriever-call.base';
 
 @Injectable({
   providedIn: 'root',
 })
-export class FieldRetreiver {
-  fieldRetreiverCallService: FieldRetreiverCallServiceBase = new environment.fieldRetreiverCallService();
+export class FieldRetriever {
+  fieldRetrieverCallService: FieldRetrieverCallServiceBase = new environment.fieldRetrieverCallService();
 
   retrieveValues(
     blockType: string,
     key: string,
     context?: Record<string, string>
   ) {
-    return this.fieldRetreiverCallService.retrieveValues(blockType, key, context).pipe(
+    return this.fieldRetrieverCallService.retrieveValues(blockType, key, context).pipe(
       catchError((err) => {
         console.error('Field retrieval failed', err);
         return throwError(() => err);
@@ -27,7 +27,7 @@ export class FieldRetreiver {
     key: string,
     context?: Record<string, string>
   ) {
-    return this.fieldRetreiverCallService.isFieldRequired(blockType, key, context).pipe(
+    return this.fieldRetrieverCallService.isFieldRequired(blockType, key, context).pipe(
       catchError((err) => {
         console.error('Field required check failed', err);
         return throwError(() => err);

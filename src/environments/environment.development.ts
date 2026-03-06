@@ -1,7 +1,7 @@
 import { AuthorizationCallFakeService } from "@services/authorization/authorization-call.fake";
 import { BlocksCallServiceFake } from "@services/blocks/blocks-call.fake";
 import { FlowsCallServiceFake } from "@services/flows/flows-call.fake";
-import { FieldRetreiverCallServiceFake } from "@services/retreiver/field-retreiver-call.fake";
+import { FieldRetrieverCallServiceFake } from "@services/retriever/field-retriever-call.fake";
 import { TaskExecutionsCallServiceFake } from "@services/task-executions/task-executions-call.fake";
 
 export const environment = {
@@ -10,6 +10,6 @@ export const environment = {
     authorizationCallService: AuthorizationCallFakeService, // Assign the appropriate service here
     flowsCallService: FlowsCallServiceFake,
     blocksCallService: BlocksCallServiceFake,
-    fieldRetreiverCallService: FieldRetreiverCallServiceFake,
+    fieldRetrieverCallService: FieldRetrieverCallServiceFake,
     taskExecutionsCallService: TaskExecutionsCallServiceFake
 };

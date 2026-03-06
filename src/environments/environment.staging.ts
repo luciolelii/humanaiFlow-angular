@@ -5,11 +5,11 @@ import { FieldRetrieverCallService } from "@services/retriever/field-retriever-c
 import { TaskExecutionsCallService } from "@services/task-executions/task-executions-call";
 
 export const environment = {
-        apiUrl: '/api',
-        production: true,
-        authorizationCallService: AuthorizationCallService,
-        flowsCallService: FlowsCallService,
-        blocksCallService: BlocksCallService,
-        fieldRetrieverCallService: FieldRetrieverCallService,
-        taskExecutionsCallService: TaskExecutionsCallService
+    production: false,
+    apiUrl: 'http://localhost:8080',
+    authorizationCallService: AuthorizationCallService,
+    flowsCallService: FlowsCallService,
+    blocksCallService: BlocksCallService,
+    fieldRetrieverCallService: FieldRetrieverCallService,
+    taskExecutionsCallService: TaskExecutionsCallService
 };

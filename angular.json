@@ -61,6 +61,15 @@
                   "with": "src/environments/environment.development.ts"
                 }
               ]
+            },
+            "staging": {
+              "outputHashing": "all",
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.staging.ts"
+                }
+              ]
             }
           },
           "defaultConfiguration": "production"
@@ -73,6 +82,9 @@
             },
             "development": {
               "buildTarget": "humainFlow-gui-a21:build:development"
+            },
+            "staging": {
+              "buildTarget": "humainFlow-gui-a21:build:staging"
             }
           },
           "defaultConfiguration": "development"

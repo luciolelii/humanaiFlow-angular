@@ -1,13 +1,13 @@
 import { TestBed } from '@angular/core/testing';
 
-import { FieldRetreiver } from './field-retreiver';
+import { FieldRetriever } from './field-retriever';
 
-describe('FieldRetreiver', () => {
-  let service: FieldRetreiver;
+describe('FieldRetriever', () => {
+  let service: FieldRetriever;
 
   beforeEach(() => {
     TestBed.configureTestingModule({});
-    service = TestBed.inject(FieldRetreiver);
+    service = TestBed.inject(FieldRetriever);
   });
 
   it('should be created', () => {
