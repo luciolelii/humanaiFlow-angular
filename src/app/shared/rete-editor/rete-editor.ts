@@ -29,6 +29,8 @@ export class ReteEditor implements OnChanges, OnDestroy {
   private rete?: ReteEditorInstance;
   private viewReady = false;
   private loadVersion = 0;
+  creatingEmptyBlock = false;
+  creatingEmptyBlockType = '';
   private readonly dirtyEventTypes = new Set([
     'nodecreated',
     'noderemoved',
@@ -72,11 +74,16 @@ export class ReteEditor implements OnChanges, OnDestroy {
     const blockType: BlockType = JSON.parse(payload);
     const position = this.getDropPosition(event);
     let newBlock: FlowBlock;
+    this.creatingEmptyBlock = true;
+    this.creatingEmptyBlockType = blockType.type;
     try {
       newBlock = await firstValueFrom(this.blocksService.createEmptyBlock(blockType.type));
     } catch (error) {
       console.error('Failed to create empty block', error);
       return;
+    } finally {
+      this.creatingEmptyBlock = false;
+      this.creatingEmptyBlockType = '';
     }
 
     newBlock = {

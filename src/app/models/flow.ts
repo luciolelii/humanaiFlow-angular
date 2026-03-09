@@ -28,6 +28,8 @@ export type BlockType = {
   type: BlockTypeName;
   description: string;
   userInteractive: boolean;
+  hasExampleBlock?: boolean;
+  exampleBlockEndpoint?: string | null;
   configurationType: string | null;
   configurationClass: string | null;
   schema: BlockTypeSchema;

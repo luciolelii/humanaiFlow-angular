@@ -2,7 +2,7 @@ import { BlockType, FlowBlock } from "@models/flow";
 import { HttpClient } from "@angular/common/http";
 import { inject } from "@angular/core";
 import { environment } from "@environment";
-import { map, Observable, of, switchMap, take } from "rxjs";
+import { catchError, map, Observable, of, switchMap, take, throwError } from "rxjs";
 import { BlocksCallServiceBase } from "./block-call.base";
 
 export class BlocksCallService extends BlocksCallServiceBase {
@@ -26,6 +26,14 @@ export class BlocksCallService extends BlocksCallServiceBase {
       take(1),
       switchMap((types) => {
         const descriptor = types.find((type) => type.type === blockType);
+        const exampleEndpoint = this.resolveExampleBlockEndpoint(descriptor);
+
+        if (exampleEndpoint) {
+          return this.http
+            .get<unknown>(exampleEndpoint)
+            .pipe(map((raw) => this.flowBlockFromApi(raw, descriptor?.type ?? blockType)));
+        }
+
         const configuration = descriptor
           ? this.buildObjectFromSchema(descriptor.schema, descriptor.schema)
           : {};
@@ -48,6 +56,12 @@ export class BlocksCallService extends BlocksCallServiceBase {
     return this.http
       .post<unknown>(`${environment.apiUrl}/blocks`, payload)
       .pipe(
+        map((raw) => {
+          if (!raw || typeof raw !== "object") {
+            throw new Error(`Invalid updateBlock response for ${blockType}`);
+          }
+          return raw;
+        }),
         map((raw) =>
           this.flowBlockFromApi(
             {
@@ -57,7 +71,8 @@ export class BlocksCallService extends BlocksCallServiceBase {
             blockType,
             payload
           )
-        )
+        ),
+        catchError((error) => throwError(() => this.toUpdateBlockError(error, blockType)))
       );
   }
 
@@ -74,6 +89,8 @@ export class BlocksCallService extends BlocksCallServiceBase {
       type: String(value["type"] ?? value["blockType"] ?? value["name"] ?? "LLMBlock"),
       description: String(value["description"] ?? ""),
       userInteractive: Boolean(value["userInteractive"] ?? value["interactive"] ?? false),
+      hasExampleBlock: Boolean(value["hasExampleBlock"] ?? false),
+      exampleBlockEndpoint: this.toApiPath(value["exampleBlockEndpoint"]),
       configurationType: this.toNullableString(value["configurationType"]),
       configurationClass: this.toNullableString(value["configurationClass"]),
       schema: this.toSchema(value["schema"] ?? value["configurationSchema"] ?? null)
@@ -134,6 +151,12 @@ export class BlocksCallService extends BlocksCallServiceBase {
     return typeof value === "string" && value.length > 0 ? value : null;
   }
 
+  private toApiPath(value: unknown): string | null {
+    if (typeof value !== "string" || value.length === 0) return null;
+    if (/^https?:\/\//.test(value)) return value;
+    return `${environment.apiUrl}${value.startsWith("/") ? value : `/${value}`}`;
+  }
+
   private buildBlockConfigurationPayload(blockType: string, configuration: Record<string, unknown>) {
     const { typeName: _ignoreTypeName, ...sanitized } = configuration;
     return {
@@ -142,6 +165,18 @@ export class BlocksCallService extends BlocksCallServiceBase {
         ? sanitized["name"]
         : blockType
     };
+  }
+
+  private resolveExampleBlockEndpoint(descriptor?: BlockType): string | null {
+    if (!descriptor?.hasExampleBlock) return null;
+    return descriptor.exampleBlockEndpoint ?? null;
+  }
+
+  private toUpdateBlockError(error: unknown, blockType: string): Error {
+    if (error instanceof Error) {
+      return new Error(`updateBlock failed for ${blockType}: ${error.message}`);
+    }
+    return new Error(`updateBlock failed for ${blockType}`);
   }
 
   private defaultIOForBlockType(typeName: string) {

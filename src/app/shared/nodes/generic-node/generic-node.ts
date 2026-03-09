@@ -308,6 +308,20 @@ export class GenericNodeComponent {
     return match ? match[1] : token;
   }
 
+  isCreatingOnServer(): boolean {
+    return this.data?.data?.['__isCreatingOnServer'] === true;
+  }
+
+  hasUpdateBlockError(): boolean {
+    return typeof this.data?.data?.['__updateBlockError'] === 'string'
+      && this.data.data['__updateBlockError'].length > 0;
+  }
+
+  updateBlockErrorMessage(): string | null {
+    const error = this.data?.data?.['__updateBlockError'];
+    return typeof error === 'string' && error.length > 0 ? error : null;
+  }
+
   private get blockConfiguration(): Record<string, any> | null {
     return this.data?.data?.specificConfiguration ?? null;
   }
@@ -799,12 +813,12 @@ export class GenericNodeComponent {
     const nodeData = this.data?.data as Record<string, unknown> | undefined;
     if (!nodeData?.['__needsServerCreate']) return;
     if (nodeData['__isCreatingOnServer'] === true) return;
-    if (this.missingRequiredPaths.length > 0) return;
 
     const blockType = this.blockType;
     if (!blockType) return;
 
     nodeData['__isCreatingOnServer'] = true;
+    nodeData['__updateBlockError'] = null;
     const configuration = this.ensureBlockConfiguration();
 
     this.blocksService.updateBlock(String(nodeData['id'] ?? ''), {
@@ -830,7 +844,8 @@ export class GenericNodeComponent {
           position: (current['position'] as { x: number; y: number } | undefined) ?? createdBlock.position,
           __needsServerCreate: false,
           __isCreatingOnServer: false,
-          __createdOnServer: true
+          __createdOnServer: true,
+          __updateBlockError: null
         };
         this.name = toStringOrNull(this.ensureBlockConfiguration()['name']) || createdBlock.name || this.name;
         this.refreshParameterFields();
@@ -839,6 +854,8 @@ export class GenericNodeComponent {
       },
       error: (err) => {
         nodeData['__isCreatingOnServer'] = false;
+        nodeData['__updateBlockError'] = err instanceof Error ? err.message : 'Block update failed';
+        this.refreshView();
         console.error('Create block failed', err);
       }
     });
@@ -849,5 +866,6 @@ export class GenericNodeComponent {
     if (!nodeData) return;
     nodeData['__needsServerCreate'] = true;
     nodeData['__createdOnServer'] = false;
+    nodeData['__updateBlockError'] = null;
   }
 }

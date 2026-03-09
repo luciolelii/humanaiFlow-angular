@@ -3,8 +3,8 @@
     [class.w-14]="collapsed()"
     [class.w-72]="!collapsed()"
   >
-<aside class="h-full w-72 bg-white border-r border-gray-200 flex">
-  <div class="flex flex-col h-full">
+<aside class="h-full w-full min-w-0 bg-white border-r border-gray-200 flex overflow-hidden">
+  <div class="flex flex-col h-full shrink-0">
 
     <button (click)="collapse()" class="relative
              w-6 h-6 rounded-full
@@ -28,9 +28,9 @@
 
   @if (!collapsed()) {
   <!-- CONTENT -->
-  <div class="h-full bg-white flex-1">
+  <div class="h-full min-w-0 bg-white flex-1 overflow-hidden">
 
-    <div class="space-y-6 h-full">
+    <div class="space-y-6 h-full min-w-0 overflow-hidden">
       @switch (open) {
       @case ('flows') {
       <app-group-holder title="Flows" icon="bi-lightning-charge-fill">

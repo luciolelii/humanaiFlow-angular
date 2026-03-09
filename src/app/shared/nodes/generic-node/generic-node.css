@@ -11,6 +11,47 @@
   color: #0f172a;
 }
 
+.llm-loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 150;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(248, 250, 252, 0.68);
+  backdrop-filter: blur(2px);
+  border-radius: 16px;
+}
+
+.llm-loading-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 600;
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.16);
+}
+
+.llm-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  border: 2px solid rgba(37, 99, 235, 0.2);
+  border-top-color: #2563eb;
+  animation: llm-spin 0.75s linear infinite;
+}
+
+@keyframes llm-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .llm-node--human {
   border-color: #f7d7a7;
   background: linear-gradient(180deg, #fffdf9 0%, #fff7ed 100%);

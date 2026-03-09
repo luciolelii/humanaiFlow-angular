@@ -1,3 +1,7 @@
+.title-toolbar-input {
+  width: min(100%, 48vw);
+}
+
 .save-snackbar {
   position: fixed;
   right: 24px;

@@ -1,2 +1,13 @@
-<div class="h-full w-full" #editor (dragover)="onDragOver($event)" (drop)="onDrop($event)">
+<div class="rete-editor-shell">
+  <div class="h-full w-full" #editor (dragover)="onDragOver($event)" (drop)="onDrop($event)">
+  </div>
+
+  @if (creatingEmptyBlock) {
+  <div class="rete-editor-loading">
+    <div class="rete-editor-loading-card">
+      <span class="rete-editor-spinner" aria-hidden="true"></span>
+      <span>Creating {{ creatingEmptyBlockType || 'block' }}...</span>
+    </div>
+  </div>
+  }
 </div>

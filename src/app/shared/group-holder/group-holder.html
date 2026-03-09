@@ -1,7 +1,7 @@
 <div
   class=" border-gray-200
          bg-white shadow-sm
-         transition flex-1 h-full">
+         transition flex flex-col flex-1 h-full min-w-0 overflow-hidden">
 
   <!-- Header -->
   <div
@@ -11,9 +11,9 @@
         bg-gray-50 h-18"
     >
 
-    <div class="flex items-center gap-2">
+    <div class="flex items-center gap-2 min-w-0">
       <i class="bi {{ icon }} text-lg"></i>
-      <span>{{ title }}</span>
+      <span class="truncate">{{ title }}</span>
   </div>
   <span>
   <ng-content select="header-button"></ng-content>
@@ -21,7 +21,7 @@
 </div>
   <!-- Body -->
   <div
-    class="transition-all duration-300 px-2 pb-2 flex flex-col flex-1 overflow-hidden h-[calc(100%-72px)]">
+    class="transition-all duration-300 px-2 pb-2 flex flex-col flex-1 min-w-0 overflow-hidden">
       <ng-content></ng-content>
     
   </div>

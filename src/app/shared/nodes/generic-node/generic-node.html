@@ -1,5 +1,14 @@
 <div class="llm-node"
+  [class.llm-node-error]="hasUpdateBlockError()"
   [class.llm-node--human]="isHumanNode()">
+  @if (isCreatingOnServer()) {
+  <div class="llm-loading-overlay">
+    <div class="llm-loading-chip">
+      <span class="llm-spinner" aria-hidden="true"></span>
+      <span>Updating block...</span>
+    </div>
+  </div>
+  }
   <div class="llm-header cursor-move">
     <div class="llm-icon">
       @if (isHumanNode()) {
@@ -18,6 +27,17 @@
       </div>
     </div>
     <div class="llm-header-actions">
+      @if (hasUpdateBlockError()) {
+      <div class="llm-error-alert-wrap">
+        <div class="llm-error-alert">
+          <i class="bi bi-exclamation-circle-fill"></i>
+        </div>
+        <div class="llm-error-tooltip">
+          <div class="llm-error-title">Block update failed</div>
+          <div class="llm-error-item">{{ updateBlockErrorMessage() }}</div>
+        </div>
+      </div>
+      }
       @if (missingRequiredParams.length) {
       <div class="llm-warning-wrap">
         <div class="llm-warning">

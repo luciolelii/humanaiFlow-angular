@@ -1,3 +1,56 @@
+:host {
+  display: block;
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.rete-editor-shell {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.rete-editor-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(248, 250, 252, 0.24);
+  pointer-events: none;
+}
+
+.rete-editor-loading-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #0f172a;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.16);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.rete-editor-spinner {
+  width: 15px;
+  height: 15px;
+  border-radius: 999px;
+  border: 2px solid rgba(15, 23, 42, 0.18);
+  border-top-color: #2563eb;
+  animation: rete-editor-spin 0.75s linear infinite;
+}
+
+@keyframes rete-editor-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 :host ::ng-deep [data-testid="node"] {
   user-select: none;
   -webkit-user-select: none;

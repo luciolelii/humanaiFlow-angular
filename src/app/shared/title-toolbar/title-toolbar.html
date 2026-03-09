@@ -1,32 +1,32 @@
-<div class="flex items-center justify-between
+<div class="flex items-center justify-between gap-4
             px-4 py-2
             bg-white border-b border-gray-200
             shadow-sm">
 
   <!-- Title -->
-  <div class="flex items-center gap-2">
-    <i class="bi bi-pencil-square text-indigo-500"></i>
-    <h2 class="m-0 text-sm font-semibold text-gray-800">
-        <input type="text" class="border-0 text-sm font-semibold text-gray-800
+  <div class="flex min-w-0 flex-1 items-center gap-2">
+    <i class="bi bi-pencil-square shrink-0 text-indigo-500"></i>
+    <h2 class="m-0 min-w-0 flex-1 text-sm font-semibold text-gray-800">
+        <input type="text" class="title-toolbar-input border-0 text-sm font-semibold text-gray-800
        focus:ring-0 p-0 m-0 box-border
-       w-52 max-w-52
+       min-w-0
        bg-transparent"
                [value]="title()"
                (blur)="changeTitle(titleInput.value)"
                 (keydown.enter)="changeTitle(titleInput.value); $event.target.blur()"
                maxlength="20"
                size="20"
-               #titleInput
+                #titleInput
                 />
     </h2>
     @if (notSaved()) {
-    <span class="inline-flex items-center gap-x-1.5 py-1.5 px-3 rounded-full text-xs font-medium border border-yellow-500 text-yellow-500">not saved</span>
+    <span class="inline-flex shrink-0 items-center gap-x-1.5 rounded-full border border-yellow-500 px-3 py-1.5 text-xs font-medium text-yellow-500">not saved</span>
     }
   </div>
 
 
   <!-- Actions -->
-  <div class="flex items-center gap-2" >
+  <div class="flex shrink-0 items-center gap-2" >
     <button tabindex="-1"
       class="border-0
              flex items-center gap-1
