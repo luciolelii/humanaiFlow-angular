@@ -103,7 +103,7 @@ export function exportGraph(editor: NodeEditor<HFSchemes>) {
       position: blockData?.position,
       inputs,
       outputs,
-      specificConfiguration: blockData?.specificConfiguration ?? {},
+      specificConfiguration: cloneValue(blockData?.specificConfiguration ?? {}),
       typeName: blockData?.typeName ?? "LLMBlock"
     };
   });
@@ -140,7 +140,7 @@ export async function addBlockToEditor(
     await addBlockToEditor(editor, area, { ...createdBlock, position: currentPosition }, currentPosition);
   };
   node.data = {
-    ...block,
+    ...cloneValue(block),
     position: position ?? block.position,
     deleteNode: removeNode,
     replaceWithCreatedBlock
@@ -205,4 +205,11 @@ function toNodeLabel(typeName: string) {
   if (typeName === "InputBlock" || typeName === "SourceBlock") return "Input";
   if (typeName === "OutputBlock") return "Output";
   return typeName;
+}
+
+function cloneValue<T>(value: T): T {
+  if (typeof globalThis.structuredClone === "function") {
+    return globalThis.structuredClone(value);
+  }
+  return JSON.parse(JSON.stringify(value)) as T;
 }

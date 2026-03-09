@@ -159,6 +159,7 @@ export class ReteEditor implements OnChanges, OnDestroy {
     if (this.readonly()) return;
     this.syncNodePositionFromContext(rete, context);
     if (this.flowState.currentFlow()?.id !== this.flowId()) return;
+
     const updatedData = exportGraph(rete.editor);
     this.flowState.updateData(updatedData);
     this.flowChanged.emit(updatedData);

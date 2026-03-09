@@ -66,14 +66,6 @@ export class TitleToolbar {
     });
   }
 
-  undo() {
-    this.editorState.undo();
-  }
-
-  redo() {
-    this.editorState.redo();
-  }
-
   execute() {
     const flow = this.flow();
     if (!flow || !this.canExecute() || this.executeLoading()) return;

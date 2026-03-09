@@ -344,7 +344,7 @@ export class GenericNodeComponent {
   private markFlowDirty() {
     const flow = this.editorState.currentFlow();
     if (!flow) return;
-    this.editorState.updateData(flow.data);
+    this.editorState.updateData(this.cloneFlowData(flow.data));
   }
 
   private async loadSchemaContext() {
@@ -807,6 +807,13 @@ export class GenericNodeComponent {
         // Node may have been removed while async validation was running.
       }
     });
+  }
+
+  private cloneFlowData<T>(value: T): T {
+    if (typeof globalThis.structuredClone === 'function') {
+      return globalThis.structuredClone(value);
+    }
+    return JSON.parse(JSON.stringify(value)) as T;
   }
 
   private maybeCreateBlockOnServer() {

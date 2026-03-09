@@ -18,13 +18,6 @@ export class EditorStateHolder {
 
   constructor(private confirm: ConfirmDialogService) { }
 
-
-  previousDataStack : FlowData[] = [];
-  nextDataStack : FlowData[] = [];
-  
-  redoEnabled = computed(() => this.nextDataStack.length > 0);
-  undoEnabled = computed(() => this.previousDataStack.length > 1);
-
   /** Intent: open document */
   async openDocument(doc: Flow, options?: { skipDirtyCheck?: boolean }): Promise<boolean> {
     if (this.isDirty() && !options?.skipDirtyCheck) {
@@ -60,22 +53,17 @@ export class EditorStateHolder {
     const current = this.currentFlow();
     if (!current) return;
 
-    this.currentFlow.update(flow => {
-      if (!flow) return flow;
-      return { ...flow, data };
-    });
-    this.previousDataStack.push(data);
+    const nextFlow = { ...current, data };
+    this.currentFlow.set(nextFlow);
     this.markDirty();
   }
   
   updateFlowTitle(newTitle: string) {
-    const flow = this.currentFlow();
-    if (!flow) return;
-    this.currentFlow.update(flow => {
-      if (!flow) return flow;
-      return { ...flow, name: newTitle };
-    });
-    this.previousDataStack.push(flow.data);
+    const current = this.currentFlow();
+    if (!current) return;
+
+    const nextFlow = { ...current, name: newTitle };
+    this.currentFlow.set(nextFlow);
     this.markDirty();
   }
 
@@ -87,26 +75,4 @@ export class EditorStateHolder {
       })
     )
   }
-
-  undo() {
-    const stack = this.previousDataStack;
-    if (stack.length < 2) return; // Nothing to undo
-
-    // Remove the current state
-    this.nextDataStack.push(stack.pop()!);
-    // Get the previous state
-    const previousData = stack[stack.length - 1];
-    this.updateData(previousData);
-  }
-
-  redo() {
-      const stack = this.nextDataStack;
-      if (stack.length === 0) return; // Nothing to redo
-
-      const nextData = stack.pop()!;
-      this.previousDataStack.push(nextData);
-      this.updateData(nextData);
-  }
-
-  
 }
