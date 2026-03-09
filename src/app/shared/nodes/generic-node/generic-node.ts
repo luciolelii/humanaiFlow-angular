@@ -100,8 +100,6 @@ export class GenericNodeComponent {
   localEditorMaxLength: number | null = null;
 
   missingRequiredParams: string[] = [];
-  private missingRequiredPaths: string[] = [];
-
   private blockSchema: Record<string, any> | null = null;
   private editableFieldDefinitions: EditableFieldDefinition[] = [];
   private schemaRequirements: SchemaRequirements = { required: [], conditional: [] };
@@ -748,7 +746,6 @@ export class GenericNodeComponent {
     const missingFields = requiredFields
       .filter((field) => this.isMissingValue(this.getByPath(config, field.path)));
 
-    this.missingRequiredPaths = missingFields.map((field) => field.path);
     this.missingRequiredParams = missingFields.map((field) => field.label);
 
     if (!this.refreshingConditionalRequirements) {

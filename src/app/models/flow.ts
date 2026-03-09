@@ -86,18 +86,3 @@ export type HumanInteractiveBlockConfiguration = {
   inputAsList: boolean;
   outputAsList: boolean;
 };
-
-export type INodeModel = {
-  key: string;
-  name?: string;
-  position: { x: number, y: number } | null;
-  parameters?: Record<string, any> | null;
-}
-
-export type IConnectionModel = {
-  key: string;
-  sourceNode: string;
-  sourceField: string;
-  targetNode: string;
-  targetField: string;
-}

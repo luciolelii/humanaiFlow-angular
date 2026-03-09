@@ -38,7 +38,7 @@ export async function createEditor(
   render.addPreset(
     Presets.classic.setup({
       customize: {
-        node(context) {
+        node(_context) {
           return nodeView === "execution" ? TaskStepNodeComponent : GenericNodeComponent;
         },
         socket(context: any) {
