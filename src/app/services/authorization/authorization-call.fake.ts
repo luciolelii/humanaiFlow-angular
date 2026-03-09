@@ -13,7 +13,7 @@ export class AuthorizationCallFakeService extends AuthorizationCallServiceBase {
         return new Observable<User>((observer) => {
             const user = this.users.find(u => u.username === username);
             if (!user) {
-                observer.error(new Error('Invalid username'));
+                observer.error(new Error('User not found'));
                 return;
             }
             if (password !== user.password) {

@@ -47,7 +47,12 @@
                                 placeholder="********" />
                             <button class="input-group-text bg-white" type="button" tabindex="-1"
                                 (click)="password.type = password.type === 'password' ? 'text' : 'password'"
-                                [disabled]="signupModel().password.length === 0"><i class="bi bi-eye"></i></button>
+                                [disabled]="signupModel().password.length === 0">
+                                <i
+                                    class="bi"
+                                    [class.bi-eye]="password.type === 'password'"
+                                    [class.bi-eye-slash]="password.type === 'text'"></i>
+                            </button>
                             @if (isInvalid(signupForm.password())) {
                             <small class="invalid-feedback">{{ signupForm.password().errors()[0].message }}</small>
                             }
@@ -62,8 +67,12 @@
                                 [field]="signupForm.confirmPassword" placeholder="********" />
                             <button class="input-group-text bg-white" type="button" tabindex="-1"
                                 (click)="confirmPassword.type = confirmPassword.type === 'password' ? 'text' : 'password'"
-                                [disabled]="signupModel().confirmPassword.length === 0"><i
-                                    class="bi bi-eye"></i></button>
+                                [disabled]="signupModel().confirmPassword.length === 0">
+                                <i
+                                    class="bi"
+                                    [class.bi-eye]="confirmPassword.type === 'password'"
+                                    [class.bi-eye-slash]="confirmPassword.type === 'text'"></i>
+                            </button>
                             @if (!isInvalid(signupForm.password()) && isInvalid(signupForm.confirmPassword())) {
                             <small class="invalid-feedback">{{
                                 signupForm.confirmPassword().errors()[0].message}}</small>

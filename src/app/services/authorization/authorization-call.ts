@@ -1,7 +1,7 @@
 import { AuthorizationCallServiceBase } from "./authorization-call.base";
 import { User, UserRegistration } from "@models/user";
-import { map, Observable } from "rxjs";
-import { HttpClient } from "@angular/common/http";
+import { catchError, map, Observable, throwError } from "rxjs";
+import { HttpClient, HttpErrorResponse } from "@angular/common/http";
 import { inject } from "@angular/core";
 import { environment } from "@environment";
 
@@ -25,6 +25,15 @@ export class AuthorizationCallService extends AuthorizationCallServiceBase {
                         email: String(userSource["email"] ?? ''),
                         token: typeof token === "string" && token.length > 0 ? token : undefined
                     } satisfies User;
+                }),
+                catchError((error: unknown) => {
+                  if (error instanceof HttpErrorResponse && error.status === 404) {
+                    return throwError(() => new Error('User not found'));
+                  }
+                  if (error instanceof HttpErrorResponse && error.status === 401) {
+                    return throwError(() => new Error('Invalid password'));
+                  }
+                  return throwError(() => error);
                 })
             );
     }

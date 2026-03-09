@@ -54,9 +54,14 @@
                     <span class="input-group-text"><i class="bi bi-key"></i></span>
                     <input type="password" #password id="password" class="form-control" placeholder="Password"
                         [field]="loginForm.password" />
-                    <button class="input-group-text bg-white"
+                    <button class="input-group-text bg-white" type="button" tabindex="-1"
                         (click)="password.type = password.type === 'password' ? 'text' : 'password'"
-                        [disabled]="loginFormModel().password.length === 0"><i class="bi bi-eye"></i></button>
+                        [disabled]="loginFormModel().password.length === 0">
+                        <i
+                            class="bi"
+                            [class.bi-eye]="password.type === 'password'"
+                            [class.bi-eye-slash]="password.type === 'text'"></i>
+                    </button>
                 </div>
 
                 <!-- Sign up -->
