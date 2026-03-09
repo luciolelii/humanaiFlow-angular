@@ -65,10 +65,10 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     return { blocks, connections };
   });
 
-  readonly durationMs = computed(() => {
+  readonly formattedDuration = computed(() => {
     const context = this.execution()?.context;
-    if (!context?.startTime || !context?.endTime) return null;
-    return Math.max(0, context.endTime - context.startTime);
+    if (!context?.startTime || !context?.endTime) return '-';
+    return this.formatDuration(context.startTime, context.endTime);
   });
 
   readonly inputsReadOnly = computed(() => {
@@ -237,6 +237,31 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     if (!timer) return;
     clearTimeout(timer);
     this.textInputDebounceTimers.delete(timerKey);
+  }
+
+  private formatDuration(startTime: number, endTime: number): string {
+    const diffMs = Math.max(0, endTime - startTime);
+    const totalSeconds = Math.floor(diffMs / 1000);
+    const totalMinutes = Math.floor(totalSeconds / 60);
+    const totalHours = Math.floor(totalMinutes / 60);
+    const totalDays = Math.floor(totalHours / 24);
+
+    if (totalSeconds < 60) {
+      return `${totalSeconds} sec`;
+    }
+
+    if (totalMinutes < 60) {
+      const seconds = totalSeconds % 60;
+      return seconds > 0 ? `${totalMinutes} min ${seconds} sec` : `${totalMinutes} min`;
+    }
+
+    if (totalHours < 24) {
+      const minutes = totalMinutes % 60;
+      return minutes > 0 ? `${totalHours} h ${minutes} min` : `${totalHours} h`;
+    }
+
+    const hours = totalHours % 24;
+    return hours > 0 ? `${totalDays} gg ${hours} h` : `${totalDays} gg`;
   }
 
   private inferConnections(steps: TaskExecutionStep[]) {

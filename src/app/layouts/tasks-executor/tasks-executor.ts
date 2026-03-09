@@ -79,12 +79,28 @@ export class TasksExecutor {
   }
 
   private formatDuration(startTime: number | null, endTime: number | null): string {
-    if (!startTime || !endTime) return '00:00:00';
+    if (!startTime || !endTime) return '0 sec';
     const diffMs = Math.max(0, endTime - startTime);
     const totalSeconds = Math.floor(diffMs / 1000);
-    const hh = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
-    const mm = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
-    const ss = String(totalSeconds % 60).padStart(2, '0');
-    return `${hh}:${mm}:${ss}`;
+    const totalMinutes = Math.floor(totalSeconds / 60);
+    const totalHours = Math.floor(totalMinutes / 60);
+    const totalDays = Math.floor(totalHours / 24);
+
+    if (totalSeconds < 60) {
+      return `${totalSeconds} sec`;
+    }
+
+    if (totalMinutes < 60) {
+      const seconds = totalSeconds % 60;
+      return seconds > 0 ? `${totalMinutes} min ${seconds} sec` : `${totalMinutes} min`;
+    }
+
+    if (totalHours < 24) {
+      const minutes = totalMinutes % 60;
+      return minutes > 0 ? `${totalHours} h ${minutes} min` : `${totalHours} h`;
+    }
+
+    const hours = totalHours % 24;
+    return hours > 0 ? `${totalDays} gg ${hours} h` : `${totalDays} gg`;
   }
 }
