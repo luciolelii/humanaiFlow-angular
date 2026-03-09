@@ -6,6 +6,7 @@ import { EditorStateHolder } from '@stores/flow-editor';
 import { CommonModule } from '@angular/common';
 import { FlowsService } from '@services/flows/flows';
 import { ListState } from '@stores/list-state';
+import { finalize } from 'rxjs';
 
 type OpenedId = 'flows' | 'blocks';
 
@@ -25,6 +26,7 @@ export class EditorSidebar {
   blockDisabled = computed(() => !this.flowState.hasFlow());
 
   collapsed = signal(true);
+  creatingFlow = signal(false);
 
   open: OpenedId | null = null;
 
@@ -40,16 +42,20 @@ export class EditorSidebar {
   }
 
   createNewFlow() {
+    if (this.creatingFlow()) return;
+    this.creatingFlow.set(true);
     console.log('Creating new flow...');
-    this.flowService.createNewFlow().subscribe({
-      next: flow => {
-        console.log('New flow created:', flow);
-        this.flowState.openDocument(flow);
-      },
-      error: err => {
-        console.error('Error creating new flow:', err);
-      },
-    });
+    this.flowService.createNewFlow().pipe(
+      finalize(() => this.creatingFlow.set(false))
+    ).subscribe({
+        next: flow => {
+          console.log('New flow created:', flow);
+          this.flowState.openDocument(flow);
+        },
+        error: err => {
+          console.error('Error creating new flow:', err);
+        },
+      });
   }
 
   createNewBlock() {

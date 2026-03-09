@@ -44,13 +44,3 @@ export function toFlowCreateRequest(name: string, description?: string, flow?: F
     }
   };
 }
-
-export function toFlowUpdateRequest(flow: Flow) {
-  return {
-    name: flow.name,
-    description: flow.description,
-    published: flow.published ?? flow.visibility === 'PUBLIC',
-    finalized: flow.finalized ?? false,
-    flow: flow.data
-  };
-}

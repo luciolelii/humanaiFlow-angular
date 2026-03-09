@@ -3,7 +3,7 @@ import { inject } from '@angular/core';
 import { environment } from '@environment';
 import { Flow } from '@models/flow';
 import { map, Observable } from 'rxjs';
-import { flowFromApi, toFlowCreateRequest, toFlowUpdateRequest } from './flow-mapper';
+import { flowFromApi, toFlowCreateRequest } from './flow-mapper';
 import { FlowsCallServiceBase } from './flows-call.base';
 
 export class FlowsCallService extends FlowsCallServiceBase {
@@ -33,8 +33,13 @@ export class FlowsCallService extends FlowsCallServiceBase {
       .pipe(map((raw) => raw.map((flow) => flowFromApi(flow))));
   }
 
-  override updateFlow(flow: Flow): Observable<void> {
+  override updateFlow(flow: Flow): Observable<Flow> {
     const encodedId = encodeURIComponent(flow.id);
-    return this.http.put<void>(`${environment.apiUrl}/flows/${encodedId}`, toFlowUpdateRequest(flow));
+    return this.http
+      .put<unknown>(
+        `${environment.apiUrl}/flows/${encodedId}`,
+        toFlowCreateRequest(flow.name, flow.description, flow.data)
+      )
+      .pipe(map((raw) => flowFromApi(raw)));
   }
 }

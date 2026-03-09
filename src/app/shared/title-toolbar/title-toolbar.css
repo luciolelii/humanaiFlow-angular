@@ -1,0 +1,17 @@
+.save-snackbar {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 2000;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: #15803d;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.22);
+}
+
+.save-snackbar-error {
+  background: #b91c1c;
+}

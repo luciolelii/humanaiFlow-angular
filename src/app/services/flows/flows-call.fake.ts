@@ -28,7 +28,7 @@ export class FlowsCallServiceFake extends FlowsCallServiceBase {
 
   override updateFlow(flow: Flow) {
     this.data[flow.id] = flow;
-    return of(void 0);
+    return of(flow);
   }
 
   override createNewFlow(name?: string): Observable<Flow> {

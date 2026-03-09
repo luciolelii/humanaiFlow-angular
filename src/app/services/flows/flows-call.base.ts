@@ -7,7 +7,7 @@ export abstract class FlowsCallServiceBase {
 
     abstract retrieveAllFlows() : Observable<Flow[]>;
 
-    abstract updateFlow(flow: Flow) : Observable<void>;
+    abstract updateFlow(flow: Flow) : Observable<Flow>;
 
     abstract createNewFlow(name?: string) : Observable<Flow>;
 

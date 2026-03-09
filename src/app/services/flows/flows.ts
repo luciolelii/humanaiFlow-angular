@@ -52,7 +52,7 @@ export class FlowsService {
     );
   }
 
-  cloneFlow(flowId: string): Observable<void> {
+  cloneFlow(flowId: string): Observable<Flow> {
     const originalFlow$ = this.flowsCallService.getFlowById(flowId);
 
     const newFlow$ = this.flowsCallService.createNewFlow();

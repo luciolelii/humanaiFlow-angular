@@ -34,9 +34,15 @@
       @switch (open) {
       @case ('flows') {
       <app-group-holder title="Flows" icon="bi-lightning-charge-fill">
+        @if (!creatingFlow()) {
         <i ngProjectAs="header-button" 
           class="bi bi-plus-circle-fill text-blue-600 hover:cursor-pointer hover:text-blue-400 text-lg"
           (click)="createNewFlow()"></i>
+        } @else {
+        <span ngProjectAs="header-button" class="spinner-border spinner-border-sm text-blue-600" role="status">
+          <span class="visually-hidden">Creating flow...</span>
+        </span>
+        }
         <app-flows-list></app-flows-list>
       </app-group-holder>
       }

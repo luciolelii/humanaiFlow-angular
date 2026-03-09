@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, ElementRef, inject, ViewChild } from '@angular/core';
+import { Component, computed, ElementRef, inject, signal, ViewChild } from '@angular/core';
+import { take } from 'rxjs';
 import { EditorStateHolder } from '@stores/flow-editor';
 
 @Component({
@@ -9,6 +10,7 @@ import { EditorStateHolder } from '@stores/flow-editor';
   styleUrl: './title-toolbar.css',
 })
 export class TitleToolbar {
+  private snackTimeout: ReturnType<typeof setTimeout> | null = null;
 
   @ViewChild('titleInput') myInputRef!: ElementRef;
 
@@ -20,6 +22,8 @@ export class TitleToolbar {
   });
 
   notSaved = computed(() => this.editorState.isDirty());
+  snackbarMessage = signal<string | null>(null);
+  snackbarType = signal<'success' | 'error'>('success');
 
 
   changeTitle(value: string) {
@@ -35,9 +39,18 @@ export class TitleToolbar {
 
   save() {
     if (!this.notSaved()) return;
-    this.editorState.save().subscribe(
-      err => console.error('Save failed', err)
-    );
+    this.editorState.save().pipe(
+      take(1)
+    ).subscribe({
+      next: () => {
+        console.log('Flow saved');
+        this.showSnackbar('Flow saved', 'success');
+      },
+      error: err => {
+        console.error('Save failed', err);
+        this.showSnackbar('Errore durante il salvataggio', 'error');
+      }
+    });
   }
 
   undo() {
@@ -46,5 +59,19 @@ export class TitleToolbar {
 
   redo() {
     this.editorState.redo();
-  } 
+  }
+
+  private showSnackbar(message: string, type: 'success' | 'error') {
+    this.snackbarMessage.set(message);
+    this.snackbarType.set(type);
+
+    if (this.snackTimeout) {
+      clearTimeout(this.snackTimeout);
+    }
+
+    this.snackTimeout = setTimeout(() => {
+      this.snackbarMessage.set(null);
+      this.snackTimeout = null;
+    }, 2500);
+  }
 }

@@ -69,3 +69,9 @@
   }
 </div>
 }
+
+@if (snackbarMessage()) {
+<div class="save-snackbar" [class.save-snackbar-error]="snackbarType() === 'error'">
+  {{ snackbarMessage() }}
+</div>
+}
