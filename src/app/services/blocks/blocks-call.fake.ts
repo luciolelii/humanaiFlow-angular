@@ -155,7 +155,6 @@ export class BlocksCallServiceFake extends BlocksCallServiceBase {
     const io = this.defaultIOForBlockType(typeName);
     const block: FlowBlock = {
       id: globalThis.crypto?.randomUUID?.() ?? `${Date.now()}`,
-      sink: typeName === "HumanInteractionBlock",
       name: typeName,
       position: undefined,
       inputs: io.inputs,
@@ -172,7 +171,6 @@ export class BlocksCallServiceFake extends BlocksCallServiceBase {
     const io = this.defaultIOForBlockType(typeName);
     const block: FlowBlock = {
       id: blockId,
-      sink: typeName === "HumanInteractionBlock",
       name: configuration?.name ?? typeName,
       position: configuration?.position,
       inputs: configuration?.inputs ?? io.inputs,

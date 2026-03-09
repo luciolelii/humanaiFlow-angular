@@ -99,7 +99,6 @@ export function exportGraph(editor: NodeEditor<HFSchemes>) {
 
     return {
       id: blockId,
-      sink: blockData?.sink ?? false,
       name: blockData?.name ?? node.label,
       position: blockData?.position,
       inputs,

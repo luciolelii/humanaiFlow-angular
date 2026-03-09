@@ -18,7 +18,7 @@ export class FlowsCallService extends FlowsCallServiceBase {
 
   override createNewFlow(name?: string): Observable<Flow> {
     return this.http
-      .post<unknown>(`${environment.apiUrl}/flows`, toFlowCreateRequest(name ?? 'New Flow'))
+      .post<unknown>(`${environment.apiUrl}/flows`, toFlowCreateRequest(name ?? 'New Flow', undefined, undefined, 'DRAFT'))
       .pipe(map((raw) => flowFromApi(raw)));
   }
 
@@ -38,7 +38,7 @@ export class FlowsCallService extends FlowsCallServiceBase {
     return this.http
       .put<unknown>(
         `${environment.apiUrl}/flows/${encodedId}`,
-        toFlowCreateRequest(flow.name, flow.description, flow.data)
+        toFlowCreateRequest(flow.name, flow.description, flow.data, flow.status)
       )
       .pipe(map((raw) => flowFromApi(raw)));
   }

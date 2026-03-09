@@ -1,6 +1,7 @@
 
 
 export type FlowVisibility = 'PUBLIC' | 'PRIVATE';
+export type FlowStatus = 'DRAFT' | 'EXECUTABLE';
 
 export type Flow = {
     id: string;
@@ -10,6 +11,7 @@ export type Flow = {
     author: string;
     description?: string;
     createdAt: Date;
+    status: FlowStatus;
     updatedAt: Date;
     published?: boolean;
     finalized?: boolean;
@@ -37,7 +39,6 @@ export type BlockType = {
 
 export type FlowBlock = {
   id: string;
-  sink: boolean;
   name: string;
   position?: { x: number, y: number };
   inputs: FlowPort[];

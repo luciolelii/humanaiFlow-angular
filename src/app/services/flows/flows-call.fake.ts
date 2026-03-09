@@ -17,8 +17,8 @@ export class FlowsCallServiceFake extends FlowsCallServiceBase {
   authorizationService = inject(Authorization);
 
   private data: Record<string, Flow> = {
-    '1': { id: '1', name: 'A Flow', data: { blocks: [], connections: [] }, visibility: 'PUBLIC', author: 'Alice', createdAt: new Date("December 17, 2023 03:24:00"), updatedAt: new Date("January 7, 2026 12:24:00") },
-    '2': { id: '2', name: 'Test Flow', data: { blocks: [], connections: [] }, visibility: 'PRIVATE', author: 'Bob', createdAt: new Date("April 25, 2025 12:24:00"), updatedAt: new Date("April 27, 2025 18:42:00") },
+    '1': { id: '1', name: 'A Flow', data: { blocks: [], connections: [] }, visibility: 'PUBLIC', author: 'Alice', createdAt: new Date("December 17, 2023 03:24:00"), status: 'EXECUTABLE', updatedAt: new Date("January 7, 2026 12:24:00") },
+    '2': { id: '2', name: 'Test Flow', data: { blocks: [], connections: [] }, visibility: 'PRIVATE', author: 'Bob', createdAt: new Date("April 25, 2025 12:24:00"), status: 'DRAFT', updatedAt: new Date("April 27, 2025 18:42:00") },
     'testFlow': flowFromApi(testDataFlow)
   }
 
@@ -33,7 +33,7 @@ export class FlowsCallServiceFake extends FlowsCallServiceBase {
 
   override createNewFlow(name?: string): Observable<Flow> {
     const newId = (Object.keys(this.data).length + 1).toString();
-    this.data[newId] = { id: newId, name: name || `New Flow`, data: { blocks: [], connections: [] }, visibility: 'PRIVATE', author: this.authorizationService.loggedInUser()!.username, createdAt: new Date(), updatedAt: new Date() };
+    this.data[newId] = { id: newId, name: name || `New Flow`, data: { blocks: [], connections: [] }, visibility: 'PRIVATE', author: this.authorizationService.loggedInUser()!.username, createdAt: new Date(), status: 'DRAFT', updatedAt: new Date() };
     return of(this.data[newId]);
   }
 
@@ -46,6 +46,7 @@ const testDataFlow ={
   "id": "testFlow",
   "name" : "Test Flow",
   "owner": "lucio",
+  "status": "DRAFT",
   "published": false,
   "finalized": false,
   "description" : "This is a test flow",

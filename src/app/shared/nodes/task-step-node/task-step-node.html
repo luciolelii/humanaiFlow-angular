@@ -1,5 +1,6 @@
 <div class="llm-node"
   [class.llm-node--human]="isHumanNode()"
+  [class.llm-node-running]="isRunning() && !hasExecutionErrors()"
   [class.llm-node-completed]="isCompleted() && !needsAttention() && !hasExecutionErrors() && !hasExecutionWarnings()"
   [class.llm-node-attention]="needsAttention()"
   [class.llm-node-error]="hasExecutionErrors()"

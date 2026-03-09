@@ -34,7 +34,18 @@ export class FlowsService {
 
   updateFlow(flow: Flow) {
     return this.flowsCallService.updateFlow(flow).pipe(
-      tap(() => this.refresh()),
+      tap((updatedFlow) => {
+        this._flows.update((flows) => {
+          const index = flows.findIndex((current) => current.id === updatedFlow.id);
+          if (index < 0) {
+            return [updatedFlow, ...flows];
+          }
+
+          const next = [...flows];
+          next[index] = updatedFlow;
+          return next;
+        });
+      }),
       catchError(err => {
         console.error('Update flow failed', err);
         return throwError(() => err);

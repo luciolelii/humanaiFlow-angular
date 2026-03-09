@@ -21,6 +21,22 @@
     </h2>
     @if (notSaved()) {
     <span class="inline-flex shrink-0 items-center gap-x-1.5 rounded-full border border-yellow-500 px-3 py-1.5 text-xs font-medium text-yellow-500">not saved</span>
+    } @else if (blockSyncInProgress()) {
+    <span class="inline-flex shrink-0 items-center gap-2 rounded-full border border-blue-500 px-3 py-1.5 text-xs font-medium text-blue-600">
+      <span class="title-toolbar-spinner title-toolbar-spinner--blue" aria-hidden="true"></span>
+      <span>Updating blocks...</span>
+    </span>
+    } @else if (canExecute()) {
+    <button
+      type="button"
+      class="inline-flex shrink-0 items-center gap-2 rounded-full border border-emerald-500 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 transition enabled:hover:bg-emerald-100 disabled:cursor-default disabled:opacity-60"
+      [disabled]="executeLoading()"
+      (click)="execute()">
+      @if (executeLoading()) {
+      <span class="title-toolbar-spinner" aria-hidden="true"></span>
+      }
+      <span>Execute</span>
+    </button>
     }
   </div>
 
@@ -32,7 +48,7 @@
              flex items-center gap-1
              enabled:hover:bg-green-200 enabled:text-green-600 disabled:text-green-300
              p-1"
-      title="Save" [disabled]="!notSaved()" (click)="save()">
+      title="Save" [disabled]="!canSave()" (click)="save()">
       <i class="bi bi-save"></i>
     </button>
 

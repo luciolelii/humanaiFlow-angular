@@ -1,4 +1,4 @@
-import { Flow, FlowData, FlowVisibility } from '@models/flow';
+import { Flow, FlowData, FlowStatus, FlowVisibility } from '@models/flow';
 
 function parseDate(value: unknown, fallback: Date): Date {
   if (typeof value !== 'string' || !value) return fallback;
@@ -16,6 +16,8 @@ export function flowFromApi(raw: unknown): Flow {
     ? value['published']
     : ((value['visibility'] as FlowVisibility | undefined) === 'PUBLIC');
   const visibility: FlowVisibility = published ? 'PUBLIC' : 'PRIVATE';
+  const rawStatus = typeof value['status'] === 'string' ? value['status'].toUpperCase() : null;
+  const status: FlowStatus = rawStatus === 'EXECUTABLE' ? 'EXECUTABLE' : 'DRAFT';
 
   return {
     id: String(value['id'] ?? crypto.randomUUID()),
@@ -23,6 +25,7 @@ export function flowFromApi(raw: unknown): Flow {
     description: typeof value['description'] === 'string' ? value['description'] : undefined,
     author: String(value['author'] ?? value['owner'] ?? 'unknown'),
     createdAt,
+    status,
     updatedAt,
     visibility,
     published,
@@ -34,10 +37,11 @@ export function flowFromApi(raw: unknown): Flow {
   };
 }
 
-export function toFlowCreateRequest(name: string, description?: string, flow?: FlowData) {
+export function toFlowCreateRequest(name: string, description?: string, flow?: FlowData, status: FlowStatus = 'DRAFT') {
   return {
     name,
     description: description ?? '',
+    status,
     flow: flow ?? {
       blocks: [],
       connections: []

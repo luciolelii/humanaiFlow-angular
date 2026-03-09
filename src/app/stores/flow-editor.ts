@@ -81,7 +81,10 @@ export class EditorStateHolder {
 
   save() {
     return this.flowsService.updateFlow(this.currentFlow()!).pipe(
-      tap(() =>  this.markSaved())
+      tap((savedFlow) => {
+        this.currentFlow.set(savedFlow);
+        this.markSaved();
+      })
     )
   }
 

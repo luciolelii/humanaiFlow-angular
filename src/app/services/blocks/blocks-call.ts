@@ -107,7 +107,6 @@ export class BlocksCallService extends BlocksCallServiceBase {
 
     return {
       id: String(value["id"] ?? crypto.randomUUID()),
-      sink: typeof value["sink"] === "boolean" ? value["sink"] : typeName === "HumanInteractionBlock",
       name: String(value["name"] ?? specificConfiguration["name"] ?? typeName),
       position: this.toPosition(value["position"]),
       inputs: this.toPorts(value["inputs"], io.inputs),

@@ -2,6 +2,26 @@
   width: min(100%, 48vw);
 }
 
+.title-toolbar-spinner {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  border: 2px solid rgba(5, 150, 105, 0.2);
+  border-top-color: #059669;
+  animation: title-toolbar-spin 0.75s linear infinite;
+}
+
+.title-toolbar-spinner--blue {
+  border-color: rgba(37, 99, 235, 0.2);
+  border-top-color: #2563eb;
+}
+
+@keyframes title-toolbar-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .save-snackbar {
   position: fixed;
   right: 24px;

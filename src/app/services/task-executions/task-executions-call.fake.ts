@@ -26,7 +26,6 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
             block: {
               id: 'b2540579-ca7b-4beb-8ed3-65136e7f03d6',
               position: { x: 120, y: 160 },
-              sink: false,
               name: 'first',
               inputs: [{ name: 'name', type: 'TEXT', multiple: false }],
               outputs: [{ name: 'response', type: 'TEXT', multiple: false }],
@@ -61,7 +60,6 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
             block: {
               id: '5ceb9b7b-88a0-41bb-afef-76fcb1f57918',
               position: { x: 500, y: 160 },
-              sink: true,
               name: 'second',
               inputs: [{ name: 'year', type: 'TEXT', multiple: false }],
               outputs: [{ name: 'response', type: 'TEXT', multiple: false }],
@@ -119,7 +117,6 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
             block: {
               id: '95ebb03f-80e0-412d-87ee-2d4b7ddef240',
               position: { x: 120, y: 140 },
-              sink: false,
               name: 'first',
               inputs: [{ name: 'name', type: 'TEXT', multiple: false }],
               outputs: [{ name: 'response', type: 'TEXT', multiple: false }],
@@ -165,7 +162,6 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
             block: {
               id: '68c5949c-1c74-400e-a1aa-b5f7739e5bb2',
               position: { x: 500, y: 140 },
-              sink: true,
               name: 'interactive',
               inputs: [{ name: 'input', type: 'TEXT', multiple: false }],
               outputs: [{ name: 'output', type: 'TEXT', multiple: false }],
@@ -235,7 +231,6 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
             block: {
               id: 'ab7e0b08-c653-4d11-b808-e0e51c89d989',
               position: { x: 500, y: 140 },
-              sink: true,
               name: 'interactive',
               inputs: [{ name: 'input', type: 'TEXT', multiple: false }],
               outputs: [{ name: 'output', type: 'TEXT', multiple: false }],
@@ -281,7 +276,6 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
             block: {
               id: 'f91ec0f7-03e8-4208-89ac-bd9db46dca8c',
               position: { x: 120, y: 140 },
-              sink: false,
               name: 'first',
               inputs: [{ name: 'name', type: 'TEXT', multiple: false }],
               outputs: [{ name: 'response', type: 'TEXT', multiple: false }],
@@ -347,7 +341,6 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
             block: {
               id: '82844256-d9c1-4f81-a415-49b18c371a13',
               position: { x: 500, y: 140 },
-              sink: true,
               name: 'interactive',
               inputs: [{ name: 'input', type: 'TEXT', multiple: false }],
               outputs: [{ name: 'output', type: 'TEXT', multiple: false }],
@@ -394,7 +387,6 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
             block: {
               id: 'f80bce81-f1e4-4e03-9982-d35a042b1276',
               position: { x: 120, y: 140 },
-              sink: false,
               name: 'first',
               inputs: [{ name: 'name', type: 'TEXT', multiple: false }],
               outputs: [{ name: 'response', type: 'TEXT', multiple: false }],

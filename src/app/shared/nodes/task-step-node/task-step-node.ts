@@ -247,6 +247,10 @@ export class TaskStepNodeComponent {
     return this.stepStatus() === 'COMPLETED';
   }
 
+  isRunning(): boolean {
+    return this.stepStatus() === 'RUNNING';
+  }
+
   stepStatus(): string {
     const status = this.blockConfiguration?.['__stepStatus'];
     return typeof status === 'string' ? status.toUpperCase() : '';

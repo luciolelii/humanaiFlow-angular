@@ -1,4 +1,4 @@
-import { Injectable, signal } from '@angular/core';
+import { computed, Injectable, signal } from '@angular/core';
 import { environment } from '@environment';
 import { BlockType, BlockTypeName, FlowBlock } from '@models/flow';
 import { BlocksCallServiceBase } from './block-call.base';
@@ -14,8 +14,10 @@ export class BlocksService {
   private loadingPromise: Promise<void> | null = null;
   private readonly emptyBlockCache = new Map<string, FlowBlock>();
   private readonly pendingEmptyBlockRequests = new Map<string, Observable<FlowBlock>>();
+  private readonly pendingServerSyncCount = signal(0);
 
   private _blockTypes = signal<BlockType[]>([]);
+  readonly hasPendingServerSync = computed(() => this.pendingServerSyncCount() > 0);
 
   async getAllBlocksTypes() {
     if (this.toInit) {
@@ -92,7 +94,11 @@ export class BlocksService {
   }
 
   updateBlock(blockId: string, configuration: any) {
+    this.pendingServerSyncCount.update((count) => count + 1);
     return this.blocksCallService.updateBlock(blockId, configuration).pipe(
+      finalize(() => {
+        this.pendingServerSyncCount.update((count) => Math.max(0, count - 1));
+      }),
       catchError((err) => {
         console.error('Update block failed', err);
         return throwError(() => err);
