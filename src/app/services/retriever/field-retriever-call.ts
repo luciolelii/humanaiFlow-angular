@@ -1,7 +1,7 @@
 import { HttpClient, HttpParams } from "@angular/common/http";
 import { inject } from "@angular/core";
 import { environment } from "@environment";
-import { Observable } from "rxjs";
+import { map, Observable } from "rxjs";
 import { FieldRetrieverCallServiceBase } from "./field-retriever-call.base";
 
 export class FieldRetrieverCallService extends FieldRetrieverCallServiceBase {
@@ -10,14 +10,8 @@ export class FieldRetrieverCallService extends FieldRetrieverCallServiceBase {
   private buildParams(context?: Record<string, string>) {
     let params = new HttpParams();
     const entries = Object.entries(context ?? {});
-
-    if (!entries.length) {
-      // New API marks `params` as required even when empty.
-      return params.set('params', '{}');
-    }
-
     for (const [ctxKey, ctxValue] of entries) {
-      params = params.set(`params[${ctxKey}]`, ctxValue);
+      params = params.set(ctxKey, ctxValue);
     }
 
     return params;
@@ -30,7 +24,9 @@ export class FieldRetrieverCallService extends FieldRetrieverCallServiceBase {
   ): Observable<string[]> {
     const url = `${environment.apiUrl}/retriever/${encodeURIComponent(blockType)}/${encodeURIComponent(key)}`;
     const params = this.buildParams(context);
-    return this.http.get<string[]>(url, { params });
+    return this.http.get<unknown>(url, { params }).pipe(
+      map((raw) => this.normalizeStringList(raw))
+    );
   }
 
   override isFieldRequired(
@@ -41,5 +37,29 @@ export class FieldRetrieverCallService extends FieldRetrieverCallServiceBase {
     const url = `${environment.apiUrl}/retriever/${encodeURIComponent(blockType)}/${encodeURIComponent(key)}/required`;
     const params = this.buildParams(context);
     return this.http.get<boolean>(url, { params });
+  }
+
+  private normalizeStringList(raw: unknown): string[] {
+    if (Array.isArray(raw)) {
+      return raw.filter((item): item is string => typeof item === 'string');
+    }
+
+    if (!raw || typeof raw !== 'object') {
+      return [];
+    }
+
+    const payload = raw as Record<string, unknown>;
+    const candidate =
+      payload['values'] ??
+      payload['items'] ??
+      payload['data'] ??
+      payload['result'] ??
+      [];
+
+    if (!Array.isArray(candidate)) {
+      return [];
+    }
+
+    return candidate.filter((item): item is string => typeof item === 'string');
   }
 }

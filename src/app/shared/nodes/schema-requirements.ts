@@ -38,7 +38,8 @@ function walkSchema(
   required: RequiredField[],
   conditional: ConditionalRequiredField[],
   seenRequired: Set<string>,
-  seenConditional: Set<string>
+  seenConditional: Set<string>,
+  requireAllDescendants = false
 ) {
   const resolved = resolveSchemaRef(node, root);
   if (!resolved || typeof resolved !== 'object') return;
@@ -53,8 +54,11 @@ function walkSchema(
     const propertyResolved = resolveSchemaRef(propertySchema as Record<string, any>, root);
     const hasChildren = !!propertyResolved?.properties || propertyResolved?.type === 'object';
     const label = toLabel(key);
+    const isRequiredBySchema = requiredSet.has(key);
+    const isRequiredByAncestor = requireAllDescendants && key !== 'type';
+    const isRequired = isRequiredBySchema || isRequiredByAncestor;
 
-    if (requiredSet.has(key) && !hasChildren && key !== 'type' && !seenRequired.has(propertyPath)) {
+    if (isRequired && !hasChildren && key !== 'type' && !seenRequired.has(propertyPath)) {
       seenRequired.add(propertyPath);
       required.push({ path: propertyPath, label });
     }
@@ -89,7 +93,17 @@ function walkSchema(
     }
 
     if (hasChildren) {
-      walkSchema(propertyResolved as Record<string, any>, root, propertyPath, required, conditional, seenRequired, seenConditional);
+      const childHasOwnRequired = Array.isArray(propertyResolved?.required) && propertyResolved.required.length > 0;
+      walkSchema(
+        propertyResolved as Record<string, any>,
+        root,
+        propertyPath,
+        required,
+        conditional,
+        seenRequired,
+        seenConditional,
+        isRequired && !childHasOwnRequired
+      );
     }
   }
 }

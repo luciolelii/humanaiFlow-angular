@@ -134,7 +134,18 @@ export async function addBlockToEditor(
     if (!editor.getNode(node.id)) return;
     await editor.removeNode(node.id);
   };
-  node.data = { ...block, position: position ?? block.position, deleteNode: removeNode };
+  const replaceWithCreatedBlock = async (createdBlock: FlowBlock) => {
+    if (!editor.getNode(node.id)) return;
+    const currentPosition = (node.data?.position ?? position ?? createdBlock.position) as { x: number; y: number } | undefined;
+    await editor.removeNode(node.id);
+    await addBlockToEditor(editor, area, { ...createdBlock, position: currentPosition }, currentPosition);
+  };
+  node.data = {
+    ...block,
+    position: position ?? block.position,
+    deleteNode: removeNode,
+    replaceWithCreatedBlock
+  };
 
   for (const output of block.outputs ?? []) {
     node.addOutput(output.name, new ClassicPreset.Output(getSocket(editor, output.type ?? "ANY")));

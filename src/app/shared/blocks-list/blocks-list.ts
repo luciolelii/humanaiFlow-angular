@@ -43,8 +43,11 @@ export class BlocksList extends ListStateViewHolder<BlockType> {
 
     this.blocksService.getAllBlocksTypes().then((blockTypesSignal) => {
       this.blockTypes = blockTypesSignal;
-      this.loading.set(false);
       this.view.list = this.blockTypes;
+    }).catch((err) => {
+      console.error('Error loading block types', err);
+    }).finally(() => {
+      this.loading.set(false);
     });
   }
 

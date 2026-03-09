@@ -3,6 +3,7 @@ import { FlowBlock } from "./flow";
 
 export type HFNodeData = FlowBlock & {
   deleteNode?: () => Promise<void>;
+  replaceWithCreatedBlock?: (block: FlowBlock) => Promise<void>;
 };
 
 export type HFNode = ClassicPreset.Node & {

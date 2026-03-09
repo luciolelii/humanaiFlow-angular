@@ -7,7 +7,7 @@ import { NodeSettingsDialogService } from '@services/dialogs/node-settings-dialo
 import { EditorStateHolder } from '@stores/flow-editor';
 import { FieldRetriever } from '@services/retriever/field-retriever';
 import { BlocksService } from '@services/blocks/blocks';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, take } from 'rxjs';
 import { ConditionalRequiredField, extractSchemaRequirements, SchemaRequirements } from '../schema-requirements';
 import {
   flattenPrimitiveValues,
@@ -36,6 +36,8 @@ type EditableFieldDefinition = {
   ui: {
     widget: 'textarea' | null;
     acceptVariableAsPlaceholder: boolean;
+    structural: boolean;
+    structuralReason?: string;
     placeholder?: string;
     tip?: string;
     rows?: number;
@@ -91,10 +93,14 @@ export class GenericNodeComponent {
   localEditorValue = '';
   localEditorOptions: string[] = [];
   localEditorLoading = false;
+  localEditorHasRetriever = false;
+  localEditorDisabled = false;
+  localEditorDisabledHint = '';
   localEditorType: FieldType = 'string';
   localEditorMaxLength: number | null = null;
 
   missingRequiredParams: string[] = [];
+  private missingRequiredPaths: string[] = [];
 
   private blockSchema: Record<string, any> | null = null;
   private editableFieldDefinitions: EditableFieldDefinition[] = [];
@@ -140,6 +146,9 @@ export class GenericNodeComponent {
     this.localEditorValue = this.name ?? '';
     this.localEditorOptions = [];
     this.localEditorLoading = false;
+    this.localEditorHasRetriever = false;
+    this.localEditorDisabled = false;
+    this.localEditorDisabledHint = '';
     this.localEditorOpen = true;
   }
 
@@ -166,9 +175,26 @@ export class GenericNodeComponent {
     this.localEditorValue = this.valueToEditorString(this.getByPath(this.blockConfiguration ?? {}, definition.path), definition.type);
     this.localEditorOptions = [];
     this.localEditorLoading = !!definition.retrieverKey;
+    this.localEditorHasRetriever = !!definition.retrieverKey;
+    this.localEditorDisabled = false;
+    this.localEditorDisabledHint = '';
     this.localEditorOpen = true;
 
     if (definition.retrieverKey) {
+      const missingDependencies = definition.retrieverDependsOn
+        .filter((dep) => {
+          const value = this.getByPath(this.blockConfiguration ?? {}, dep.path);
+          return this.isMissingValue(value);
+        })
+        .map((dep) => pathToLabel(dep.path));
+
+      if (missingDependencies.length > 0) {
+        this.localEditorLoading = false;
+        this.localEditorDisabled = true;
+        this.localEditorDisabledHint = `Select ${missingDependencies.join(', ')} first`;
+        return;
+      }
+
       await this.loadLocalEditorOptions(definition);
     }
   }
@@ -182,6 +208,9 @@ export class GenericNodeComponent {
     this.localEditorLabel = '';
     this.localEditorOptions = [];
     this.localEditorLoading = false;
+    this.localEditorHasRetriever = false;
+    this.localEditorDisabled = false;
+    this.localEditorDisabledHint = '';
     this.localEditorType = 'string';
     this.localEditorMaxLength = null;
   }
@@ -191,6 +220,7 @@ export class GenericNodeComponent {
     event?.stopPropagation();
 
     if (!this.localEditorPath) return;
+    if (this.localEditorDisabled) return;
 
     const config = this.ensureBlockConfiguration();
 
@@ -199,13 +229,21 @@ export class GenericNodeComponent {
       config['name'] = nameValue;
       this.name = nameValue || this.name;
     } else {
+      const previousValue = this.getByPath(config, this.localEditorPath);
       const parsedValue = this.parseEditorValue(this.localEditorValue, this.localEditorType);
       this.setByPath(config, this.localEditorPath, parsedValue);
+      if (!this.areValuesEqual(previousValue, parsedValue)) {
+        this.resetDependentRetrieverFields(config, this.localEditorPath);
+        if (this.isStructuralField(this.localEditorPath)) {
+          this.markBlockForServerRecreate();
+        }
+      }
     }
 
     this.refreshParameterFields();
     this.refreshValidationState();
     this.markFlowDirty();
+    this.maybeCreateBlockOnServer();
     this.closeSimpleParamEditor();
   }
 
@@ -307,6 +345,7 @@ export class GenericNodeComponent {
     await this.refreshConditionalRequirements();
     this.refreshParameterFields();
     this.refreshValidationState();
+    this.maybeCreateBlockOnServer();
   }
 
   private async openTextareaEditor(
@@ -332,10 +371,19 @@ export class GenericNodeComponent {
     if (!result) return;
 
     const config = this.ensureBlockConfiguration();
-    this.setByPath(config, path, String(result[path] ?? ''));
+    const nextValue = String(result[path] ?? '');
+    const previousValue = this.getByPath(config, path);
+    this.setByPath(config, path, nextValue);
+    if (!this.areValuesEqual(previousValue, nextValue)) {
+      this.resetDependentRetrieverFields(config, path);
+      if (this.isStructuralField(path)) {
+        this.markBlockForServerRecreate();
+      }
+    }
     this.refreshParameterFields();
     this.refreshValidationState();
     this.markFlowDirty();
+    this.maybeCreateBlockOnServer();
   }
 
   private buildEditableFieldDefinitions(schema: Record<string, any> | null): EditableFieldDefinition[] {
@@ -400,10 +448,16 @@ export class GenericNodeComponent {
       ? Math.trunc(rowsRaw)
       : undefined;
     const acceptVariableAsPlaceholder = schema?.['x-ui-accept-variable-as-placeholder'] === true;
+    const structural = schema?.['x-ui-structural'] === true;
+    const structuralReason = typeof schema?.['x-ui-structural-reason'] === 'string'
+      ? String(schema['x-ui-structural-reason'])
+      : undefined;
 
     return {
       widget: normalizedWidget,
       acceptVariableAsPlaceholder,
+      structural,
+      structuralReason,
       placeholder,
       tip,
       rows
@@ -412,6 +466,10 @@ export class GenericNodeComponent {
 
   private getFieldUiMeta(path: string) {
     return this.toFieldUiMeta(this.resolveFieldSchema(path));
+  }
+
+  private isStructuralField(path: string): boolean {
+    return this.getFieldUiMeta(path).structural;
   }
 
   private resolveFieldSchema(path: string): Record<string, any> | null {
@@ -617,6 +675,28 @@ export class GenericNodeComponent {
     current[keys[keys.length - 1]] = value;
   }
 
+  private resetDependentRetrieverFields(
+    config: Record<string, any>,
+    changedPath: string,
+    visited = new Set<string>()
+  ) {
+    const dependentFields = this.editableFieldDefinitions.filter((definition) =>
+      definition.retrieverDependsOn.some((dep) => dep.path === changedPath)
+    );
+
+    for (const field of dependentFields) {
+      if (visited.has(field.path)) continue;
+      visited.add(field.path);
+      this.setByPath(config, field.path, '');
+      this.resetDependentRetrieverFields(config, field.path, visited);
+    }
+  }
+
+  private areValuesEqual(left: unknown, right: unknown): boolean {
+    if (left === right) return true;
+    return JSON.stringify(left) === JSON.stringify(right);
+  }
+
   private mainContentKey(): string | null {
     const config = this.blockConfiguration ?? {};
     if (Object.prototype.hasOwnProperty.call(config, 'actionDescription')) return 'actionDescription';
@@ -651,9 +731,11 @@ export class GenericNodeComponent {
       ...this.schemaRequirements.conditional.filter((field) => this.conditionalRequiredByPath.get(field.path))
     ].filter((field) => field.path !== 'name');
 
-    this.missingRequiredParams = requiredFields
-      .filter((field) => this.isMissingValue(this.getByPath(config, field.path)))
-      .map((field) => field.label);
+    const missingFields = requiredFields
+      .filter((field) => this.isMissingValue(this.getByPath(config, field.path)));
+
+    this.missingRequiredPaths = missingFields.map((field) => field.path);
+    this.missingRequiredParams = missingFields.map((field) => field.label);
 
     if (!this.refreshingConditionalRequirements) {
       void this.refreshConditionalRequirements();
@@ -682,6 +764,7 @@ export class GenericNodeComponent {
     this.refreshingConditionalRequirements = false;
     if (changed) {
       this.refreshValidationState();
+      this.maybeCreateBlockOnServer();
     }
   }
 
@@ -710,5 +793,61 @@ export class GenericNodeComponent {
         // Node may have been removed while async validation was running.
       }
     });
+  }
+
+  private maybeCreateBlockOnServer() {
+    const nodeData = this.data?.data as Record<string, unknown> | undefined;
+    if (!nodeData?.['__needsServerCreate']) return;
+    if (nodeData['__isCreatingOnServer'] === true) return;
+    if (this.missingRequiredPaths.length > 0) return;
+
+    const blockType = this.blockType;
+    if (!blockType) return;
+
+    nodeData['__isCreatingOnServer'] = true;
+    const configuration = this.ensureBlockConfiguration();
+
+    this.blocksService.updateBlock(String(nodeData['id'] ?? ''), {
+      ...configuration,
+      typeName: blockType
+    }).pipe(
+      take(1)
+    ).subscribe({
+      next: (createdBlock) => {
+        const current = (this.data?.data ?? {}) as Record<string, unknown>;
+        const replaceNode = current['replaceWithCreatedBlock'];
+        if (typeof replaceNode === 'function') {
+          void replaceNode({
+            ...createdBlock,
+            position: (current['position'] as { x: number; y: number } | undefined) ?? createdBlock.position
+          });
+          return;
+        }
+
+        this.data.data = {
+          ...current,
+          ...createdBlock,
+          position: (current['position'] as { x: number; y: number } | undefined) ?? createdBlock.position,
+          __needsServerCreate: false,
+          __isCreatingOnServer: false,
+          __createdOnServer: true
+        };
+        this.name = toStringOrNull(this.ensureBlockConfiguration()['name']) || createdBlock.name || this.name;
+        this.refreshParameterFields();
+        this.refreshValidationState();
+        this.markFlowDirty();
+      },
+      error: (err) => {
+        nodeData['__isCreatingOnServer'] = false;
+        console.error('Create block failed', err);
+      }
+    });
+  }
+
+  private markBlockForServerRecreate() {
+    const nodeData = this.data?.data as Record<string, unknown> | undefined;
+    if (!nodeData) return;
+    nodeData['__needsServerCreate'] = true;
+    nodeData['__createdOnServer'] = false;
   }
 }

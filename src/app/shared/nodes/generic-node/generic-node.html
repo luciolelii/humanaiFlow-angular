@@ -166,14 +166,22 @@
         <label>{{ localEditorLabel }}</label>
         @if (localEditorLoading) {
         <input type="text" [ngModel]="localEditorValue" placeholder="Loading..." disabled (pointerdown)="$event.stopPropagation()" />
+        } @else if (localEditorDisabled) {
+        <input
+          type="text"
+          [ngModel]="localEditorValue"
+          [placeholder]="localEditorDisabledHint"
+          disabled
+          (pointerdown)="$event.stopPropagation()" />
+        <small class="text-slate-500 mt-1 block">{{ localEditorDisabledHint }}</small>
         } @else if (localEditorType === 'boolean') {
-        <select [(ngModel)]="localEditorValue" (pointerdown)="$event.stopPropagation()">
+        <select [(ngModel)]="localEditorValue" [disabled]="!localEditorOptions.length" (pointerdown)="$event.stopPropagation()">
           <option value="true">true</option>
           <option value="false">false</option>
         </select>
-        } @else if (localEditorOptions.length) {
+        } @else if (localEditorHasRetriever) {
         <select [(ngModel)]="localEditorValue" (pointerdown)="$event.stopPropagation()">
-          <option value="">Select {{ localEditorLabel | lowercase }}...</option>
+          <option value="">{{ localEditorOptions.length ? ('Select ' + (localEditorLabel | lowercase) + '...') : 'No options available' }}</option>
           @for (option of localEditorOptions; track option) {
           <option [value]="option">{{ option }}</option>
           }
@@ -189,7 +197,7 @@
       </div>
       <div class="llm-modal-actions">
         <button type="button" class="llm-btn llm-btn-ghost" (pointerdown)="$event.stopPropagation()" (click)="closeSimpleParamEditor($event)">Cancel</button>
-        <button type="button" class="llm-btn llm-btn-primary" (pointerdown)="$event.stopPropagation()" (click)="saveSimpleParamEditor($event)">Save</button>
+        <button type="button" class="llm-btn llm-btn-primary" [disabled]="localEditorDisabled || localEditorLoading" (pointerdown)="$event.stopPropagation()" (click)="saveSimpleParamEditor($event)">Save</button>
       </div>
     </div>
   </div>
