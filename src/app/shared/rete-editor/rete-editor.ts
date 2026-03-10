@@ -29,6 +29,7 @@ export class ReteEditor implements OnChanges, OnDestroy {
   private rete?: ReteEditorInstance;
   private viewReady = false;
   private loadVersion = 0;
+  private suppressDirtyEvents = false;
   creatingEmptyBlock = false;
   creatingEmptyBlockType = '';
   private readonly dirtyEventTypes = new Set([
@@ -102,6 +103,7 @@ export class ReteEditor implements OnChanges, OnDestroy {
     if (!host) return;
 
     const currentVersion = ++this.loadVersion;
+    this.suppressDirtyEvents = true;
     this.rete?.area.destroy();
     this.rete = undefined;
     host.innerHTML = '';
@@ -115,21 +117,32 @@ export class ReteEditor implements OnChanges, OnDestroy {
     }
 
     this.rete = rete;
+    const loadedFlowId = this.flowId();
+    const normalizedData = exportGraph(rete.editor);
+    if (this.flowState.currentFlow()?.id === loadedFlowId) {
+      this.flowState.replaceDataWithoutDirty(normalizedData);
+    }
     if (!this.readonly()) {
       rete.editor.addPipe((context) => {
         if (this.dirtyEventTypes.has(context.type)) {
-          this.markFlowChanged(rete, context);
+          this.markFlowChanged(rete, context, loadedFlowId, currentVersion);
         }
         return context;
       });
 
       rete.area.addPipe((context: any) => {
         if (context?.type === 'nodetranslated') {
-          this.markFlowChanged(rete, context);
+          this.markFlowChanged(rete, context, loadedFlowId, currentVersion);
         }
         return context;
       });
     }
+
+    queueMicrotask(() => {
+      if (currentVersion === this.loadVersion && this.rete === rete) {
+        this.suppressDirtyEvents = false;
+      }
+    });
   }
 
   private getDropPosition(event: DragEvent) {
@@ -155,10 +168,14 @@ export class ReteEditor implements OnChanges, OnDestroy {
     };
   }
 
-  private markFlowChanged(rete: ReteEditorInstance, context: any) {
+  private markFlowChanged(rete: ReteEditorInstance, context: any, loadedFlowId: string, loadedVersion: number) {
     if (this.readonly()) return;
+    if (this.suppressDirtyEvents) return;
+    if (loadedVersion !== this.loadVersion) return;
+    if (this.rete !== rete) return;
+    if (this.flowId() !== loadedFlowId) return;
     this.syncNodePositionFromContext(rete, context);
-    if (this.flowState.currentFlow()?.id !== this.flowId()) return;
+    if (this.flowState.currentFlow()?.id !== loadedFlowId) return;
 
     const updatedData = exportGraph(rete.editor);
     this.flowState.updateData(updatedData);

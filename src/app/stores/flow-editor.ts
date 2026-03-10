@@ -52,15 +52,25 @@ export class EditorStateHolder {
   updateData(data: FlowData) {
     const current = this.currentFlow();
     if (!current) return;
+    if (this.areFlowDataEqual(current.data, data)) return;
 
     const nextFlow = { ...current, data };
     this.currentFlow.set(nextFlow);
     this.markDirty();
   }
+
+  replaceDataWithoutDirty(data: FlowData) {
+    const current = this.currentFlow();
+    if (!current) return;
+    if (this.areFlowDataEqual(current.data, data)) return;
+
+    this.currentFlow.set({ ...current, data });
+  }
   
   updateFlowTitle(newTitle: string) {
     const current = this.currentFlow();
     if (!current) return;
+    if (current.name === newTitle) return;
 
     const nextFlow = { ...current, name: newTitle };
     this.currentFlow.set(nextFlow);
@@ -74,5 +84,9 @@ export class EditorStateHolder {
         this.markSaved();
       })
     )
+  }
+
+  private areFlowDataEqual(left: FlowData, right: FlowData): boolean {
+    return JSON.stringify(left) === JSON.stringify(right);
   }
 }
