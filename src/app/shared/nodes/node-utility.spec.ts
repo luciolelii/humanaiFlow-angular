@@ -1,9 +1,13 @@
 import {
+  evaluateUiConditionRule,
   flattenPrimitiveValues,
   parentPath,
   pathToLabel,
+  readUiConditionRule,
+  readUiGroup,
   resolveSchemaRef,
   splitTemplatedTextParts,
+  getValueByPath,
   toStringOrNull,
   valueToDisplayString
 } from './node-utility';
@@ -55,8 +59,70 @@ describe('node-utility', () => {
     };
     const refNode = { $ref: '#/definitions/Message' };
 
-    expect(resolveSchemaRef(refNode, root)).toEqual({ type: 'string' });
+    expect(resolveSchemaRef(refNode, root)).toEqual({ type: 'string', $ref: '#/definitions/Message' });
     expect(resolveSchemaRef({ $ref: '#/definitions/Missing' }, root)).toEqual({ $ref: '#/definitions/Missing' });
+  });
+
+  it('resolveSchemaRef keeps local x-ui metadata declared next to $ref', () => {
+    const root = {
+      definitions: {
+        LLMDescriptor: {
+          type: 'object',
+          properties: {
+            provider: { type: 'string' }
+          }
+        }
+      }
+    };
+
+    expect(resolveSchemaRef({
+      $ref: '#/definitions/LLMDescriptor',
+      'x-ui-group': 'llm',
+      'x-ui-visible-when': { field: 'useLlm', equals: 'true' }
+    }, root)).toEqual({
+      $ref: '#/definitions/LLMDescriptor',
+      type: 'object',
+      properties: {
+        provider: { type: 'string' }
+      },
+      'x-ui-group': 'llm',
+      'x-ui-visible-when': { field: 'useLlm', equals: 'true' }
+    });
+  });
+
+  it('getValueByPath resolves nested values', () => {
+    expect(getValueByPath({ llm: { enabled: true } }, 'llm.enabled')).toBe(true);
+    expect(getValueByPath({ llm: { enabled: true } }, 'llm.missing')).toBeUndefined();
+  });
+
+  it('readUiConditionRule parses valid conditional metadata', () => {
+    expect(readUiConditionRule({ field: 'useLlm', equals: 'true' })).toEqual({
+      field: 'useLlm',
+      equals: 'true'
+    });
+    expect(readUiConditionRule({ field: '', equals: 'true' })).toBeNull();
+    expect(readUiConditionRule({ field: 'useLlm', equals: true })).toBeNull();
+  });
+
+  it('readUiGroup normalizes logical group labels', () => {
+    expect(readUiGroup(' llm ')).toBe('llm');
+    expect(readUiGroup('   ')).toBeNull();
+    expect(readUiGroup(10)).toBeNull();
+  });
+
+  it('evaluateUiConditionRule uses schema semantics for booleans and numbers', () => {
+    const schemaByPath: Record<string, Record<string, unknown>> = {
+      useLlm: { type: 'boolean' },
+      retries: { type: 'integer' },
+      provider: { type: 'string' }
+    };
+    const resolveFieldSchema = (path: string) => (schemaByPath[path] as Record<string, any>) ?? null;
+    const config = { useLlm: true, retries: 3, provider: 'openai' };
+
+    expect(evaluateUiConditionRule({ field: 'useLlm', equals: 'true' }, config, resolveFieldSchema)).toBe(true);
+    expect(evaluateUiConditionRule({ field: 'useLlm', equals: 'false' }, config, resolveFieldSchema)).toBe(false);
+    expect(evaluateUiConditionRule({ field: 'retries', equals: '3' }, config, resolveFieldSchema)).toBe(true);
+    expect(evaluateUiConditionRule({ field: 'provider', equals: 'openai' }, config, resolveFieldSchema)).toBe(true);
   });
 
   it('splitTemplatedTextParts identifies dynamic placeholders', () => {

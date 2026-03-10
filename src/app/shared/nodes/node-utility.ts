@@ -1,4 +1,5 @@
 export type TemplatedTextPart = { text: string; isDynamicInput: boolean };
+export type UiConditionRule = { field: string; equals: string };
 
 export function toStringOrNull(value: unknown): string | null {
   if (typeof value === 'string' && value.trim().length > 0) return value;
@@ -59,7 +60,68 @@ export function resolveSchemaRef(node: Record<string, any>, root: Record<string,
     current = current?.[segment];
     if (current == null) return node;
   }
-  return current;
+  if (!current || typeof current !== 'object') return node;
+
+  // Keep local wrapper metadata such as x-ui-* when a schema node decorates a $ref.
+  return {
+    ...current,
+    ...node
+  };
+}
+
+export function readUiConditionRule(value: unknown): UiConditionRule | null {
+  if (!value || typeof value !== 'object') return null;
+
+  const field = (value as Record<string, unknown>)['field'];
+  const equals = (value as Record<string, unknown>)['equals'];
+  if (typeof field !== 'string' || field.trim().length === 0) return null;
+  if (typeof equals !== 'string') return null;
+
+  return {
+    field: field.trim(),
+    equals
+  };
+}
+
+export function readUiGroup(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const normalized = value.trim();
+  return normalized.length ? normalized : null;
+}
+
+export function getValueByPath(source: Record<string, any> | null | undefined, path: string): unknown {
+  return path.split('.').reduce<unknown>((acc, key) => {
+    if (acc == null || typeof acc !== 'object') return undefined;
+    return (acc as Record<string, unknown>)[key];
+  }, source ?? {});
+}
+
+export function evaluateUiConditionRule(
+  rule: UiConditionRule | null | undefined,
+  config: Record<string, any> | null | undefined,
+  resolveFieldSchema?: (path: string) => Record<string, any> | null
+): boolean {
+  if (!rule) return true;
+
+  const actualValue = getValueByPath(config, rule.field);
+  const schema = resolveFieldSchema?.(rule.field);
+  const schemaType = schema?.['type'];
+  const type = typeof schemaType === 'string' ? schemaType : null;
+
+  if (type === 'boolean' || typeof actualValue === 'boolean') {
+    return actualValue === parseBooleanCondition(rule.equals);
+  }
+
+  if (type === 'number' || type === 'integer' || typeof actualValue === 'number') {
+    const expected = Number(rule.equals);
+    return Number.isFinite(expected) && actualValue === expected;
+  }
+
+  return String(actualValue ?? '') === rule.equals;
+}
+
+function parseBooleanCondition(value: string): boolean {
+  return value.trim().toLowerCase() === 'true';
 }
 
 export function splitTemplatedTextParts(text: string | null): TemplatedTextPart[] {

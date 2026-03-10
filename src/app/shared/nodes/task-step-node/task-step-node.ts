@@ -5,9 +5,13 @@ import { ReteModule } from 'rete-angular-plugin/21';
 import { BlocksService } from '@services/blocks/blocks';
 import { NodeSettingsDialogService } from '@services/dialogs/node-settings-dialog';
 import {
+  type UiConditionRule,
+  evaluateUiConditionRule,
   flattenPrimitiveValues,
   parentPath,
   pathToLabel,
+  readUiConditionRule,
+  readUiGroup,
   resolveSchemaRef,
   splitTemplatedTextParts,
   toStringOrNull,
@@ -87,7 +91,8 @@ export class TaskStepNodeComponent {
     const config = this.blockConfiguration ?? {};
     this.name = toStringOrNull(config['name']) ?? this.name;
     const primitiveEntries = flattenPrimitiveValues(config);
-    const contentEntry = this.pickMainContentEntry(primitiveEntries);
+    const visibleEntries = primitiveEntries.filter((entry) => this.isPathVisible(entry.path));
+    const contentEntry = this.pickMainContentEntry(visibleEntries);
 
     this.mainContent = contentEntry
       ? {
@@ -99,7 +104,7 @@ export class TaskStepNodeComponent {
 
     const grouped = new Map<string, DisplayField[]>();
     const rootFields: DisplayField[] = [];
-    const orderedFields = primitiveEntries
+    const orderedFields = visibleEntries
       .filter((entry) => !['name', 'type'].includes(entry.path))
       .filter((entry) => entry.path !== contentEntry?.path)
       .map((entry) => ({
@@ -109,21 +114,22 @@ export class TaskStepNodeComponent {
       }));
 
     for (const field of orderedFields) {
-      const parentKey = parentPath(field.path);
-      if (!parentKey) {
+      const groupLabel = this.groupLabelForPath(field.path);
+      const groupKey = groupLabel ? `group:${groupLabel}` : null;
+      if (!groupKey || !groupLabel) {
         rootFields.push(field);
         continue;
       }
-      if (!grouped.has(parentKey)) {
-        grouped.set(parentKey, []);
+      if (!grouped.has(groupKey)) {
+        grouped.set(groupKey, []);
       }
-      grouped.get(parentKey)!.push(field);
+      grouped.get(groupKey)!.push(field);
     }
 
     this.parameterFields = rootFields;
     this.parameterFieldGroups = Array.from(grouped.entries()).map(([key, fields]) => ({
       key,
-      legend: pathToLabel(key),
+      legend: key.startsWith('group:') ? key.slice('group:'.length) : pathToLabel(key),
       fields
     }));
 
@@ -407,6 +413,72 @@ export class TaskStepNodeComponent {
         // Node may have been removed while async updates were running.
       }
     });
+  }
+
+  private isPathVisible(path: string): boolean {
+    const ui = this.getFieldUiMeta(path);
+    return ui.visibleWhen.every((rule) =>
+      evaluateUiConditionRule(rule, this.blockConfiguration, (fieldPath) => this.resolveFieldSchema(fieldPath))
+    );
+  }
+
+  private groupLabelForPath(path: string): string | null {
+    return this.getFieldUiMeta(path).group ?? parentPath(path);
+  }
+
+  private resolveFieldSchema(path: string): Record<string, any> | null {
+    const root = this.blockSchema;
+    if (!root) return null;
+
+    let current: Record<string, any> | null = root;
+    for (const segment of path.split('.')) {
+      if (!current) return null;
+      const resolved = resolveSchemaRef(current, root);
+      const properties = resolved?.properties as Record<string, unknown> | undefined;
+      if (!properties || !properties[segment]) return null;
+      current = resolveSchemaRef(properties[segment] as Record<string, any>, root);
+    }
+
+    return current;
+  }
+
+  private getFieldUiMeta(path: string) {
+    const root = this.blockSchema;
+    if (!root) return this.toFieldUiMeta(null);
+
+    let current: Record<string, any> | null = root;
+    let inheritedUi = { visibleWhen: [] as UiConditionRule[], group: null as string | null };
+
+    for (const segment of path.split('.')) {
+      if (!current) return this.toFieldUiMeta(null, inheritedUi);
+      const resolved = resolveSchemaRef(current, root);
+      const properties = resolved?.properties as Record<string, unknown> | undefined;
+      if (!properties || !properties[segment]) return this.toFieldUiMeta(null, inheritedUi);
+      current = resolveSchemaRef(properties[segment] as Record<string, any>, root);
+      const nextUi = this.toFieldUiMeta(current, inheritedUi);
+      inheritedUi = {
+        visibleWhen: nextUi.visibleWhen,
+        group: nextUi.group
+      };
+    }
+
+    return this.toFieldUiMeta(current, inheritedUi);
+  }
+
+  private toFieldUiMeta(
+    schema: Record<string, any> | null | undefined,
+    inheritedUi?: { visibleWhen: UiConditionRule[]; group: string | null }
+  ) {
+    const visibleWhen = readUiConditionRule(schema?.['x-ui-visible-when']);
+    const group = readUiGroup(schema?.['x-ui-group']) ?? inheritedUi?.group ?? null;
+
+    return {
+      visibleWhen: [
+        ...(inheritedUi?.visibleWhen ?? []),
+        ...(visibleWhen ? [visibleWhen] : [])
+      ],
+      group
+    };
   }
 
 }

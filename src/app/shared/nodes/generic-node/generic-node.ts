@@ -10,9 +10,14 @@ import { BlocksService } from '@services/blocks/blocks';
 import { firstValueFrom, take } from 'rxjs';
 import { ConditionalRequiredField, extractSchemaRequirements, SchemaRequirements } from '../schema-requirements';
 import {
+  type UiConditionRule,
+  evaluateUiConditionRule,
   flattenPrimitiveValues,
+  getValueByPath,
   parentPath,
   pathToLabel,
+  readUiConditionRule,
+  readUiGroup,
   resolveSchemaRef,
   splitTemplatedTextParts,
   toStringOrNull,
@@ -41,6 +46,8 @@ type EditableFieldDefinition = {
     placeholder?: string;
     tip?: string;
     rows?: number;
+    visibleWhen: UiConditionRule[];
+    group: string | null;
   };
 };
 
@@ -94,8 +101,6 @@ export class GenericNodeComponent {
   localEditorOptions: string[] = [];
   localEditorLoading = false;
   localEditorHasRetriever = false;
-  localEditorDisabled = false;
-  localEditorDisabledHint = '';
   localEditorType: FieldType = 'string';
   localEditorMaxLength: number | null = null;
 
@@ -145,8 +150,6 @@ export class GenericNodeComponent {
     this.localEditorOptions = [];
     this.localEditorLoading = false;
     this.localEditorHasRetriever = false;
-    this.localEditorDisabled = false;
-    this.localEditorDisabledHint = '';
     this.localEditorOpen = true;
   }
 
@@ -156,6 +159,7 @@ export class GenericNodeComponent {
 
     const definition = this.editableFieldDefinitions.find((field) => field.path === path);
     if (!definition) return;
+    if (!this.isFieldVisible(definition)) return;
 
     if (definition.ui.widget === 'textarea') {
       const currentValue = this.valueToEditorString(
@@ -174,8 +178,6 @@ export class GenericNodeComponent {
     this.localEditorOptions = [];
     this.localEditorLoading = !!definition.retrieverKey;
     this.localEditorHasRetriever = !!definition.retrieverKey;
-    this.localEditorDisabled = false;
-    this.localEditorDisabledHint = '';
     this.localEditorOpen = true;
 
     if (definition.retrieverKey) {
@@ -188,8 +190,6 @@ export class GenericNodeComponent {
 
       if (missingDependencies.length > 0) {
         this.localEditorLoading = false;
-        this.localEditorDisabled = true;
-        this.localEditorDisabledHint = `Select ${missingDependencies.join(', ')} first`;
         return;
       }
 
@@ -207,8 +207,6 @@ export class GenericNodeComponent {
     this.localEditorOptions = [];
     this.localEditorLoading = false;
     this.localEditorHasRetriever = false;
-    this.localEditorDisabled = false;
-    this.localEditorDisabledHint = '';
     this.localEditorType = 'string';
     this.localEditorMaxLength = null;
   }
@@ -218,8 +216,6 @@ export class GenericNodeComponent {
     event?.stopPropagation();
 
     if (!this.localEditorPath) return;
-    if (this.localEditorDisabled) return;
-
     const config = this.ensureBlockConfiguration();
 
     if (this.localEditorPath === 'name') {
@@ -251,6 +247,7 @@ export class GenericNodeComponent {
 
     const contentKey = this.mainContentKey();
     if (!contentKey) return;
+    if (!this.isPathVisible(contentKey)) return;
 
     const contentLabel = this.mainContentLabel();
     const ui = this.getFieldUiMeta(contentKey);
@@ -276,7 +273,13 @@ export class GenericNodeComponent {
   }
 
   nodeTitle(): string {
-    return this.isHumanNode() ? 'Human Task' : 'LLM Node';
+    const type = this.blockType;
+    if (!type) return 'Node';
+    if (type === 'HumanInteractionBlock') return 'Human Task';
+    return type
+      .replace(/Block$/, '')
+      .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+      .trim();
   }
 
   mainContentLabel(): string {
@@ -286,12 +289,13 @@ export class GenericNodeComponent {
   }
 
   hasMainContent(): boolean {
-    return !!this.mainContentKey();
+    const contentKey = this.mainContentKey();
+    return !!contentKey && this.isPathVisible(contentKey);
   }
 
   mainContentParts(): { text: string; isDynamicInput: boolean }[] {
     const contentKey = this.mainContentKey();
-    if (!contentKey) return [];
+    if (!contentKey || !this.isPathVisible(contentKey)) return [];
     const content = toStringOrNull(this.getByPath(this.blockConfiguration ?? {}, contentKey));
     if (!content) return [];
     const ui = this.getFieldUiMeta(contentKey);
@@ -403,9 +407,12 @@ export class GenericNodeComponent {
 
     const definitions: EditableFieldDefinition[] = [];
     const seen = new Set<string>();
-    const contentKey = this.mainContentKey();
 
-    const walk = (node: Record<string, any>, pathPrefix: string) => {
+    const walk = (
+      node: Record<string, any>,
+      pathPrefix: string,
+      inheritedUi?: { visibleWhen: UiConditionRule[]; group: string | null }
+    ) => {
       const resolved = resolveSchemaRef(node, schema);
       if (!resolved || typeof resolved !== 'object') return;
 
@@ -416,14 +423,17 @@ export class GenericNodeComponent {
         const childResolved = resolveSchemaRef(childSchema as Record<string, any>, schema);
         const path = pathPrefix ? `${pathPrefix}.${key}` : key;
         const hasChildren = !!childResolved?.properties || childResolved?.type === 'object';
+        const childUi = this.toFieldUiMeta(childResolved, inheritedUi);
 
         if (hasChildren) {
-          walk(childResolved as Record<string, any>, path);
+          walk(childResolved as Record<string, any>, path, {
+            visibleWhen: childUi.visibleWhen,
+            group: childUi.group
+          });
           continue;
         }
 
         if (key === 'type' || key === 'name' || key.startsWith('__')) continue;
-        if (contentKey && path === contentKey) continue;
         if (seen.has(path)) continue;
 
         seen.add(path);
@@ -434,7 +444,7 @@ export class GenericNodeComponent {
           retrieverBlockType: this.toRetrieverBlockType(childResolved),
           retrieverKey: this.toRetrieverKey(childResolved),
           retrieverDependsOn: this.toRetrieverDependsOn(childResolved, pathPrefix),
-          ui: this.toFieldUiMeta(childResolved)
+          ui: childUi
         });
       }
     };
@@ -443,7 +453,10 @@ export class GenericNodeComponent {
     return definitions;
   }
 
-  private toFieldUiMeta(schema: Record<string, any> | null | undefined) {
+  private toFieldUiMeta(
+    schema: Record<string, any> | null | undefined,
+    inheritedUi?: { visibleWhen: UiConditionRule[]; group: string | null }
+  ) {
     const rawWidget = typeof schema?.['x-ui-widget'] === 'string'
       ? String(schema['x-ui-widget']).toLowerCase().trim()
       : '';
@@ -464,6 +477,8 @@ export class GenericNodeComponent {
     const structuralReason = typeof schema?.['x-ui-structural-reason'] === 'string'
       ? String(schema['x-ui-structural-reason'])
       : undefined;
+    const visibleWhen = readUiConditionRule(schema?.['x-ui-visible-when']);
+    const group = readUiGroup(schema?.['x-ui-group']) ?? inheritedUi?.group ?? null;
 
     return {
       widget: normalizedWidget,
@@ -472,12 +487,36 @@ export class GenericNodeComponent {
       structuralReason,
       placeholder,
       tip,
-      rows
+      rows,
+      visibleWhen: [
+        ...(inheritedUi?.visibleWhen ?? []),
+        ...(visibleWhen ? [visibleWhen] : [])
+      ],
+      group
     };
   }
 
   private getFieldUiMeta(path: string) {
-    return this.toFieldUiMeta(this.resolveFieldSchema(path));
+    const root = this.blockSchema;
+    if (!root) return this.toFieldUiMeta(null);
+
+    let current: Record<string, any> | null = root;
+    let inheritedUi = { visibleWhen: [] as UiConditionRule[], group: null as string | null };
+
+    for (const segment of path.split('.')) {
+      if (!current) return this.toFieldUiMeta(null, inheritedUi);
+      const resolved = resolveSchemaRef(current, root);
+      const properties = resolved?.properties as Record<string, unknown> | undefined;
+      if (!properties || !properties[segment]) return this.toFieldUiMeta(null, inheritedUi);
+      current = resolveSchemaRef(properties[segment] as Record<string, any>, root);
+      const nextUi = this.toFieldUiMeta(current, inheritedUi);
+      inheritedUi = {
+        visibleWhen: nextUi.visibleWhen,
+        group: nextUi.group
+      };
+    }
+
+    return this.toFieldUiMeta(current, inheritedUi);
   }
 
   private isStructuralField(path: string): boolean {
@@ -580,6 +619,7 @@ export class GenericNodeComponent {
 
   private refreshParameterFields() {
     const config = this.blockConfiguration ?? {};
+    const contentKey = this.mainContentKey();
     const grouped = new Map<string, EditableFieldView[]>();
     const rootFields: EditableFieldView[] = [];
 
@@ -591,32 +631,34 @@ export class GenericNodeComponent {
           label: definition.label,
           value: valueToDisplayString(value)
         };
-      });
+      }).filter((field) => field.path !== contentKey)
+        .filter((field) => this.isPathVisible(field.path));
 
       for (const field of orderedFields) {
-        const parentKey = parentPath(field.path);
-        if (!parentKey) {
+        const groupLabel = this.getFieldUiMeta(field.path).group ?? parentPath(field.path);
+        const groupKey = groupLabel ? `group:${groupLabel}` : null;
+        if (!groupKey || !groupLabel) {
           rootFields.push(field);
           continue;
         }
-        if (!grouped.has(parentKey)) {
-          grouped.set(parentKey, []);
+        if (!grouped.has(groupKey)) {
+          grouped.set(groupKey, []);
         }
-        grouped.get(parentKey)!.push(field);
+        grouped.get(groupKey)!.push(field);
       }
       this.parameterFields = rootFields;
       this.parameterFieldGroups = Array.from(grouped.entries()).map(([key, fields]) => ({
         key,
-        legend: pathToLabel(key),
+        legend: key.startsWith('group:') ? key.slice('group:'.length) : pathToLabel(key),
         fields
       }));
       this.refreshView();
       return;
     }
 
-    const contentKey = this.mainContentKey();
     const fallbackFields = flattenPrimitiveValues(config)
       .filter((entry) => entry.path !== 'name' && entry.path !== 'type' && entry.path !== contentKey)
+      .filter((entry) => this.isPathVisible(entry.path))
       .map((entry) => ({
         path: entry.path,
         label: pathToLabel(entry.path),
@@ -710,24 +752,64 @@ export class GenericNodeComponent {
   }
 
   private mainContentKey(): string | null {
-    const config = this.blockConfiguration ?? {};
-    if (Object.prototype.hasOwnProperty.call(config, 'actionDescription')) return 'actionDescription';
-    if (Object.prototype.hasOwnProperty.call(config, 'prompt')) return 'prompt';
+    const preferredPath = this.editableFieldDefinitions.find((field) =>
+      field.ui.widget === 'textarea'
+      && field.ui.acceptVariableAsPlaceholder
+      && this.isPathVisible(field.path)
+    )?.path;
+    if (preferredPath) {
+      return preferredPath;
+    }
 
-    if (this.blockSchema?.['properties'] && typeof this.blockSchema['properties'] === 'object') {
-      const props = this.blockSchema['properties'] as Record<string, unknown>;
-      if (Object.prototype.hasOwnProperty.call(props, 'actionDescription')) return 'actionDescription';
-      if (Object.prototype.hasOwnProperty.call(props, 'prompt')) return 'prompt';
+    const schemaCandidates = this.findMainContentCandidatePaths(this.blockSchema);
+    for (const candidate of schemaCandidates) {
+      if (this.isPathVisible(candidate)) return candidate;
     }
 
     return null;
   }
 
+  private findMainContentCandidatePaths(schema: Record<string, any> | null): string[] {
+    if (!schema) return [];
+
+    const paths: string[] = [];
+    const seen = new Set<string>();
+
+    const walk = (node: Record<string, any>, pathPrefix: string) => {
+      const resolved = resolveSchemaRef(node, schema);
+      if (!resolved || typeof resolved !== 'object') return;
+
+      const properties = resolved.properties as Record<string, any> | undefined;
+      if (!properties) return;
+
+      for (const [key, childSchema] of Object.entries(properties)) {
+        const childResolved = resolveSchemaRef(childSchema as Record<string, any>, schema);
+        const path = pathPrefix ? `${pathPrefix}.${key}` : key;
+        const hasChildren = !!childResolved?.properties || childResolved?.type === 'object';
+
+        if (hasChildren) {
+          walk(childResolved as Record<string, any>, path);
+          continue;
+        }
+
+        const rawWidget = typeof childResolved?.['x-ui-widget'] === 'string'
+          ? String(childResolved['x-ui-widget']).toLowerCase().trim()
+          : '';
+        const isTextarea = rawWidget === 'textarea' || rawWidget === 'text-area';
+        const acceptsVariable = childResolved?.['x-ui-accept-variable-as-placeholder'] === true;
+        if (!isTextarea || !acceptsVariable || seen.has(path)) continue;
+
+        seen.add(path);
+        paths.push(path);
+      }
+    };
+
+    walk(schema, '');
+    return paths;
+  }
+
   private getByPath(source: Record<string, any>, path: string): unknown {
-    return path.split('.').reduce<unknown>((acc, key) => {
-      if (acc == null || typeof acc !== 'object') return undefined;
-      return (acc as Record<string, unknown>)[key];
-    }, source);
+    return getValueByPath(source, path);
   }
 
   private isMissingValue(value: unknown): boolean {
@@ -741,7 +823,8 @@ export class GenericNodeComponent {
     const requiredFields = [
       ...this.schemaRequirements.required,
       ...this.schemaRequirements.conditional.filter((field) => this.conditionalRequiredByPath.get(field.path))
-    ].filter((field) => field.path !== 'name');
+    ].filter((field) => field.path !== 'name')
+      .filter((field) => this.isFieldConditionSatisfied(field.path));
 
     const missingFields = requiredFields
       .filter((field) => this.isMissingValue(this.getByPath(config, field.path)));
@@ -871,5 +954,20 @@ export class GenericNodeComponent {
     nodeData['__needsServerCreate'] = true;
     nodeData['__createdOnServer'] = false;
     nodeData['__updateBlockError'] = null;
+  }
+
+  private isPathVisible(path: string): boolean {
+    return this.isFieldConditionSatisfied(path);
+  }
+
+  private isFieldVisible(field: EditableFieldDefinition): boolean {
+    return this.isPathVisible(field.path);
+  }
+
+  private isFieldConditionSatisfied(path: string): boolean {
+    const ui = this.getFieldUiMeta(path);
+    return ui.visibleWhen.every((rule) =>
+      evaluateUiConditionRule(rule, this.blockConfiguration, (fieldPath) => this.resolveFieldSchema(fieldPath))
+    );
   }
 }
