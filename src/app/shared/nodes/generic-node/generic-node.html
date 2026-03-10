@@ -187,10 +187,18 @@
         @if (localEditorLoading) {
         <input type="text" [ngModel]="localEditorValue" placeholder="Loading..." disabled (pointerdown)="$event.stopPropagation()" />
         } @else if (localEditorType === 'boolean') {
-        <select [(ngModel)]="localEditorValue" (pointerdown)="$event.stopPropagation()">
-          <option value="true">true</option>
-          <option value="false">false</option>
-        </select>
+        <button
+          type="button"
+          class="node-toggle"
+          [class.node-toggle-on]="localEditorValue === 'true'"
+          [attr.aria-pressed]="localEditorValue === 'true'"
+          (pointerdown)="$event.stopPropagation()"
+          (click)="localEditorValue = localEditorValue === 'true' ? 'false' : 'true'">
+          <span class="node-toggle-track">
+            <span class="node-toggle-thumb"></span>
+          </span>
+          <span class="node-toggle-label">{{ localEditorValue === 'true' ? 'true' : 'false' }}</span>
+        </button>
         } @else if (localEditorHasRetriever) {
         <select [(ngModel)]="localEditorValue" (pointerdown)="$event.stopPropagation()">
           <option value="">{{ localEditorOptions.length ? ('Select ' + (localEditorLabel | lowercase) + '...') : 'No options available' }}</option>
