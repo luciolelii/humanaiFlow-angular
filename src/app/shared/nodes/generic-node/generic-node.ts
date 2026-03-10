@@ -3,6 +3,7 @@ import { ChangeDetectorRef, Component, HostBinding, inject, Input } from '@angul
 import { FormsModule } from '@angular/forms';
 import { ClassicPreset } from 'rete';
 import { ReteModule } from 'rete-angular-plugin/21';
+import { FlowData } from '@models/flow';
 import { NodeSettingsDialogService } from '@services/dialogs/node-settings-dialog';
 import { EditorStateHolder } from '@stores/flow-editor';
 import { FieldRetriever } from '@services/retriever/field-retriever';
@@ -350,7 +351,7 @@ export class GenericNodeComponent {
   private markFlowDirty() {
     const flow = this.editorState.currentFlow();
     if (!flow) return;
-    this.editorState.updateData(this.cloneFlowData(flow.data));
+    this.editorState.updateData(this.cloneCurrentFlowWithNodeChanges(flow.data));
   }
 
   private async loadSchemaContext() {
@@ -911,6 +912,23 @@ export class GenericNodeComponent {
       return globalThis.structuredClone(value);
     }
     return JSON.parse(JSON.stringify(value)) as T;
+  }
+
+  private cloneCurrentFlowWithNodeChanges(flowData: FlowData): FlowData {
+    const nextFlowData = this.cloneFlowData(flowData);
+    const nodeData = this.data?.data as Record<string, any> | undefined;
+    const blockId = typeof nodeData?.['id'] === 'string' ? nodeData['id'] : null;
+    if (!blockId) return nextFlowData;
+
+    const block = nextFlowData.blocks.find((item) => item.id === blockId);
+    if (!block) return nextFlowData;
+
+    const configuredName = toStringOrNull(this.blockConfiguration?.['name']);
+    block.name = configuredName || this.name || block.name;
+    block.typeName = this.blockType ?? block.typeName;
+    block.specificConfiguration = this.cloneFlowData(this.blockConfiguration ?? {});
+
+    return nextFlowData;
   }
 
   private maybeCreateBlockOnServer() {
