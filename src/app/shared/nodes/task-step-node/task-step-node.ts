@@ -64,7 +64,7 @@ export class TaskStepNodeComponent {
   parameterFieldGroups: DisplayFieldGroup[] = [];
 
   name = 'Step';
-  mainContent: MainContentView | null = null;
+  mainContentFields: MainContentView[] = [];
 
   private blockSchema: Record<string, any> | null = null;
   private variablePlaceholderPaths = new Set<string>();
@@ -92,21 +92,18 @@ export class TaskStepNodeComponent {
     this.name = toStringOrNull(config['name']) ?? this.name;
     const primitiveEntries = flattenPrimitiveValues(config);
     const visibleEntries = primitiveEntries.filter((entry) => this.isPathVisible(entry.path));
-    const contentEntry = this.pickMainContentEntry(visibleEntries);
-
-    this.mainContent = contentEntry
-      ? {
-          path: contentEntry.path,
-          label: pathToLabel(contentEntry.path),
-          parts: this.toMainContentParts(contentEntry.path, String(contentEntry.value))
-        }
-      : null;
+    const richContentPaths = this.pickMainContentEntries(visibleEntries).map((entry) => entry.path);
+    this.mainContentFields = this.pickMainContentEntries(visibleEntries).map((entry) => ({
+      path: entry.path,
+      label: pathToLabel(entry.path),
+      parts: this.toMainContentParts(entry.path, String(entry.value))
+    }));
 
     const grouped = new Map<string, DisplayField[]>();
     const rootFields: DisplayField[] = [];
     const orderedFields = visibleEntries
       .filter((entry) => !['name', 'type'].includes(entry.path))
-      .filter((entry) => entry.path !== contentEntry?.path)
+      .filter((entry) => !richContentPaths.includes(entry.path))
       .map((entry) => ({
         path: entry.path,
         label: pathToLabel(entry.path),
@@ -144,6 +141,10 @@ export class TaskStepNodeComponent {
     return this.blockType === 'HumanInteractionBlock';
   }
 
+  isConditionalNode(): boolean {
+    return this.blockType === 'ConditionalBlock';
+  }
+
   nodeTitle(): string {
     const type = this.blockType;
     if (!type) return 'Task Step';
@@ -153,16 +154,21 @@ export class TaskStepNodeComponent {
       .trim();
   }
 
+  outputsTitle(): string {
+    return this.isConditionalNode() ? 'On Condition' : 'Outputs';
+  }
+
+  outputPillClass(outputKey: string): string | null {
+    if (!this.isConditionalNode()) return null;
+
+    const normalized = outputKey.trim().toLowerCase();
+    if (normalized === 'true') return 'llm-pill-output-true';
+    if (normalized === 'false') return 'llm-pill-output-false';
+    return null;
+  }
+
   hasMainContent(): boolean {
-    return (this.mainContent?.parts.length ?? 0) > 0;
-  }
-
-  mainContentLabel(): string {
-    return this.mainContent?.label ?? 'Content';
-  }
-
-  mainContentParts(): { text: string; isDynamicInput: boolean }[] {
-    return this.mainContent?.parts ?? [];
+    return this.mainContentFields.length > 0;
   }
 
   formatDynamicInputToken(token: string): string {
@@ -257,6 +263,10 @@ export class TaskStepNodeComponent {
     return this.stepStatus() === 'RUNNING';
   }
 
+  isSkipped(): boolean {
+    return this.stepStatus() === 'SKIPPED';
+  }
+
   stepStatus(): string {
     const status = this.blockConfiguration?.['__stepStatus'];
     return typeof status === 'string' ? status.toUpperCase() : '';
@@ -324,27 +334,23 @@ export class TaskStepNodeComponent {
     return this.executionOutputTooltip(outputKey) ?? '';
   }
 
-  private pickMainContentEntry(entries: Array<{ path: string; value: unknown }>) {
+  private pickMainContentEntries(entries: Array<{ path: string; value: unknown }>) {
     const candidates = entries
       .filter((entry) => !['name', 'type'].includes(entry.path))
       .filter((entry) => typeof entry.value === 'string')
       .map((entry) => ({ ...entry, text: String(entry.value).trim() }))
       .filter((entry) => entry.text.length > 0);
 
-    if (!candidates.length) return null;
+    if (!candidates.length) return [];
 
     const placeholderCandidates = candidates.filter((entry) =>
       this.variablePlaceholderPaths.has(entry.path)
     );
     const scope = placeholderCandidates.length ? placeholderCandidates : candidates;
 
-    scope.sort((a, b) => {
-      if (b.text.length !== a.text.length) return b.text.length - a.text.length;
-      return a.path.localeCompare(b.path);
-    });
+    scope.sort((a, b) => a.path.localeCompare(b.path));
 
-    const chosen = scope[0];
-    return { path: chosen.path, value: chosen.text };
+    return scope.map((chosen) => ({ path: chosen.path, value: chosen.text }));
   }
 
   private getExecutionMessages(key: '__executionErrors' | '__executionWarnings'): string[] {

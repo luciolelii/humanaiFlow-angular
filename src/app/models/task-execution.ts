@@ -1,4 +1,4 @@
-import { FlowBlock, FlowPort } from './flow';
+import { FlowBlock, FlowBlockConnection, FlowPort } from './flow';
 
 export type TaskExecutionStatus = 'CREATED' | 'READY' | 'RUNNING' | 'WAITING' | 'SUCCESS' | 'ERROR';
 export type TaskExecutionStatusGroup = 'INIT' | 'RUNNING' | 'FINAL';
@@ -10,6 +10,7 @@ export type TaskExecution = {
   name: string;
   creationTime: number;
   context: TaskExecutionContext;
+  stepConnections?: FlowBlockConnection[];
 };
 
 export type TaskExecutionContext = {

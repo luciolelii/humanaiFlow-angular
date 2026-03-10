@@ -1,5 +1,6 @@
 <div class="llm-node"
   [class.llm-node--human]="isHumanNode()"
+  [class.llm-node-skipped]="isSkipped() && !hasExecutionErrors() && !hasExecutionWarnings()"
   [class.llm-node-running]="isRunning() && !hasExecutionErrors()"
   [class.llm-node-completed]="isCompleted() && !needsAttention() && !hasExecutionErrors() && !hasExecutionWarnings()"
   [class.llm-node-attention]="needsAttention()"
@@ -103,10 +104,10 @@
     </div>
 
     <div class="llm-column">
-      <div class="llm-column-title llm-column-title-right">Outputs</div>
+      <div class="llm-column-title llm-column-title-right">{{ outputsTitle() }}</div>
       @for (output of outputs; track output.key) {
       <div class="llm-row llm-row-output">
-        <span class="llm-pill llm-pill-output">
+        <span class="llm-pill llm-pill-output" [ngClass]="outputPillClass(output.key)">
           <span class="llm-pill-label">{{ output.key }}</span>
         </span>
         @if (isOutputConnected(output.key)) {
@@ -180,12 +181,13 @@
     }
 
     @if (hasMainContent()) {
+      @for (contentField of mainContentFields; track contentField.path) {
     <div class="llm-param-block">
       <div class="llm-param-row-head">
-        <div class="llm-param-key">{{ mainContentLabel() }}</div>
+        <div class="llm-param-key">{{ contentField.label }}</div>
       </div>
       <div class="llm-param-text">
-        @for (part of mainContentParts(); track $index) {
+        @for (part of contentField.parts; track $index) {
           @if (part.isDynamicInput) {
           <span class="llm-inline-token">{{ formatDynamicInputToken(part.text) }}</span>
           } @else {
@@ -194,6 +196,7 @@
         }
       </div>
     </div>
+      }
     }
   </div>
 

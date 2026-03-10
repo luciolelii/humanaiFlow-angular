@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, input, OnDestroy, signal } from '@angular/core';
-import { FlowData } from '@models/flow';
+import { FlowBlockConnection, FlowData } from '@models/flow';
 import { getExecutionStatusGroup, TaskExecution, TaskExecutionStep } from '@models/task-execution';
 import {
   EditableExecutionInput,
@@ -61,7 +61,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
       }
     }));
 
-    const connections = this.inferConnections(steps);
+    const connections = this.getExecutionConnections(steps);
     return { blocks, connections };
   });
 
@@ -266,25 +266,28 @@ export class TaskExecutionViewerComponent implements OnDestroy {
 
   private inferConnections(steps: TaskExecutionStep[]) {
     const connections: FlowData['connections'] = [];
+    const indexedSteps = steps.map((step, index) => ({ step, index }));
 
-    for (const targetStep of steps) {
+    for (const targetEntry of indexedSteps) {
+      const targetStep = targetEntry.step;
       for (const input of targetStep.inputs ?? []) {
         if (!input.registered) continue;
 
-        const candidates = steps
-          .filter((step) => step.id !== targetStep.id)
-          .flatMap((sourceStep) =>
-            (sourceStep.outputs ?? [])
+        const candidates = indexedSteps
+          .filter(({ step }) => step.id !== targetStep.id)
+          .flatMap((sourceEntry) =>
+            (sourceEntry.step.outputs ?? [])
               .filter((output) => output.connected && output.descriptor.type === input.descriptor.type)
               .map((output) => ({
-                sourceStep,
+                sourceStep: sourceEntry.step,
+                sourceIndex: sourceEntry.index,
                 sourceOutputName: output.descriptor.name
               }))
           );
 
-        if (candidates.length !== 1) continue;
+        if (!candidates.length) continue;
 
-        const source = candidates[0];
+        const source = this.pickBestConnectionCandidate(candidates, targetEntry.index);
         const id = `${source.sourceStep.id}_${source.sourceOutputName}_${targetStep.id}_${input.descriptor.name}`;
         if (connections.some((connection) => connection.id === id)) continue;
 
@@ -299,6 +302,36 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     }
 
     return connections;
+  }
+
+  private getExecutionConnections(steps: TaskExecutionStep[]): FlowBlockConnection[] {
+    const explicitConnections = this.execution()?.stepConnections;
+    if (explicitConnections?.length) {
+      return explicitConnections.map((connection) => ({
+        id: String(connection.id),
+        sourceId: String(connection.sourceId),
+        sourceName: String(connection.sourceName),
+        targetId: String(connection.targetId),
+        targetName: String(connection.targetName)
+      }));
+    }
+
+    return this.inferConnections(steps);
+  }
+
+  private pickBestConnectionCandidate(
+    candidates: Array<{ sourceStep: TaskExecutionStep; sourceIndex: number; sourceOutputName: string }>,
+    targetIndex: number
+  ) {
+    const previousCandidates = candidates
+      .filter((candidate) => candidate.sourceIndex < targetIndex)
+      .sort((left, right) => right.sourceIndex - left.sourceIndex);
+
+    if (previousCandidates.length) {
+      return previousCandidates[0];
+    }
+
+    return [...candidates].sort((left, right) => left.sourceIndex - right.sourceIndex)[0];
   }
 
   private getExecutionInputValues(

@@ -452,6 +452,18 @@
   border-color: #fecdd3;
 }
 
+.llm-pill-output-true {
+  color: #166534;
+  background: #ecfdf3;
+  border-color: #bbf7d0;
+}
+
+.llm-pill-output-false {
+  color: #9f1239;
+  background: #fff1f2;
+  border-color: #fecdd3;
+}
+
 .llm-input-info {
   border: none;
   background: transparent;

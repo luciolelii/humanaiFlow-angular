@@ -44,6 +44,18 @@
   animation: llmAttentionBorderPulse 1.2s ease-in-out infinite;
 }
 
+.llm-node-skipped {
+  border: 2px solid #94a3b8;
+  background: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%);
+  box-shadow: 0 8px 20px rgba(100, 116, 139, 0.16);
+  filter: grayscale(1);
+}
+
+.llm-node-skipped .llm-header {
+  background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
+  border-bottom-color: #cbd5e1;
+}
+
 .llm-error-alert-wrap,
 .llm-warning-alert-wrap {
   position: absolute;
@@ -325,6 +337,18 @@
 
 .llm-pill-output {
   justify-content: flex-end;
+  color: #9f1239;
+  background: #fff1f2;
+  border-color: #fecdd3;
+}
+
+.llm-pill-output-true {
+  color: #166534;
+  background: #ecfdf3;
+  border-color: #bbf7d0;
+}
+
+.llm-pill-output-false {
   color: #9f1239;
   background: #fff1f2;
   border-color: #fecdd3;

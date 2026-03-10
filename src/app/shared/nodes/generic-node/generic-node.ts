@@ -63,6 +63,12 @@ type EditableFieldGroupView = {
   fields: EditableFieldView[];
 };
 
+type RichContentView = {
+  path: string;
+  label: string;
+  parts: { text: string; isDynamicInput: boolean }[];
+};
+
 @Component({
   selector: 'app-generic-node',
   imports: [CommonModule, FormsModule, ReteModule],
@@ -92,6 +98,7 @@ export class GenericNodeComponent {
   inputs: { key: string; socket: ClassicPreset.Socket }[] = [];
   parameterFields: EditableFieldView[] = [];
   parameterFieldGroups: EditableFieldGroupView[] = [];
+  richContentFields: RichContentView[] = [];
   name = 'noName';
 
   localEditorOpen = false;
@@ -116,6 +123,7 @@ export class GenericNodeComponent {
     this.inputs = [];
     this.parameterFields = [];
     this.parameterFieldGroups = [];
+    this.richContentFields = [];
 
     Object.entries(this.data.outputs).forEach(([key, output]) => {
       this.outputs.push({ key, socket: (output as any).socket });
@@ -241,18 +249,16 @@ export class GenericNodeComponent {
     this.closeSimpleParamEditor();
   }
 
-  async openMainContentEditor(event?: Event) {
+  async openMainContentEditor(path: string, event?: Event) {
     event?.preventDefault();
     event?.stopPropagation();
 
-    const contentKey = this.mainContentKey();
-    if (!contentKey) return;
-    if (!this.isPathVisible(contentKey)) return;
+    if (!this.isPathVisible(path)) return;
 
-    const contentLabel = this.mainContentLabel();
-    const ui = this.getFieldUiMeta(contentKey);
-    const currentValue = String(this.getByPath(this.blockConfiguration ?? {}, contentKey) ?? '');
-    await this.openTextareaEditor(contentKey, contentLabel, currentValue, ui);
+    const contentLabel = pathToLabel(path);
+    const ui = this.getFieldUiMeta(path);
+    const currentValue = String(this.getByPath(this.blockConfiguration ?? {}, path) ?? '');
+    await this.openTextareaEditor(path, contentLabel, currentValue, ui);
   }
 
   async confirmDelete(event?: Event) {
@@ -272,6 +278,10 @@ export class GenericNodeComponent {
     return this.blockType === 'HumanInteractionBlock';
   }
 
+  isConditionalNode(): boolean {
+    return this.blockType === 'ConditionalBlock';
+  }
+
   nodeTitle(): string {
     const type = this.blockType;
     if (!type) return 'Node';
@@ -282,27 +292,21 @@ export class GenericNodeComponent {
       .trim();
   }
 
-  mainContentLabel(): string {
-    const contentKey = this.mainContentKey();
-    if (!contentKey) return 'Content';
-    return pathToLabel(contentKey);
+  outputsTitle(): string {
+    return this.isConditionalNode() ? 'On Condition' : 'Outputs';
+  }
+
+  outputPillClass(outputKey: string): string | null {
+    if (!this.isConditionalNode()) return null;
+
+    const normalized = outputKey.trim().toLowerCase();
+    if (normalized === 'true') return 'llm-pill-output-true';
+    if (normalized === 'false') return 'llm-pill-output-false';
+    return null;
   }
 
   hasMainContent(): boolean {
-    const contentKey = this.mainContentKey();
-    return !!contentKey && this.isPathVisible(contentKey);
-  }
-
-  mainContentParts(): { text: string; isDynamicInput: boolean }[] {
-    const contentKey = this.mainContentKey();
-    if (!contentKey || !this.isPathVisible(contentKey)) return [];
-    const content = toStringOrNull(this.getByPath(this.blockConfiguration ?? {}, contentKey));
-    if (!content) return [];
-    const ui = this.getFieldUiMeta(contentKey);
-    if (ui.widget === 'textarea' && ui.acceptVariableAsPlaceholder) {
-      return splitTemplatedTextParts(content);
-    }
-    return [{ text: content, isDynamicInput: false }];
+    return this.richContentFields.length > 0;
   }
 
   formatDynamicInputToken(token: string): string {
@@ -619,9 +623,17 @@ export class GenericNodeComponent {
 
   private refreshParameterFields() {
     const config = this.blockConfiguration ?? {};
-    const contentKey = this.mainContentKey();
+    const richContentPaths = new Set(this.richContentPaths());
     const grouped = new Map<string, EditableFieldView[]>();
     const rootFields: EditableFieldView[] = [];
+
+    this.richContentFields = this.richContentPaths()
+      .filter((path) => this.isPathVisible(path))
+      .map((path) => ({
+        path,
+        label: pathToLabel(path),
+        parts: this.toRichContentParts(path)
+      }));
 
     if (this.editableFieldDefinitions.length) {
       const orderedFields = this.editableFieldDefinitions.map((definition) => {
@@ -631,7 +643,7 @@ export class GenericNodeComponent {
           label: definition.label,
           value: valueToDisplayString(value)
         };
-      }).filter((field) => field.path !== contentKey)
+      }).filter((field) => !richContentPaths.has(field.path))
         .filter((field) => this.isPathVisible(field.path));
 
       for (const field of orderedFields) {
@@ -657,7 +669,7 @@ export class GenericNodeComponent {
     }
 
     const fallbackFields = flattenPrimitiveValues(config)
-      .filter((entry) => entry.path !== 'name' && entry.path !== 'type' && entry.path !== contentKey)
+      .filter((entry) => entry.path !== 'name' && entry.path !== 'type' && !richContentPaths.has(entry.path))
       .filter((entry) => this.isPathVisible(entry.path))
       .map((entry) => ({
         path: entry.path,
@@ -751,22 +763,27 @@ export class GenericNodeComponent {
     return JSON.stringify(left) === JSON.stringify(right);
   }
 
-  private mainContentKey(): string | null {
-    const preferredPath = this.editableFieldDefinitions.find((field) =>
-      field.ui.widget === 'textarea'
-      && field.ui.acceptVariableAsPlaceholder
-      && this.isPathVisible(field.path)
-    )?.path;
-    if (preferredPath) {
-      return preferredPath;
+  private richContentPaths(): string[] {
+    const preferredPaths = this.editableFieldDefinitions
+      .filter((field) => field.ui.widget === 'textarea' && field.ui.acceptVariableAsPlaceholder)
+      .map((field) => field.path);
+    if (preferredPaths.length) {
+      return preferredPaths;
     }
 
-    const schemaCandidates = this.findMainContentCandidatePaths(this.blockSchema);
-    for (const candidate of schemaCandidates) {
-      if (this.isPathVisible(candidate)) return candidate;
+    return this.findMainContentCandidatePaths(this.blockSchema);
+  }
+
+  private toRichContentParts(path: string): { text: string; isDynamicInput: boolean }[] {
+    const content = toStringOrNull(this.getByPath(this.blockConfiguration ?? {}, path));
+    if (!content) return [];
+
+    const ui = this.getFieldUiMeta(path);
+    if (ui.widget === 'textarea' && ui.acceptVariableAsPlaceholder) {
+      return splitTemplatedTextParts(content);
     }
 
-    return null;
+    return [{ text: content, isDynamicInput: false }];
   }
 
   private findMainContentCandidatePaths(schema: Record<string, any> | null): string[] {

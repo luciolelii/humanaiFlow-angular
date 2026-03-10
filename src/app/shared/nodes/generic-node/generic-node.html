@@ -82,10 +82,10 @@
     </div>
 
     <div class="llm-column">
-      <div class="llm-column-title llm-column-title-right">Outputs</div>
+      <div class="llm-column-title llm-column-title-right">{{ outputsTitle() }}</div>
       @for (output of outputs; track output.key) {
       <div class="llm-row llm-row-output">
-        <span class="llm-pill llm-pill-output">{{ output.key }}</span>
+        <span class="llm-pill llm-pill-output" [ngClass]="outputPillClass(output.key)">{{ output.key }}</span>
         <div
           refComponent
           class="llm-socket llm-socket-right"
@@ -154,18 +154,19 @@
     }
 
     @if (hasMainContent()) {
+      @for (contentField of richContentFields; track contentField.path) {
     <div class="llm-param-block">
       <div class="llm-param-row-head">
-        <div class="llm-param-key">{{ mainContentLabel() }}</div>
-        <button type="button" class="llm-edit-btn" [attr.title]="'Edit ' + mainContentLabel().toLowerCase()" (pointerdown)="$event.stopPropagation()" (click)="openMainContentEditor($event)">
+        <div class="llm-param-key">{{ contentField.label }}</div>
+        <button type="button" class="llm-edit-btn" [attr.title]="'Edit ' + contentField.label.toLowerCase()" (pointerdown)="$event.stopPropagation()" (click)="openMainContentEditor(contentField.path, $event)">
           <i class="bi bi-pen"></i>
         </button>
       </div>
       <div class="llm-param-text">
-        @if (!mainContentParts().length) {
+        @if (!contentField.parts.length) {
         -
         } @else {
-          @for (part of mainContentParts(); track $index) {
+          @for (part of contentField.parts; track $index) {
             @if (part.isDynamicInput) {
             <span class="llm-inline-token">{{ formatDynamicInputToken(part.text) }}</span>
             } @else {
@@ -175,6 +176,7 @@
         }
       </div>
     </div>
+      }
     }
   </div>
 
