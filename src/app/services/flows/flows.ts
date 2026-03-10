@@ -53,6 +53,18 @@ export class FlowsService {
     );
   }
 
+  createFlow(flow: Pick<Flow, 'name' | 'description' | 'data' | 'status'>) {
+    return this.flowsCallService.createFlow(flow).pipe(
+      tap((createdFlow) => {
+        this._flows.update((flows) => [createdFlow, ...flows]);
+      }),
+      catchError(err => {
+        console.error('Create flow failed', err);
+        return throwError(() => err);
+      })
+    );
+  }
+
   deleteFlow(flowId: string) {
     return this.flowsCallService.deleteFlow(flowId).pipe(
       tap(() => this.refresh()),
@@ -85,7 +97,15 @@ export class FlowsService {
   }
 
   createNewFlow(name? : string) {
-    return this.flowsCallService.createNewFlow(name || this.nextFileName('New Flow')).pipe(
+    return this.createFlow({
+      name: name || this.nextFileName('New Flow'),
+      description: undefined,
+      data: {
+        blocks: [],
+        connections: []
+      },
+      status: 'DRAFT'
+    }).pipe(
       tap(() => this.refresh()),
       catchError(err => {
         console.error('Create new flow failed', err);

@@ -9,6 +9,8 @@ export abstract class FlowsCallServiceBase {
 
     abstract updateFlow(flow: Flow) : Observable<Flow>;
 
+    abstract createFlow(flow: Pick<Flow, 'name' | 'description' | 'data' | 'status'>) : Observable<Flow>;
+
     abstract createNewFlow(name?: string) : Observable<Flow>;
 
     abstract deleteFlow(flowId: string) : Observable<void>;

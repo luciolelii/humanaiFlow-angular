@@ -10,24 +10,21 @@
     <app-editor-sidebar></app-editor-sidebar>
 
     <!-- CENTER EDITOR -->
-    <main class="flex flex-col w-full bg-gray-100 overflow-hidden">
+    <main class="flow-editor-main">
       @if (flow()) {
-      <div class="flex-1 overflow-hidden">
+      <div class="flow-editor-canvas-shell">
         <app-title-toolbar></app-title-toolbar>
-        <!-- editor canvas -->
-        <div class="flex-1 h-full">
+        <div class="flow-editor-canvas">
           <app-rete-editor [flowId]="flow()!.id" [flowData]="flow()!.data"></app-rete-editor>
         </div>
       </div>
       } @else {
-      <div class="text-gray-400 text-center mt-10 flex flex-col flex-1">
-        Select a document
+      <div class="flow-editor-empty">
+        <h2>No flow selected</h2>
+        <p>Open an existing flow from the sidebar or create a new one to start editing.</p>
       </div>
       }
     </main>
-
-    <!-- RIGHT PANEL -->
-    <!-- <app-right-panel></app-right-panel> -->
 
   </div>
 </div>

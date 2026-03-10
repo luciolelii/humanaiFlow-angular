@@ -16,10 +16,25 @@ export class FlowsCallService extends FlowsCallServiceBase {
       .pipe(map((raw) => flowFromApi(raw)));
   }
 
-  override createNewFlow(name?: string): Observable<Flow> {
+  override createFlow(flow: Pick<Flow, 'name' | 'description' | 'data' | 'status'>): Observable<Flow> {
     return this.http
-      .post<unknown>(`${environment.apiUrl}/flows`, toFlowCreateRequest(name ?? 'New Flow', undefined, undefined, 'DRAFT'))
+      .post<unknown>(
+        `${environment.apiUrl}/flows`,
+        toFlowCreateRequest(flow.name, flow.description, flow.data, flow.status)
+      )
       .pipe(map((raw) => flowFromApi(raw)));
+  }
+
+  override createNewFlow(name?: string): Observable<Flow> {
+    return this.createFlow({
+      name: name ?? 'New Flow',
+      description: undefined,
+      data: {
+        blocks: [],
+        connections: []
+      },
+      status: 'DRAFT'
+    });
   }
 
   override deleteFlow(flowId: string): Observable<void> {

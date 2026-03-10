@@ -1,0 +1,125 @@
+<aside class="assistant-shell">
+  <div class="assistant-scroll">
+    <header class="assistant-header">
+      <div>
+        <p class="assistant-eyebrow">Workflow Copilot</p>
+        <h2 class="assistant-title">Assistant</h2>
+      </div>
+      @if (currentIntent()) {
+      <span class="assistant-intent">{{ currentIntent() }}</span>
+      }
+    </header>
+
+    <section class="assistant-card assistant-model-card">
+      <div class="assistant-section-head">
+        <div>
+          <p class="assistant-copy">
+            Create, refine, fix, and explain flows in chat. The backend remains the source of truth.
+          </p>
+          <p class="assistant-label">Model</p>
+        </div>
+        <button
+          type="button"
+          class="assistant-section-toggle"
+          (click)="toggleModelPicker()"
+          [attr.aria-label]="modelPickerOpen() ? 'Collapse model selector' : 'Expand model selector'">
+          {{ modelPickerOpen() ? '−' : '+' }}
+        </button>
+      </div>
+
+      @if (modelPickerOpen()) {
+      <select
+        id="assistant-model"
+        class="assistant-select"
+        [ngModel]="selectedModel()"
+        (ngModelChange)="selectModel($event)"
+        [disabled]="modelsLoading() || !models().length">
+        @for (model of models(); track model) {
+        <option [value]="model">{{ model }}</option>
+        }
+      </select>
+      }
+
+      @if (modelsLoading()) {
+      <p class="assistant-meta">Loading internal models...</p>
+      } @else if (modelsError()) {
+      <p class="assistant-error">{{ modelsError() }}</p>
+      } @else if (selectedModel()) {
+      <p class="assistant-meta">Using <strong>{{ selectedModel() }}</strong></p>
+      }
+    </section>
+
+    <section class="assistant-card assistant-starters">
+      <div class="assistant-starters-head">
+        <p class="assistant-label">Quick prompts</p>
+        <button
+          type="button"
+          class="assistant-section-toggle"
+          (click)="toggleQuickPrompts()"
+          [attr.aria-label]="quickPromptsOpen() ? 'Collapse quick prompts' : 'Expand quick prompts'">
+          {{ quickPromptsOpen() ? '−' : '+' }}
+        </button>
+      </div>
+      @if (quickPromptsOpen()) {
+      <div class="assistant-chip-grid">
+        @for (starter of starterPrompts; track starter) {
+        <button type="button" class="assistant-chip" (click)="useStarter(starter)">
+          {{ starter }}
+        </button>
+        }
+      </div>
+      }
+    </section>
+
+    <section class="assistant-thread">
+      @for (message of messages(); track message.id) {
+      <article class="assistant-message" [class.assistant-message-user]="message.role === 'user'" [class.assistant-message-system]="message.role === 'system'">
+        <div class="assistant-message-role">{{ message.role }}</div>
+        <p class="assistant-message-body">{{ message.content }}</p>
+
+        @if (message.warnings?.length) {
+        <div class="assistant-list assistant-list-warning">
+          @for (warning of message.warnings ?? []; track warning) {
+          <div>{{ warning }}</div>
+          }
+        </div>
+        }
+
+        @if (message.validationErrors?.length) {
+        <div class="assistant-list assistant-list-error">
+          @for (issue of message.validationErrors ?? []; track issue.message + (issue.path ?? '')) {
+          <div>{{ issue.path ? issue.path + ': ' : '' }}{{ issue.message }}</div>
+          }
+        </div>
+        }
+      </article>
+      }
+
+      @if (assistantBusy()) {
+      <article class="assistant-message assistant-message-system">
+        <div class="assistant-message-role">assistant</div>
+        <p class="assistant-message-body">Working on the workflow...</p>
+      </article>
+      }
+    </section>
+
+  </div>
+
+  <form class="assistant-composer" (ngSubmit)="submitPrompt()">
+    <textarea
+      class="assistant-input"
+      [ngModel]="prompt()"
+      (ngModelChange)="prompt.set($event)"
+      [disabled]="!selectedModel() || assistantBusy()"
+      name="assistantPrompt"
+      rows="4"
+      placeholder="Ask the assistant to create or refine a workflow"></textarea>
+
+    <button
+      type="submit"
+      class="assistant-send"
+      [disabled]="!selectedModel() || assistantBusy() || !prompt().trim()">
+      Send
+    </button>
+  </form>
+</aside>

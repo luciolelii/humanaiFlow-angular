@@ -1,4 +1,5 @@
 import { Component, inject} from '@angular/core';
+import { environment } from '@environment';
 import { EditorSidebar } from "@pages/main/editor-sidebar/editor-sidebar";
 import { EditorStateHolder } from '@stores/flow-editor';
 import { TitleToolbar } from "@shared/title-toolbar/title-toolbar";
@@ -14,6 +15,7 @@ export class FlowEditor {
 
   private editorState: EditorStateHolder = inject(EditorStateHolder);
 
+  assistantEnabled = environment.assistantEnabled;
   flow = this.editorState.currentFlow; 
 
 }

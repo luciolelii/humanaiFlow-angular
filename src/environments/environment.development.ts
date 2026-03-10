@@ -1,3 +1,4 @@
+import { AssistantCallServiceFake } from "@services/assistant/assistant-call.fake";
 import { AuthorizationCallFakeService } from "@services/authorization/authorization-call.fake";
 import { BlocksCallServiceFake } from "@services/blocks/blocks-call.fake";
 import { FlowsCallServiceFake } from "@services/flows/flows-call.fake";
@@ -7,7 +8,9 @@ import { TaskExecutionsCallServiceFake } from "@services/task-executions/task-ex
 export const environment = {
     production: false,
     apiUrl: 'http://localhost:8080',
+    assistantEnabled: false,
     authorizationCallService: AuthorizationCallFakeService, // Assign the appropriate service here
+    assistantCallService: AssistantCallServiceFake,
     flowsCallService: FlowsCallServiceFake,
     blocksCallService: BlocksCallServiceFake,
     fieldRetrieverCallService: FieldRetrieverCallServiceFake,

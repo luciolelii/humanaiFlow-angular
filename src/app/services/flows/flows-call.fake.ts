@@ -31,10 +31,30 @@ export class FlowsCallServiceFake extends FlowsCallServiceBase {
     return of(flow);
   }
 
-  override createNewFlow(name?: string): Observable<Flow> {
+  override createFlow(flow: Pick<Flow, 'name' | 'description' | 'data' | 'status'>): Observable<Flow> {
     const newId = (Object.keys(this.data).length + 1).toString();
-    this.data[newId] = { id: newId, name: name || `New Flow`, data: { blocks: [], connections: [] }, visibility: 'PRIVATE', author: this.authorizationService.loggedInUser()!.username, createdAt: new Date(), status: 'DRAFT', updatedAt: new Date() };
-    return of(this.data[newId]);
+    const created: Flow = {
+      id: newId,
+      name: flow.name,
+      description: flow.description,
+      data: flow.data,
+      visibility: 'PRIVATE',
+      author: this.authorizationService.loggedInUser()?.username ?? 'assistant',
+      createdAt: new Date(),
+      status: flow.status,
+      updatedAt: new Date()
+    };
+    this.data[newId] = created;
+    return of(created);
+  }
+
+  override createNewFlow(name?: string): Observable<Flow> {
+    return this.createFlow({
+      name: name || 'New Flow',
+      description: undefined,
+      data: { blocks: [], connections: [] },
+      status: 'DRAFT'
+    });
   }
 
   override deleteFlow(flowId: string): Observable<void> {

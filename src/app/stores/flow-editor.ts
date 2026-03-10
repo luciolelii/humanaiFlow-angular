@@ -6,6 +6,7 @@ import { tap } from 'rxjs';
 
 @Injectable({ providedIn: 'root' })
 export class EditorStateHolder {
+  static readonly ASSISTANT_DRAFT_PREFIX = 'assistant-draft:';
 
   /** Stato */
   readonly currentFlow = signal<Flow | null>(null);
@@ -49,6 +50,11 @@ export class EditorStateHolder {
     this.isDirty.set(false);
   }
 
+  loadAssistantFlow(flow: Flow, options?: { markDirty?: boolean }) {
+    this.currentFlow.set(flow);
+    this.isDirty.set(options?.markDirty === true);
+  }
+
   updateData(data: FlowData) {
     const current = this.currentFlow();
     if (!current) return;
@@ -78,7 +84,17 @@ export class EditorStateHolder {
   }
 
   save() {
-    return this.flowsService.updateFlow(this.currentFlow()!).pipe(
+    const flow = this.currentFlow()!;
+    const save$ = flow.id.startsWith(EditorStateHolder.ASSISTANT_DRAFT_PREFIX)
+      ? this.flowsService.createFlow({
+        name: flow.name,
+        description: flow.description,
+        data: flow.data,
+        status: flow.status
+      })
+      : this.flowsService.updateFlow(flow);
+
+    return save$.pipe(
       tap((savedFlow) => {
         this.currentFlow.set(savedFlow);
         this.markSaved();
