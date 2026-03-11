@@ -11,17 +11,13 @@
   color: #0f172a;
 }
 
-.llm-node-delete-pending {
-  filter: grayscale(1);
-}
-
 .llm-delete-overlay {
   position: absolute;
   inset: 0;
   z-index: 135;
   border-radius: 16px;
-  background: rgba(226, 232, 240, 0.62);
-  backdrop-filter: blur(1px);
+  background: rgba(148, 163, 184, 0.38);
+  backdrop-filter: grayscale(1) saturate(0.2);
 }
 
 .llm-loading-overlay {
@@ -273,12 +269,13 @@
   align-items: center;
   gap: 8px;
   padding: 8px 10px;
-  border: 1px solid #fecaca;
+  border: 1px solid #fca5a5;
   border-radius: 10px;
-  background: #fff7f7;
-  color: #7f1d1d;
+  background: linear-gradient(180deg, #fff1f2 0%, #ffe4e6 100%);
+  color: #881337;
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
   white-space: nowrap;
+  filter: none;
 }
 
 .llm-delete-confirm-text {
@@ -297,8 +294,9 @@
 }
 
 .llm-delete-confirm-cancel {
-  background: #e2e8f0;
-  color: #334155;
+  background: rgba(255, 255, 255, 0.88);
+  color: #7f1d1d;
+  border: 1px solid #fecaca;
 }
 
 .llm-delete-confirm-action {
