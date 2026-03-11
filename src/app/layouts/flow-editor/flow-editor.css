@@ -24,6 +24,7 @@
 
 .flow-editor-assistant {
   display: flex;
+  position: relative;
   flex: 0 0 380px;
   width: 380px;
   min-width: 320px;
@@ -32,6 +33,71 @@
   min-height: 0;
   background: #fff;
   overflow: hidden;
+  transition: width 180ms ease, flex-basis 180ms ease, min-width 180ms ease;
+}
+
+.flow-editor-assistant-collapsed {
+  flex: 0 0 72px;
+  width: 72px;
+  min-width: 72px;
+}
+
+.flow-editor-assistant-toggle {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: 0 10px 18px rgba(15, 23, 42, 0.1);
+}
+
+.flow-editor-assistant-collapsed .flow-editor-assistant-toggle {
+  right: 50%;
+  transform: translateX(50%);
+  padding: 10px;
+}
+
+.flow-editor-assistant-collapsed .flow-editor-assistant-toggle span {
+  display: none;
+}
+
+.flow-editor-assistant-rail {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  background:
+    radial-gradient(circle at top, rgba(251, 191, 36, 0.22), transparent 28%),
+    linear-gradient(180deg, #fffdf7 0%, #f8fafc 100%);
+  color: #0f172a;
+}
+
+.flow-editor-assistant-rail-icon,
+.flow-editor-assistant-rail-wand {
+  font-size: 18px;
+  color: #0f766e;
+}
+
+.flow-editor-assistant-rail-text {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
 }
 
 .flow-editor-empty {
@@ -69,6 +135,12 @@
     width: 100%;
     max-width: none;
     min-width: 0;
+    height: 42vh;
+  }
+
+  .flow-editor-assistant-collapsed {
+    width: 72px;
+    min-width: 72px;
     height: 42vh;
   }
 }

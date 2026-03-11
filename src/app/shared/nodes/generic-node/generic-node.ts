@@ -901,6 +901,13 @@ export class GenericNodeComponent {
     queueMicrotask(() => {
       try {
         this.cdr.detectChanges();
+        requestAnimationFrame(() => {
+          try {
+            this.rendered();
+          } catch {
+            // Node may have been removed while async refresh was running.
+          }
+        });
       } catch {
         // Node may have been removed while async validation was running.
       }

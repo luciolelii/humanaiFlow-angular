@@ -5,10 +5,34 @@
         <p class="assistant-eyebrow">Workflow Copilot</p>
         <h2 class="assistant-title">Assistant</h2>
       </div>
-      @if (currentIntent()) {
-      <span class="assistant-intent">{{ currentIntent() }}</span>
-      }
     </header>
+
+    @if (activePhaseLabel()) {
+    <div class="assistant-intent-row">
+      <span class="assistant-intent">{{ activePhaseLabel() }}</span>
+    </div>
+    }
+
+    @if (assistantBusy()) {
+    <section class="assistant-card assistant-busy-card">
+      <div class="assistant-busy-row">
+        <span class="assistant-busy-spinner" aria-hidden="true"></span>
+        <div>
+          <div class="assistant-busy-title">{{ busyHeadline() }}</div>
+          <p class="assistant-busy-copy">{{ busyDetail() }}</p>
+        </div>
+      </div>
+      @if (activePhase() !== 'explaining') {
+      <div class="assistant-progress">
+        @for (step of progressSteps; track step.phase; let index = $index) {
+        <span class="assistant-progress-step" [class.assistant-progress-step-active]="index <= activeProgressIndex()">
+          {{ step.label }}
+        </span>
+        }
+      </div>
+      }
+    </section>
+    }
 
     <section class="assistant-card assistant-model-card">
       <div class="assistant-section-head">
@@ -72,7 +96,7 @@
     </section>
 
     <section class="assistant-thread">
-      @for (message of messages(); track message.id) {
+      @for (message of displayedMessages(); track message.id) {
       <article class="assistant-message" [class.assistant-message-user]="message.role === 'user'" [class.assistant-message-system]="message.role === 'system'">
         <div class="assistant-message-role">{{ message.role }}</div>
         <p class="assistant-message-body">{{ message.content }}</p>
@@ -98,7 +122,7 @@
       @if (assistantBusy()) {
       <article class="assistant-message assistant-message-system">
         <div class="assistant-message-role">assistant</div>
-        <p class="assistant-message-body">Working on the workflow...</p>
+        <p class="assistant-message-body">{{ busyHeadline() }}</p>
       </article>
       }
     </section>

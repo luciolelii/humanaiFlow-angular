@@ -26,5 +26,28 @@
       }
     </main>
 
+    @if (assistantEnabled) {
+    <section class="flow-editor-assistant" [class.flow-editor-assistant-collapsed]="!assistantOpen()">
+      <button
+        type="button"
+        class="flow-editor-assistant-toggle"
+        (click)="toggleAssistant()"
+        [attr.aria-label]="assistantOpen() ? 'Collapse assistant' : 'Expand assistant'">
+        <i class="bi" [class.bi-layout-sidebar-inset-reverse]="assistantOpen()" [class.bi-stars]="!assistantOpen()"></i>
+        <span>{{ assistantOpen() ? 'Hide' : 'AI' }}</span>
+      </button>
+
+      @if (assistantOpen()) {
+      <app-flow-assistant></app-flow-assistant>
+      } @else {
+      <div class="flow-editor-assistant-rail">
+        <i class="bi bi-stars flow-editor-assistant-rail-icon" aria-hidden="true"></i>
+        <div class="flow-editor-assistant-rail-text">AI</div>
+        <i class="bi bi-magic flow-editor-assistant-rail-wand" aria-hidden="true"></i>
+      </div>
+      }
+    </section>
+    }
+
   </div>
 </div>

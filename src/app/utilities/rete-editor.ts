@@ -135,9 +135,56 @@ export async function addBlockToEditor(
   };
   const replaceWithCreatedBlock = async (createdBlock: FlowBlock) => {
     if (!editor.getNode(node.id)) return;
+    const previousConnections = editor.getConnections()
+      .filter((connection) => connection.source === node.id || connection.target === node.id)
+      .map((connection) => ({
+        id: connection.id,
+        source: connection.source,
+        sourceOutput: connection.sourceOutput,
+        target: connection.target,
+        targetInput: connection.targetInput
+      }));
     const currentPosition = (node.data?.position ?? position ?? createdBlock.position) as { x: number; y: number } | undefined;
+    for (const connection of previousConnections) {
+      await editor.removeConnection(connection.id);
+    }
     await editor.removeNode(node.id);
-    await addBlockToEditor(editor, area, { ...createdBlock, position: currentPosition }, currentPosition);
+    const replacementNode = await addBlockToEditor(
+      editor,
+      area,
+      { ...createdBlock, position: currentPosition },
+      currentPosition
+    );
+
+    if (!replacementNode) return;
+
+    const replacementOutputNames = new Set(Object.keys(replacementNode.outputs));
+    const replacementInputNames = new Set(Object.keys(replacementNode.inputs));
+
+    for (const connection of previousConnections) {
+      const sourceNode = connection.source === node.id
+        ? replacementNode
+        : editor.getNode(connection.source);
+      const targetNode = connection.target === node.id
+        ? replacementNode
+        : editor.getNode(connection.target);
+
+      if (!sourceNode || !targetNode) continue;
+
+      const sourceOutput = connection.source === node.id
+        ? connection.sourceOutput
+        : connection.sourceOutput;
+      const targetInput = connection.target === node.id
+        ? connection.targetInput
+        : connection.targetInput;
+
+      if (connection.source === node.id && !replacementOutputNames.has(sourceOutput)) continue;
+      if (connection.target === node.id && !replacementInputNames.has(targetInput)) continue;
+
+      await editor.addConnection(
+        new ClassicPreset.Connection(sourceNode as HFNode, sourceOutput, targetNode as HFNode, targetInput)
+      );
+    }
   };
   node.data = {
     ...cloneValue(block),

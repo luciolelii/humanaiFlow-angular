@@ -8,7 +8,7 @@ import { TaskExecutionsCallService } from "@services/task-executions/task-execut
 export const environment = {
     production: false,
     apiUrl: 'http://localhost:8080',
-    assistantEnabled: false,
+    assistantEnabled: true,
     assistantCallService: AssistantCallService,
     authorizationCallService: AuthorizationCallService,
     flowsCallService: FlowsCallService,

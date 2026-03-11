@@ -1,38 +1,24 @@
 import {
-  AssistantDraftPayload,
-  AssistantExplainResponse,
-  AssistantFlowResponse,
-  AssistantValidationIssue
+  AssistantCallState,
+  AssistantConfig,
+  AssistantSessionState
 } from '@models/assistant';
 import { Observable } from 'rxjs';
 
 export abstract class AssistantCallServiceBase {
-  abstract listModels(): Observable<string[]>;
+  abstract getConfig(): Observable<AssistantConfig>;
 
-  abstract createDraft(request: {
-    userPrompt: string;
-    model: string;
-    maxRepairAttempts?: number;
-  }): Observable<AssistantFlowResponse>;
+  abstract listModels(retrieverUrl: string): Observable<string[]>;
 
-  abstract refineDraft(request: {
-    userPrompt: string;
+  abstract createSession(request: {
     model: string;
-    maxRepairAttempts?: number;
-    flow: AssistantDraftPayload;
-  }): Observable<AssistantFlowResponse>;
+  }): Observable<AssistantSessionState>;
 
-  abstract fixDraft(request: {
-    userPrompt: string;
-    model: string;
-    maxRepairAttempts?: number;
-    flow: AssistantDraftPayload;
-    validationErrors?: AssistantValidationIssue[];
-  }): Observable<AssistantFlowResponse>;
+  abstract sendMessage(sessionId: string, request: {
+    message: string;
+  }): Observable<{ callId: string }>;
 
-  abstract explainDraft(request: {
-    userPrompt: string;
-    model: string;
-    flow: AssistantDraftPayload;
-  }): Observable<AssistantExplainResponse>;
+  abstract getCall(callId: string): Observable<AssistantCallState>;
+
+  abstract getSession(sessionId: string): Observable<AssistantSessionState>;
 }

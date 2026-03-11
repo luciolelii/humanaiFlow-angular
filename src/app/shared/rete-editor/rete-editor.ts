@@ -166,6 +166,9 @@ export class ReteEditor implements OnChanges, OnDestroy {
       ...movedNode.data,
       position: { x: pos.x, y: pos.y }
     };
+
+    // Keep socket anchors and connection paths visually in sync while dragging.
+    void rete.area.update('node', movedNode.id);
   }
 
   private markFlowChanged(rete: ReteEditorInstance, context: any, loadedFlowId: string, loadedVersion: number) {

@@ -1,93 +1,208 @@
 import {
+  AssistantCallPhase,
+  AssistantCallState,
+  AssistantChatMessage,
+  AssistantConfig,
   AssistantDraftPayload,
-  AssistantExplainResponse,
-  AssistantFlowResponse,
+  AssistantSessionState,
   AssistantValidationIssue
 } from '@models/assistant';
 import { Observable, of } from 'rxjs';
 import { AssistantCallServiceBase } from './assistant-call.base';
 
-export class AssistantCallServiceFake extends AssistantCallServiceBase {
-  override listModels(): Observable<string[]> {
-    return of([
-      'llama3.1:8b',
-      'qwen2.5:7b',
-      'mistral:7b'
-    ]);
-  }
+type FakeCallRecord = {
+  id: string;
+  sessionId: string;
+  content: string;
+  phaseIndex: number;
+  phases: AssistantCallPhase[];
+  completed: boolean;
+  failed: boolean;
+};
 
-  override createDraft(request: {
-    userPrompt: string;
-    model: string;
-    maxRepairAttempts?: number;
-  }): Observable<AssistantFlowResponse> {
-    const invalid = /invalid|broken|errore|error/i.test(request.userPrompt);
-    const flow = buildTicketFlow(request.model);
+export class AssistantCallServiceFake extends AssistantCallServiceBase {
+  private readonly models = ['llama3.1:8b', 'qwen2.5:7b', 'mistral:7b'];
+  private readonly sessions = new Map<string, AssistantSessionState>();
+  private readonly calls = new Map<string, FakeCallRecord>();
+
+  override getConfig(): Observable<AssistantConfig> {
     return of({
-      flow: {
-        name: /classif/i.test(request.userPrompt) ? 'Ticket classification with urgent review' : 'Assistant generated flow',
-        description: `Draft generated from prompt: ${request.userPrompt}`,
-        flow
-      },
-      valid: !invalid,
-      validationErrors: invalid ? [{ message: 'The draft contains unresolved validation issues.' }] : [],
-      warnings: ['Fake assistant response'],
-      assistantRationale: 'Uses an input block, an LLM classifier, a conditional router, and a human review branch.',
-      repairAttempts: invalid ? 1 : 0
+      defaultModel: this.models[0],
+      availableModelsRetrieverUrl: '/fake/assistant/models'
     });
   }
 
-  override refineDraft(request: {
-    userPrompt: string;
-    model: string;
-    maxRepairAttempts?: number;
-    flow: AssistantDraftPayload;
-  }): Observable<AssistantFlowResponse> {
-    const next = structuredClone(request.flow);
-    next.name = request.flow.name || 'Refined flow';
-    next.description = `${request.flow.description ?? 'Refined draft'}\n\nRefinement: ${request.userPrompt}`.trim();
+  override listModels(_retrieverUrl: string): Observable<string[]> {
+    return of(this.models);
+  }
 
-    if (/review|approval|human/i.test(request.userPrompt)) {
-      addHumanReviewTail(next.flow);
+  override createSession(request: {
+    model: string;
+  }): Observable<AssistantSessionState> {
+    const session: AssistantSessionState = {
+      id: crypto.randomUUID(),
+      selectedModel: request.model,
+      messages: [
+        {
+          id: crypto.randomUUID(),
+          role: 'system',
+          content: 'Select a model, then ask me to create, refine, fix, or explain a workflow.'
+        }
+      ],
+      currentDraftFlow: null,
+      lastValidationErrors: [],
+      lastCallId: null
+    };
+    this.sessions.set(session.id, session);
+    return of(structuredClone(session));
+  }
+
+  override sendMessage(sessionId: string, request: {
+    message: string;
+  }): Observable<{ callId: string }> {
+    const session = this.sessions.get(sessionId);
+    if (!session) {
+      throw new Error(`Assistant session ${sessionId} not found`);
     }
 
+    session.messages = [
+      ...session.messages,
+      {
+        id: crypto.randomUUID(),
+        role: 'user',
+        content: request.message
+      }
+    ];
+
+    const callId = crypto.randomUUID();
+    const phases = this.buildPhases(request.message);
+    this.calls.set(callId, {
+      id: callId,
+      sessionId,
+      content: request.message,
+      phaseIndex: 0,
+      phases,
+      completed: false,
+      failed: false
+    });
+    session.lastCallId = callId;
+
+    return of({ callId });
+  }
+
+  override getCall(callId: string): Observable<AssistantCallState> {
+    const call = this.calls.get(callId);
+    if (!call) {
+      throw new Error(`Assistant call ${callId} not found`);
+    }
+
+    if (!call.completed && !call.failed) {
+      if (call.phaseIndex < call.phases.length - 1) {
+        call.phaseIndex += 1;
+      } else {
+        call.completed = true;
+        this.applyCallResult(call);
+      }
+    }
+
+    const phase = call.completed
+      ? 'completed'
+      : call.failed
+        ? 'failed'
+        : call.phases[call.phaseIndex];
+
     return of({
-      flow: next,
-      valid: true,
-      validationErrors: [],
-      warnings: ['Fake assistant response'],
-      assistantRationale: 'Applied the requested refinement incrementally without replacing the whole graph.',
-      repairAttempts: 0
+      id: call.id,
+      sessionId: call.sessionId,
+      status: call.failed
+        ? 'FAILED'
+        : call.completed
+          ? 'COMPLETED'
+          : call.phaseIndex === 0
+            ? 'QUEUED'
+            : 'RUNNING',
+      phase,
+      errorMessage: call.failed ? 'Fake assistant call failed.' : undefined
     });
   }
 
-  override fixDraft(request: {
-    userPrompt: string;
-    model: string;
-    maxRepairAttempts?: number;
-    flow: AssistantDraftPayload;
-    validationErrors?: AssistantValidationIssue[];
-  }): Observable<AssistantFlowResponse> {
-    const next = structuredClone(request.flow);
-    return of({
-      flow: next,
-      valid: true,
-      validationErrors: [],
-      warnings: ['Fake assistant response'],
-      assistantRationale: 'Recomputed the draft and cleared the reported validation problems.',
-      repairAttempts: 1
-    });
+  override getSession(sessionId: string): Observable<AssistantSessionState> {
+    const session = this.sessions.get(sessionId);
+    if (!session) {
+      throw new Error(`Assistant session ${sessionId} not found`);
+    }
+    return of(structuredClone(session));
   }
 
-  override explainDraft(request: {
-    userPrompt: string;
-    model: string;
-    flow: AssistantDraftPayload;
-  }): Observable<AssistantExplainResponse> {
-    return of({
-      explanation: `This flow "${request.flow.name}" receives a ticket, classifies urgency with an LLM, routes urgent cases to a human reviewer, and auto-forwards non-urgent cases.`,
-      warnings: ['Fake assistant response']
-    });
+  private buildPhases(content: string): AssistantCallPhase[] {
+    const normalized = content.toLowerCase();
+    if (/explain|what does|why/.test(normalized)) {
+      return ['routing', 'explaining'];
+    }
+    if (/fix|repair|invalid|error|bug/.test(normalized)) {
+      return ['routing', 'planning', 'configuring_blocks', 'connecting_blocks', 'validating', 'fixing'];
+    }
+    return ['routing', 'planning', 'configuring_blocks', 'connecting_blocks', 'validating'];
+  }
+
+  private applyCallResult(call: FakeCallRecord) {
+    const session = this.sessions.get(call.sessionId);
+    if (!session) return;
+
+    const content = call.content.toLowerCase();
+
+    if (/explain|what does|why/.test(content)) {
+      session.messages = [
+        ...session.messages,
+        {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: session.currentDraftFlow
+            ? `This flow "${session.currentDraftFlow.name}" receives input, classifies urgency, routes urgent cases to a human, and completes the non-urgent path automatically.`
+            : 'There is no draft flow in the session yet.'
+        }
+      ];
+      return;
+    }
+
+    let draft = session.currentDraftFlow;
+    let validationErrors: AssistantValidationIssue[] = [];
+    let assistantMessage = 'I updated the workflow based on your request.';
+
+    if (!draft || /create|new flow|from scratch/.test(content)) {
+      draft = {
+        name: 'Ticket classification with urgent review',
+        description: `Draft generated from prompt: ${call.content}`,
+        flow: buildTicketFlow(session.selectedModel)
+      };
+      assistantMessage = 'I created a new workflow draft.';
+    } else if (/review|approval|human/.test(content)) {
+      draft = structuredClone(draft);
+      addHumanReviewTail(draft.flow);
+      assistantMessage = 'I updated the current workflow based on your request.';
+    } else if (/fix|repair|invalid|error|bug/.test(content)) {
+      draft = structuredClone(draft);
+      validationErrors = [];
+      assistantMessage = 'I fixed the current workflow.';
+    }
+
+    if (/invalid|broken/.test(content)) {
+      validationErrors = [{ message: 'The draft contains unresolved validation issues.' }];
+      assistantMessage = 'I created an initial draft, but it still needs corrections.';
+    }
+
+    session.currentDraftFlow = draft;
+    session.lastValidationErrors = validationErrors;
+    session.messages = [
+      ...session.messages,
+      {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: `${assistantMessage} ${validationErrors.length ? 'The draft still has validation errors.' : 'The draft is valid.'}`.trim(),
+        warnings: ['Fake assistant response'],
+        validationErrors
+      }
+    ];
   }
 }
 

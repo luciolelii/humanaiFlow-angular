@@ -1,10 +1,4 @@
 import { Injectable } from '@angular/core';
-import {
-  AssistantDraftPayload,
-  AssistantExplainResponse,
-  AssistantFlowResponse,
-  AssistantValidationIssue
-} from '@models/assistant';
 import { environment } from '@environment';
 import { AssistantCallServiceBase } from './assistant-call.base';
 
@@ -14,42 +8,27 @@ import { AssistantCallServiceBase } from './assistant-call.base';
 export class AssistantService {
   private readonly assistantCall: AssistantCallServiceBase = new environment.assistantCallService();
 
-  listModels() {
-    return this.assistantCall.listModels();
+  getConfig() {
+    return this.assistantCall.getConfig();
   }
 
-  createDraft(request: {
-    userPrompt: string;
-    model: string;
-    maxRepairAttempts?: number;
-  }) {
-    return this.assistantCall.createDraft(request);
+  listModels(retrieverUrl: string) {
+    return this.assistantCall.listModels(retrieverUrl);
   }
 
-  refineDraft(request: {
-    userPrompt: string;
-    model: string;
-    maxRepairAttempts?: number;
-    flow: AssistantDraftPayload;
-  }) {
-    return this.assistantCall.refineDraft(request);
+  createSession(request: { model: string }) {
+    return this.assistantCall.createSession(request);
   }
 
-  fixDraft(request: {
-    userPrompt: string;
-    model: string;
-    maxRepairAttempts?: number;
-    flow: AssistantDraftPayload;
-    validationErrors?: AssistantValidationIssue[];
-  }) {
-    return this.assistantCall.fixDraft(request);
+  sendMessage(sessionId: string, request: { message: string }) {
+    return this.assistantCall.sendMessage(sessionId, request);
   }
 
-  explainDraft(request: {
-    userPrompt: string;
-    model: string;
-    flow: AssistantDraftPayload;
-  }) {
-    return this.assistantCall.explainDraft(request);
+  getCall(callId: string) {
+    return this.assistantCall.getCall(callId);
+  }
+
+  getSession(sessionId: string) {
+    return this.assistantCall.getSession(sessionId);
   }
 }
