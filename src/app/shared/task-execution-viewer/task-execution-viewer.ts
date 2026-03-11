@@ -1,7 +1,12 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, input, OnDestroy, signal } from '@angular/core';
+import { Component, computed, effect, inject, input, OnDestroy, signal } from '@angular/core';
 import { FlowBlockConnection, FlowData } from '@models/flow';
-import { getExecutionStatusGroup, TaskExecution, TaskExecutionStep } from '@models/task-execution';
+import {
+  getExecutionStatusGroup,
+  TaskExecution,
+  TaskExecutionAuthorizationRequirement,
+  TaskExecutionStep
+} from '@models/task-execution';
 import {
   EditableExecutionInput,
   TaskExecutionInputsPanelComponent
@@ -19,16 +24,47 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   private static readonly TEXT_INPUT_DEBOUNCE_MS = 1200;
   private taskExecutionsService = inject(TaskExecutionsService);
   private readonly textInputDebounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private lastExecutionId: string | null = null;
   readonly execution = input<TaskExecution | null>(null);
   readonly contextAsideOpen = signal(true);
   readonly startInProgress = signal(false);
   readonly savingInputs = signal<Record<string, boolean>>({});
   readonly savingErrors = signal<Record<string, string>>({});
   readonly pendingTextInputs = signal<Record<string, string>>({});
+  readonly pendingAuthorizationValues = signal<Record<string, string>>({});
+  readonly savingAuthorizations = signal<Record<string, boolean>>({});
+  readonly authorizationErrors = signal<Record<string, string>>({});
+
+  constructor() {
+    effect(() => {
+      const executionId = this.execution()?.id ?? null;
+      if (executionId === this.lastExecutionId) return;
+      this.lastExecutionId = executionId;
+      this.pendingAuthorizationValues.set({});
+      this.savingAuthorizations.set({});
+      this.authorizationErrors.set({});
+    });
+  }
 
   readonly stepsArray = computed(() =>
     Object.values(this.execution()?.context.steps ?? {})
   );
+
+  readonly authorizationRequirements = computed<TaskExecutionAuthorizationRequirement[]>(() => {
+    const execution = this.execution();
+    if (!execution?.requiredAuthorizations) return [];
+
+    const required = execution.requiredAuthorizations;
+    const entries = Array.isArray(required) ? required : Object.values(required);
+    return entries
+      .filter((entry): entry is TaskExecutionAuthorizationRequirement => !!entry && typeof entry.key === 'string')
+      .sort((a, b) => a.provider.localeCompare(b.provider) || a.key.localeCompare(b.key));
+  });
+
+  readonly missingAuthorizationRequirements = computed<TaskExecutionAuthorizationRequirement[]>(() => {
+    const missingKeys = new Set(this.execution()?.missingAuthorizationKeys ?? []);
+    return this.authorizationRequirements().filter((requirement) => missingKeys.has(requirement.key));
+  });
 
   readonly executionFlowData = computed<FlowData>(() => {
     const executionStatusGroup = getExecutionStatusGroup(this.execution()?.context.status);
@@ -45,6 +81,8 @@ export class TaskExecutionViewerComponent implements OnDestroy {
       ...step.block,
       specificConfiguration: {
         ...(step.block.specificConfiguration ?? {}),
+        __executionId: this.execution()?.id ?? null,
+        __executionNodeId: step.id,
         __stepStatus: step.status,
         __executionStatusGroup: executionStatusGroup,
         __isWaitingStep: waitingSteps.includes(step.id),
@@ -79,6 +117,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   readonly canStartExecution = computed(() => {
     const execution = this.execution();
     if (!execution) return false;
+    if ((execution.missingAuthorizationKeys?.length ?? 0) > 0) return false;
 
     const statusGroup = getExecutionStatusGroup(execution.context.status);
     if (statusGroup !== 'INIT') return false;
@@ -182,6 +221,36 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     });
   }
 
+  onAuthorizationValueChange(requirement: TaskExecutionAuthorizationRequirement, value: string) {
+    this.pendingAuthorizationValues.update((current) => ({ ...current, [requirement.key]: value }));
+    this.authorizationErrors.update((current) => {
+      const next = { ...current };
+      delete next[requirement.key];
+      return next;
+    });
+  }
+
+  submitAuthorization(requirement: TaskExecutionAuthorizationRequirement) {
+    const executionId = this.execution()?.id;
+    if (!executionId) return;
+
+    const value = (this.pendingAuthorizationValues()[requirement.key] ?? '').trim();
+    if (!value) return;
+
+    this.setAuthorizationSaving(requirement.key, true);
+    this.taskExecutionsService.provideAuthorization(executionId, requirement.key, value).subscribe({
+      next: () => {
+        this.pendingAuthorizationValues.update((current) => {
+          const next = { ...current };
+          delete next[requirement.key];
+          return next;
+        });
+        this.clearAuthorizationSaving(requirement.key);
+      },
+      error: () => this.setAuthorizationError(requirement.key, 'Failed to save authorization')
+    });
+  }
+
   private setInputSaving(key: string, saving: boolean) {
     this.savingInputs.update((current) => ({ ...current, [key]: saving }));
     if (saving) {
@@ -212,6 +281,31 @@ export class TaskExecutionViewerComponent implements OnDestroy {
       clearTimeout(timer);
     }
     this.textInputDebounceTimers.clear();
+  }
+
+  private setAuthorizationSaving(key: string, saving: boolean) {
+    this.savingAuthorizations.update((current) => ({ ...current, [key]: saving }));
+    if (saving) {
+      this.authorizationErrors.update((current) => {
+        const next = { ...current };
+        delete next[key];
+        return next;
+      });
+    }
+  }
+
+  private clearAuthorizationSaving(key: string) {
+    this.savingAuthorizations.update((current) => ({ ...current, [key]: false }));
+    this.authorizationErrors.update((current) => {
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
+  }
+
+  private setAuthorizationError(key: string, message: string) {
+    this.savingAuthorizations.update((current) => ({ ...current, [key]: false }));
+    this.authorizationErrors.update((current) => ({ ...current, [key]: message }));
   }
 
   private sendPreparedTextInput(input: EditableExecutionInput, executionId: string) {

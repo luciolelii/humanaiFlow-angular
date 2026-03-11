@@ -3,7 +3,8 @@ import { ChangeDetectorRef, Component, HostBinding, Input, inject } from '@angul
 import { ClassicPreset } from 'rete';
 import { ReteModule } from 'rete-angular-plugin/21';
 import { BlocksService } from '@services/blocks/blocks';
-import { NodeSettingsDialogService } from '@services/dialogs/node-settings-dialog';
+import { HumanInteractionDialogService } from '@services/dialogs/human-interaction-dialog';
+import { TaskExecutionsService } from '@services/task-executions/task-executions';
 import {
   type UiConditionRule,
   evaluateUiConditionRule,
@@ -48,7 +49,8 @@ type MainContentView = {
 export class TaskStepNodeComponent {
   private blocksService = inject(BlocksService);
   private cdr = inject(ChangeDetectorRef);
-  private settingsDialog = inject(NodeSettingsDialogService);
+  private humanInteractionDialog = inject(HumanInteractionDialogService);
+  private taskExecutionsService = inject(TaskExecutionsService);
 
   @Input() data!: any;
   @Input() emit!: (data: any) => void;
@@ -65,6 +67,7 @@ export class TaskStepNodeComponent {
 
   name = 'Step';
   mainContentFields: MainContentView[] = [];
+  interactionSubmitting = false;
 
   private blockSchema: Record<string, any> | null = null;
   private variablePlaceholderPaths = new Set<string>();
@@ -275,36 +278,36 @@ export class TaskStepNodeComponent {
   async openInteractionModal(event?: Event) {
     event?.preventDefault();
     event?.stopPropagation();
+    if (this.interactionSubmitting) return;
+
+    const executionId = this.executionId();
+    const executionNodeId = this.executionNodeId();
+    const interactionFieldName = this.interactionFieldName();
+    if (!executionId || !executionNodeId || !interactionFieldName) return;
+
     const currentInput = this.currentInputValue();
     const actionDescription = this.actionDescriptionValue();
-    const currentOutput = this.currentOutputValue();
 
-    await this.settingsDialog.open({
-      title: `Filling output of ${this.name || 'Interaction Step'}`,
-      fields: [
-        {
-          key: 'actionDescription',
-          label: 'Action Description',
-          type: 'display'
-        },
-        {
-          key: 'currentInput',
-          label: 'Current Input',
-          type: 'display',
-          copyable: true
-        },
-        {
-          key: 'output',
-          label: '',
-          type: 'textarea',
-          rows: 12,
-          autofocus: true
-        }
-      ],
-      initial: {
-        actionDescription,
-        currentInput,
-        output: currentOutput
+    const result = await this.humanInteractionDialog.open({
+      title: `Send output for ${this.name || 'Interaction Step'}`,
+      actionDescription,
+      currentInput
+    });
+    if (!result) return;
+
+    this.interactionSubmitting = true;
+    this.taskExecutionsService.submitInteractionText(
+      executionId,
+      executionNodeId,
+      interactionFieldName,
+      result.value
+    ).subscribe({
+      next: () => {
+        this.interactionSubmitting = false;
+      },
+      error: (error) => {
+        this.interactionSubmitting = false;
+        console.error('Submit interaction output failed', error);
       }
     });
   }
@@ -329,9 +332,19 @@ export class TaskStepNodeComponent {
     return this.executionInputTooltip(inputKey) ?? 'not ready yet';
   }
 
-  private currentOutputValue(): string {
-    const outputKey = this.outputs[0]?.key ?? 'output';
-    return this.executionOutputTooltip(outputKey) ?? '';
+  private executionId(): string | null {
+    const value = this.blockConfiguration?.['__executionId'];
+    return typeof value === 'string' && value.length > 0 ? value : null;
+  }
+
+  private executionNodeId(): string | null {
+    const value = this.blockConfiguration?.['__executionNodeId'];
+    return typeof value === 'string' && value.length > 0 ? value : null;
+  }
+
+  private interactionFieldName(): string | null {
+    const outputKey = this.outputs[0]?.key;
+    return typeof outputKey === 'string' && outputKey.length > 0 ? outputKey : null;
   }
 
   private pickMainContentEntries(entries: Array<{ path: string; value: unknown }>) {

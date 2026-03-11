@@ -131,6 +131,14 @@ export async function addBlockToEditor(
   const node = new ClassicPreset.Node(toNodeLabel(block.typeName)) as HFNode;
   const removeNode = async () => {
     if (!editor.getNode(node.id)) return;
+    const relatedConnectionIds = editor.getConnections()
+      .filter((connection) => connection.source === node.id || connection.target === node.id)
+      .map((connection) => connection.id);
+
+    for (const connectionId of relatedConnectionIds) {
+      await editor.removeConnection(connectionId);
+    }
+
     await editor.removeNode(node.id);
   };
   const replaceWithCreatedBlock = async (createdBlock: FlowBlock) => {

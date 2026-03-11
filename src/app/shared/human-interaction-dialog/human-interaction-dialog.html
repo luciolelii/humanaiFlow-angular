@@ -1,0 +1,51 @@
+@if (state(); as currentState) {
+<div class="fixed inset-0 z-9999 flex items-center justify-center p-4">
+  <div class="absolute inset-0 bg-black/45" (click)="cancel($event)"></div>
+
+  <div class="relative z-10 flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
+    <div class="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
+      <div>
+        <h3 class="text-lg font-semibold text-slate-900">{{ currentState.title }}</h3>
+        <p class="mt-1 text-sm text-slate-500">Confirm the input as node output or edit it before sending.</p>
+      </div>
+      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancel($event)">Close</button>
+    </div>
+
+    <div class="grid flex-1 gap-4 overflow-y-auto px-5 py-4">
+      <fieldset class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+        <legend class="px-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Action Description</legend>
+        <div class="max-h-32 overflow-y-auto whitespace-pre-wrap break-words text-sm text-slate-800">{{ currentState.actionDescription || '-' }}</div>
+      </fieldset>
+
+      <fieldset class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+        <legend class="px-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Current Input</legend>
+        <div class="max-h-56 overflow-y-auto whitespace-pre-wrap break-words font-mono text-sm text-slate-800">{{ currentState.currentInput || '-' }}</div>
+      </fieldset>
+
+      @if (editing()) {
+      <label class="block text-sm font-medium text-slate-700">
+        Edit Response
+        <textarea
+          class="form-control mt-2 min-h-56"
+          rows="10"
+          [ngModel]="draftValue"
+          [attr.data-autofocus]="'true'"
+          (ngModelChange)="setDraftValue($event)">
+        </textarea>
+      </label>
+      }
+    </div>
+
+    <div class="flex justify-end gap-2 border-t border-slate-200 px-5 py-4">
+      <button type="button" class="btn btn-outline-secondary" (click)="cancel($event)">Cancel</button>
+      @if (!editing()) {
+      <button type="button" class="btn btn-outline-primary" (click)="startEditing($event)">Edit Response</button>
+      <button type="button" class="btn btn-primary" (click)="confirmInput($event)">Confirm Input</button>
+      } @else {
+      <button type="button" class="btn btn-outline-secondary" (click)="backToConfirm($event)">Back</button>
+      <button type="button" class="btn btn-primary" [disabled]="!canSendEditedOutput()" (click)="sendEditedOutput($event)">Send Output</button>
+      }
+    </div>
+  </div>
+</div>
+}

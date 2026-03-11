@@ -12,6 +12,7 @@
       type="button"
       class="llm-attention-trigger"
       aria-label="Open waiting step details"
+      [disabled]="interactionSubmitting"
       (click)="openInteractionModal($event)">
       <i class="bi bi-hand-index-thumb-fill"></i>
     </button>

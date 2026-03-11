@@ -8,6 +8,17 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
       id: 'c106be9d-5467-428c-8992-0b5f40a59aac',
       name: 'Test Flow',
       creationTime: 1772619308394,
+      requiredAuthorizations: {
+        'LLMProvider::testProvider::authorization': {
+          key: 'LLMProvider::testProvider::authorization',
+          provider: 'testProvider',
+          fieldName: 'authorization',
+          description: 'API key required for testProvider',
+          requiredBySteps: ['first', 'second']
+        }
+      },
+      providedAuthorizations: {},
+      missingAuthorizationKeys: ['LLMProvider::testProvider::authorization'],
       context: {
         inputs: {
           'feeb2977-370f-4bf9-aa84-04fa2f11e365:name': 'Leonardo da Vinci'
@@ -100,6 +111,9 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
       id: 'eda4040e-ae58-4ffb-a3b4-16dfef45a6c2',
       name: 'Test Flow',
       creationTime: 1772623910033,
+      requiredAuthorizations: {},
+      providedAuthorizations: {},
+      missingAuthorizationKeys: [],
       context: {
         inputs: {
           '95ebb03f-80e0-412d-87ee-2d4b7ddef240:name': 'marie curie'
@@ -217,6 +231,9 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
       id: '74ec477f-b04e-494c-80cc-968a40527bef',
       name: 'Test Flow',
       creationTime: 1772705504567,
+      requiredAuthorizations: {},
+      providedAuthorizations: {},
+      missingAuthorizationKeys: [],
       context: {
         inputs: {
           'f91ec0f7-03e8-4208-89ac-bd9db46dca8c:name': 'marie curie'
@@ -498,6 +515,40 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
     const execution = this.findExecution(executionId);
     execution.context.inputs[`${nodeId}:${inputName}`] = file?.name ?? '';
     execution.context.status = execution.context.waitingSteps.length ? 'WAITING' : execution.context.status;
+    return of(execution);
+  }
+
+  override submitInteractionText(
+    executionId: string,
+    nodeId: string,
+    fieldName: string,
+    value: string
+  ): Observable<TaskExecution> {
+    const execution = this.findExecution(executionId);
+    execution.context.executionResult[`${nodeId}:${fieldName}`] = value;
+    execution.context.result[`${nodeId}:${fieldName}`] = value;
+    execution.context.waitingSteps = execution.context.waitingSteps.filter((stepId) => stepId !== nodeId);
+
+    const step = execution.context.steps[nodeId];
+    if (step) {
+      step.status = 'COMPLETED';
+    }
+
+    execution.context.status = execution.context.waitingSteps.length ? 'WAITING' : 'RUNNING';
+    return of(execution);
+  }
+
+  override provideAuthorization(
+    executionId: string,
+    key: string,
+    value: string
+  ): Observable<TaskExecution> {
+    const execution = this.findExecution(executionId);
+    execution.providedAuthorizations = {
+      ...(execution.providedAuthorizations ?? {}),
+      [key]: value ? 'provided' : ''
+    };
+    execution.missingAuthorizationKeys = (execution.missingAuthorizationKeys ?? []).filter((item) => item !== key);
     return of(execution);
   }
 

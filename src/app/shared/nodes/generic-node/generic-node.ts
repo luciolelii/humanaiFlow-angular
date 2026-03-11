@@ -111,6 +111,7 @@ export class GenericNodeComponent {
   localEditorHasRetriever = false;
   localEditorType: FieldType = 'string';
   localEditorMaxLength: number | null = null;
+  deleteConfirmOpen = false;
 
   missingRequiredParams: string[] = [];
   private blockSchema: Record<string, any> | null = null;
@@ -265,14 +266,21 @@ export class GenericNodeComponent {
   async confirmDelete(event?: Event) {
     event?.preventDefault();
     event?.stopPropagation();
-
-    const confirmed = window.confirm('Do you want to delete this node from the flow?');
-    if (!confirmed) return;
+    if (!this.deleteConfirmOpen) {
+      this.deleteConfirmOpen = true;
+      return;
+    }
 
     const deleteNode = this.data?.data?.deleteNode;
     if (typeof deleteNode === 'function') {
       await deleteNode();
     }
+  }
+
+  cancelDelete(event?: Event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+    this.deleteConfirmOpen = false;
   }
 
   isHumanNode(): boolean {

@@ -18,4 +18,15 @@ export abstract class TaskExecutionsCallServiceBase {
     inputName: string,
     file: File
   ): Observable<TaskExecution>;
+  abstract submitInteractionText(
+    executionId: string,
+    nodeId: string,
+    fieldName: string,
+    value: string
+  ): Observable<TaskExecution>;
+  abstract provideAuthorization(
+    executionId: string,
+    key: string,
+    value: string
+  ): Observable<TaskExecution>;
 }

@@ -1,5 +1,6 @@
 <div class="llm-node"
   [class.llm-node-error]="hasUpdateBlockError()"
+  [class.llm-node-delete-pending]="deleteConfirmOpen"
   [class.llm-node--human]="isHumanNode()">
   @if (isCreatingOnServer()) {
   <div class="llm-loading-overlay">
@@ -8,6 +9,9 @@
       <span>Updating block...</span>
     </div>
   </div>
+  }
+  @if (deleteConfirmOpen) {
+  <div class="llm-delete-overlay"></div>
   }
   <div class="llm-header cursor-move">
     <div class="llm-icon">
@@ -49,6 +53,13 @@
           <div class="llm-warning-item">{{ missing }}</div>
           }
         </div>
+      </div>
+      }
+      @if (deleteConfirmOpen) {
+      <div class="llm-delete-confirm" (pointerdown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
+        <span class="llm-delete-confirm-text">Delete node?</span>
+        <button type="button" class="llm-delete-confirm-cancel" (click)="cancelDelete($event)">Cancel</button>
+        <button type="button" class="llm-delete-confirm-action" (click)="confirmDelete($event)">Delete</button>
       </div>
       }
       <button type="button" class="llm-delete-btn" title="Delete node" (pointerdown)="$event.stopPropagation()" (click)="confirmDelete($event)">

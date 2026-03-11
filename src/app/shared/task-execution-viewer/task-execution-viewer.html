@@ -67,9 +67,15 @@
         <div class="px-3 py-2 text-xs font-semibold text-slate-600 border-b border-slate-200 bg-slate-50">Execution Inputs</div>
         <app-task-execution-inputs-panel
           [editableInputs]="editableInputs()"
+          [authorizationRequirements]="missingAuthorizationRequirements()"
+          [authorizationValues]="pendingAuthorizationValues()"
+          [savingAuthorizations]="savingAuthorizations()"
+          [authorizationErrors]="authorizationErrors()"
           [savingInputs]="savingInputs()"
           [savingErrors]="savingErrors()"
           [readOnly]="inputsReadOnly()"
+          (authorizationValueChange)="onAuthorizationValueChange($event.requirement, $event.value)"
+          (authorizationSubmit)="submitAuthorization($event)"
           (textInputChange)="onTextInputChange($event.input, $event.value)"
           (fileInputChange)="onFileInputChange($event.input, $event.file)">
         </app-task-execution-inputs-panel>

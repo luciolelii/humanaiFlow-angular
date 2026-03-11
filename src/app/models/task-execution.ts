@@ -11,6 +11,17 @@ export type TaskExecution = {
   creationTime: number;
   context: TaskExecutionContext;
   stepConnections?: FlowBlockConnection[];
+  requiredAuthorizations?: Record<string, TaskExecutionAuthorizationRequirement>;
+  providedAuthorizations?: Record<string, unknown>;
+  missingAuthorizationKeys?: string[];
+};
+
+export type TaskExecutionAuthorizationRequirement = {
+  key: string;
+  provider: string;
+  fieldName: string;
+  description: string;
+  requiredBySteps: string[];
 };
 
 export type TaskExecutionContext = {

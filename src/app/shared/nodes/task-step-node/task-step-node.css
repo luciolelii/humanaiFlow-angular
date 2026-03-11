@@ -90,6 +90,12 @@
   font-size: 17px;
 }
 
+.llm-attention-trigger:disabled {
+  cursor: wait;
+  opacity: 0.7;
+  animation: none;
+}
+
 .llm-error-alert-wrap {
   right: -12px;
 }

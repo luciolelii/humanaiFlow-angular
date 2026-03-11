@@ -87,6 +87,26 @@ export class TaskExecutionsService {
     );
   }
 
+  submitInteractionText(executionId: string, nodeId: string, fieldName: string, value: string) {
+    return this.taskExecutionsCallService.submitInteractionText(executionId, nodeId, fieldName, value).pipe(
+      tap(() => this.refresh()),
+      catchError((err) => {
+        console.error('Submit interaction text failed', err);
+        return throwError(() => err);
+      })
+    );
+  }
+
+  provideAuthorization(executionId: string, key: string, value: string) {
+    return this.taskExecutionsCallService.provideAuthorization(executionId, key, value).pipe(
+      tap(() => this.refresh()),
+      catchError((err) => {
+        console.error('Provide authorization failed', err);
+        return throwError(() => err);
+      })
+    );
+  }
+
   private updatePollingState(taskExecutions: TaskExecution[]) {
     const shouldPoll = taskExecutions.some((execution) =>
       getExecutionStatusGroup(execution.context.status) === 'RUNNING'

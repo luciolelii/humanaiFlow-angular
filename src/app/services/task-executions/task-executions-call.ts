@@ -47,4 +47,25 @@ export class TaskExecutionsCallService extends TaskExecutionsCallServiceBase {
     formData.append('file', file);
     return this.http.put<TaskExecution>(url, formData);
   }
+
+  override submitInteractionText(
+    executionId: string,
+    nodeId: string,
+    fieldName: string,
+    value: string
+  ): Observable<TaskExecution> {
+    const url = `${environment.apiUrl}/executions/${encodeURIComponent(executionId)}/node/${encodeURIComponent(nodeId)}/interaction/${encodeURIComponent(fieldName)}/text`;
+    return this.http.put<TaskExecution>(url, value, {
+      headers: { 'Content-Type': 'text/plain' }
+    });
+  }
+
+  override provideAuthorization(
+    executionId: string,
+    key: string,
+    value: string
+  ): Observable<TaskExecution> {
+    const url = `${environment.apiUrl}/executions/${encodeURIComponent(executionId)}/authorizations`;
+    return this.http.put<TaskExecution>(url, { key, value });
+  }
 }
