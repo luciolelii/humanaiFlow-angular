@@ -7,7 +7,8 @@ export type EditableExecutionInput = {
   key: string;
   nodeId: string;
   inputName: string;
-  label: string;
+  title: string;
+  subtitle: string;
   type: string;
   value: string;
 };

@@ -14,6 +14,15 @@ import {
 import { ReteEditor } from '@shared/rete-editor/rete-editor';
 import { TaskExecutionsService } from '@services/task-executions/task-executions';
 
+type ExecutionOutputEntry = {
+  key: string;
+  title: string;
+  subtitle: string;
+  value: string;
+  preview: string;
+  isLong: boolean;
+};
+
 @Component({
   selector: 'app-task-execution-viewer',
   imports: [CommonModule, ReteEditor, TaskExecutionInputsPanelComponent],
@@ -27,6 +36,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   private lastExecutionId: string | null = null;
   readonly execution = input<TaskExecution | null>(null);
   readonly contextAsideOpen = signal(true);
+  readonly activeAsideTab = signal<'inputs' | 'output'>('inputs');
   readonly startInProgress = signal(false);
   readonly savingInputs = signal<Record<string, boolean>>({});
   readonly savingErrors = signal<Record<string, string>>({});
@@ -34,6 +44,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   readonly pendingAuthorizationValues = signal<Record<string, string>>({});
   readonly savingAuthorizations = signal<Record<string, boolean>>({});
   readonly authorizationErrors = signal<Record<string, string>>({});
+  readonly outputPreviewModal = signal<ExecutionOutputEntry | null>(null);
 
   constructor() {
     effect(() => {
@@ -43,6 +54,14 @@ export class TaskExecutionViewerComponent implements OnDestroy {
       this.pendingAuthorizationValues.set({});
       this.savingAuthorizations.set({});
       this.authorizationErrors.set({});
+      this.activeAsideTab.set('inputs');
+      this.outputPreviewModal.set(null);
+    });
+
+    effect(() => {
+      if (!this.executionOutputTabEnabled() && this.activeAsideTab() === 'output') {
+        this.activeAsideTab.set('inputs');
+      }
     });
   }
 
@@ -109,6 +128,35 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     return this.formatDuration(context.startTime, context.endTime);
   });
 
+  readonly executionOutputTabEnabled = computed(() => {
+    const status = String(this.execution()?.context.status ?? '').toUpperCase();
+    return status === 'SUCCESS' || status === 'COMPLETED';
+  });
+
+  readonly executionOutputs = computed<ExecutionOutputEntry[]>(() => {
+    const steps = this.execution()?.context.steps ?? {};
+    const resultMap = {
+      ...(this.execution()?.context.result ?? {}),
+      ...(this.execution()?.context.executionResult ?? {})
+    };
+
+    return Object.entries(resultMap)
+      .map(([key, rawValue]) => {
+        const value = this.stringifyOutputValue(rawValue);
+        const isLong = value.length > 160;
+        const label = this.formatExecutionOutputLabel(key, steps);
+        return {
+          key,
+          title: label.title,
+          subtitle: label.subtitle,
+          value,
+          preview: isLong ? `${value.slice(0, 160)}...` : value,
+          isLong
+        };
+      })
+      .sort((a, b) => a.title.localeCompare(b.title) || a.subtitle.localeCompare(b.subtitle));
+  });
+
   readonly inputsReadOnly = computed(() => {
     const status = this.execution()?.context.status;
     return getExecutionStatusGroup(status) !== 'INIT';
@@ -168,18 +216,37 @@ export class TaskExecutionViewerComponent implements OnDestroy {
           key,
           nodeId: step.id,
           inputName,
-          label: `${step.block.name}.${inputName}`,
+          title: step.block.name,
+          subtitle: inputName,
           type: String(input.descriptor?.type ?? 'TEXT').toUpperCase(),
           value: pendingValue ?? (rawValue == null ? '' : String(rawValue))
         });
       }
     }
 
-    return entries.sort((a, b) => a.label.localeCompare(b.label));
+    return entries.sort((a, b) => a.title.localeCompare(b.title) || a.subtitle.localeCompare(b.subtitle));
   });
 
   toggleContextAside() {
     this.contextAsideOpen.update((open) => !open);
+  }
+
+  selectAsideTab(tab: 'inputs' | 'output') {
+    if (tab === 'output' && !this.executionOutputTabEnabled()) return;
+    this.activeAsideTab.set(tab);
+  }
+
+  openOutputPreview(output: ExecutionOutputEntry, event?: Event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+    if (!output.isLong) return;
+    this.outputPreviewModal.set(output);
+  }
+
+  closeOutputPreview(event?: Event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+    this.outputPreviewModal.set(null);
   }
 
   startExecution() {
@@ -324,6 +391,37 @@ export class TaskExecutionViewerComponent implements OnDestroy {
       },
       error: () => this.setInputError(input.key, 'Failed to update input')
     });
+  }
+
+  private stringifyOutputValue(value: unknown): string {
+    if (value == null) return '';
+    if (typeof value === 'string') return value;
+
+    try {
+      return JSON.stringify(value, null, 2);
+    } catch {
+      return String(value);
+    }
+  }
+
+  private formatExecutionOutputLabel(
+    key: string,
+    steps: Record<string, TaskExecutionStep>
+  ): { title: string; subtitle: string } {
+    const separatorIndex = key.indexOf(':');
+    if (separatorIndex < 0) {
+      return { title: key, subtitle: 'Execution output' };
+    }
+
+    const nodeId = key.slice(0, separatorIndex);
+    const outputName = key.slice(separatorIndex + 1);
+    const step = steps[nodeId];
+    const blockName = step?.block?.name?.trim();
+
+    return {
+      title: blockName || key,
+      subtitle: outputName || 'Execution output'
+    };
   }
 
   private clearDebounceTimer(timerKey: string) {

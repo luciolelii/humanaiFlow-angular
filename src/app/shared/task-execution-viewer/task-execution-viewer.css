@@ -54,3 +54,75 @@
   white-space: pre-wrap;
   word-break: break-word;
 }
+
+.execution-aside-tab {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 9px 12px;
+  cursor: pointer;
+}
+
+.execution-aside-tab-active {
+  border-bottom-color: #2563eb;
+  color: #1d4ed8;
+}
+
+.execution-aside-tab:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.execution-output-modal {
+  margin: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #0f172a;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  padding: 14px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.execution-output-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #eff6ff 0%, #dbeafe 100%);
+  color: #1d4ed8;
+  line-height: 1.2;
+  padding: 8px 12px;
+  text-align: center;
+}
+
+.execution-output-title {
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.execution-output-subtitle {
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #2563eb;
+}
+
+.execution-output-preview {
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #0f172a;
+  font-size: 12px;
+  line-height: 1.45;
+}
