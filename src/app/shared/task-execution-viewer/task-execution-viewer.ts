@@ -37,6 +37,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   private taskExecutionsService = inject(TaskExecutionsService);
   private readonly textInputDebounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private lastExecutionId: string | null = null;
+  private lastExecutionStatus: string | null = null;
   readonly execution = input<TaskExecution | null>(null);
   readonly contextAsideOpen = signal(true);
   readonly activeAsideTab = signal<'inputs' | 'output'>('inputs');
@@ -54,6 +55,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
       const executionId = this.execution()?.id ?? null;
       if (executionId === this.lastExecutionId) return;
       this.lastExecutionId = executionId;
+      this.lastExecutionStatus = String(this.execution()?.context.status ?? '').toUpperCase() || null;
       this.pendingAuthorizationValues.set({});
       this.savingAuthorizations.set({});
       this.authorizationErrors.set({});
@@ -65,6 +67,23 @@ export class TaskExecutionViewerComponent implements OnDestroy {
       if (!this.executionOutputTabEnabled() && this.activeAsideTab() === 'output') {
         this.activeAsideTab.set('inputs');
       }
+    });
+
+    effect(() => {
+      const status = String(this.execution()?.context.status ?? '').toUpperCase();
+      if (!status) return;
+
+      const becameSuccessful =
+        (status === 'SUCCESS' || status === 'COMPLETED') &&
+        this.lastExecutionStatus !== status &&
+        this.lastExecutionStatus !== 'SUCCESS' &&
+        this.lastExecutionStatus !== 'COMPLETED';
+
+      if (becameSuccessful && this.executionOutputTabEnabled()) {
+        this.activeAsideTab.set('output');
+      }
+
+      this.lastExecutionStatus = status;
     });
   }
 

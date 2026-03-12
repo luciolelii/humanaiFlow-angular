@@ -155,7 +155,7 @@
         <legend class="llm-param-legend">{{ group.legend }}</legend>
         <div class="llm-param-grid">
           @for (field of group.fields; track field.path) {
-          <div class="llm-param-chip">
+          <div class="llm-param-chip" [class.llm-param-chip-wide]="field.wide">
             <div class="llm-param-row-head">
               <span class="llm-param-key">{{ field.label }}</span>
             </div>
@@ -171,7 +171,7 @@
     @if (parameterFields.length) {
     <div class="llm-param-grid">
       @for (field of parameterFields; track field.path) {
-      <div class="llm-param-chip">
+      <div class="llm-param-chip" [class.llm-param-chip-wide]="field.wide">
         <div class="llm-param-row-head">
           <span class="llm-param-key">{{ field.label }}</span>
         </div>
@@ -198,6 +198,27 @@
       </div>
     </div>
       }
+    }
+
+    @if (arrayFields.length) {
+    <div class="llm-array-sections">
+      @for (arrayField of arrayFields; track arrayField.path) {
+      <div class="llm-array-block">
+        <div class="llm-param-row-head">
+          <div class="llm-param-key">{{ arrayField.label }}</div>
+        </div>
+        @if (!arrayField.items.length) {
+        <div class="llm-array-empty">No items</div>
+        } @else {
+          @for (item of arrayField.items; track item.index) {
+          <div class="llm-array-item">
+            <span class="llm-array-item-summary">{{ item.summary }}</span>
+          </div>
+          }
+        }
+      </div>
+      }
+    </div>
     }
   </div>
 

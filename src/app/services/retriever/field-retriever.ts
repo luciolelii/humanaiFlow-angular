@@ -12,9 +12,10 @@ export class FieldRetriever {
   retrieveValues(
     blockType: string,
     key: string,
-    context?: Record<string, string>
+    context?: Record<string, string>,
+    retrieverUrl?: string | null
   ) {
-    return this.fieldRetrieverCallService.retrieveValues(blockType, key, context).pipe(
+    return this.fieldRetrieverCallService.retrieveValues(blockType, key, context, retrieverUrl).pipe(
       catchError((err) => {
         console.error('Field retrieval failed', err);
         return throwError(() => err);
@@ -25,11 +26,24 @@ export class FieldRetriever {
   isFieldRequired(
     blockType: string,
     key: string,
-    context?: Record<string, string>
+    context?: Record<string, string>,
+    retrieverUrl?: string | null
   ) {
-    return this.fieldRetrieverCallService.isFieldRequired(blockType, key, context).pipe(
+    return this.fieldRetrieverCallService.isFieldRequired(blockType, key, context, retrieverUrl).pipe(
       catchError((err) => {
         console.error('Field required check failed', err);
+        return throwError(() => err);
+      })
+    );
+  }
+
+  retrieveSchema(
+    schemaUrl: string,
+    context?: Record<string, string>
+  ) {
+    return this.fieldRetrieverCallService.retrieveSchema(schemaUrl, context).pipe(
+      catchError((err) => {
+        console.error('Schema retrieval failed', err);
         return throwError(() => err);
       })
     );

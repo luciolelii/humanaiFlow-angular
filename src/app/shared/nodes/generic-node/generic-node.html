@@ -122,7 +122,7 @@
         <legend class="llm-param-legend">{{ group.legend }}</legend>
         <div class="llm-param-grid">
           @for (field of group.fields; track field.path) {
-          <div class="llm-param-chip">
+          <div class="llm-param-chip" [class.llm-param-chip-wide]="field.wide">
             <div class="llm-param-row-head">
               <span class="llm-param-key">{{ field.label }}</span>
               <button
@@ -146,7 +146,7 @@
     @if (parameterFields.length) {
     <div class="llm-param-grid">
       @for (field of parameterFields; track field.path) {
-      <div class="llm-param-chip">
+      <div class="llm-param-chip" [class.llm-param-chip-wide]="field.wide">
         <div class="llm-param-row-head">
           <span class="llm-param-key">{{ field.label }}</span>
           <button
@@ -188,6 +188,53 @@
       </div>
     </div>
       }
+    }
+
+    @if (arrayFields.length) {
+    <div class="llm-array-sections">
+      @for (arrayField of arrayFields; track arrayField.path) {
+      <div class="llm-array-block">
+        <div class="llm-param-row-head">
+          <div class="llm-param-key">{{ arrayField.label }}</div>
+          <button
+            type="button"
+            class="llm-edit-btn"
+            [attr.title]="'Add ' + arrayField.label.toLowerCase()"
+            (pointerdown)="$event.stopPropagation()"
+            (click)="addArrayItem(arrayField.path, $event)">
+            <i class="bi bi-plus-lg"></i>
+          </button>
+        </div>
+        @if (!arrayField.items.length) {
+        <div class="llm-array-empty">No items</div>
+        } @else {
+          @for (item of arrayField.items; track item.index) {
+          <div class="llm-array-item">
+            <span class="llm-array-item-summary">{{ item.summary }}</span>
+            <div class="llm-array-item-actions">
+              <button
+                type="button"
+                class="llm-edit-btn"
+                title="Edit item"
+                (pointerdown)="$event.stopPropagation()"
+                (click)="editArrayItem(arrayField.path, item.index, $event)">
+                <i class="bi bi-pen"></i>
+              </button>
+              <button
+                type="button"
+                class="llm-edit-btn llm-array-remove-btn"
+                title="Remove item"
+                (pointerdown)="$event.stopPropagation()"
+                (click)="removeArrayItem(arrayField.path, item.index, $event)">
+                <i class="bi bi-trash"></i>
+              </button>
+            </div>
+          </div>
+          }
+        }
+      </div>
+      }
+    </div>
     }
   </div>
 

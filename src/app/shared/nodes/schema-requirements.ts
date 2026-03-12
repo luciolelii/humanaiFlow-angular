@@ -10,6 +10,7 @@ export type ConditionalRequiredField = {
   label: string;
   retrieverBlockType: string | null;
   retrieverKey: string;
+  retrieverUrl: string | null;
   dependsOn: Array<{ key: string; path: string }>;
 };
 
@@ -87,6 +88,7 @@ function walkSchema(
           label,
           retrieverBlockType,
           retrieverKey,
+          retrieverUrl: retrieverRequiredUrl,
           dependsOn
         });
       }

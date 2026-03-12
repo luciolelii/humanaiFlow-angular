@@ -4,7 +4,11 @@ import { FormsModule } from '@angular/forms';
 import { ClassicPreset } from 'rete';
 import { ReteModule } from 'rete-angular-plugin/21';
 import { FlowData } from '@models/flow';
-import { NodeSettingsDialogService } from '@services/dialogs/node-settings-dialog';
+import {
+  NodeSettingField,
+  NodeSettingOption,
+  NodeSettingsDialogService
+} from '@services/dialogs/node-settings-dialog';
 import { EditorStateHolder } from '@stores/flow-editor';
 import { FieldRetriever } from '@services/retriever/field-retriever';
 import { BlocksService } from '@services/blocks/blocks';
@@ -38,6 +42,7 @@ type EditableFieldDefinition = {
   type: FieldType;
   retrieverBlockType: string | null;
   retrieverKey: string | null;
+  retrieverUrl: string | null;
   retrieverDependsOn: RetrieverDependency[];
   ui: {
     widget: 'textarea' | null;
@@ -56,6 +61,29 @@ type EditableFieldView = {
   path: string;
   label: string;
   value: string;
+  wide: boolean;
+};
+
+type ArrayFieldDefinition = {
+  path: string;
+  label: string;
+  itemSchema: Record<string, any> | null;
+  ui: {
+    structural: boolean;
+    visibleWhen: UiConditionRule[];
+    group: string | null;
+  };
+};
+
+type ArrayFieldItemView = {
+  index: number;
+  summary: string;
+};
+
+type ArrayFieldView = {
+  path: string;
+  label: string;
+  items: ArrayFieldItemView[];
 };
 
 type EditableFieldGroupView = {
@@ -100,6 +128,7 @@ export class GenericNodeComponent {
   parameterFields: EditableFieldView[] = [];
   parameterFieldGroups: EditableFieldGroupView[] = [];
   richContentFields: RichContentView[] = [];
+  arrayFields: ArrayFieldView[] = [];
   name = 'noName';
 
   localEditorOpen = false;
@@ -116,6 +145,7 @@ export class GenericNodeComponent {
   missingRequiredParams: string[] = [];
   private blockSchema: Record<string, any> | null = null;
   private editableFieldDefinitions: EditableFieldDefinition[] = [];
+  private arrayFieldDefinitions: ArrayFieldDefinition[] = [];
   private schemaRequirements: SchemaRequirements = { required: [], conditional: [] };
   private conditionalRequiredByPath = new Map<string, boolean>();
   private refreshingConditionalRequirements = false;
@@ -126,6 +156,7 @@ export class GenericNodeComponent {
     this.parameterFields = [];
     this.parameterFieldGroups = [];
     this.richContentFields = [];
+    this.arrayFields = [];
 
     Object.entries(this.data.outputs).forEach(([key, output]) => {
       this.outputs.push({ key, socket: (output as any).socket });
@@ -370,6 +401,7 @@ export class GenericNodeComponent {
     this.blockSchema = (blockType?.schema ?? null) as Record<string, any> | null;
     this.schemaRequirements = extractSchemaRequirements(this.blockSchema);
     this.editableFieldDefinitions = this.buildEditableFieldDefinitions(this.blockSchema);
+    this.arrayFieldDefinitions = this.buildArrayFieldDefinitions(this.blockSchema);
 
     await this.refreshConditionalRequirements();
     this.refreshParameterFields();
@@ -435,6 +467,9 @@ export class GenericNodeComponent {
       for (const [key, childSchema] of Object.entries(properties)) {
         const childResolved = resolveSchemaRef(childSchema as Record<string, any>, schema);
         const path = pathPrefix ? `${pathPrefix}.${key}` : key;
+        if (childResolved?.type === 'array') {
+          continue;
+        }
         const hasChildren = !!childResolved?.properties || childResolved?.type === 'object';
         const childUi = this.toFieldUiMeta(childResolved, inheritedUi);
 
@@ -456,9 +491,64 @@ export class GenericNodeComponent {
           type: this.toFieldType(childResolved?.type),
           retrieverBlockType: this.toRetrieverBlockType(childResolved),
           retrieverKey: this.toRetrieverKey(childResolved),
+          retrieverUrl: this.toRetrieverUrl(childResolved),
           retrieverDependsOn: this.toRetrieverDependsOn(childResolved, pathPrefix),
           ui: childUi
         });
+      }
+    };
+
+    walk(schema, '');
+    return definitions;
+  }
+
+  private buildArrayFieldDefinitions(schema: Record<string, any> | null): ArrayFieldDefinition[] {
+    if (!schema) return [];
+
+    const definitions: ArrayFieldDefinition[] = [];
+    const seen = new Set<string>();
+
+    const walk = (
+      node: Record<string, any>,
+      pathPrefix: string,
+      inheritedUi?: { visibleWhen: UiConditionRule[]; group: string | null }
+    ) => {
+      const resolved = resolveSchemaRef(node, schema);
+      if (!resolved || typeof resolved !== 'object') return;
+
+      const properties = resolved.properties as Record<string, any> | undefined;
+      if (!properties) return;
+
+      for (const [key, childSchema] of Object.entries(properties)) {
+        const childResolved = resolveSchemaRef(childSchema as Record<string, any>, schema);
+        const path = pathPrefix ? `${pathPrefix}.${key}` : key;
+        const childUi = this.toFieldUiMeta(childResolved, inheritedUi);
+
+        if (childResolved?.type === 'array') {
+          if (key === 'type' || key === 'name' || key.startsWith('__') || seen.has(path)) {
+            continue;
+          }
+          seen.add(path);
+          definitions.push({
+            path,
+            label: pathToLabel(path),
+            itemSchema: this.resolveArrayItemSchema(childResolved, schema),
+            ui: {
+              structural: childUi.structural,
+              visibleWhen: childUi.visibleWhen,
+              group: childUi.group
+            }
+          });
+          continue;
+        }
+
+        const hasChildren = !!childResolved?.properties || childResolved?.type === 'object';
+        if (hasChildren) {
+          walk(childResolved as Record<string, any>, path, {
+            visibleWhen: childUi.visibleWhen,
+            group: childUi.group
+          });
+        }
       }
     };
 
@@ -575,6 +665,12 @@ export class GenericNodeComponent {
     return this.parseRetrieverUrl(schema['x-retriever-url'])?.blockType ?? null;
   }
 
+  private toRetrieverUrl(schema: Record<string, any> | null | undefined): string | null {
+    if (!schema || typeof schema !== 'object') return null;
+    const rawUrl = schema['x-retriever-url'];
+    return typeof rawUrl === 'string' && rawUrl.trim().length > 0 ? rawUrl : null;
+  }
+
   private parseRetrieverUrl(rawUrl: unknown): { blockType: string; key: string } | null {
     if (typeof rawUrl !== 'string' || rawUrl.trim().length === 0) return null;
 
@@ -620,7 +716,12 @@ export class GenericNodeComponent {
 
     try {
       const options = await firstValueFrom(
-        this.fieldRetriever.retrieveValues(blockType, definition.retrieverKey, context)
+        this.fieldRetriever.retrieveValues(
+          blockType,
+          definition.retrieverKey,
+          definition.retrieverDependsOn.length ? context : undefined,
+          definition.retrieverUrl
+        )
       );
       this.localEditorOptions = options ?? [];
     } catch {
@@ -644,13 +745,22 @@ export class GenericNodeComponent {
         parts: this.toRichContentParts(path)
       }));
 
+    this.arrayFields = this.arrayFieldDefinitions
+      .filter((definition) => this.isPathVisible(definition.path))
+      .map((definition) => ({
+        path: definition.path,
+        label: definition.label,
+        items: this.toArrayFieldItems(definition, this.getByPath(config, definition.path))
+      }));
+
     if (this.editableFieldDefinitions.length) {
       const orderedFields = this.editableFieldDefinitions.map((definition) => {
         const value = this.getByPath(config, definition.path);
         return {
           path: definition.path,
           label: definition.label,
-          value: valueToDisplayString(value)
+          value: valueToDisplayString(value),
+          wide: this.shouldRenderWideField(definition.label, definition.ui.widget === 'textarea')
         };
       }).filter((field) => !richContentPaths.has(field.path))
         .filter((field) => this.isPathVisible(field.path));
@@ -683,7 +793,8 @@ export class GenericNodeComponent {
       .map((entry) => ({
         path: entry.path,
         label: pathToLabel(entry.path),
-        value: valueToDisplayString(entry.value)
+        value: valueToDisplayString(entry.value),
+        wide: this.shouldRenderWideField(pathToLabel(entry.path), false)
       }));
 
     for (const field of fallbackFields) {
@@ -706,6 +817,441 @@ export class GenericNodeComponent {
     }));
 
     this.refreshView();
+  }
+
+  async addArrayItem(path: string, event?: Event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+    await this.openArrayItemEditor(path, null);
+  }
+
+  async editArrayItem(path: string, index: number, event?: Event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+    await this.openArrayItemEditor(path, index);
+  }
+
+  removeArrayItem(path: string, index: number, event?: Event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+
+    const config = this.ensureBlockConfiguration();
+    const current = this.getByPath(config, path);
+    const items = Array.isArray(current) ? [...current] : [];
+    if (index < 0 || index >= items.length) return;
+
+    items.splice(index, 1);
+    this.setByPath(config, path, items);
+    if (this.isStructuralField(path)) {
+      this.markBlockForServerRecreate();
+    }
+    this.refreshParameterFields();
+    this.refreshValidationState();
+    this.markFlowDirty();
+    this.maybeCreateBlockOnServer();
+  }
+
+  private async openArrayItemEditor(path: string, index: number | null) {
+    const definition = this.arrayFieldDefinitions.find((field) => field.path === path);
+    if (!definition || !this.isPathVisible(path)) return;
+
+    const config = this.ensureBlockConfiguration();
+    const current = this.getByPath(config, path);
+    const items = Array.isArray(current) ? [...current] : [];
+    const currentItem = index == null ? this.createEmptyArrayItem(definition.itemSchema) : this.cloneFlowData(items[index] ?? {});
+    const dialog = await this.buildArrayItemDialog(definition, currentItem, index);
+    if (!dialog) return;
+
+    const result = await this.settingsDialog.open(dialog);
+    if (!result) return;
+
+    const nextItem = this.parseArrayItemDialogResult(definition, result, currentItem);
+    if (index == null) {
+      items.push(nextItem);
+    } else {
+      items[index] = nextItem;
+    }
+
+    this.setByPath(config, path, items);
+    if (this.isStructuralField(path)) {
+      this.markBlockForServerRecreate();
+    }
+    this.refreshParameterFields();
+    this.refreshValidationState();
+    this.markFlowDirty();
+    this.maybeCreateBlockOnServer();
+  }
+
+  private async buildArrayItemDialog(
+    definition: ArrayFieldDefinition,
+    item: Record<string, unknown>,
+    index: number | null
+  ) {
+    const itemSchema = definition.itemSchema;
+    const properties = itemSchema?.['properties'] as Record<string, any> | undefined;
+    const schemaRoot = this.blockSchema ?? itemSchema ?? {};
+
+    if (!properties) {
+      return {
+        title: `${index == null ? 'Add' : 'Edit'} ${definition.label} item`,
+        fields: [
+          {
+            key: '__raw',
+            label: 'Item JSON',
+            type: 'textarea' as const,
+            rows: 10
+          }
+        ],
+        initial: {
+          __raw: JSON.stringify(item ?? {}, null, 2)
+        }
+      };
+    }
+
+    const fields: NodeSettingField[] = [];
+    const initial: Record<string, string | boolean> = {};
+
+    for (const [key, rawPropertySchema] of Object.entries(properties)) {
+      if (key === 'type' || key.startsWith('__')) continue;
+
+      const propertySchema = resolveSchemaRef(rawPropertySchema as Record<string, any>, schemaRoot);
+      if (this.hasDynamicSchema(propertySchema)) {
+        const dynamicFields = await this.buildDynamicSchemaFields(key, propertySchema, item);
+        fields.push(...dynamicFields.fields);
+        Object.assign(initial, dynamicFields.initial);
+        continue;
+      }
+
+      const label = pathToLabel(key);
+      const currentValue = item[key];
+      const options = await this.loadNodeSettingOptions(propertySchema, item, '');
+      const isObjectLike = propertySchema?.type === 'object';
+      const fieldType =
+        options ? 'select' :
+          propertySchema?.type === 'boolean' ? 'checkbox' :
+            propertySchema?.['x-ui-widget'] === 'textarea' || isObjectLike ? 'textarea' :
+              'text';
+
+      fields.push({
+        key,
+        label,
+        type: fieldType,
+        rows: fieldType === 'textarea' ? 8 : undefined,
+        options,
+        placeholder: typeof propertySchema?.['x-ui-placeholder'] === 'string' ? String(propertySchema['x-ui-placeholder']) : undefined,
+        tip: typeof propertySchema?.['x-ui-tip'] === 'string' ? String(propertySchema['x-ui-tip']) : undefined
+      });
+
+      if (fieldType === 'checkbox') {
+        initial[key] = currentValue === true;
+      } else if (fieldType === 'textarea' && isObjectLike) {
+        initial[key] = JSON.stringify(currentValue ?? {}, null, 2);
+      } else {
+        initial[key] = currentValue == null ? '' : String(currentValue);
+      }
+    }
+
+    return {
+      title: `${index == null ? 'Add' : 'Edit'} ${definition.label} item`,
+      fields,
+      initial
+    };
+  }
+
+  private parseArrayItemDialogResult(
+    definition: ArrayFieldDefinition,
+    result: Record<string, string | boolean>,
+    previousItem: Record<string, unknown>
+  ) {
+    const itemSchema = definition.itemSchema;
+    const properties = itemSchema?.['properties'] as Record<string, any> | undefined;
+    const schemaRoot = this.blockSchema ?? itemSchema ?? {};
+    if (!properties) {
+      try {
+        return JSON.parse(String(result['__raw'] ?? '{}')) as Record<string, unknown>;
+      } catch {
+        return previousItem;
+      }
+    }
+
+    const nextItem: Record<string, unknown> = {};
+
+    for (const [key, rawPropertySchema] of Object.entries(properties)) {
+      if (key === 'type' || key.startsWith('__')) continue;
+
+      const propertySchema = resolveSchemaRef(rawPropertySchema as Record<string, any>, schemaRoot);
+      if (this.hasDynamicSchema(propertySchema)) {
+        const dynamicValue = this.extractNestedDialogValues(result, key);
+        nextItem[key] = Object.keys(dynamicValue).length ? dynamicValue : (previousItem[key] ?? {});
+        continue;
+      }
+
+      const rawValue = result[key];
+      const isObjectLike = propertySchema?.type === 'object';
+
+      if (propertySchema?.type === 'boolean') {
+        nextItem[key] = rawValue === true;
+        continue;
+      }
+
+      if (isObjectLike) {
+        try {
+          nextItem[key] = JSON.parse(String(rawValue ?? '{}'));
+        } catch {
+          nextItem[key] = previousItem[key] ?? {};
+        }
+        continue;
+      }
+
+      if (propertySchema?.type === 'number' || propertySchema?.type === 'integer') {
+        const numeric = Number(rawValue ?? 0);
+        nextItem[key] = Number.isFinite(numeric)
+          ? (propertySchema.type === 'integer' ? Math.trunc(numeric) : numeric)
+          : 0;
+        continue;
+      }
+
+      nextItem[key] = String(rawValue ?? '');
+    }
+
+    return nextItem;
+  }
+
+  private createEmptyArrayItem(itemSchema: Record<string, any> | null) {
+    const properties = itemSchema?.['properties'] as Record<string, any> | undefined;
+    const schemaRoot = this.blockSchema ?? itemSchema ?? {};
+    if (!properties) return {};
+
+    const item: Record<string, unknown> = {};
+    for (const [key, rawPropertySchema] of Object.entries(properties)) {
+      if (key === 'type' || key.startsWith('__')) continue;
+      const propertySchema = resolveSchemaRef(rawPropertySchema as Record<string, any>, schemaRoot);
+      if (Object.prototype.hasOwnProperty.call(propertySchema ?? {}, 'default')) {
+        item[key] = propertySchema.default;
+        continue;
+      }
+      if (propertySchema?.type === 'boolean') {
+        item[key] = false;
+      } else if (propertySchema?.type === 'number' || propertySchema?.type === 'integer') {
+        item[key] = 0;
+      } else if (propertySchema?.type === 'object' || this.hasDynamicSchema(propertySchema)) {
+        item[key] = {};
+      } else {
+        item[key] = '';
+      }
+    }
+    return item;
+  }
+
+  private resolveArrayItemSchema(node: Record<string, any> | null | undefined, root: Record<string, any>) {
+    const items = node?.['items'];
+    if (!items || typeof items !== 'object') return null;
+    const resolved = resolveSchemaRef(items as Record<string, any>, root);
+    return resolved && typeof resolved === 'object' ? resolved as Record<string, any> : null;
+  }
+
+  private hasDynamicSchema(schema: Record<string, any> | null | undefined) {
+    return typeof schema?.['x-ui-schema-url'] === 'string' && String(schema['x-ui-schema-url']).trim().length > 0;
+  }
+
+  private async buildDynamicSchemaFields(
+    baseKey: string,
+    propertySchema: Record<string, any>,
+    item: Record<string, unknown>
+  ): Promise<{ fields: NodeSettingField[]; initial: Record<string, string | boolean> }> {
+    const schemaUrl = String(propertySchema['x-ui-schema-url'] ?? '');
+    const dependsOn = Array.isArray(propertySchema['x-ui-schema-depends-on'])
+      ? (propertySchema['x-ui-schema-depends-on'] as unknown[]).filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+      : [];
+
+    const context: Record<string, string> = {};
+    for (const key of dependsOn) {
+      const value = item[key];
+      if (value != null && String(value).trim().length > 0) {
+        context[key] = String(value);
+      }
+    }
+
+    if (dependsOn.some((key) => !context[key])) {
+      return {
+        fields: [{
+          key: `${baseKey}.__hint`,
+          label: pathToLabel(baseKey),
+          type: 'display',
+          readonly: true
+        }],
+        initial: {
+          [`${baseKey}.__hint`]: `Select ${dependsOn.map((key) => pathToLabel(key)).join(', ')} first`
+        }
+      };
+    }
+
+    const dynamicSchema = await firstValueFrom(this.fieldRetriever.retrieveSchema(schemaUrl, context));
+    const resolvedSchema = dynamicSchema && typeof dynamicSchema === 'object'
+      ? dynamicSchema as Record<string, any>
+      : null;
+
+    if (!resolvedSchema) {
+      return {
+        fields: [{
+          key: `${baseKey}.__hint`,
+          label: pathToLabel(baseKey),
+          type: 'display',
+          readonly: true
+        }],
+        initial: {
+          [`${baseKey}.__hint`]: 'No dynamic schema available'
+        }
+      };
+    }
+
+    return this.buildDialogFieldsFromSchema(baseKey, pathToLabel(baseKey), resolvedSchema, item[baseKey]);
+  }
+
+  private async buildDialogFieldsFromSchema(
+    keyPrefix: string,
+    labelPrefix: string,
+    schema: Record<string, any>,
+    currentValue: unknown
+  ): Promise<{ fields: NodeSettingField[]; initial: Record<string, string | boolean> }> {
+    const fields: NodeSettingField[] = [];
+    const initial: Record<string, string | boolean> = {};
+    const currentRecord =
+      currentValue && typeof currentValue === 'object' && !Array.isArray(currentValue)
+        ? currentValue as Record<string, unknown>
+        : {};
+
+    const walk = async (
+      node: Record<string, any>,
+      pathPrefix: string,
+      titlePrefix: string
+    ) => {
+      const resolved = resolveSchemaRef(node, schema);
+      const properties = resolved?.['properties'] as Record<string, any> | undefined;
+      if (!properties) return;
+
+      for (const [childKey, rawChildSchema] of Object.entries(properties)) {
+        if (childKey === 'type' || childKey.startsWith('__')) continue;
+
+        const childSchema = resolveSchemaRef(rawChildSchema as Record<string, any>, schema);
+        const nextPath = `${pathPrefix}.${childKey}`;
+        const nextLabel = `${titlePrefix} ${pathToLabel(childKey)}`;
+        const currentNestedValue = getValueByPath(currentRecord, nextPath.slice(`${keyPrefix}.`.length));
+
+        const hasChildren = !!childSchema?.['properties'] || childSchema?.type === 'object';
+        if (hasChildren) {
+          await walk(childSchema as Record<string, any>, nextPath, nextLabel);
+          continue;
+        }
+
+        const options = await this.loadNodeSettingOptions(
+          childSchema,
+          currentRecord,
+          pathPrefix === keyPrefix ? '' : pathPrefix.slice(`${keyPrefix}.`.length)
+        );
+
+        const fieldType =
+          options ? 'select' :
+            childSchema?.type === 'boolean' ? 'checkbox' :
+              childSchema?.['x-ui-widget'] === 'textarea' ? 'textarea' :
+                'text';
+
+        fields.push({
+          key: nextPath,
+          label: nextLabel,
+          type: fieldType,
+          rows: fieldType === 'textarea' ? 8 : undefined,
+          options,
+          placeholder: typeof childSchema?.['x-ui-placeholder'] === 'string' ? String(childSchema['x-ui-placeholder']) : undefined,
+          tip: typeof childSchema?.['x-ui-tip'] === 'string' ? String(childSchema['x-ui-tip']) : undefined
+        });
+
+        if (fieldType === 'checkbox') {
+          initial[nextPath] = currentNestedValue === true;
+        } else {
+          initial[nextPath] = currentNestedValue == null ? '' : String(currentNestedValue);
+        }
+      }
+    };
+
+    await walk(schema, keyPrefix, labelPrefix);
+    return { fields, initial };
+  }
+
+  private extractNestedDialogValues(result: Record<string, string | boolean>, keyPrefix: string) {
+    const nested: Record<string, unknown> = {};
+    const prefix = `${keyPrefix}.`;
+
+    for (const [key, value] of Object.entries(result)) {
+      if (!key.startsWith(prefix)) continue;
+      const nestedPath = key.slice(prefix.length);
+      this.setByPath(nested, nestedPath, value);
+    }
+
+    return nested;
+  }
+
+  private async loadNodeSettingOptions(
+    propertySchema: Record<string, any>,
+    item: Record<string, unknown>,
+    pathPrefix: string
+  ): Promise<NodeSettingOption[] | undefined> {
+    const retrieverKey = this.toRetrieverKey(propertySchema);
+    const retrieverBlockType = this.toRetrieverBlockType(propertySchema);
+    if (!retrieverKey || !retrieverBlockType) return undefined;
+
+    const retrieverDependsOn = this.toRetrieverDependsOn(propertySchema, pathPrefix);
+    const retrieverContext: Record<string, string> = {};
+    for (const dep of retrieverDependsOn) {
+      const depValue = getValueByPath(item as Record<string, any>, dep.path);
+      retrieverContext[dep.key] = depValue == null ? '' : String(depValue);
+    }
+
+    try {
+      const values = await firstValueFrom(
+        this.fieldRetriever.retrieveValues(
+          retrieverBlockType,
+          retrieverKey,
+          retrieverDependsOn.length ? retrieverContext : undefined,
+          this.toRetrieverUrl(propertySchema)
+        )
+      );
+      return values.map((value) => ({ label: value, value }));
+    } catch {
+      return [];
+    }
+  }
+
+  private toArrayFieldItems(definition: ArrayFieldDefinition, value: unknown): ArrayFieldItemView[] {
+    if (!Array.isArray(value)) return [];
+
+    return value.map((item, index) => ({
+      index,
+      summary: this.toArrayItemSummary(definition, item, index)
+    }));
+  }
+
+  private toArrayItemSummary(definition: ArrayFieldDefinition, item: unknown, index: number) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) {
+      return `Item ${index + 1}`;
+    }
+
+    const properties = definition.itemSchema?.['properties'] as Record<string, any> | undefined;
+    if (!properties) return `Item ${index + 1}`;
+
+    const summaryParts: string[] = [];
+    for (const key of Object.keys(properties)) {
+      const value = (item as Record<string, unknown>)[key];
+      if (this.isMissingValue(value)) continue;
+      if (typeof value === 'string') {
+        summaryParts.push(value);
+      } else if (typeof value === 'number' || typeof value === 'boolean') {
+        summaryParts.push(String(value));
+      }
+      if (summaryParts.length === 2) break;
+    }
+
+    return summaryParts.length ? summaryParts.join(' · ') : `Item ${index + 1}`;
   }
 
   private valueToEditorString(value: unknown, type: FieldType): string {
@@ -844,6 +1390,10 @@ export class GenericNodeComponent {
     return false;
   }
 
+  private shouldRenderWideField(label: string, isTextarea: boolean) {
+    return isTextarea || label.trim().length >= 18;
+  }
+
   private refreshValidationState() {
     const config = this.blockConfiguration ?? {};
     const requiredFields = [
@@ -898,7 +1448,12 @@ export class GenericNodeComponent {
 
     try {
       return await firstValueFrom(
-        this.fieldRetriever.isFieldRequired(retrieverBlockType, field.retrieverKey, context)
+        this.fieldRetriever.isFieldRequired(
+          retrieverBlockType,
+          field.retrieverKey,
+          field.dependsOn.length ? context : undefined,
+          field.retrieverUrl
+        )
       );
     } catch {
       return false;

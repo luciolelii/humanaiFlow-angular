@@ -23,6 +23,24 @@ type DisplayField = {
   path: string;
   label: string;
   value: string;
+  wide: boolean;
+};
+
+type ArrayFieldDefinition = {
+  path: string;
+  label: string;
+  itemSchema: Record<string, any> | null;
+};
+
+type ArrayFieldItemView = {
+  index: number;
+  summary: string;
+};
+
+type ArrayFieldView = {
+  path: string;
+  label: string;
+  items: ArrayFieldItemView[];
 };
 
 type DisplayFieldGroup = {
@@ -64,6 +82,7 @@ export class TaskStepNodeComponent {
   inputs: { key: string; socket: ClassicPreset.Socket }[] = [];
   parameterFields: DisplayField[] = [];
   parameterFieldGroups: DisplayFieldGroup[] = [];
+  arrayFields: ArrayFieldView[] = [];
 
   name = 'Step';
   mainContentFields: MainContentView[] = [];
@@ -71,12 +90,15 @@ export class TaskStepNodeComponent {
 
   private blockSchema: Record<string, any> | null = null;
   private variablePlaceholderPaths = new Set<string>();
+  private arrayFieldDefinitions: ArrayFieldDefinition[] = [];
+  private mainContentPaths = new Set<string>();
 
   ngOnInit() {
     this.outputs = [];
     this.inputs = [];
     this.parameterFields = [];
     this.parameterFieldGroups = [];
+    this.arrayFields = [];
 
     Object.entries(this.data.outputs).forEach(([key, output]) => {
       this.outputs.push({ key, socket: (output as any).socket });
@@ -93,24 +115,38 @@ export class TaskStepNodeComponent {
   private rebuildDisplayState() {
     const config = this.blockConfiguration ?? {};
     this.name = toStringOrNull(config['name']) ?? this.name;
-    const primitiveEntries = flattenPrimitiveValues(config);
+    const arrayFieldPaths = new Set(this.arrayFieldDefinitions.map((definition) => definition.path));
+    const primitiveEntries = flattenPrimitiveValues(config)
+      .filter((entry) => !arrayFieldPaths.has(entry.path));
     const visibleEntries = primitiveEntries.filter((entry) => this.isPathVisible(entry.path));
-    const richContentPaths = this.pickMainContentEntries(visibleEntries).map((entry) => entry.path);
-    this.mainContentFields = this.pickMainContentEntries(visibleEntries).map((entry) => ({
+    const mainContentEntries = visibleEntries
+      .filter((entry) => this.mainContentPaths.has(entry.path))
+      .filter((entry) => typeof entry.value === 'string' && String(entry.value).trim().length > 0);
+    const richContentPaths = mainContentEntries.map((entry) => entry.path);
+    this.mainContentFields = mainContentEntries.map((entry) => ({
       path: entry.path,
       label: pathToLabel(entry.path),
       parts: this.toMainContentParts(entry.path, String(entry.value))
     }));
+    this.arrayFields = this.arrayFieldDefinitions
+      .filter((definition) => this.isPathVisible(definition.path))
+      .map((definition) => ({
+        path: definition.path,
+        label: definition.label,
+        items: this.toArrayFieldItems(definition, this.getByPath(config, definition.path))
+      }));
 
     const grouped = new Map<string, DisplayField[]>();
     const rootFields: DisplayField[] = [];
     const orderedFields = visibleEntries
       .filter((entry) => !['name', 'type'].includes(entry.path))
       .filter((entry) => !richContentPaths.includes(entry.path))
+      .filter((entry) => !this.isEmptyDisplayValue(entry.value))
       .map((entry) => ({
         path: entry.path,
         label: pathToLabel(entry.path),
-        value: valueToDisplayString(entry.value)
+        value: valueToDisplayString(entry.value),
+        wide: this.shouldRenderWideField(pathToLabel(entry.path), this.mainContentPaths.has(entry.path))
       }));
 
     for (const field of orderedFields) {
@@ -347,25 +383,6 @@ export class TaskStepNodeComponent {
     return typeof outputKey === 'string' && outputKey.length > 0 ? outputKey : null;
   }
 
-  private pickMainContentEntries(entries: Array<{ path: string; value: unknown }>) {
-    const candidates = entries
-      .filter((entry) => !['name', 'type'].includes(entry.path))
-      .filter((entry) => typeof entry.value === 'string')
-      .map((entry) => ({ ...entry, text: String(entry.value).trim() }))
-      .filter((entry) => entry.text.length > 0);
-
-    if (!candidates.length) return [];
-
-    const placeholderCandidates = candidates.filter((entry) =>
-      this.variablePlaceholderPaths.has(entry.path)
-    );
-    const scope = placeholderCandidates.length ? placeholderCandidates : candidates;
-
-    scope.sort((a, b) => a.path.localeCompare(b.path));
-
-    return scope.map((chosen) => ({ path: chosen.path, value: chosen.text }));
-  }
-
   private getExecutionMessages(key: '__executionErrors' | '__executionWarnings'): string[] {
     const values = this.blockConfiguration?.[key];
     if (!Array.isArray(values)) return [];
@@ -386,6 +403,8 @@ export class TaskStepNodeComponent {
     const blockType = await this.blocksService.getBlockType(type);
     this.blockSchema = (blockType?.schema ?? null) as Record<string, any> | null;
     this.variablePlaceholderPaths = this.extractVariablePlaceholderPaths(this.blockSchema);
+    this.arrayFieldDefinitions = this.extractArrayFieldDefinitions(this.blockSchema);
+    this.mainContentPaths = this.extractMainContentPaths(this.blockSchema);
     this.rebuildDisplayState();
   }
 
@@ -422,6 +441,143 @@ export class TaskStepNodeComponent {
 
     walk(schema, '');
     return paths;
+  }
+
+  private extractArrayFieldDefinitions(schema: Record<string, any> | null): ArrayFieldDefinition[] {
+    if (!schema) return [];
+
+    const definitions: ArrayFieldDefinition[] = [];
+    const seen = new Set<string>();
+
+    const walk = (node: Record<string, any>, pathPrefix: string) => {
+      const resolved = resolveSchemaRef(node, schema);
+      if (!resolved || typeof resolved !== 'object') return;
+
+      const properties = resolved.properties as Record<string, any> | undefined;
+      if (!properties) return;
+
+      for (const [key, childSchema] of Object.entries(properties)) {
+        const childResolved = resolveSchemaRef(childSchema as Record<string, any>, schema);
+        const path = pathPrefix ? `${pathPrefix}.${key}` : key;
+
+        if (childResolved?.type === 'array') {
+          if (key === 'type' || key === 'name' || key.startsWith('__') || seen.has(path)) {
+            continue;
+          }
+          seen.add(path);
+          definitions.push({
+            path,
+            label: pathToLabel(path),
+            itemSchema: this.resolveArrayItemSchema(childResolved, schema)
+          });
+          continue;
+        }
+
+        const hasChildren = !!childResolved?.properties || childResolved?.type === 'object';
+        if (hasChildren) {
+          walk(childResolved as Record<string, any>, path);
+        }
+      }
+    };
+
+    walk(schema, '');
+    return definitions;
+  }
+
+  private extractMainContentPaths(schema: Record<string, any> | null): Set<string> {
+    const paths = new Set<string>();
+    if (!schema) return paths;
+
+    const walk = (node: Record<string, any>, pathPrefix: string) => {
+      const resolved = resolveSchemaRef(node, schema);
+      if (!resolved || typeof resolved !== 'object') return;
+
+      const properties = resolved.properties as Record<string, any> | undefined;
+      if (!properties) return;
+
+      for (const [key, childSchema] of Object.entries(properties)) {
+        const childResolved = resolveSchemaRef(childSchema as Record<string, any>, schema);
+        const path = pathPrefix ? `${pathPrefix}.${key}` : key;
+        const hasChildren = !!childResolved?.properties || childResolved?.type === 'object';
+
+        if (hasChildren) {
+          walk(childResolved as Record<string, any>, path);
+          continue;
+        }
+
+        const rawWidget = typeof childResolved?.['x-ui-widget'] === 'string'
+          ? String(childResolved['x-ui-widget']).toLowerCase().trim()
+          : '';
+        const isTextarea = rawWidget === 'textarea' || rawWidget === 'text-area';
+        const acceptsVariable = childResolved?.['x-ui-accept-variable-as-placeholder'] === true;
+        if (isTextarea && acceptsVariable) {
+          paths.add(path);
+        }
+      }
+    };
+
+    walk(schema, '');
+    return paths;
+  }
+
+  private toArrayFieldItems(definition: ArrayFieldDefinition, value: unknown): ArrayFieldItemView[] {
+    if (!Array.isArray(value)) return [];
+
+    return value.map((item, index) => ({
+      index,
+      summary: this.toArrayItemSummary(definition, item, index)
+    }));
+  }
+
+  private toArrayItemSummary(definition: ArrayFieldDefinition, item: unknown, index: number) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) {
+      return `Item ${index + 1}`;
+    }
+
+    const properties = definition.itemSchema?.['properties'] as Record<string, any> | undefined;
+    if (!properties) return `Item ${index + 1}`;
+
+    const summaryParts: string[] = [];
+    for (const key of Object.keys(properties)) {
+      const value = (item as Record<string, unknown>)[key];
+      if (value == null) continue;
+      if (typeof value === 'string' && value.trim().length > 0) {
+        summaryParts.push(value);
+      } else if (typeof value === 'number' || typeof value === 'boolean') {
+        summaryParts.push(String(value));
+      }
+      if (summaryParts.length === 2) break;
+    }
+
+    return summaryParts.length ? summaryParts.join(' · ') : `Item ${index + 1}`;
+  }
+
+  private resolveArrayItemSchema(node: Record<string, any> | null | undefined, root: Record<string, any>) {
+    const items = node?.['items'];
+    if (!items || typeof items !== 'object') return null;
+    const resolved = resolveSchemaRef(items as Record<string, any>, root);
+    return resolved && typeof resolved === 'object' ? resolved as Record<string, any> : null;
+  }
+
+  private getByPath(source: Record<string, any>, path: string): unknown {
+    const keys = path.split('.').filter(Boolean);
+    let current: unknown = source;
+    for (const key of keys) {
+      if (!current || typeof current !== 'object' || Array.isArray(current)) return undefined;
+      current = (current as Record<string, unknown>)[key];
+    }
+    return current;
+  }
+
+  private shouldRenderWideField(label: string, isTextarea: boolean) {
+    return isTextarea || label.trim().length >= 18;
+  }
+
+  private isEmptyDisplayValue(value: unknown) {
+    if (value == null) return true;
+    if (typeof value === 'string') return value.trim().length === 0;
+    if (Array.isArray(value)) return value.length === 0;
+    return false;
   }
 
   private refreshView() {
