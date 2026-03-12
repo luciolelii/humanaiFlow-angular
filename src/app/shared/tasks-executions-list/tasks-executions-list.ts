@@ -1,6 +1,14 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, input, model, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButtonModule } from '@angular/material/button';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatCardModule } from '@angular/material/card';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatIconModule } from '@angular/material/icon';
+import { MatInputModule } from '@angular/material/input';
+import { MatListModule } from '@angular/material/list';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { getExecutionStatusGroup, TaskExecutionStatus, TaskExecutionStatusGroup } from '@models/task-execution';
 import { OrderEvent, OrderField, Ordering, orderDirType } from '@shared/ordering/ordering';
 import { OrderViewState } from '@utilities/list-state-holder';
@@ -18,7 +26,7 @@ export type TaskExecutionListItem = {
 
 @Component({
   selector: 'app-tasks-executions-list',
-  imports: [CommonModule, FormsModule, Ordering],
+  imports: [CommonModule, FormsModule, Ordering, MatButtonModule, MatButtonToggleModule, MatCardModule, MatFormFieldModule, MatIconModule, MatInputModule, MatListModule, MatTooltipModule],
   templateUrl: './tasks-executions-list.html',
   styleUrl: './tasks-executions-list.css',
 })

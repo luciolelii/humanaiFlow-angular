@@ -1,5 +1,8 @@
 import { Component, effect, ElementRef, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButtonModule } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
 import {
   HumanInteractionDialogResult,
   HumanInteractionDialogService
@@ -8,7 +11,7 @@ import {
 @Component({
   selector: 'app-human-interaction-dialog-host',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule],
   templateUrl: './human-interaction-dialog.html'
 })
 export class HumanInteractionDialogHostComponent {

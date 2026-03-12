@@ -1,5 +1,11 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, ElementRef, inject, signal, ViewChild } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { MatButtonModule } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatIconModule } from '@angular/material/icon';
+import { MatInputModule } from '@angular/material/input';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { Router } from '@angular/router';
 import { BlocksService } from '@services/blocks/blocks';
 import { TaskExecutionsService } from '@services/task-executions/task-executions';
@@ -8,7 +14,7 @@ import { EditorStateHolder } from '@stores/flow-editor';
 
 @Component({
   selector: 'app-title-toolbar',
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule, MatButtonModule, MatFormFieldModule, MatIconModule, MatInputModule, MatTooltipModule],
   templateUrl: './title-toolbar.html',
   styleUrl: './title-toolbar.css',
 })
@@ -37,17 +43,41 @@ export class TitleToolbar {
   executeLoading = signal(false);
   snackbarMessage = signal<string | null>(null);
   snackbarType = signal<'success' | 'error'>('success');
+  editingTitle = signal(false);
+  draftTitle = signal('');
 
+  startEditingTitle() {
+    const flow = this.flow();
+    if (!flow) return;
+    this.draftTitle.set(flow.name);
+    this.editingTitle.set(true);
+    queueMicrotask(() => {
+      this.myInputRef?.nativeElement?.focus();
+      this.myInputRef?.nativeElement?.select();
+    });
+  }
+
+  cancelEditingTitle() {
+    this.editingTitle.set(false);
+    this.draftTitle.set(this.title());
+  }
 
   changeTitle(value: string) {
     const trimmed = value.trim();
-    if (value === this.title()) return;
+    if (trimmed === this.title()) {
+      this.editingTitle.set(false);
+      return;
+    }
     if (trimmed.length < 4) {
+      this.draftTitle.set(this.title());
       this.myInputRef.nativeElement.value = this.title();
+      this.editingTitle.set(false);
       return;
     }
     console.log('Updating flow title to:', trimmed);
     this.editorState.updateFlowTitle(trimmed );
+    this.draftTitle.set(trimmed);
+    this.editingTitle.set(false);
   }
 
   save() {

@@ -7,24 +7,22 @@
     </div>
 
     <!-- Modal -->
-    <div class="relative z-10 w-full max-w-md
-                 rounded-lg bg-white shadow-xl
-                 p-5 animate-fade-in">
+    <div class="relative z-10 w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
 
-        <h3 class="text-lg font-semibold mb-3">
+        <h3 class="mb-3 text-lg font-semibold text-slate-900">
             Confirm
         </h3>
 
-        <p class="text-sm text-gray-700 mb-5">
+        <p class="mb-6 text-sm text-slate-600">
             {{ this.state()!.message }}
         </p>
 
         <div class="flex justify-end gap-2">
-            <button class="btn btn-outline-secondary" (click)="close(false)">
+            <button mat-stroked-button (click)="close(false)">
                 Cancel
             </button>
 
-            <button class="btn btn-primary" (click)="close(true)">
+            <button mat-flat-button (click)="close(true)">
                 OK
             </button>
         </div>

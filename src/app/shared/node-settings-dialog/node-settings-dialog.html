@@ -2,19 +2,15 @@
 <div class="fixed inset-0 z-9999">
   <div class="absolute inset-0 bg-black/50" (click)="cancel($event)"></div>
 
-  <div class="absolute inset-6 rounded-xl bg-white shadow-2xl border border-slate-200 p-5 flex flex-col gap-4 overflow-auto">
+  <div class="absolute inset-6 flex flex-col gap-4 overflow-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
     <div class="flex items-center justify-between">
       <h3 class="text-lg font-semibold text-slate-900">{{ state()!.title }}</h3>
-      <button type="button" class="btn btn-sm btn-outline-secondary" (click)="cancel($event)">Close</button>
+      <button type="button" mat-stroked-button (click)="cancel($event)">Close</button>
     </div>
 
     <div class="grid gap-4">
       @for (field of fields; track field.key) {
-      <label class="text-sm font-medium text-slate-700">
-        @if (field.type !== 'display') {
-        {{ field.label }}
-        }
-
+      <div class="text-sm font-medium text-slate-700">
         @switch (field.type) {
           @case ('display') {
             <fieldset class="mt-1 border border-slate-200 rounded-md bg-slate-50 p-3">
@@ -23,11 +19,12 @@
                 @if (field.copyable) {
                 <button
                   type="button"
-                  class="btn btn-sm btn-outline-secondary py-0 px-2 text-[11px]"
-                  title="Copy"
+                  mat-stroked-button
+                  class="!min-w-0 !px-2 !py-0 !text-[11px]"
+                  matTooltip="Copy"
                   aria-label="Copy value"
                   (click)="copyFieldValue(field.key, $event)">
-                  <i class="bi bi-copy"></i>
+                  <mat-icon fontIcon="content_copy"></mat-icon>
                 </button>
                 }
               </div>
@@ -35,65 +32,72 @@
             </fieldset>
           }
           @case ('textarea') {
-            <textarea
-              class="form-control mt-1"
-              [rows]="field.rows ?? 8"
-              [placeholder]="field.placeholder ?? ''"
-              [readonly]="field.readonly === true"
-              [attr.autofocus]="field.autofocus ? '' : null"
-              [attr.data-autofocus]="field.autofocus ? 'true' : null"
-              [ngModel]="draft[field.key]"
-              (ngModelChange)="setFieldValue(field.key, $event)">
-            </textarea>
+            <mat-form-field appearance="outline" class="mt-1">
+              <mat-label>{{ field.label }}</mat-label>
+              <textarea
+                matInput
+                [rows]="field.rows ?? 8"
+                [placeholder]="field.placeholder ?? ''"
+                [readonly]="field.readonly === true"
+                [attr.autofocus]="field.autofocus ? '' : null"
+                [attr.data-autofocus]="field.autofocus ? 'true' : null"
+                [ngModel]="draft[field.key]"
+                (ngModelChange)="setFieldValue(field.key, $event)">
+              </textarea>
+            </mat-form-field>
           }
           @case ('select') {
-            <select
-              class="form-select mt-1"
-              [disabled]="field.readonly === true"
-              [attr.autofocus]="field.autofocus ? '' : null"
-              [attr.data-autofocus]="field.autofocus ? 'true' : null"
-              [ngModel]="draft[field.key]"
-              (ngModelChange)="setFieldValue(field.key, $event)">
-              @for (option of field.options ?? []; track option.value) {
-              <option [ngValue]="option.value">{{ option.label }}</option>
-              }
-            </select>
-          }
-          @case ('checkbox') {
-            <div class="mt-2">
-              <input
-                class="form-check-input"
-                type="checkbox"
+            <mat-form-field appearance="outline" class="mt-1">
+              <mat-label>{{ field.label }}</mat-label>
+              <mat-select
                 [disabled]="field.readonly === true"
                 [attr.autofocus]="field.autofocus ? '' : null"
                 [attr.data-autofocus]="field.autofocus ? 'true' : null"
                 [ngModel]="draft[field.key]"
-                (ngModelChange)="setFieldValue(field.key, $event)" />
+                (ngModelChange)="setFieldValue(field.key, $event)">
+                @for (option of field.options ?? []; track option.value) {
+                <mat-option [value]="option.value">{{ option.label }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          }
+          @case ('checkbox') {
+            <div class="mt-2">
+              <mat-checkbox
+                [disabled]="field.readonly === true"
+                [attr.data-autofocus]="field.autofocus ? 'true' : null"
+                [ngModel]="draft[field.key]"
+                (ngModelChange)="setFieldValue(field.key, $event)">
+                {{ field.label }}
+              </mat-checkbox>
             </div>
           }
           @default {
-            <input
-              class="form-control mt-1"
-              type="text"
-              [placeholder]="field.placeholder ?? ''"
-              [readonly]="field.readonly === true"
-              [attr.autofocus]="field.autofocus ? '' : null"
-              [attr.data-autofocus]="field.autofocus ? 'true' : null"
-              [ngModel]="draft[field.key]"
-              (ngModelChange)="setFieldValue(field.key, $event)" />
+            <mat-form-field appearance="outline" class="mt-1">
+              <mat-label>{{ field.label }}</mat-label>
+              <input
+                matInput
+                type="text"
+                [placeholder]="field.placeholder ?? ''"
+                [readonly]="field.readonly === true"
+                [attr.autofocus]="field.autofocus ? '' : null"
+                [attr.data-autofocus]="field.autofocus ? 'true' : null"
+                [ngModel]="draft[field.key]"
+                (ngModelChange)="setFieldValue(field.key, $event)" />
+            </mat-form-field>
           }
         }
 
         @if (field.tip) {
         <small class="text-red-600 mt-1 block">{{ field.tip }}</small>
         }
-      </label>
+      </div>
       }
     </div>
 
     <div class="mt-auto flex justify-end gap-2">
-      <button type="button" class="btn btn-outline-secondary" (click)="cancel($event)">Cancel</button>
-      <button type="button" class="btn btn-primary" (click)="save($event)">Save</button>
+      <button type="button" mat-stroked-button (click)="cancel($event)">Cancel</button>
+      <button type="button" mat-flat-button (click)="save($event)">Save</button>
     </div>
   </div>
 </div>

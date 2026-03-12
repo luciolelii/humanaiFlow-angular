@@ -1,40 +1,35 @@
-<div class="w-full overflow-hidden text-left p-3 rounded-md border transition-all duration-150 select-none hover:-translate-y-0.5 hover:border-blue-300 hover:bg-blue-100 hover:shadow-md"
-    [class.cursor-pointer]="flow().id !== openedFlowId()"
-    [class.cursor-default]="flow().id === openedFlowId()"
-    [class.border-blue-300]="flow().id === openedFlowId()"
-    [class.bg-blue-50]="flow().id === openedFlowId()"
-    [class.border-slate-200]="flow().id !== openedFlowId()"
-    [class.bg-white]="flow().id !== openedFlowId()"
+<mat-card class="flow-item-card"
+    [class.flow-item-card-clickable]="flow().id !== openedFlowId()"
+    [class.flow-item-card-open]="flow().id === openedFlowId()"
     (click)="flow().id !== openedFlowId() && open()">
 
-    <div class="flex items-start justify-between gap-2">
-        <div class="flex-1 min-w-0 overflow-hidden">
-            <div class="text-sm font-medium text-slate-800 truncate">{{ flow().name }}</div>
-            <div class="text-xs text-slate-500 truncate">{{ flow().author }}</div>
+    <div class="flow-item-head">
+        <div class="flow-item-meta">
+            <div class="flow-item-title">{{ flow().name }}</div>
+            <div class="flow-item-author">{{ flow().author }}</div>
         </div>
-        <span class="shrink-0 text-[10px] px-2 py-0.5 rounded-full border font-semibold"
-              [class.bg-indigo-100]="flow().visibility === 'PUBLIC'"
-              [class.text-indigo-700]="flow().visibility === 'PUBLIC'"
-              [class.border-indigo-200]="flow().visibility === 'PUBLIC'"
-              [class.bg-slate-100]="flow().visibility === 'PRIVATE'"
-              [class.text-slate-700]="flow().visibility === 'PRIVATE'"
-              [class.border-slate-200]="flow().visibility === 'PRIVATE'">
-            {{ flow().visibility }}
-        </span>
     </div>
 
-    <div class="mt-2 text-[11px] text-slate-500 flex justify-between items-center gap-2">
+    <div class="flow-item-footer">
         <span>{{ flow().createdAt | date:'dd/MM/yyyy' }}</span>
-        <div class="flex items-center gap-1.5 text-sm">
-            <button class="p-1 rounded enabled:hover:bg-blue-100 enabled:text-blue-600 disabled:text-blue-200" title="Clone"
-                (click)="$event.stopPropagation(); clone()" [disabled]="this.flow().visibility!=='PRIVATE'">
-                <i class="bi bi-files"></i>
+        <div class="flow-item-actions">
+            <button
+                mat-icon-button
+                [matTooltip]="flow().visibility === 'PRIVATE' ? 'Private flow' : 'Public flow'"
+                class="flow-item-visibility-icon"
+                (click)="$event.stopPropagation()"
+                disabled>
+                <mat-icon [fontIcon]="flow().visibility === 'PRIVATE' ? 'lock' : 'public'"></mat-icon>
             </button>
-            <button class="p-1 rounded enabled:hover:bg-red-100 enabled:text-red-600 disabled:text-red-200" title="Delete"
+            <button mat-icon-button matTooltip="Clone flow"
+                (click)="$event.stopPropagation(); clone()" [disabled]="this.flow().visibility!=='PRIVATE'">
+                <mat-icon fontIcon="content_copy"></mat-icon>
+            </button>
+            <button mat-icon-button matTooltip="Delete flow"
                 (click)="$event.stopPropagation(); remove()" [disabled]="this.flow().visibility!=='PRIVATE'">
-                <i class="bi bi-trash"></i>
+                <mat-icon fontIcon="delete"></mat-icon>
             </button>
         </div>
     </div>
 
-</div>
+</mat-card>

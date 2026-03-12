@@ -12,12 +12,12 @@
     <!-- CENTER EDITOR -->
     <main class="flow-editor-main">
       @if (flow()) {
-      <div class="flow-editor-canvas-shell">
+      <mat-card class="flow-editor-canvas-shell">
         <app-title-toolbar></app-title-toolbar>
         <div class="flow-editor-canvas">
           <app-rete-editor [flowId]="flow()!.id" [flowData]="flow()!.data"></app-rete-editor>
         </div>
-      </div>
+      </mat-card>
       } @else {
       <div class="flow-editor-empty">
         <h2>No flow selected</h2>
@@ -31,9 +31,10 @@
       <button
         type="button"
         class="flow-editor-assistant-toggle"
+        mat-stroked-button
         (click)="toggleAssistant()"
         [attr.aria-label]="assistantOpen() ? 'Collapse assistant' : 'Expand assistant'">
-        <i class="bi" [class.bi-layout-sidebar-inset-reverse]="assistantOpen()" [class.bi-stars]="!assistantOpen()"></i>
+        <mat-icon [fontIcon]="assistantOpen() ? 'right_panel_close' : 'auto_awesome'"></mat-icon>
         <span>{{ assistantOpen() ? 'Hide' : 'AI' }}</span>
       </button>
 
@@ -41,9 +42,9 @@
       <app-flow-assistant></app-flow-assistant>
       } @else {
       <div class="flow-editor-assistant-rail">
-        <i class="bi bi-stars flow-editor-assistant-rail-icon" aria-hidden="true"></i>
+        <mat-icon class="flow-editor-assistant-rail-icon" fontIcon="auto_awesome" aria-hidden="true"></mat-icon>
         <div class="flow-editor-assistant-rail-text">AI</div>
-        <i class="bi bi-magic flow-editor-assistant-rail-wand" aria-hidden="true"></i>
+        <mat-icon class="flow-editor-assistant-rail-wand" fontIcon="magic_button" aria-hidden="true"></mat-icon>
       </div>
       }
     </section>

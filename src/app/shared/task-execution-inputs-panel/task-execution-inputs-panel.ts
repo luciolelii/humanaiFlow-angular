@@ -1,6 +1,9 @@
 import { CommonModule } from '@angular/common';
 import { Component, input, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButtonModule } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
 import { TaskExecutionAuthorizationRequirement } from '@models/task-execution';
 
 export type EditableExecutionInput = {
@@ -15,7 +18,7 @@ export type EditableExecutionInput = {
 
 @Component({
   selector: 'app-task-execution-inputs-panel',
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule],
   templateUrl: './task-execution-inputs-panel.html'
 })
 export class TaskExecutionInputsPanelComponent {

@@ -1,83 +1,57 @@
 @if (error()) {
-<div class="fixed top-4 left-1/2 -translate-x-1/2 z-50
-           w-full max-w-md
-           rounded-lg border border-red-300
-           bg-red-100 text-red-800
-           shadow-md px-4 py-3
-           flex items-start gap-3">
-
-    <!-- Icon -->
-    <i class="bi bi-exclamation-triangle-fill text-red-600 mt-0.5"></i>
-
-    <!-- Message -->
-    <div class="flex-1 text-sm leading-relaxed">
-        <p class="m-0">
-            {{ error() }}
-        </p>
+<div class="auth-banner auth-banner-error">
+    <mat-icon class="auth-banner-icon" fontIcon="warning"></mat-icon>
+    <div class="auth-banner-body">
+        <p>{{ error() }}</p>
     </div>
 </div>
 }
 @if (registeredUser()) {
-<div class="fixed top-4 left-1/2 -translate-x-1/2 z-50
-           w-full max-w-md
-           rounded-lg border border-green-300
-           bg-green-100 text-green-800
-           shadow-md px-4 py-3
-           flex items-start gap-3"> 
-    <!-- Icon -->
-    <i class="bi bi-check-circle-fill text-green-600 mt-0.5"></i>
-    <!-- Message -->
-    <div class="flex-1 text-sm leading-relaxed">
-        <p class="m-0">
+<div class="auth-banner auth-banner-success"> 
+    <mat-icon class="auth-banner-icon" fontIcon="check_circle"></mat-icon>
+    <div class="auth-banner-body">
+        <p>
             Registration successful. <b>{{ registeredUser() }}</b>, now you can log in.
         </p>
     </div>
 </div>
 }
-<div class="flex justify-center items-center min-h-screen bg-base-200 p-4">
-    <div class="border-2 border-sky-500/50 w-full max-w-md mx-auto p-7 shadow-xl rounded-md">
-        <div class="flex justify-center">
-            <img class="size-48 " alt="" src="/logoNoName.png" />
+<div class="auth-page">
+    <mat-card class="auth-card">
+        <div class="auth-logo-wrap">
+            <img class="auth-logo" alt="" src="/logoNoName.png" />
         </div>
-        <div class="card-body p-4">
+        <div class="auth-card-body">
 
             <form (ngSubmit)="onSubmit()" novalidate>
 
-                <!-- Email -->
-                <div class="input-group mb-3">
-                    <span class="input-group-text"><i class="bi bi-at"></i></span>
-                    <input type="text" id="username" class="form-control" placeholder="Username"
-                        [field]="loginForm.username" />
-                </div>
-                <!-- Password -->
-                <div class="input-group mb-3">
-                    <span class="input-group-text"><i class="bi bi-key"></i></span>
-                    <input type="password" #password id="password" class="form-control" placeholder="Password"
-                        [field]="loginForm.password" />
-                    <button class="input-group-text bg-white" type="button" tabindex="-1"
+                <mat-form-field appearance="outline" class="auth-field">
+                    <mat-label>Username</mat-label>
+                    <input matInput type="text" id="username" placeholder="Username" [field]="loginForm.username" />
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="auth-field">
+                    <mat-label>Password</mat-label>
+                    <input matInput type="password" #password id="password" placeholder="Password" [field]="loginForm.password" />
+                    <button mat-button matSuffix type="button" tabindex="-1"
                         (click)="password.type = password.type === 'password' ? 'text' : 'password'"
                         [disabled]="loginFormModel().password.length === 0">
-                        <i
-                            class="bi"
-                            [class.bi-eye]="password.type === 'password'"
-                            [class.bi-eye-slash]="password.type === 'text'"></i>
+                        {{ password.type === 'password' ? 'Show' : 'Hide' }}
                     </button>
-                </div>
+                </mat-form-field>
 
-                <!-- Sign up -->
-                <div class="mb-3 text-center">
+                <div class="auth-links">
                     <span>
                         Don't have an account yet?
-                        <a routerLink="/sign-up" class="ms-1 link-primary">Sign Up</a>
+                        <a routerLink="/sign-up" class="auth-link">Sign Up</a>
                     </span>
                 </div>
 
-                <!-- Submit -->
-                <button type="submit" class="btn btn-outline-primary w-100" [disabled]="loginForm().invalid()">
+                <button type="submit" mat-flat-button class="auth-submit" [disabled]="loginForm().invalid()">
                     Login
                 </button>
 
             </form>
         </div>
-    </div>
+    </mat-card>
 </div>

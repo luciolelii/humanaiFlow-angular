@@ -3,6 +3,13 @@ import { Flow, FlowVisibility } from '@models/flow';
 import { FlowsService } from '@services/flows/flows';
 import { FlowItem } from './flow-item/flow-item';
 import { FormsModule } from '@angular/forms';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatCardModule } from '@angular/material/card';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatIconModule } from '@angular/material/icon';
+import { MatInputModule } from '@angular/material/input';
+import { MatListModule } from '@angular/material/list';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { OrderEvent, OrderField, Ordering } from "@shared/ordering/ordering";
 import { ListStateViewHolder, OrderViewState } from '@utilities/list-state-holder';
 
@@ -10,7 +17,7 @@ type FlowFilter = FlowVisibility | 'all';
 
 @Component({
   selector: 'app-flows-list',
-  imports: [FlowItem, FormsModule, Ordering],
+  imports: [FlowItem, FormsModule, Ordering, MatButtonToggleModule, MatCardModule, MatFormFieldModule, MatIconModule, MatInputModule, MatListModule, MatProgressSpinnerModule],
   templateUrl: './flows-list.html',
   styleUrl: './flows-list.css',
 })

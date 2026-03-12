@@ -1,35 +1,49 @@
-<div class="flex items-center justify-between gap-4
-            px-4 py-2
-            bg-white border-b border-gray-200
-            shadow-sm">
+<div class="title-toolbar-shell">
 
-  <!-- Title -->
-  <div class="flex min-w-0 flex-1 items-center gap-2">
-    <i class="bi bi-pencil-square shrink-0 text-indigo-500"></i>
-    <h2 class="m-0 min-w-0 flex-1 text-sm font-semibold text-gray-800">
-        <input type="text" class="title-toolbar-input border-0 text-sm font-semibold text-gray-800
-       focus:ring-0 p-0 m-0 box-border
-       min-w-0
-       bg-transparent"
-               [value]="title()"
-               (blur)="changeTitle(titleInput.value)"
-                (keydown.enter)="changeTitle(titleInput.value); $event.target.blur()"
-               maxlength="20"
-               size="20"
-                #titleInput
-                />
-    </h2>
+  <div class="title-toolbar-main">
+    <div class="title-toolbar-title-wrap">
+      @if (editingTitle()) {
+      <mat-form-field appearance="outline" class="title-toolbar-field">
+        <mat-label>Flow title</mat-label>
+        <input
+          matInput
+          [value]="draftTitle()"
+          (input)="draftTitle.set(titleInput.value)"
+          (blur)="changeTitle(titleInput.value)"
+          (keydown.enter)="changeTitle(titleInput.value); $event.preventDefault(); $event.target.blur()"
+          (keydown.escape)="cancelEditingTitle()"
+          maxlength="30"
+          #titleInput />
+        <mat-hint align="end">{{ draftTitle().length }}/30</mat-hint>
+      </mat-form-field>
+      } @else {
+      <div class="title-toolbar-title-row">
+        <div class="title-toolbar-title-display" [title]="title()">{{ title() }}</div>
+        @if (flow()) {
+        <button
+          type="button"
+          mat-icon-button
+          class="title-toolbar-edit-button"
+          matTooltip="Edit flow title"
+          (click)="startEditingTitle()">
+          <mat-icon fontIcon="edit"></mat-icon>
+        </button>
+        }
+      </div>
+      }
+    </div>
     @if (notSaved()) {
-    <span class="inline-flex shrink-0 items-center gap-x-1.5 rounded-full border border-yellow-500 px-3 py-1.5 text-xs font-medium text-yellow-500">not saved</span>
+    <span class="title-toolbar-pill title-toolbar-pill-warning">Not saved</span>
     } @else if (blockSyncInProgress()) {
-    <span class="inline-flex shrink-0 items-center gap-2 rounded-full border border-blue-500 px-3 py-1.5 text-xs font-medium text-blue-600">
+    <span class="title-toolbar-pill title-toolbar-pill-info">
       <span class="title-toolbar-spinner title-toolbar-spinner--blue" aria-hidden="true"></span>
       <span>Updating blocks...</span>
     </span>
     } @else if (canExecute()) {
     <button
       type="button"
-      class="inline-flex shrink-0 items-center gap-2 rounded-full border border-emerald-500 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 transition enabled:hover:bg-emerald-100 disabled:cursor-default disabled:opacity-60"
+      mat-stroked-button
+      class="title-toolbar-execute"
       [disabled]="executeLoading()"
       (click)="execute()">
       @if (executeLoading()) {
@@ -40,29 +54,26 @@
     }
   </div>
 
-
-  <!-- Actions -->
-  <div class="flex shrink-0 items-center gap-2" >
-    <button tabindex="-1"
-      class="border-0
-             flex items-center gap-1
-             enabled:hover:bg-green-200 enabled:text-green-600 disabled:text-green-300
-             p-1"
-      title="Save" [disabled]="!canSave()" (click)="save()">
-      <i class="bi bi-save"></i>
+  <div class="title-toolbar-actions" >
+    <button
+      type="button"
+      mat-flat-button
+      tabindex="-1"
+      [disabled]="!canSave()"
+      (click)="save()">
+      Save
     </button>
-
   </div>
 </div>
 
 @if (flow()) {
-<div class="px-4 py-2 bg-white border-b border-gray-200 text-xs text-slate-600 flex flex-wrap items-center gap-x-4 gap-y-1">
-  <span><span class="text-slate-400">Author:</span> {{ flow()!.author }}</span>
-  <span><span class="text-slate-400">Visibility:</span> {{ flow()!.visibility }}</span>
-  <span><span class="text-slate-400">Created:</span> {{ flow()!.createdAt | date:'dd/MM/yyyy HH:mm' }}</span>
-  <span><span class="text-slate-400">Updated:</span> {{ flow()!.updatedAt | date:'dd/MM/yyyy HH:mm' }}</span>
+<div class="title-toolbar-meta">
+  <span><span class="title-toolbar-meta-label">Author:</span> {{ flow()!.author }}</span>
+  <span><span class="title-toolbar-meta-label">Visibility:</span> {{ flow()!.visibility }}</span>
+  <span><span class="title-toolbar-meta-label">Created:</span> {{ flow()!.createdAt | date:'dd/MM/yyyy HH:mm' }}</span>
+  <span><span class="title-toolbar-meta-label">Updated:</span> {{ flow()!.updatedAt | date:'dd/MM/yyyy HH:mm' }}</span>
   @if (flow()!.description) {
-  <span class="truncate max-w-[420px]"><span class="text-slate-400">Description:</span> {{ flow()!.description }}</span>
+  <span class="title-toolbar-description"><span class="title-toolbar-meta-label">Description:</span> {{ flow()!.description }}</span>
   }
 </div>
 }

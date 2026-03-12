@@ -1,58 +1,38 @@
 @if (loading()) {
-<div class="flex items-center justify-center h-32">
-    <div class="spinner-border text-indigo-500" role="status">
-        <span class="visually-hidden">Loading...</span>
-    </div>
+<div class="flows-list-loading">
+    <mat-spinner diameter="32"></mat-spinner>
 </div>
 } @else {
-<div class="h-full flex flex-col">
-    <div class="w-full max-w-sm py-2 h-15">
-        <div class="relative flex items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
-                class="absolute w-5 h-5 top-2.5 left-2.5 text-slate-600">
-                <path fill-rule="evenodd"
-                    d="M10.5 3.75a6.75 6.75 0 1 0 0 13.5 6.75 6.75 0 0 0 0-13.5ZM2.25 10.5a8.25 8.25 0 1 1 14.59 5.28l4.69 4.69a.75.75 0 1 1-1.06 1.06l-4.69-4.69A8.25 8.25 0 0 1 2.25 10.5Z"
-                    clip-rule="evenodd" />
-            </svg>
-
-            <input
-                class="w-full bg-transparent placeholder:text-slate-400 text-slate-700 text-sm border border-slate-200 rounded-md pl-10 pr-3 py-2 transition duration-300 ease focus:outline-none focus:border-slate-400 hover:border-slate-300 shadow-sm focus:shadow"
-                placeholder="Search flows..." [(ngModel)]="searchTerm"/>
-        </div>
+<div class="flows-list-root">
+    <div class="flows-list-search">
+        <mat-form-field appearance="outline">
+            <mat-label>Search flows</mat-label>
+            <mat-icon matPrefix fontIcon="search"></mat-icon>
+            <input matInput placeholder="Search flows..." [(ngModel)]="searchTerm" />
+        </mat-form-field>
     </div>
     
-    <div class="btn-group w-full mb-3 h-8" role="group">
+    <mat-button-toggle-group class="flows-list-filter" [value]="filter()" (valueChange)="filter.set($event)">
+        <mat-button-toggle value="all">All</mat-button-toggle>
+        <mat-button-toggle value="PUBLIC">Public</mat-button-toggle>
+        <mat-button-toggle value="PRIVATE">Private</mat-button-toggle>
+    </mat-button-toggle-group>
 
-        <button type="button" class="btn btn-sm w-full transition" [class.btn-primary]="filter() === 'all'"
-            [class.btn-outline-primary]="filter() !== 'all'" (click)="filter.set('all')">
-            All
-        </button>
-
-        <button type="button" class="btn btn-sm w-full transition" [class.btn-primary]="filter() === 'PUBLIC'"
-            [class.btn-outline-primary]="filter() !== 'PUBLIC'" (click)="filter.set('PUBLIC')">
-            Public
-        </button>
-
-        <button type="button" class="btn btn-sm w-full transition" [class.btn-primary]="filter() === 'PRIVATE'"
-            [class.btn-outline-primary]="filter() !== 'PRIVATE'" (click)="filter.set('PRIVATE')">
-            Private
-        </button>
-
-    </div>
-
-    <div class="flex py-2 text-sm w-full items-center text-center justify-center h-18">
+    <div class="flows-list-ordering">
         <app-ordering [orderFields]="orderFields" [orderView]="orderView" (orderChanged)="onOrderChanged($event)" ></app-ordering>
     </div>
     @if (filteredFlows().length === 0) {
-    <div class="text-gray-400 text-center mt-10 flex flex-col flex-1 pt-10">
+    <div class="flows-list-empty">
         No flows found
     </div>
     } @else {
-    <div class="flex-1 overflow-y-auto w-full h-full py-2 gap-2 flex flex-col items-stretch max-h-[calc(100vh-380px)]">
+    <mat-list class="flows-list-items">
         @for (flow of filteredFlows(); track flow.id) {
-        <app-flow-item [(detailOpenedId)]="detailOpenedId" [flow]="flow"></app-flow-item>
+        <mat-list-item class="flows-list-list-item">
+          <app-flow-item [(detailOpenedId)]="detailOpenedId" [flow]="flow"></app-flow-item>
+        </mat-list-item>
         }
-    </div>
+    </mat-list>
     }
 </div>
 }

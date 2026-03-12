@@ -8,7 +8,7 @@
         <h3 class="text-lg font-semibold text-slate-900">{{ currentState.title }}</h3>
         <p class="mt-1 text-sm text-slate-500">Confirm the input as node output or edit it before sending.</p>
       </div>
-      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancel($event)">Close</button>
+      <button type="button" mat-stroked-button (click)="cancel($event)">Close</button>
     </div>
 
     <div class="grid flex-1 gap-4 overflow-y-auto px-5 py-4">
@@ -23,27 +23,28 @@
       </fieldset>
 
       @if (editing()) {
-      <label class="block text-sm font-medium text-slate-700">
-        Edit Response
+      <mat-form-field appearance="outline">
+        <mat-label>Edit Response</mat-label>
         <textarea
-          class="form-control mt-2 min-h-56"
+          matInput
+          class="min-h-56"
           rows="10"
           [ngModel]="draftValue"
           [attr.data-autofocus]="'true'"
           (ngModelChange)="setDraftValue($event)">
         </textarea>
-      </label>
+      </mat-form-field>
       }
     </div>
 
     <div class="flex justify-end gap-2 border-t border-slate-200 px-5 py-4">
-      <button type="button" class="btn btn-outline-secondary" (click)="cancel($event)">Cancel</button>
+      <button type="button" mat-stroked-button (click)="cancel($event)">Cancel</button>
       @if (!editing()) {
-      <button type="button" class="btn btn-outline-primary" (click)="startEditing($event)">Edit Response</button>
-      <button type="button" class="btn btn-primary" (click)="confirmInput($event)">Confirm Input</button>
+      <button type="button" mat-stroked-button (click)="startEditing($event)">Edit Response</button>
+      <button type="button" mat-flat-button (click)="confirmInput($event)">Confirm Input</button>
       } @else {
-      <button type="button" class="btn btn-outline-secondary" (click)="backToConfirm($event)">Back</button>
-      <button type="button" class="btn btn-primary" [disabled]="!canSendEditedOutput()" (click)="sendEditedOutput($event)">Send Output</button>
+      <button type="button" mat-stroked-button (click)="backToConfirm($event)">Back</button>
+      <button type="button" mat-flat-button [disabled]="!canSendEditedOutput()" (click)="sendEditedOutput($event)">Send Output</button>
       }
     </div>
   </div>

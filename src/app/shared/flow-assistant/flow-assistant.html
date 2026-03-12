@@ -52,16 +52,18 @@
       </div>
 
       @if (modelPickerOpen()) {
-      <select
-        id="assistant-model"
-        class="assistant-select"
-        [ngModel]="selectedModel()"
-        (ngModelChange)="selectModel($event)"
-        [disabled]="modelsLoading() || !models().length">
-        @for (model of models(); track model) {
-        <option [value]="model">{{ model }}</option>
-        }
-      </select>
+      <mat-form-field appearance="outline">
+        <mat-label>Model</mat-label>
+        <mat-select
+          id="assistant-model"
+          [ngModel]="selectedModel()"
+          (ngModelChange)="selectModel($event)"
+          [disabled]="modelsLoading() || !models().length">
+          @for (model of models(); track model) {
+          <mat-option [value]="model">{{ model }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
       }
 
       @if (modelsLoading()) {
@@ -87,7 +89,7 @@
       @if (quickPromptsOpen()) {
       <div class="assistant-chip-grid">
         @for (starter of starterPrompts; track starter) {
-        <button type="button" class="assistant-chip" (click)="useStarter(starter)">
+        <button type="button" mat-stroked-button class="assistant-chip" (click)="useStarter(starter)">
           {{ starter }}
         </button>
         }
@@ -130,17 +132,22 @@
   </div>
 
   <form class="assistant-composer" (ngSubmit)="submitPrompt()">
-    <textarea
-      class="assistant-input"
-      [ngModel]="prompt()"
-      (ngModelChange)="prompt.set($event)"
-      [disabled]="!selectedModel() || assistantBusy()"
-      name="assistantPrompt"
-      rows="4"
-      placeholder="Ask the assistant to create or refine a workflow"></textarea>
+    <mat-form-field appearance="outline">
+      <mat-label>Prompt</mat-label>
+      <textarea
+        matInput
+        class="assistant-input"
+        [ngModel]="prompt()"
+        (ngModelChange)="prompt.set($event)"
+        [disabled]="!selectedModel() || assistantBusy()"
+        name="assistantPrompt"
+        rows="4"
+        placeholder="Ask the assistant to create or refine a workflow"></textarea>
+    </mat-form-field>
 
     <button
       type="submit"
+      mat-flat-button
       class="assistant-send"
       [disabled]="!selectedModel() || assistantBusy() || !prompt().trim()">
       Send

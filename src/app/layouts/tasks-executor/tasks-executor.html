@@ -1,15 +1,15 @@
 <div class="flex flex-col flex-1 h-full">
   <div class="flex flex-row flex-1 overflow-hidden gap-2">
     <app-tasks-executions-list
-      class="w-[320px] shrink-0"
+      class="w-[360px] shrink-0"
       [executions]="executions()"
       [selectedExecutionId]="selectedExecutionId()"
       (executionSelected)="selectExecution($event)"
       (executionDeleteRequested)="removeExecution($event)">
     </app-tasks-executions-list>
 
-    <main class="flex flex-col w-full bg-gray-100 overflow-hidden rounded-md">
+    <mat-card class="flex w-full flex-col overflow-hidden !rounded-md !bg-gray-100">
       <app-task-execution-viewer [execution]="selectedExecution()"></app-task-execution-viewer>
-    </main>
+    </mat-card>
   </div>
 </div>

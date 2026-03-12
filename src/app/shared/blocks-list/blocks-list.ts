@@ -3,11 +3,17 @@ import { BlockType } from '@models/flow';
 import { BlocksService } from '@services/blocks/blocks';
 import { ListStateViewHolder, OrderViewState } from '@utilities/list-state-holder';
 import { FormsModule } from '@angular/forms';
+import { MatCardModule } from '@angular/material/card';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatIconModule } from '@angular/material/icon';
+import { MatInputModule } from '@angular/material/input';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { BLOCK_TYPE_DRAG_MIME } from './block-drag';
 
 @Component({
   selector: 'app-blocks-list',
-  imports: [FormsModule],
+  imports: [FormsModule, MatCardModule, MatChipsModule, MatFormFieldModule, MatIconModule, MatInputModule, MatProgressSpinnerModule],
   templateUrl: './blocks-list.html',
   styleUrl: './blocks-list.css',
 })

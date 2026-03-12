@@ -1,6 +1,10 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButtonModule } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 import { environment } from '@environment';
 import {
   AssistantCallPhase,
@@ -18,7 +22,7 @@ import { finalize, take } from 'rxjs';
 
 @Component({
   selector: 'app-flow-assistant',
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule],
   templateUrl: './flow-assistant.html',
   styleUrl: './flow-assistant.css'
 })

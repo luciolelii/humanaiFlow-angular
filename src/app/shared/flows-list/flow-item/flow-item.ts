@@ -1,5 +1,9 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, input, model } from '@angular/core';
+import { MatButtonModule } from '@angular/material/button';
+import { MatCardModule } from '@angular/material/card';
+import { MatIconModule } from '@angular/material/icon';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { Flow } from '@models/flow';
 import { ConfirmDialogService } from '@services/dialogs/confirm-dialog';
 import { FlowsService } from '@services/flows/flows';
@@ -7,7 +11,7 @@ import { EditorStateHolder } from '@stores/flow-editor';
 
 @Component({
   selector: 'app-flow-item',
-  imports: [CommonModule],
+  imports: [CommonModule, MatButtonModule, MatCardModule, MatIconModule, MatTooltipModule],
   templateUrl: './flow-item.html',
   styleUrl: './flow-item.css',
 })

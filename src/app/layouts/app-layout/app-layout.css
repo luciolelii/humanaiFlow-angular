@@ -3,6 +3,12 @@
   font-family: 'Roboto', sans-serif;
 }
 
+.app-topbar {
+  height: 56px !important;
+  min-height: 56px !important;
+  padding: 0 16px !important;
+}
+
 /* Logo */
 .logo {
   height: 40px;
@@ -18,15 +24,44 @@
   min-height: 0; /* necessario per overflow-auto su flex */
 }
 
-/* Tabs sticky */
-.nav-tabs {
-  border-bottom: 1px solid #ccc;
+.app-tabbar-wrap {
+  position: fixed;
+  top: 56px;
+  z-index: 40;
+  width: 100%;
+  padding: 0 16px;
+  background: #d8f4e7;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.28);
 }
 
-.nav-link.active {
-  background-color: #ffffff;
-  color: #0f766e;              /* verde elegante */
-  border: 1px solid #d1d5db;
-  border-bottom-color: white;
-  box-shadow: 0 -1px 6px rgba(0, 0, 0, 0.05);
+.app-tabbar {
+  min-height: 48px;
+  padding: 0;
+  background: transparent;
+}
+
+.app-tab-link {
+  min-width: 120px;
+  min-height: 48px;
+  border-radius: 0;
+  font-weight: 600;
+}
+
+.app-shell {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  padding-top: 112px;
+}
+
+.app-main-content {
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  margin-top: 0;
+  padding: 10px 16px 16px;
+  overflow: hidden;
+  background: #ffffff;
 }

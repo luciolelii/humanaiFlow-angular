@@ -1,42 +1,34 @@
-<div class="flex items-center w-full justify-between gap-2">
-<div class="form-floating flex-1">  
-<select  id="orderSelect"
-    class="form-select form-select-sm text-sm w-full"
-    [(ngModel)]="orderBy"
-    placeholder="Order By"
-  >
- 
-    @for (opt of orderFields(); track opt.field) {
-      <option [ngValue]="opt.field">
-        {{ opt.label || opt.field }}
-      </option>
-    }
-  </select>
-    <label for="orderSelect">Order by</label>
-</div>
-  <!-- direzione -->
-  <div class="btn-group">
-    <button
-      type="button"
-      class="btn btn-sm px-1 w-6 h-14 flex items-center justify-center"
-      [class.btn-primary]="orderDir() === 'asc'"
-      [class.btn-outline-primary]="orderDir() !== 'asc'"
-      (click)="orderDir.set('asc')"
-      title="Ascending"
-    >
-      ↑
-    </button>
+<div class="ordering-root">
+  <mat-form-field appearance="outline" class="ordering-field">
+    <mat-label>Order by</mat-label>
+    <mat-select [(ngModel)]="orderBy">
+      @for (opt of orderFields(); track opt.field) {
+      <mat-option [value]="opt.field">{{ opt.label || opt.field }}</mat-option>
+      }
+    </mat-select>
 
-    <button
-      type="button"
-      class="btn btn-sm px-1 w-6 h-14 flex items-center justify-center"
-      [class.btn-primary]="orderDir() === 'desc'"
-      [class.btn-outline-primary]="orderDir() !== 'desc'"
-      (click)="orderDir.set('desc')"
-      title="Descending"
-      
-    >
-      ↓
-    </button>
-  </div>
+    <div matSuffix class="ordering-suffix">
+      <button
+        type="button"
+        class="ordering-dir-btn"
+        [class.ordering-dir-btn-active]="orderDir() === 'asc'"
+        (mousedown)="setDirection('asc', $event)"
+        (click)="setDirection('asc', $event)"
+        aria-label="Ascending"
+        title="Ascending">
+        <mat-icon fontIcon="north"></mat-icon>
+      </button>
+
+      <button
+        type="button"
+        class="ordering-dir-btn"
+        [class.ordering-dir-btn-active]="orderDir() === 'desc'"
+        (mousedown)="setDirection('desc', $event)"
+        (click)="setDirection('desc', $event)"
+        aria-label="Descending"
+        title="Descending">
+        <mat-icon fontIcon="south"></mat-icon>
+      </button>
+    </div>
+  </mat-form-field>
 </div>

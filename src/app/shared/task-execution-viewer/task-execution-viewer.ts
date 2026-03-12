@@ -1,5 +1,8 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, effect, inject, input, OnDestroy, signal } from '@angular/core';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { FlowBlockConnection, FlowData } from '@models/flow';
 import {
   getExecutionStatusGroup,
@@ -25,7 +28,7 @@ type ExecutionOutputEntry = {
 
 @Component({
   selector: 'app-task-execution-viewer',
-  imports: [CommonModule, ReteEditor, TaskExecutionInputsPanelComponent],
+  imports: [CommonModule, ReteEditor, TaskExecutionInputsPanelComponent, MatButtonModule, MatIconModule, MatTooltipModule],
   templateUrl: './task-execution-viewer.html',
   styleUrl: './task-execution-viewer.css',
 })

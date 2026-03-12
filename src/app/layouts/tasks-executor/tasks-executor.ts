@@ -1,4 +1,5 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
+import { MatCardModule } from '@angular/material/card';
 import { normalizeExecutionStatus, TaskExecution } from '@models/task-execution';
 import {
   TaskExecutionListItem,
@@ -10,7 +11,7 @@ import { TaskExecutionsService } from '@services/task-executions/task-executions
 
 @Component({
   selector: 'app-tasks-executor',
-  imports: [TasksExecutionsListComponent, TaskExecutionViewerComponent],
+  imports: [TasksExecutionsListComponent, TaskExecutionViewerComponent, MatCardModule],
   templateUrl: './tasks-executor.html',
   styleUrl: './tasks-executor.css',
 })

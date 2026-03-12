@@ -1,72 +1,50 @@
-<div class="main-layout h-screen flex flex-col">
-
-    <!-- Header fisso -->
-    <header
-        class="app-header fixed top-0 left-0 right-0 z-50 flex justify-between items-center px-4 h-16 bg-[#d8f4e7] border-b-none">
-        <div class="left-section flex items-center gap-4">
-            <img src="/logoNoName.png" alt="Logo" class="logo h-10" />
-            <h1 class="app-title text-lg font-medium text-gray-800 m-0">HumAIn Flow</h1>
-        </div>
-
-        <div class="user-section flex items-center gap-2 text-gray-700 font-medium">
-            <i class="bi bi-person-circle fs-4"></i>
-            <span class="username">{{ loggedUser()?.username }}</span>
-            <div class="relative group inline-flex">
-                <i class="bi bi-box-arrow-right
-           text-secondary hover:text-red-600
-           cursor-pointer transition" (click)="logout()" aria-label="Logout" role="button" tabindex="-1">
-                </i>
-
-                <!-- Tooltip -->
-                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2
-           opacity-0 group-hover:opacity-100
-           pointer-events-none
-           whitespace-nowrap
-           rounded-md bg-gray-800 px-3 py-1.5
-           text-xs text-white shadow-lg
-           transition-opacity duration-200">
-                    Logout
-                </div>
-            </div>
-
-        </div>
-    </header>
-
-    <!-- Wrapper per compensare header fisso -->
-    <div class="pt-16 flex flex-col flex-1 h-[calc(100vh-64px)] overflow-hidden">
-
-        <ul class="nav fixed w-full top-16 z-40
-         flex gap-1 px-3
-        bg-[#d8f4e7] border-b-none shadow-sm h-10">
-
-            <li class="nav-item">
-                <a routerLink="/editor" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }" tabindex="-1" class="nav-link
-             px-4 py-2 rounded-t-md
-             text-gray-700 font-medium
-             transition-all duration-200
-             hover:bg-white/60">
-                    <i class="bi bi-diagram-3 me-2"></i>
-                    Editor
-                </a>
-            </li>
-
-            <li class="nav-item">
-                <a routerLink="/tasks" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }" tabindex="-1" class="nav-link
-             px-4 py-2 rounded-t-md
-             text-gray-700 font-medium
-             transition-all duration-200
-             hover:bg-white/60">
-                    <i class="bi bi-list-check me-2"></i>
-                    Tasks
-                </a>
-            </li>
-        </ul>
-
-
-        <!-- Contenuto principale scrollabile -->
-        <main class="main-content w-full h-[calc(100vh-104px)] mt-12 overflow-hidden ml-2 bg-white pb-4 pr-4 rounded-md shadow-sm">
-            <router-outlet></router-outlet>
-        </main>
-
+<div class="main-layout flex h-screen flex-col">
+  <mat-toolbar class="app-topbar !fixed !left-0 !right-0 !top-0 !z-50 !bg-[#d8f4e7] !text-slate-800">
+    <div class="flex items-center gap-4">
+      <img src="/logoNoName.png" alt="Logo" class="h-10" />
+      <h1 class="m-0 text-lg font-medium">HumAIn Flow</h1>
     </div>
+
+    <span class="flex-1"></span>
+
+    <div class="flex items-center gap-3 text-sm font-medium text-gray-700">
+      <mat-icon fontIcon="account_circle"></mat-icon>
+      <span class="username">{{ loggedUser()?.username }}</span>
+      <button mat-stroked-button type="button" (click)="logout()">Logout</button>
+    </div>
+  </mat-toolbar>
+
+  <div class="app-shell">
+    <div class="app-tabbar-wrap">
+      <nav mat-tab-nav-bar [tabPanel]="tabPanel" class="app-tabbar">
+        <a
+          mat-tab-link
+          routerLink="/editor"
+          routerLinkActive
+          #editorRla="routerLinkActive"
+          [routerLinkActiveOptions]="{ exact: true }"
+          class="app-tab-link"
+          [active]="editorRla.isActive">
+          <mat-icon fontIcon="schema"></mat-icon>
+          Editor
+        </a>
+        <a
+          mat-tab-link
+          routerLink="/tasks"
+          routerLinkActive
+          #tasksRla="routerLinkActive"
+          [routerLinkActiveOptions]="{ exact: true }"
+          class="app-tab-link"
+          [active]="tasksRla.isActive">
+          <mat-icon fontIcon="task_alt"></mat-icon>
+          Tasks
+        </a>
+      </nav>
+      <mat-tab-nav-panel #tabPanel></mat-tab-nav-panel>
+    </div>
+
+    <main class="main-content app-main-content">
+      <router-outlet></router-outlet>
+    </main>
+  </div>
 </div>

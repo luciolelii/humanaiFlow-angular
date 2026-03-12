@@ -1,3 +1,14 @@
+.editor-sidebar-shell {
+  height: 100%;
+  min-height: 0;
+}
+
+.editor-sidebar-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
 .enabled:hover {
  background-color: var(--color-gray-100) ;
 }

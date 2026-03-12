@@ -1,4 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
+import { MatButtonModule } from '@angular/material/button';
+import { MatCardModule } from '@angular/material/card';
+import { MatIconModule } from '@angular/material/icon';
 import { environment } from '@environment';
 import { EditorSidebar } from "@pages/main/editor-sidebar/editor-sidebar";
 import { EditorStateHolder } from '@stores/flow-editor';
@@ -8,7 +11,7 @@ import { ReteEditor } from "@shared/rete-editor/rete-editor";
 
 @Component({
   selector: 'app-flow-editor',
-  imports: [EditorSidebar, TitleToolbar, ReteEditor, FlowAssistant],
+  imports: [EditorSidebar, TitleToolbar, ReteEditor, FlowAssistant, MatButtonModule, MatCardModule, MatIconModule],
   templateUrl: './flow-editor.html',
   styleUrl: './flow-editor.css',
 })
