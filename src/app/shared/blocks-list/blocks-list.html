@@ -33,10 +33,24 @@
         <div matCardAvatar class="blocks-list-card-avatar">
           <mat-icon [fontIcon]="block.userInteractive ? 'touch_app' : 'auto_awesome'"></mat-icon>
         </div>
-        <mat-card-title class="blocks-list-card-title">{{ block.type }}</mat-card-title>
-        <mat-card-subtitle class="blocks-list-card-subtitle">
-          {{ block.userInteractive ? 'Interactive' : 'Automatic' }}
-        </mat-card-subtitle>
+        <div class="blocks-list-card-heading">
+          <div class="blocks-list-card-title-row">
+            <mat-card-title class="blocks-list-card-title">{{ block.type }}</mat-card-title>
+            <button
+              type="button"
+              class="blocks-list-card-info"
+              matTooltip="{{ block.description }}"
+              aria-label="Show block description"
+              title=""
+              (pointerdown)="$event.stopPropagation()"
+              (click)="$event.stopPropagation()">
+              <mat-icon fontIcon="info"></mat-icon>
+            </button>
+          </div>
+          <mat-card-subtitle class="blocks-list-card-subtitle">
+            {{ block.userInteractive ? 'Interactive' : 'Automatic' }}
+          </mat-card-subtitle>
+        </div>
       </mat-card-header>
       <mat-card-content class="blocks-list-card-content">
         <p class="blocks-list-card-copy">{{ block.description }}</p>
