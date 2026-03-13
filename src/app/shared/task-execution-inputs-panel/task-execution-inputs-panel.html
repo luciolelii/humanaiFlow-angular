@@ -79,21 +79,62 @@
         <div class="text-[14px] font-extrabold leading-tight">{{ executionInput.title }}</div>
         <div class="mt-1 text-[11px] font-semibold uppercase tracking-[0.04em] text-blue-600">{{ executionInput.subtitle }}</div>
       </div>
-      <div class="text-[10px] text-slate-500 mb-2">Type: {{ executionInput.type }}</div>
+      <div class="mb-2 text-[10px] text-slate-500">Type: {{ inputTypeLabel(executionInput) }}</div>
 
       @if (isFileInput(executionInput)) {
-      <input type="file" class="block w-full text-sm text-slate-700" [disabled]="readOnly()" (change)="onFileInputChange(executionInput, $event)" />
+      <input
+        type="file"
+        class="block w-full text-sm text-slate-700"
+        [attr.multiple]="isMultipleInput(executionInput) ? '' : null"
+        [disabled]="readOnly()"
+        (change)="onFileInputChange(executionInput, $event)" />
       } @else {
-      <mat-form-field appearance="outline">
-        <mat-label>{{ executionInput.subtitle }}</mat-label>
-        <textarea
-          matInput
-          rows="4"
-          [readonly]="readOnly()"
-          [ngModel]="executionInput.value"
-          (ngModelChange)="onTextInputChange(executionInput, $event)">
-        </textarea>
-      </mat-form-field>
+        @if (isMultipleInput(executionInput)) {
+        <div class="space-y-3">
+          @for (textValue of textValues(executionInput); track $index) {
+          <div class="flex items-start gap-2">
+            <mat-form-field appearance="outline" class="flex-1">
+              <mat-label>{{ executionInput.subtitle }} {{ $index + 1 }}</mat-label>
+              <textarea
+                matInput
+                rows="3"
+                [readonly]="readOnly()"
+                [ngModel]="textValue"
+                (ngModelChange)="updateTextItem(executionInput, $index, $event)">
+              </textarea>
+            </mat-form-field>
+
+            <button
+              type="button"
+              mat-stroked-button
+              class="shrink-0"
+              [disabled]="readOnly() || textValues(executionInput).length <= 1"
+              (click)="removeTextItem(executionInput, $index)">
+              Remove
+            </button>
+          </div>
+          }
+
+          <button
+            type="button"
+            mat-stroked-button
+            [disabled]="readOnly()"
+            (click)="addTextItem(executionInput)">
+            Add item
+          </button>
+        </div>
+        } @else {
+        <mat-form-field appearance="outline" class="w-full">
+          <mat-label>{{ executionInput.subtitle }}</mat-label>
+          <textarea
+            matInput
+            rows="4"
+            [readonly]="readOnly()"
+            [ngModel]="executionInput.value"
+            (ngModelChange)="onTextInputChange(executionInput, $event)">
+          </textarea>
+        </mat-form-field>
+        }
       }
 
       @if (isInputSaving(executionInput.key)) {

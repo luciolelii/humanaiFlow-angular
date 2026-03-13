@@ -12,11 +12,23 @@ export abstract class TaskExecutionsCallServiceBase {
     inputName: string,
     value: string
   ): Observable<TaskExecution>;
+  abstract prepareStringArrayInput(
+    executionId: string,
+    nodeId: string,
+    inputName: string,
+    values: string[]
+  ): Observable<TaskExecution>;
   abstract prepareFileInput(
     executionId: string,
     nodeId: string,
     inputName: string,
     file: File
+  ): Observable<TaskExecution>;
+  abstract prepareFileArrayInput(
+    executionId: string,
+    nodeId: string,
+    inputName: string,
+    files: File[]
   ): Observable<TaskExecution>;
   abstract submitInteractionText(
     executionId: string,

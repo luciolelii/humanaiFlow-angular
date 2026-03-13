@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, HostBinding, Input, inject } from '@angular/core';
 import { ClassicPreset } from 'rete';
 import { ReteModule } from 'rete-angular-plugin/21';
+import { FlowPort } from '@models/flow';
 import { BlocksService } from '@services/blocks/blocks';
 import { HumanInteractionDialogService } from '@services/dialogs/human-interaction-dialog';
 import { TaskExecutionsService } from '@services/task-executions/task-executions';
@@ -206,6 +207,22 @@ export class TaskStepNodeComponent {
     return null;
   }
 
+  inputDisplayLabel(inputKey: string): string {
+    return this.portDisplayLabel('input', inputKey);
+  }
+
+  outputDisplayLabel(outputKey: string): string {
+    return this.portDisplayLabel('output', outputKey);
+  }
+
+  inputKindLabel(inputKey: string): string {
+    return this.portKindLabel('input', inputKey);
+  }
+
+  outputKindLabel(outputKey: string): string {
+    return this.portKindLabel('output', outputKey);
+  }
+
   hasMainContent(): boolean {
     return this.mainContentFields.length > 0;
   }
@@ -387,6 +404,28 @@ export class TaskStepNodeComponent {
     const values = this.blockConfiguration?.[key];
     if (!Array.isArray(values)) return [];
     return values.filter((value): value is string => typeof value === 'string' && value.trim().length > 0);
+  }
+
+  private portDisplayLabel(kind: 'input' | 'output', key: string): string {
+    const ports = this.resolvePorts(kind);
+    const port = ports.find((candidate) => candidate.name === key);
+    return port?.name ?? key;
+  }
+
+  private portTypeLabel(port: FlowPort): string {
+    const type = String(port.type ?? 'TEXT').toUpperCase();
+    return port.multiple ? `${type}[]` : type;
+  }
+
+  private portKindLabel(kind: 'input' | 'output', key: string): string {
+    const ports = this.resolvePorts(kind);
+    const port = ports.find((candidate) => candidate.name === key);
+    return port ? this.portTypeLabel(port) : 'ANY';
+  }
+
+  private resolvePorts(kind: 'input' | 'output'): FlowPort[] {
+    const ports = this.data?.data?.[kind === 'input' ? 'inputs' : 'outputs'];
+    return Array.isArray(ports) ? ports as FlowPort[] : [];
   }
 
   private toMainContentParts(path: string, value: string): { text: string; isDynamicInput: boolean }[] {
@@ -590,11 +629,16 @@ export class TaskStepNodeComponent {
     });
   }
 
-  private isPathVisible(path: string): boolean {
+  private isPathVisible(path: string, visited = new Set<string>()): boolean {
+    if (visited.has(path)) return true;
+    visited.add(path);
+
     const ui = this.getFieldUiMeta(path);
-    return ui.visibleWhen.every((rule) =>
-      evaluateUiConditionRule(rule, this.blockConfiguration, (fieldPath) => this.resolveFieldSchema(fieldPath))
-    );
+    return ui.visibleWhen.every((rule) => {
+      if (!rule) return true;
+      if (!this.isPathVisible(rule.field, visited)) return false;
+      return evaluateUiConditionRule(rule, this.blockConfiguration, (fieldPath) => this.resolveFieldSchema(fieldPath));
+    });
   }
 
   private groupLabelForPath(path: string): string | null {

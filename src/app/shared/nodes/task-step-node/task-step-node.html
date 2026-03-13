@@ -98,7 +98,10 @@
         </span>
         }
         <span class="llm-pill llm-pill-input">
-          <span class="llm-pill-label">{{ input.key }}</span>
+          <span class="llm-pill-meta">
+            <span class="llm-pill-name">{{ inputDisplayLabel(input.key) }}</span>
+            <span class="llm-pill-kind">{{ inputKindLabel(input.key) }}</span>
+          </span>
         </span>
       </div>
       }
@@ -109,7 +112,10 @@
       @for (output of outputs; track output.key) {
       <div class="llm-row llm-row-output">
         <span class="llm-pill llm-pill-output" [ngClass]="outputPillClass(output.key)">
-          <span class="llm-pill-label">{{ output.key }}</span>
+          <span class="llm-pill-meta llm-pill-meta-output">
+            <span class="llm-pill-name">{{ outputDisplayLabel(output.key) }}</span>
+            <span class="llm-pill-kind">{{ outputKindLabel(output.key) }}</span>
+          </span>
         </span>
         @if (isOutputConnected(output.key)) {
         <span class="llm-socket-wrap llm-socket-wrap-output">

@@ -77,11 +77,31 @@ export class TaskExecutionsService {
     );
   }
 
+  prepareStringArrayInput(executionId: string, nodeId: string, inputName: string, values: string[]) {
+    return this.taskExecutionsCallService.prepareStringArrayInput(executionId, nodeId, inputName, values).pipe(
+      tap(() => this.refresh()),
+      catchError((err) => {
+        console.error('Prepare string array input failed', err);
+        return throwError(() => err);
+      })
+    );
+  }
+
   prepareFileInput(executionId: string, nodeId: string, inputName: string, file: File) {
     return this.taskExecutionsCallService.prepareFileInput(executionId, nodeId, inputName, file).pipe(
       tap(() => this.refresh()),
       catchError((err) => {
         console.error('Prepare file input failed', err);
+        return throwError(() => err);
+      })
+    );
+  }
+
+  prepareFileArrayInput(executionId: string, nodeId: string, inputName: string, files: File[]) {
+    return this.taskExecutionsCallService.prepareFileArrayInput(executionId, nodeId, inputName, files).pipe(
+      tap(() => this.refresh()),
+      catchError((err) => {
+        console.error('Prepare file array input failed', err);
         return throwError(() => err);
       })
     );

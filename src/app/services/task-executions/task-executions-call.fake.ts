@@ -506,6 +506,18 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
     return of(execution);
   }
 
+  override prepareStringArrayInput(
+    executionId: string,
+    nodeId: string,
+    inputName: string,
+    values: string[]
+  ): Observable<TaskExecution> {
+    const execution = this.findExecution(executionId);
+    execution.context.inputs[`${nodeId}:${inputName}`] = values;
+    execution.context.status = execution.context.waitingSteps.length ? 'WAITING' : execution.context.status;
+    return of(execution);
+  }
+
   override prepareFileInput(
     executionId: string,
     nodeId: string,
@@ -514,6 +526,18 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
   ): Observable<TaskExecution> {
     const execution = this.findExecution(executionId);
     execution.context.inputs[`${nodeId}:${inputName}`] = file?.name ?? '';
+    execution.context.status = execution.context.waitingSteps.length ? 'WAITING' : execution.context.status;
+    return of(execution);
+  }
+
+  override prepareFileArrayInput(
+    executionId: string,
+    nodeId: string,
+    inputName: string,
+    files: File[]
+  ): Observable<TaskExecution> {
+    const execution = this.findExecution(executionId);
+    execution.context.inputs[`${nodeId}:${inputName}`] = files.map((file) => file?.name ?? '');
     execution.context.status = execution.context.waitingSteps.length ? 'WAITING' : execution.context.status;
     return of(execution);
   }

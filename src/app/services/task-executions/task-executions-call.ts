@@ -36,6 +36,16 @@ export class TaskExecutionsCallService extends TaskExecutionsCallServiceBase {
     });
   }
 
+  override prepareStringArrayInput(
+    executionId: string,
+    nodeId: string,
+    inputName: string,
+    values: string[]
+  ): Observable<TaskExecution> {
+    const url = `${environment.apiUrl}/executions/${encodeURIComponent(executionId)}/node/${encodeURIComponent(nodeId)}/input/${encodeURIComponent(inputName)}/texts`;
+    return this.http.put<TaskExecution>(url, values);
+  }
+
   override prepareFileInput(
     executionId: string,
     nodeId: string,
@@ -45,6 +55,20 @@ export class TaskExecutionsCallService extends TaskExecutionsCallServiceBase {
     const url = `${environment.apiUrl}/executions/${encodeURIComponent(executionId)}/node/${encodeURIComponent(nodeId)}/input/${encodeURIComponent(inputName)}/file`;
     const formData = new FormData();
     formData.append('file', file);
+    return this.http.put<TaskExecution>(url, formData);
+  }
+
+  override prepareFileArrayInput(
+    executionId: string,
+    nodeId: string,
+    inputName: string,
+    files: File[]
+  ): Observable<TaskExecution> {
+    const url = `${environment.apiUrl}/executions/${encodeURIComponent(executionId)}/node/${encodeURIComponent(nodeId)}/input/${encodeURIComponent(inputName)}/files`;
+    const formData = new FormData();
+    for (const file of files) {
+      formData.append('files', file);
+    }
     return this.http.put<TaskExecution>(url, formData);
   }
 

@@ -13,7 +13,8 @@ export type EditableExecutionInput = {
   title: string;
   subtitle: string;
   type: string;
-  value: string;
+  multiple: boolean;
+  value: string | string[];
 };
 
 @Component({
@@ -31,8 +32,8 @@ export class TaskExecutionInputsPanelComponent {
   readonly savingErrors = input<Record<string, string>>({});
   readonly readOnly = input<boolean>(false);
 
-  readonly textInputChange = output<{ input: EditableExecutionInput; value: string }>();
-  readonly fileInputChange = output<{ input: EditableExecutionInput; file: File }>();
+  readonly textInputChange = output<{ input: EditableExecutionInput; value: string | string[] }>();
+  readonly fileInputChange = output<{ input: EditableExecutionInput; files: File[] }>();
   readonly authorizationValueChange = output<{ requirement: TaskExecutionAuthorizationRequirement; value: string }>();
   readonly authorizationSubmit = output<TaskExecutionAuthorizationRequirement>();
 
@@ -42,7 +43,18 @@ export class TaskExecutionInputsPanelComponent {
     return input.type.includes('FILE') || input.type.includes('BINARY');
   }
 
-  onTextInputChange(input: EditableExecutionInput, value: string) {
+  isMultipleInput(input: EditableExecutionInput): boolean {
+    return input.multiple;
+  }
+
+  textValues(input: EditableExecutionInput): string[] {
+    if (Array.isArray(input.value)) {
+      return input.value;
+    }
+    return [input.value ?? ''];
+  }
+
+  onTextInputChange(input: EditableExecutionInput, value: string | string[]) {
     if (this.readOnly()) return;
     this.textInputChange.emit({ input, value });
   }
@@ -50,9 +62,30 @@ export class TaskExecutionInputsPanelComponent {
   onFileInputChange(input: EditableExecutionInput, event: Event) {
     if (this.readOnly()) return;
     const target = event.target as HTMLInputElement | null;
-    const file = target?.files?.[0];
-    if (!file) return;
-    this.fileInputChange.emit({ input, file });
+    const files = target?.files ? Array.from(target.files) : [];
+    if (!files.length) return;
+    this.fileInputChange.emit({ input, files });
+  }
+
+  addTextItem(input: EditableExecutionInput) {
+    const values = [...this.textValues(input), ''];
+    this.onTextInputChange(input, values);
+  }
+
+  updateTextItem(input: EditableExecutionInput, index: number, value: string) {
+    const values = [...this.textValues(input)];
+    values[index] = value;
+    this.onTextInputChange(input, values);
+  }
+
+  removeTextItem(input: EditableExecutionInput, index: number) {
+    const values = [...this.textValues(input)];
+    values.splice(index, 1);
+    this.onTextInputChange(input, values);
+  }
+
+  inputTypeLabel(input: EditableExecutionInput): string {
+    return input.multiple ? `${input.type}[]` : input.type;
   }
 
   isInputSaving(key: string): boolean {

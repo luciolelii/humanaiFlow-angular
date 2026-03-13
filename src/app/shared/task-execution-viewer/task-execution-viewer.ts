@@ -3,7 +3,7 @@ import { Component, computed, effect, inject, input, OnDestroy, signal } from '@
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { FlowBlockConnection, FlowData } from '@models/flow';
+import { areFlowValueKindsCompatible, FlowBlockConnection, FlowData, normalizeFlowPortValueKinds } from '@models/flow';
 import {
   getExecutionStatusGroup,
   TaskExecution,
@@ -44,7 +44,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   readonly startInProgress = signal(false);
   readonly savingInputs = signal<Record<string, boolean>>({});
   readonly savingErrors = signal<Record<string, string>>({});
-  readonly pendingTextInputs = signal<Record<string, string>>({});
+  readonly pendingTextInputs = signal<Record<string, string | string[]>>({});
   readonly pendingAuthorizationValues = signal<Record<string, string>>({});
   readonly savingAuthorizations = signal<Record<string, boolean>>({});
   readonly authorizationErrors = signal<Record<string, string>>({});
@@ -207,7 +207,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
           ? execution.context.inputs[key]
           : input.value;
 
-        if (!this.isInputSet(value)) return false;
+        if (!this.isInputSet(value, Boolean(input.descriptor?.multiple))) return false;
       }
     }
 
@@ -241,7 +241,8 @@ export class TaskExecutionViewerComponent implements OnDestroy {
           title: step.block.name,
           subtitle: inputName,
           type: String(input.descriptor?.type ?? 'TEXT').toUpperCase(),
-          value: pendingValue ?? (rawValue == null ? '' : String(rawValue))
+          multiple: Boolean(input.descriptor?.multiple),
+          value: pendingValue ?? this.normalizeEditableInputValue(rawValue, Boolean(input.descriptor?.multiple))
         });
       }
     }
@@ -282,7 +283,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     });
   }
 
-  onTextInputChange(input: EditableExecutionInput, value: string) {
+  onTextInputChange(input: EditableExecutionInput, value: string | string[]) {
     if (this.inputsReadOnly()) return;
     const executionId = this.execution()?.id;
     if (!executionId) return;
@@ -298,13 +299,17 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     this.textInputDebounceTimers.set(timerKey, timer);
   }
 
-  onFileInputChange(input: EditableExecutionInput, file: File) {
+  onFileInputChange(input: EditableExecutionInput, files: File[]) {
     if (this.inputsReadOnly()) return;
     const executionId = this.execution()?.id;
-    if (!executionId) return;
+    if (!executionId || !files.length) return;
 
     this.setInputSaving(input.key, true);
-    this.taskExecutionsService.prepareFileInput(executionId, input.nodeId, input.inputName, file).subscribe({
+    const request$ = input.multiple
+      ? this.taskExecutionsService.prepareFileArrayInput(executionId, input.nodeId, input.inputName, files)
+      : this.taskExecutionsService.prepareFileInput(executionId, input.nodeId, input.inputName, files[0]);
+
+    request$.subscribe({
       next: () => this.clearInputSaving(input.key),
       error: () => this.setInputError(input.key, 'Failed to upload file')
     });
@@ -400,9 +405,25 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   private sendPreparedTextInput(input: EditableExecutionInput, executionId: string) {
     if (this.inputsReadOnly() || this.execution()?.id !== executionId) return;
 
-    const value = this.pendingTextInputs()[input.key] ?? '';
+    const value = this.pendingTextInputs()[input.key] ?? this.normalizeEditableInputValue(input.value, input.multiple);
     this.setInputSaving(input.key, true);
-    this.taskExecutionsService.prepareStringInput(executionId, input.nodeId, input.inputName, value).subscribe({
+    const request$ = input.multiple
+      ? this.taskExecutionsService.prepareStringArrayInput(
+        executionId,
+        input.nodeId,
+        input.inputName,
+        (Array.isArray(value) ? value : [String(value)])
+          .map((item) => item.trim())
+          .filter((item) => item.length > 0)
+      )
+      : this.taskExecutionsService.prepareStringInput(
+        executionId,
+        input.nodeId,
+        input.inputName,
+        String(Array.isArray(value) ? value[0] ?? '' : value)
+      );
+
+    request$.subscribe({
       next: () => {
         this.pendingTextInputs.update((current) => {
           const next = { ...current };
@@ -491,7 +512,13 @@ export class TaskExecutionViewerComponent implements OnDestroy {
           .filter(({ step }) => step.id !== targetStep.id)
           .flatMap((sourceEntry) =>
             (sourceEntry.step.outputs ?? [])
-              .filter((output) => output.connected && output.descriptor.type === input.descriptor.type)
+              .filter((output) => output.connected)
+              .filter((output) =>
+                areFlowValueKindsCompatible(
+                  normalizeFlowPortValueKinds(output.descriptor),
+                  normalizeFlowPortValueKinds(input.descriptor)
+                )
+              )
               .map((output) => ({
                 sourceStep: sourceEntry.step,
                 sourceIndex: sourceEntry.index,
@@ -625,9 +652,38 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     return raw && raw.trim().length > 0 ? [raw] : [];
   }
 
-  private isInputSet(value: unknown): boolean {
+  private isInputSet(value: unknown, multiple = false): boolean {
+    if (multiple) {
+      if (!Array.isArray(value)) return false;
+      return value.some((item) => typeof item === 'string' ? item.trim().length > 0 : item != null);
+    }
     if (value == null) return false;
     if (typeof value === 'string') return value.trim().length > 0;
     return true;
+  }
+
+  private normalizeEditableInputValue(value: unknown, multiple: boolean): string | string[] {
+    if (multiple) {
+      if (Array.isArray(value)) {
+        return value.map((item) => this.stringifyEditableInputItem(item));
+      }
+      if (value == null) {
+        return [''];
+      }
+      return [this.stringifyEditableInputItem(value)];
+    }
+
+    if (value == null) return '';
+    return this.stringifyEditableInputItem(value);
+  }
+
+  private stringifyEditableInputItem(value: unknown): string {
+    if (value == null) return '';
+    if (typeof value === 'string') return value;
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return String(value);
+    }
   }
 }
