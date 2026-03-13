@@ -7,7 +7,7 @@ import {
 } from "rete-connection-plugin";
 import { AngularPlugin, Presets, AngularArea2D } from "rete-angular-plugin/21";
 import { HFNode, HFSchemes } from "@models/nodes";
-import { FlowBlock, FlowData } from "@models/flow";
+import { areFlowValueKindsCompatible, FlowBlock, FlowData, normalizeFlowPortValueKinds } from "@models/flow";
 import { GenericNodeComponent } from "@shared/nodes/generic-node/generic-node";
 import { TaskStepNodeComponent } from "@shared/nodes/task-step-node/task-step-node";
 import { CustomSocket } from "@shared/custom-socket/custom-socket";
@@ -55,10 +55,22 @@ export async function createEditor(
       },
     })
   );
+  editor.addPipe((context) => {
+    if (context.type !== "connectioncreate") return context;
 
-  editor.addPipe((c) => {
-    if (c.type === "connectioncreate") console.log(c.data);
-    return c;
+    const sourceNode = editor.getNode(context.data.source) as HFNode | undefined;
+    const targetNode = editor.getNode(context.data.target) as HFNode | undefined;
+    const sourcePort = resolveNodePort(sourceNode, "output", context.data.sourceOutput);
+    const targetPort = resolveNodePort(targetNode, "input", context.data.targetInput);
+
+    if (!sourcePort || !targetPort) return;
+
+    const compatible = areFlowValueKindsCompatible(
+      normalizeFlowPortValueKinds(sourcePort),
+      normalizeFlowPortValueKinds(targetPort)
+    );
+
+    return compatible ? context : undefined;
   });
 
   connection.addPreset(ConnectionPresets.classic.setup());
@@ -85,17 +97,8 @@ export function exportGraph(editor: NodeEditor<HFSchemes>) {
     const blockId = blockData?.id ?? node.id;
     nodeIdToBlockId.set(node.id, blockId);
 
-    const inputs = Object.entries(node.inputs).map(([name, input]) => ({
-      name,
-      type: ((input as any).socket?.name as string) ?? "ANY",
-      multiple: false
-    }));
-
-    const outputs = Object.entries(node.outputs).map(([name, output]) => ({
-      name,
-      type: ((output as any).socket?.name as string) ?? "ANY",
-      multiple: false
-    }));
+    const inputs = cloneValue(blockData?.inputs ?? []);
+    const outputs = cloneValue(blockData?.outputs ?? []);
 
     return {
       id: blockId,
@@ -254,6 +257,12 @@ function getSocket(editor: NodeEditor<HFSchemes>, type: string) {
     map.set(type, new ClassicPreset.Socket(type));
   }
   return map.get(type)!;
+}
+
+function resolveNodePort(node: HFNode | undefined, kind: "input" | "output", portName: string) {
+  const ports = node?.data?.[kind === "input" ? "inputs" : "outputs"];
+  if (!Array.isArray(ports)) return null;
+  return ports.find((port) => port?.name === portName) ?? null;
 }
 
 function toNodeLabel(typeName: string) {

@@ -1,9 +1,9 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, HostBinding, inject, Input } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { currentFlowPortValueKind, flowValueKindLabel, FlowData, FlowPort, FlowValueKind, normalizeFlowPortValueKinds } from '@models/flow';
 import { ClassicPreset } from 'rete';
 import { ReteModule } from 'rete-angular-plugin/21';
-import { FlowData } from '@models/flow';
 import {
   NodeSettingField,
   NodeSettingOption,
@@ -40,6 +40,7 @@ type EditableFieldDefinition = {
   path: string;
   label: string;
   type: FieldType;
+  enumOptions: string[];
   retrieverBlockType: string | null;
   retrieverKey: string | null;
   retrieverUrl: string | null;
@@ -48,6 +49,10 @@ type EditableFieldDefinition = {
     widget: 'textarea' | null;
     acceptVariableAsPlaceholder: boolean;
     structural: boolean;
+    bindableAsInput: boolean;
+    inputName: string | null;
+    inputType: string | null;
+    inputMultiple: boolean | null;
     structuralReason?: string;
     placeholder?: string;
     tip?: string;
@@ -140,6 +145,10 @@ export class GenericNodeComponent {
   localEditorHasRetriever = false;
   localEditorType: FieldType = 'string';
   localEditorMaxLength: number | null = null;
+  localEditorWidget: 'textarea' | null = null;
+  localEditorBindableAsInput = false;
+  localEditorUseInput = false;
+  localEditorBindableInputName: string | null = null;
   deleteConfirmOpen = false;
 
   missingRequiredParams: string[] = [];
@@ -192,6 +201,10 @@ export class GenericNodeComponent {
     this.localEditorLoading = false;
     this.localEditorHasRetriever = false;
     this.localEditorOpen = true;
+    this.localEditorWidget = null;
+    this.localEditorBindableAsInput = false;
+    this.localEditorUseInput = false;
+    this.localEditorBindableInputName = null;
   }
 
   async openParameterEditor(path: string, event?: Event) {
@@ -202,26 +215,21 @@ export class GenericNodeComponent {
     if (!definition) return;
     if (!this.isFieldVisible(definition)) return;
 
-    if (definition.ui.widget === 'textarea') {
-      const currentValue = this.valueToEditorString(
-        this.getByPath(this.blockConfiguration ?? {}, definition.path),
-        definition.type
-      );
-      await this.openTextareaEditor(definition.path, definition.label, currentValue, definition.ui);
-      return;
-    }
-
     this.localEditorPath = definition.path;
     this.localEditorLabel = definition.label;
     this.localEditorType = definition.type;
     this.localEditorMaxLength = null;
+    this.localEditorWidget = definition.ui.widget;
     this.localEditorValue = this.valueToEditorString(this.getByPath(this.blockConfiguration ?? {}, definition.path), definition.type);
-    this.localEditorOptions = [];
-    this.localEditorLoading = !!definition.retrieverKey;
-    this.localEditorHasRetriever = !!definition.retrieverKey;
+    this.localEditorOptions = [...definition.enumOptions];
+    this.localEditorBindableAsInput = definition.ui.bindableAsInput;
+    this.localEditorUseInput = this.isBindableFieldUsingInput(definition);
+    this.localEditorBindableInputName = definition.ui.inputName;
+    this.localEditorLoading = !!definition.retrieverKey && !this.localEditorUseInput;
+    this.localEditorHasRetriever = definition.enumOptions.length > 0 || !!definition.retrieverKey;
     this.localEditorOpen = true;
 
-    if (definition.retrieverKey) {
+    if (definition.retrieverKey && !this.localEditorUseInput) {
       const missingDependencies = definition.retrieverDependsOn
         .filter((dep) => {
           const value = this.getByPath(this.blockConfiguration ?? {}, dep.path);
@@ -250,6 +258,10 @@ export class GenericNodeComponent {
     this.localEditorHasRetriever = false;
     this.localEditorType = 'string';
     this.localEditorMaxLength = null;
+    this.localEditorWidget = null;
+    this.localEditorBindableAsInput = false;
+    this.localEditorUseInput = false;
+    this.localEditorBindableInputName = null;
   }
 
   saveSimpleParamEditor(event?: Event) {
@@ -257,6 +269,7 @@ export class GenericNodeComponent {
     event?.stopPropagation();
 
     if (!this.localEditorPath) return;
+    if (!this.canSaveLocalEditor()) return;
     const config = this.ensureBlockConfiguration();
 
     if (this.localEditorPath === 'name') {
@@ -265,7 +278,9 @@ export class GenericNodeComponent {
       this.name = nameValue || this.name;
     } else {
       const previousValue = this.getByPath(config, this.localEditorPath);
-      const parsedValue = this.parseEditorValue(this.localEditorValue, this.localEditorType);
+      const parsedValue = this.localEditorUseInput
+        ? this.emptyValueForFieldType(this.localEditorType)
+        : this.parseEditorValue(this.localEditorValue, this.localEditorType);
       this.setByPath(config, this.localEditorPath, parsedValue);
       if (!this.areValuesEqual(previousValue, parsedValue)) {
         this.resetDependentRetrieverFields(config, this.localEditorPath);
@@ -343,6 +358,71 @@ export class GenericNodeComponent {
     if (normalized === 'true') return 'llm-pill-output-true';
     if (normalized === 'false') return 'llm-pill-output-false';
     return null;
+  }
+
+  inputDisplayLabel(inputKey: string): string {
+    return this.portDisplayLabel('input', inputKey);
+  }
+
+  outputDisplayLabel(outputKey: string): string {
+    return this.portDisplayLabel('output', outputKey);
+  }
+
+  canTogglePortMultiplicity(kind: 'input' | 'output', key: string): boolean {
+    const port = this.resolvePorts(kind).find((candidate) => candidate.name === key);
+    return !!port && this.portSelectableKinds(port).length > 1;
+  }
+
+  portCurrentKindLabel(kind: 'input' | 'output', key: string): string {
+    const port = this.resolvePorts(kind).find((candidate) => candidate.name === key);
+    return port ? flowValueKindLabel(currentFlowPortValueKind(port)) : 'ANY';
+  }
+
+  portCurrentKindValue(kind: 'input' | 'output', key: string): string {
+    const port = this.resolvePorts(kind).find((candidate) => candidate.name === key);
+    if (!port) return '';
+
+    const current = currentFlowPortValueKind(port);
+    const exact = this.portSelectableKinds(port).find((kindOption) =>
+      kindOption.type === current.type && kindOption.multiple === current.multiple
+    );
+    const selected = exact ?? this.portSelectableKinds(port)[0];
+    return selected ? this.flowValueKindValue(selected) : '';
+  }
+
+  portSelectableKindOptions(kind: 'input' | 'output', key: string): Array<{ value: string; label: string }> {
+    const port = this.resolvePorts(kind).find((candidate) => candidate.name === key);
+    if (!port) return [];
+    return this.portSelectableKinds(port).map((kindOption) => ({
+      value: this.flowValueKindValue(kindOption),
+      label: flowValueKindLabel(kindOption)
+    }));
+  }
+
+  onPortKindChange(kind: 'input' | 'output', key: string, nextValue: string, event?: Event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+
+    const ports = this.resolvePorts(kind);
+    const index = ports.findIndex((candidate) => candidate.name === key);
+    if (index < 0) return;
+
+    const port = ports[index];
+    const nextKind = this.portSelectableKinds(port).find(
+      (kindOption) => this.flowValueKindValue(kindOption) === nextValue
+    );
+    if (!nextKind) return;
+
+    ports[index] = {
+      ...port,
+      type: nextKind.type,
+      multiple: nextKind.multiple
+    };
+
+    this.syncPortSocketType(kind, key, nextKind.type);
+
+    this.markFlowDirty();
+    this.refreshView();
   }
 
   hasMainContent(): boolean {
@@ -489,6 +569,7 @@ export class GenericNodeComponent {
           path,
           label: pathToLabel(path),
           type: this.toFieldType(childResolved?.type),
+          enumOptions: this.toEnumOptions(childResolved),
           retrieverBlockType: this.toRetrieverBlockType(childResolved),
           retrieverKey: this.toRetrieverKey(childResolved),
           retrieverUrl: this.toRetrieverUrl(childResolved),
@@ -577,6 +658,16 @@ export class GenericNodeComponent {
       : undefined;
     const acceptVariableAsPlaceholder = schema?.['x-ui-accept-variable-as-placeholder'] === true;
     const structural = schema?.['x-ui-structural'] === true;
+    const bindableAsInput = schema?.['x-ui-bindable-as-input'] === true;
+    const inputName = typeof schema?.['x-ui-input-name'] === 'string'
+      ? String(schema['x-ui-input-name'])
+      : null;
+    const inputType = typeof schema?.['x-ui-input-type'] === 'string'
+      ? String(schema['x-ui-input-type']).toUpperCase()
+      : null;
+    const inputMultiple = typeof schema?.['x-ui-input-multiple'] === 'boolean'
+      ? Boolean(schema['x-ui-input-multiple'])
+      : null;
     const structuralReason = typeof schema?.['x-ui-structural-reason'] === 'string'
       ? String(schema['x-ui-structural-reason'])
       : undefined;
@@ -587,6 +678,10 @@ export class GenericNodeComponent {
       widget: normalizedWidget,
       acceptVariableAsPlaceholder,
       structural,
+      bindableAsInput,
+      inputName,
+      inputType,
+      inputMultiple,
       structuralReason,
       placeholder,
       tip,
@@ -665,6 +760,12 @@ export class GenericNodeComponent {
     return this.parseRetrieverUrl(schema['x-retriever-url'])?.blockType ?? null;
   }
 
+  private toEnumOptions(schema: Record<string, any> | null | undefined): string[] {
+    const raw = schema?.['enum'];
+    if (!Array.isArray(raw)) return [];
+    return raw.filter((value): value is string => typeof value === 'string');
+  }
+
   private toRetrieverUrl(schema: Record<string, any> | null | undefined): string | null {
     if (!schema || typeof schema !== 'object') return null;
     const rawUrl = schema['x-retriever-url'];
@@ -684,6 +785,103 @@ export class GenericNodeComponent {
     if (!blockType || !key) return null;
 
     return { blockType, key };
+  }
+
+  private portDisplayLabel(kind: 'input' | 'output', key: string): string {
+    const ports = this.resolvePorts(kind);
+    const port = ports.find((candidate) => candidate.name === key);
+    return port?.name ?? key;
+  }
+
+  private portValueKinds(port: FlowPort) {
+    return normalizeFlowPortValueKinds(port);
+  }
+
+  private portSelectableKinds(port: FlowPort): FlowValueKind[] {
+    const expanded = new Map<string, FlowValueKind>();
+
+    for (const kind of this.portValueKinds(port)) {
+      const type = String(kind.type ?? 'ANY').toUpperCase();
+      if (type === 'ANY') {
+        for (const concreteType of ['TEXT', 'FILE']) {
+          const concreteKind = { type: concreteType, multiple: Boolean(kind.multiple) };
+          expanded.set(this.flowValueKindValue(concreteKind), concreteKind);
+        }
+        continue;
+      }
+
+      expanded.set(this.flowValueKindValue(kind), kind);
+    }
+
+    return Array.from(expanded.values());
+  }
+
+  private resolvePorts(kind: 'input' | 'output'): FlowPort[] {
+    const ports = this.data?.data?.[kind === 'input' ? 'inputs' : 'outputs'];
+    return Array.isArray(ports) ? ports as FlowPort[] : [];
+  }
+
+  private flowValueKindValue(kind: FlowValueKind): string {
+    return `${String(kind.type ?? 'ANY').toUpperCase()}::${kind.multiple ? 'multi' : 'single'}`;
+  }
+
+  private isBindableFieldUsingInput(definition: EditableFieldDefinition): boolean {
+    if (!definition.ui.bindableAsInput) return false;
+
+    const value = this.getByPath(this.blockConfiguration ?? {}, definition.path);
+    if (!this.isMissingValue(value)) return false;
+
+    const actualInputName = definition.ui.inputName;
+    if (!actualInputName) return true;
+
+    return this.resolvePorts('input').some((port) => port.name === actualInputName);
+  }
+
+  private fieldDisplayValue(definition: EditableFieldDefinition, value: unknown): string {
+    if (this.isBindableFieldUsingInput(definition)) {
+      const actualPort = this.resolvePorts('input').find((port) => port.name === definition.ui.inputName);
+      const fallbackType = definition.ui.inputType ?? definition.type.toUpperCase();
+      const fallbackMultiple = Boolean(definition.ui.inputMultiple);
+      const kindLabel = actualPort
+        ? flowValueKindLabel(currentFlowPortValueKind(actualPort))
+        : flowValueKindLabel({ type: fallbackType, multiple: fallbackMultiple });
+      const inputName = definition.ui.inputName ?? definition.label;
+      return `Provided by input ${inputName} (${kindLabel})`;
+    }
+
+    return valueToDisplayString(value);
+  }
+
+  canSaveLocalEditor(): boolean {
+    if (this.localEditorLoading) return false;
+    if (!this.localEditorBindableAsInput || this.localEditorUseInput) return true;
+    if (this.localEditorType === 'boolean') return true;
+    return this.localEditorValue.trim().length > 0;
+  }
+
+  private emptyValueForFieldType(type: FieldType): unknown {
+    if (type === 'number' || type === 'integer' || type === 'boolean') return null;
+    return '';
+  }
+
+  private syncPortSocketType(kind: 'input' | 'output', key: string, type: string) {
+    const socketHost = this.data?.[kind === 'input' ? 'inputs' : 'outputs']?.[key];
+    if (!socketHost) return;
+    socketHost.socket = new ClassicPreset.Socket(type);
+  }
+
+  async onLocalEditorSourceModeChange(nextMode: string) {
+    this.localEditorUseInput = nextMode === 'input';
+    if (this.localEditorUseInput || !this.localEditorPath) {
+      this.localEditorLoading = false;
+      return;
+    }
+
+    const definition = this.editableFieldDefinitions.find((field) => field.path === this.localEditorPath);
+    if (!definition?.retrieverKey || this.localEditorOptions.length > 0) return;
+
+    this.localEditorLoading = true;
+    await this.loadLocalEditorOptions(definition);
   }
 
   private toRetrieverDependsOn(schema: Record<string, any> | null | undefined, pathPrefix: string): RetrieverDependency[] {
@@ -759,7 +957,7 @@ export class GenericNodeComponent {
         return {
           path: definition.path,
           label: definition.label,
-          value: valueToDisplayString(value),
+          value: this.fieldDisplayValue(definition, value),
           wide: this.shouldRenderWideField(definition.label, definition.ui.widget === 'textarea')
         };
       }).filter((field) => !richContentPaths.has(field.path))
@@ -1403,7 +1601,11 @@ export class GenericNodeComponent {
       .filter((field) => this.isFieldConditionSatisfied(field.path));
 
     const missingFields = requiredFields
-      .filter((field) => this.isMissingValue(this.getByPath(config, field.path)));
+      .filter((field) => {
+        const definition = this.editableFieldDefinitions.find((candidate) => candidate.path === field.path);
+        if (definition && this.isBindableFieldUsingInput(definition)) return false;
+        return this.isMissingValue(this.getByPath(config, field.path));
+      });
 
     this.missingRequiredParams = missingFields.map((field) => field.label);
 
@@ -1569,10 +1771,15 @@ export class GenericNodeComponent {
     return this.isPathVisible(field.path);
   }
 
-  private isFieldConditionSatisfied(path: string): boolean {
+  private isFieldConditionSatisfied(path: string, visited = new Set<string>()): boolean {
+    if (visited.has(path)) return true;
+    visited.add(path);
+
     const ui = this.getFieldUiMeta(path);
-    return ui.visibleWhen.every((rule) =>
-      evaluateUiConditionRule(rule, this.blockConfiguration, (fieldPath) => this.resolveFieldSchema(fieldPath))
-    );
+    return ui.visibleWhen.every((rule) => {
+      if (!rule) return true;
+      if (!this.isFieldConditionSatisfied(rule.field, visited)) return false;
+      return evaluateUiConditionRule(rule, this.blockConfiguration, (fieldPath) => this.resolveFieldSchema(fieldPath));
+    });
   }
 }

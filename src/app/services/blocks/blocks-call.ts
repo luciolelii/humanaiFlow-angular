@@ -124,8 +124,28 @@ export class BlocksCallService extends BlocksCallServiceBase {
       .map((port) => ({
         name: String(port["name"]),
         type: String(port["type"] ?? "TEXT"),
-        multiple: Boolean(port["multiple"] ?? false)
+        multiple: Boolean(port["multiple"] ?? false),
+        valueKinds: this.toValueKinds(port["valueKinds"], {
+          type: String(port["type"] ?? "TEXT"),
+          multiple: Boolean(port["multiple"] ?? false)
+        })
       }));
+  }
+
+  private toValueKinds(raw: unknown, fallback: { type: string; multiple: boolean }) {
+    if (!Array.isArray(raw)) {
+      return [{ type: fallback.type, multiple: fallback.multiple }];
+    }
+
+    const kinds = raw
+      .map((item) => this.toRecord(item))
+      .filter((item) => typeof item["type"] === "string")
+      .map((item) => ({
+        type: String(item["type"] ?? fallback.type),
+        multiple: Boolean(item["multiple"] ?? false)
+      }));
+
+    return kinds.length ? kinds : [{ type: fallback.type, multiple: fallback.multiple }];
   }
 
   private toPosition(raw: unknown): { x: number; y: number } | undefined {

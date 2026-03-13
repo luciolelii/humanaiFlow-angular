@@ -445,7 +445,7 @@
 .llm-row {
   display: grid;
   align-items: center;
-  height: 24px;
+  min-height: 34px;
   min-width: 0;
 }
 
@@ -469,18 +469,43 @@
 }
 
 .llm-pill {
-  height: 24px;
+  min-height: 32px;
   border-radius: 7px;
   border: 1px solid transparent;
   font-size: 11px;
   font-weight: 600;
-  padding: 0 8px;
+  padding: 4px 8px;
   display: inline-flex;
   align-items: center;
   min-width: 0;
   overflow: hidden;
+}
+
+.llm-pill-meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+}
+
+.llm-pill-meta-output {
+  align-items: flex-end;
+}
+
+.llm-pill-name {
+  min-width: 0;
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.llm-pill-kind,
+.llm-pill-kind-select {
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 700;
+  opacity: 0.86;
 }
 
 .llm-pill-input {
@@ -521,6 +546,17 @@
   color: #9f1239;
   background: #fff1f2;
   border-color: #fecdd3;
+}
+
+.llm-pill-kind-select {
+  max-width: 88px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.72);
+  color: inherit;
+  padding: 1px 16px 1px 4px;
+  cursor: pointer;
+  appearance: auto;
 }
 
 .llm-input-info {

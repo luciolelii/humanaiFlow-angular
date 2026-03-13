@@ -47,10 +47,16 @@ export type FlowBlock = {
   typeName: BlockTypeName;
 };
 
+export type FlowValueKind = {
+  type: string;
+  multiple: boolean;
+};
+
 export type FlowPort = {
   name: string;
   type: string;
   multiple: boolean;
+  valueKinds?: FlowValueKind[];
 };
 
 export type FlowBlockConnection = {
@@ -86,3 +92,46 @@ export type HumanInteractiveBlockConfiguration = {
   inputAsList: boolean;
   outputAsList: boolean;
 };
+
+export function currentFlowPortValueKind(port: FlowPort): FlowValueKind {
+  return {
+    type: String(port.type ?? 'ANY').toUpperCase(),
+    multiple: Boolean(port.multiple)
+  };
+}
+
+export function normalizeFlowPortValueKinds(port: FlowPort): FlowValueKind[] {
+  const rawKinds = Array.isArray(port.valueKinds) ? port.valueKinds : [];
+  const normalized = rawKinds
+    .filter((kind): kind is FlowValueKind => !!kind && typeof kind.type === 'string')
+    .map((kind) => ({
+      type: String(kind.type).toUpperCase(),
+      multiple: Boolean(kind.multiple)
+    }));
+
+  if (!normalized.length) {
+    return [currentFlowPortValueKind(port)];
+  }
+
+  const unique = new Map<string, FlowValueKind>();
+  for (const kind of normalized) {
+    unique.set(`${kind.type}:${kind.multiple ? 'multi' : 'single'}`, kind);
+  }
+  return Array.from(unique.values());
+}
+
+export function flowValueKindLabel(kind: FlowValueKind): string {
+  const type = String(kind.type ?? 'ANY').toUpperCase();
+  return kind.multiple ? `${type}[]` : type;
+}
+
+export function areFlowValueKindsCompatible(sourceKinds: FlowValueKind[], targetKinds: FlowValueKind[]): boolean {
+  return sourceKinds.some((source) =>
+    targetKinds.some((target) => {
+      if (Boolean(source.multiple) !== Boolean(target.multiple)) return false;
+      const sourceType = String(source.type ?? 'ANY').toUpperCase();
+      const targetType = String(target.type ?? 'ANY').toUpperCase();
+      return sourceType === 'ANY' || targetType === 'ANY' || sourceType === targetType;
+    })
+  );
+}
