@@ -1,5 +1,7 @@
 export type TemplatedTextPart = { text: string; isDynamicInput: boolean };
-export type UiConditionRule = { field: string; equals: string };
+export type UiConditionRule =
+  | { field: string; equals: string }
+  | { field: string; in: string[] };
 
 export function toStringOrNull(value: unknown): string | null {
   if (typeof value === 'string' && value.trim().length > 0) return value;
@@ -74,13 +76,25 @@ export function readUiConditionRule(value: unknown): UiConditionRule | null {
 
   const field = (value as Record<string, unknown>)['field'];
   const equals = (value as Record<string, unknown>)['equals'];
+  const includes = (value as Record<string, unknown>)['in'];
   if (typeof field !== 'string' || field.trim().length === 0) return null;
-  if (typeof equals !== 'string') return null;
+  if (typeof equals === 'string') {
+    return {
+      field: field.trim(),
+      equals
+    };
+  }
 
-  return {
-    field: field.trim(),
-    equals
-  };
+  if (Array.isArray(includes)) {
+    const values = includes.filter((item): item is string => typeof item === 'string');
+    if (!values.length) return null;
+    return {
+      field: field.trim(),
+      in: values
+    };
+  }
+
+  return null;
 }
 
 export function readUiGroup(value: unknown): string | null {
@@ -107,17 +121,32 @@ export function evaluateUiConditionRule(
   const schema = resolveFieldSchema?.(rule.field);
   const schemaType = schema?.['type'];
   const type = typeof schemaType === 'string' ? schemaType : null;
+  const expectedValues = 'in' in rule ? rule.in : null;
+  const expectedValue = 'equals' in rule ? rule.equals : null;
 
   if (type === 'boolean' || typeof actualValue === 'boolean') {
-    return actualValue === parseBooleanCondition(rule.equals);
+    if (expectedValues) {
+      return expectedValues.some((value) => actualValue === parseBooleanCondition(value));
+    }
+    return expectedValue != null && actualValue === parseBooleanCondition(expectedValue);
   }
 
   if (type === 'number' || type === 'integer' || typeof actualValue === 'number') {
-    const expected = Number(rule.equals);
+    if (expectedValues) {
+      return expectedValues
+        .map((value) => Number(value))
+        .filter((value) => Number.isFinite(value))
+        .some((value) => actualValue === value);
+    }
+    const expected = Number(expectedValue);
     return Number.isFinite(expected) && actualValue === expected;
   }
 
-  return String(actualValue ?? '') === rule.equals;
+  if (expectedValues) {
+    return expectedValues.includes(String(actualValue ?? ''));
+  }
+
+  return expectedValue != null && String(actualValue ?? '') === expectedValue;
 }
 
 function parseBooleanCondition(value: string): boolean {

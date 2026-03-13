@@ -100,8 +100,13 @@ describe('node-utility', () => {
       field: 'useLlm',
       equals: 'true'
     });
+    expect(readUiConditionRule({ field: 'method', in: ['POST', 'PUT'] })).toEqual({
+      field: 'method',
+      in: ['POST', 'PUT']
+    });
     expect(readUiConditionRule({ field: '', equals: 'true' })).toBeNull();
     expect(readUiConditionRule({ field: 'useLlm', equals: true })).toBeNull();
+    expect(readUiConditionRule({ field: 'method', in: [] })).toBeNull();
   });
 
   it('readUiGroup normalizes logical group labels', () => {
@@ -123,6 +128,9 @@ describe('node-utility', () => {
     expect(evaluateUiConditionRule({ field: 'useLlm', equals: 'false' }, config, resolveFieldSchema)).toBe(false);
     expect(evaluateUiConditionRule({ field: 'retries', equals: '3' }, config, resolveFieldSchema)).toBe(true);
     expect(evaluateUiConditionRule({ field: 'provider', equals: 'openai' }, config, resolveFieldSchema)).toBe(true);
+    expect(evaluateUiConditionRule({ field: 'provider', in: ['openai', 'anthropic'] }, config, resolveFieldSchema)).toBe(true);
+    expect(evaluateUiConditionRule({ field: 'retries', in: ['1', '3'] }, config, resolveFieldSchema)).toBe(true);
+    expect(evaluateUiConditionRule({ field: 'useLlm', in: ['false', 'true'] }, config, resolveFieldSchema)).toBe(true);
   });
 
   it('splitTemplatedTextParts identifies dynamic placeholders', () => {
