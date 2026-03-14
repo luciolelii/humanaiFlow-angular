@@ -1,6 +1,32 @@
-<div class="rete-editor-shell">
+<div
+  class="rete-editor-shell"
+  #shell
+  (pointerdown)="onShellPointerDown($event)"
+  (pointermove)="onShellPointerMove($event)"
+  (pointerup)="onShellPointerUp($event)"
+  (pointercancel)="onShellPointerUp($event)">
   <div class="h-full w-full" #editor (dragover)="onDragOver($event)" (drop)="onDrop($event)">
   </div>
+
+  @if (hasSelectedBlocks) {
+  <div
+    class="rete-editor-selection-badge"
+    draggable="true"
+    (dragstart)="onSelectionDragStart($event)"
+    (dragend)="onSelectionDragEnd()">
+    Drag {{ selectedBlockCount }} selected {{ selectedBlockCount === 1 ? 'node' : 'nodes' }}
+  </div>
+  }
+
+  @if (selectionBox(); as box) {
+  <div
+    class="rete-editor-selection-box"
+    [style.left.px]="box.left"
+    [style.top.px]="box.top"
+    [style.width.px]="box.width"
+    [style.height.px]="box.height">
+  </div>
+  }
 
   @if (creatingEmptyBlock) {
   <div class="rete-editor-loading">

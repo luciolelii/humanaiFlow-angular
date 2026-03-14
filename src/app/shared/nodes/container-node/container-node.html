@@ -1,0 +1,150 @@
+<div class="container-node" [class.container-node-assigning]="isAssigning">
+  <div class="container-node__header">
+    <div class="container-node__icon">
+      <i class="bi bi-box-seam"></i>
+    </div>
+    <div class="container-node__titles">
+      <div class="container-node__eyebrow">Generic Container</div>
+      <div class="container-node__name">{{ name }}</div>
+    </div>
+    <button type="button" class="container-node__delete" title="Delete node" (pointerdown)="$event.stopPropagation()" (click)="deleteNode($event)">
+      <i class="bi bi-trash"></i>
+    </button>
+  </div>
+
+  <div class="container-node__ports">
+    <div class="container-node__port-column">
+      <div class="container-node__port-title">Inputs</div>
+      @for (input of inputs; track input.key) {
+      <div class="container-node__port-row">
+        <div
+          refComponent
+          class="container-node__socket"
+          [data]="{
+            type: 'socket',
+            side: 'input',
+            key: input.key,
+            nodeId: data.id,
+            payload: input.socket
+          }"
+          [emit]="emit">
+        </div>
+        <span class="container-node__port-label">
+          <span class="container-node__port-name">{{ inputDisplayLabel(input.key) }}</span>
+          <span class="container-node__port-kind">{{ inputKindLabel(input.key) }}</span>
+        </span>
+      </div>
+      }
+    </div>
+
+    <div class="container-node__port-column container-node__port-column--right">
+      <div class="container-node__port-title">Outputs</div>
+      @for (output of outputs; track output.key) {
+      <div class="container-node__port-row container-node__port-row--right">
+        <span class="container-node__port-label">
+          <span class="container-node__port-name">{{ outputDisplayLabel(output.key) }}</span>
+          <span class="container-node__port-kind">{{ outputKindLabel(output.key) }}</span>
+        </span>
+        <div
+          refComponent
+          class="container-node__socket container-node__socket--right"
+          [data]="{
+            type: 'socket',
+            side: 'output',
+            key: output.key,
+            nodeId: data.id,
+            payload: output.socket
+          }"
+          [emit]="emit">
+        </div>
+      </div>
+      }
+    </div>
+  </div>
+
+  <div
+    class="container-node__dropzone"
+    [class.container-node__dropzone--active]="selectedCount > 0"
+    [class.container-node__dropzone--filled]="subFlowBlockCount > 0"
+    (dragover)="onDropZoneDragOver($event)"
+    (dragleave)="onDropZoneDragLeave($event)"
+    (drop)="onDropZoneDrop($event)">
+    @if (isAssigning) {
+    <div class="container-node__dropzone-main">
+      <span class="container-node__spinner" aria-hidden="true"></span>
+      <span>Validating subflow...</span>
+    </div>
+    } @else if (subFlowBlockCount > 0) {
+    <div class="container-node__dropzone-main">
+      <span>{{ subFlowBlockCount }} nodes</span>
+      <span>{{ subFlowConnectionCount }} connections</span>
+    </div>
+    <div class="container-node__dropzone-note">
+      Drop a new selection here to replace the embedded subflow.
+    </div>
+    } @else {
+    <div class="container-node__dropzone-main">
+      <span class="container-node__dropzone-empty">Drop selected nodes here</span>
+    </div>
+    <div class="container-node__dropzone-note">
+      Use the selection box in the editor, then drag the floating selection badge into this area.
+    </div>
+    }
+  </div>
+
+  @if (subFlowBlockCount > 0) {
+  <div class="container-node__subflow-section">
+    <div class="container-node__subflow-head">
+      <div class="container-node__subflow-title">Subflow Content</div>
+      <button type="button" class="container-node__subflow-view" (pointerdown)="$event.stopPropagation()" (click)="openSubflowPreview($event)">
+        View Flow
+      </button>
+    </div>
+    <div class="container-node__subflow-preview">
+      @for (node of subFlowPreviewNodes; track node.id) {
+      <div class="container-node__subflow-chip" [class.container-node__subflow-chip--container]="node.family === 'container'">
+        <span class="container-node__subflow-chip-name">{{ node.name }}</span>
+        <span class="container-node__subflow-chip-type">{{ node.type }}</span>
+      </div>
+      }
+      @if (hasMoreSubFlowNodes) {
+      <div class="container-node__subflow-more">
+        +{{ subFlowBlockCount - subFlowPreviewNodes.length }} more
+      </div>
+      }
+    </div>
+  </div>
+  <div class="container-node__actions">
+    <button type="button" class="container-node__action" (pointerdown)="$event.stopPropagation()" (click)="removeSubflow($event)">
+      Remove subflow
+    </button>
+  </div>
+  }
+
+  @if (assignmentErrorMessage) {
+  <div class="container-node__message container-node__message--error">
+    {{ assignmentErrorMessage }}
+  </div>
+  }
+
+  @if (validationErrors.length) {
+  <div class="container-node__message container-node__message--warning">
+    @for (error of validationErrors; track $index) {
+    <div class="container-node__validation-item">
+      <span>{{ error.message }}</span>
+      @if (error.entity || error.id || error.field) {
+      <span class="container-node__validation-meta">
+        {{ error.entity || 'entity' }}
+        @if (error.id) {
+        · {{ error.id }}
+        }
+        @if (error.field) {
+        · {{ error.field }}
+        }
+      </span>
+      }
+    </div>
+    }
+  </div>
+  }
+</div>

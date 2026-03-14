@@ -160,6 +160,7 @@ function mapAssistantDraftPayload(raw: unknown): AssistantDraftPayload | null {
     description: typeof value['description'] === 'string' ? value['description'] : undefined,
     flow: {
       blocks: Array.isArray(flow['blocks']) ? (flow['blocks'] as any[]) : [],
+      containers: Array.isArray(flow['containers']) ? (flow['containers'] as any[]) : [],
       connections: Array.isArray(flow['connections']) ? (flow['connections'] as any[]) : []
     }
   };

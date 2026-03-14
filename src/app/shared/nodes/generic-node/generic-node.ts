@@ -125,7 +125,11 @@ export class GenericNodeComponent {
   @Input() rendered!: () => void;
 
   @HostBinding('class.selected') get selected() {
-    return this.data.selected;
+    return this.data.selected || this.editorState.isBlockSelected(this.blockId);
+  }
+
+  @HostBinding('attr.data-block-id') get hostBlockId() {
+    return this.blockId;
   }
 
   outputs: { key: string; socket: ClassicPreset.Socket }[] = [];
@@ -455,6 +459,11 @@ export class GenericNodeComponent {
   private get blockType(): string | null {
     const typeName = this.data?.data?.typeName;
     return typeof typeName === 'string' && typeName.length > 0 ? typeName : null;
+  }
+
+  private get blockId(): string | null {
+    const blockId = this.data?.data?.id;
+    return typeof blockId === 'string' && blockId.length > 0 ? blockId : null;
   }
 
   private ensureBlockConfiguration(): Record<string, any> {

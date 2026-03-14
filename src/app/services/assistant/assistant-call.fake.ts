@@ -7,6 +7,7 @@ import {
   AssistantSessionState,
   AssistantValidationIssue
 } from '@models/assistant';
+import { FlowData } from '@models/flow';
 import { Observable, of } from 'rxjs';
 import { AssistantCallServiceBase } from './assistant-call.base';
 
@@ -206,7 +207,7 @@ export class AssistantCallServiceFake extends AssistantCallServiceBase {
   }
 }
 
-function buildTicketFlow(model: string) {
+function buildTicketFlow(model: string): FlowData {
   return {
     blocks: [
       {
@@ -219,7 +220,8 @@ function buildTicketFlow(model: string) {
           type: 'InputBlockConfiguration',
           name: 'Incoming Ticket'
         },
-        typeName: 'InputBlock'
+        typeName: 'InputBlock',
+        nodeFamily: 'block'
       },
       {
         id: 'assistant-llm',
@@ -236,7 +238,8 @@ function buildTicketFlow(model: string) {
           },
           prompt: 'Classify the ticket urgency as true for urgent, false otherwise. Ticket: ${{name}}'
         },
-        typeName: 'LLMBlock'
+        typeName: 'LLMBlock',
+        nodeFamily: 'block'
       },
       {
         id: 'assistant-condition',
@@ -252,7 +255,8 @@ function buildTicketFlow(model: string) {
           name: 'Urgent?',
           condition: '${{input}} == true'
         },
-        typeName: 'ConditionalBlock'
+        typeName: 'ConditionalBlock',
+        nodeFamily: 'block'
       },
       {
         id: 'assistant-human',
@@ -271,7 +275,8 @@ function buildTicketFlow(model: string) {
           inputAsList: false,
           outputAsList: false
         },
-        typeName: 'HumanInteractionBlock'
+        typeName: 'HumanInteractionBlock',
+        nodeFamily: 'block'
       },
       {
         id: 'assistant-output',
@@ -283,9 +288,11 @@ function buildTicketFlow(model: string) {
           type: 'OutputBlockConfiguration',
           name: 'Resolved Route'
         },
-        typeName: 'OutputBlock'
+        typeName: 'OutputBlock',
+        nodeFamily: 'block'
       }
     ],
+    containers: [],
     connections: [
       {
         id: 'assistant-conn-1',
@@ -340,7 +347,8 @@ function addHumanReviewTail(flow: AssistantDraftPayload['flow']) {
       inputAsList: false,
       outputAsList: false
     },
-    typeName: 'HumanInteractionBlock'
+    typeName: 'HumanInteractionBlock',
+    nodeFamily: 'block'
   });
 
   flow.connections.push({

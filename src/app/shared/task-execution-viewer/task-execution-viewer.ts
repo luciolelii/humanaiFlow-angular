@@ -120,6 +120,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     const steps = this.stepsArray();
     const blocks = steps.map((step, index) => ({
       ...step.block,
+      nodeFamily: 'block' as const,
       specificConfiguration: {
         ...(step.block.specificConfiguration ?? {}),
         __executionId: this.execution()?.id ?? null,
@@ -141,7 +142,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     }));
 
     const connections = this.getExecutionConnections(steps);
-    return { blocks, connections };
+    return { blocks, containers: [], connections };
   });
 
   readonly formattedDuration = computed(() => {

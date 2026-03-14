@@ -6,9 +6,9 @@
 <div class="blocks-list-root">
   <div class="blocks-list-search">
     <mat-form-field appearance="outline">
-      <mat-label>Search blocks</mat-label>
+      <mat-label>Search nodes</mat-label>
       <mat-icon matPrefix fontIcon="search"></mat-icon>
-      <input matInput placeholder="Search blocks..." [(ngModel)]="searchTerm" />
+      <input matInput placeholder="Search blocks and containers..." [(ngModel)]="searchTerm" />
     </mat-form-field>
   </div>
 
@@ -31,7 +31,7 @@
       (dragstart)="onDragStart($event, block)">
       <mat-card-header class="blocks-list-card-header">
         <div matCardAvatar class="blocks-list-card-avatar">
-          <mat-icon [fontIcon]="block.userInteractive ? 'touch_app' : 'auto_awesome'"></mat-icon>
+          <mat-icon [fontIcon]="block.family === 'container' ? 'inventory_2' : (block.userInteractive ? 'touch_app' : 'auto_awesome')"></mat-icon>
         </div>
         <div class="blocks-list-card-heading">
           <div class="blocks-list-card-title-row">
@@ -48,7 +48,7 @@
             </button>
           </div>
           <mat-card-subtitle class="blocks-list-card-subtitle">
-            {{ block.userInteractive ? 'Interactive' : 'Automatic' }}
+            {{ block.family === 'container' ? 'Container' : (block.userInteractive ? 'Interactive' : 'Automatic') }}
           </mat-card-subtitle>
         </div>
       </mat-card-header>
@@ -57,7 +57,7 @@
       </mat-card-content>
       <mat-card-actions class="blocks-list-card-actions" align="end">
         <mat-chip class="blocks-list-card-chip" [class.blocks-list-card-chip-interactive]="block.userInteractive">
-          {{ block.userInteractive ? 'Human step' : 'Automated step' }}
+          {{ block.family === 'container' ? 'Container node' : (block.userInteractive ? 'Human step' : 'Automated step') }}
         </mat-chip>
       </mat-card-actions>
     </mat-card>

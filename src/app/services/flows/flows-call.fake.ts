@@ -17,8 +17,8 @@ export class FlowsCallServiceFake extends FlowsCallServiceBase {
   authorizationService = inject(Authorization);
 
   private data: Record<string, Flow> = {
-    '1': { id: '1', name: 'A Flow', data: { blocks: [], connections: [] }, visibility: 'PUBLIC', author: 'Alice', createdAt: new Date("December 17, 2023 03:24:00"), status: 'EXECUTABLE', updatedAt: new Date("January 7, 2026 12:24:00") },
-    '2': { id: '2', name: 'Test Flow', data: { blocks: [], connections: [] }, visibility: 'PRIVATE', author: 'Bob', createdAt: new Date("April 25, 2025 12:24:00"), status: 'DRAFT', updatedAt: new Date("April 27, 2025 18:42:00") },
+    '1': { id: '1', name: 'A Flow', data: { blocks: [], containers: [], connections: [] }, visibility: 'PUBLIC', author: 'Alice', createdAt: new Date("December 17, 2023 03:24:00"), status: 'EXECUTABLE', updatedAt: new Date("January 7, 2026 12:24:00") },
+    '2': { id: '2', name: 'Test Flow', data: { blocks: [], containers: [], connections: [] }, visibility: 'PRIVATE', author: 'Bob', createdAt: new Date("April 25, 2025 12:24:00"), status: 'DRAFT', updatedAt: new Date("April 27, 2025 18:42:00") },
     'testFlow': flowFromApi(testDataFlow)
   }
 
@@ -52,7 +52,7 @@ export class FlowsCallServiceFake extends FlowsCallServiceBase {
     return this.createFlow({
       name: name || 'New Flow',
       description: undefined,
-      data: { blocks: [], connections: [] },
+      data: { blocks: [], containers: [], connections: [] },
       status: 'DRAFT'
     });
   }

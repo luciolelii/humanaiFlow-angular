@@ -11,6 +11,8 @@ export class EditorStateHolder {
   /** Stato */
   readonly currentFlow = signal<Flow | null>(null);
   readonly isDirty = signal(false);
+  readonly selectedBlockIds = signal<string[]>([]);
+  readonly draggingSelectedBlockIds = signal<string[]>([]);
 
   /** Derived state */
   readonly hasFlow = computed(() => !!this.currentFlow());
@@ -31,6 +33,7 @@ export class EditorStateHolder {
 
     this.currentFlow.set(doc);
     this.isDirty.set(false);
+    this.clearBlockSelection();
     return true;
   }
 
@@ -48,11 +51,13 @@ export class EditorStateHolder {
   closeDocument() {
     this.currentFlow.set(null);
     this.isDirty.set(false);
+    this.clearBlockSelection();
   }
 
   loadAssistantFlow(flow: Flow, options?: { markDirty?: boolean }) {
     this.currentFlow.set(flow);
     this.isDirty.set(options?.markDirty === true);
+    this.clearBlockSelection();
   }
 
   updateData(data: FlowData) {
@@ -71,6 +76,30 @@ export class EditorStateHolder {
     if (this.areFlowDataEqual(current.data, data)) return;
 
     this.currentFlow.set({ ...current, data });
+  }
+
+  setSelectedBlocks(blockIds: string[]) {
+    const unique = Array.from(new Set(blockIds.filter((id) => typeof id === 'string' && id.length > 0)));
+    this.selectedBlockIds.set(unique);
+  }
+
+  clearBlockSelection() {
+    this.selectedBlockIds.set([]);
+    this.draggingSelectedBlockIds.set([]);
+  }
+
+  isBlockSelected(blockId: string | null | undefined): boolean {
+    if (!blockId) return false;
+    return this.selectedBlockIds().includes(blockId);
+  }
+
+  startDraggingSelectedBlocks(blockIds?: string[]) {
+    const nextIds = blockIds?.length ? blockIds : this.selectedBlockIds();
+    this.draggingSelectedBlockIds.set(Array.from(new Set(nextIds)));
+  }
+
+  stopDraggingSelectedBlocks() {
+    this.draggingSelectedBlockIds.set([]);
   }
   
   updateFlowTitle(newTitle: string) {

@@ -102,6 +102,7 @@ export class FlowsService {
       description: undefined,
       data: {
         blocks: [],
+        containers: [],
         connections: []
       },
       status: 'DRAFT'

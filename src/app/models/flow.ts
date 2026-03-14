@@ -19,15 +19,32 @@ export type Flow = {
 
 export type FlowData = {
   blocks: FlowBlock[];
+  containers: FlowContainer[];
   connections: FlowBlockConnection[];
 };
 
+export type FlowSubflowValidationError = {
+  entity?: string;
+  id?: string;
+  field?: string;
+  message: string;
+};
+
+export type FlowSubflowValidationResult = {
+  valid: boolean;
+  errors: FlowSubflowValidationError[];
+  openInputs: FlowContainerOpenInput[];
+  openOutputs: FlowContainerOpenOutput[];
+};
+
 export type BlockTypeName = "HumanInteractionBlock" | "LLMBlock" | "SourceBlock" | string;
+export type NodeFamily = 'block' | 'container';
 
 export type BlockTypeSchema = Record<string, unknown> | null;
 
 export type BlockType = {
   type: BlockTypeName;
+  family: NodeFamily;
   description: string;
   userInteractive: boolean;
   hasExampleBlock?: boolean;
@@ -37,7 +54,7 @@ export type BlockType = {
   schema: BlockTypeSchema;
 };
 
-export type FlowBlock = {
+export type FlowNodeBase = {
   id: string;
   name: string;
   position?: { x: number, y: number };
@@ -45,7 +62,18 @@ export type FlowBlock = {
   outputs: FlowPort[];
   specificConfiguration: FlowBlockConfiguration;
   typeName: BlockTypeName;
+  nodeFamily?: NodeFamily;
 };
+
+export type FlowBlock = FlowNodeBase & {
+  nodeFamily?: 'block';
+};
+
+export type FlowContainer = FlowNodeBase & {
+  nodeFamily: 'container';
+};
+
+export type FlowNode = FlowBlock | FlowContainer;
 
 export type FlowValueKind = {
   type: string;
@@ -71,6 +99,32 @@ export type FlowBlockConfiguration =
   | LLMBlockConfiguration
   | HumanInteractiveBlockConfiguration
   | Record<string, unknown>;
+
+export type FlowContainerPublicInput = {
+  name: string;
+  targetBlockId: string;
+  targetInputName: string;
+};
+
+export type FlowContainerPublicOutput = {
+  name: string;
+  sourceBlockId: string;
+  sourceOutputName: string;
+};
+
+export type FlowContainerOpenInput = FlowPort & {
+  targetBlockId?: string;
+  targetInputName?: string;
+  blockId?: string;
+  inputName?: string;
+};
+
+export type FlowContainerOpenOutput = FlowPort & {
+  sourceBlockId?: string;
+  sourceOutputName?: string;
+  blockId?: string;
+  outputName?: string;
+};
 
 export type LLMDescriptor = {
   provider: string;

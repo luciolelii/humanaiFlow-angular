@@ -1,4 +1,4 @@
-import { Flow, FlowData, FlowStatus, FlowVisibility } from '@models/flow';
+import { Flow, FlowBlock, FlowContainer, FlowData, FlowStatus, FlowVisibility } from '@models/flow';
 
 function parseDate(value: unknown, fallback: Date): Date {
   if (typeof value !== 'string' || !value) return fallback;
@@ -31,7 +31,8 @@ export function flowFromApi(raw: unknown): Flow {
     published,
     finalized: typeof value['finalized'] === 'boolean' ? value['finalized'] : undefined,
     data: {
-      blocks: Array.isArray(data.blocks) ? data.blocks : [],
+      blocks: normalizeNodes(data.blocks, 'block') as FlowBlock[],
+      containers: normalizeNodes(data.containers, 'container') as FlowContainer[],
       connections: Array.isArray(data.connections) ? data.connections : []
     }
   };
@@ -44,7 +45,19 @@ export function toFlowCreateRequest(name: string, description?: string, flow?: F
     status,
     flow: flow ?? {
       blocks: [],
+      containers: [],
       connections: []
     }
   };
+}
+
+function normalizeNodes(raw: unknown, nodeFamily: 'block' | 'container'): Array<FlowBlock | FlowContainer> {
+  if (!Array.isArray(raw)) return [];
+
+  return raw
+    .filter((value): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value))
+    .map((value) => ({
+      ...value,
+      nodeFamily
+    })) as Array<FlowBlock | FlowContainer>;
 }

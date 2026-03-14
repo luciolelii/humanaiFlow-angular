@@ -1,0 +1,53 @@
+.subflow-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.subflow-preview__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.48);
+}
+
+.subflow-preview__panel {
+  position: relative;
+  z-index: 1;
+  width: min(1100px, calc(100vw - 48px));
+  height: min(760px, calc(100vh - 48px));
+  border-radius: 24px;
+  border: 1px solid #dbe2ea;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  box-shadow: 0 28px 80px rgba(15, 23, 42, 0.3);
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+
+.subflow-preview__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 22px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.subflow-preview__eyebrow {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #0f766e;
+}
+
+.subflow-preview__title {
+  margin: 4px 0 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.subflow-preview__canvas {
+  min-height: 0;
+}

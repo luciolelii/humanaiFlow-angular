@@ -1,0 +1,23 @@
+@if (state()) {
+<div class="subflow-preview fixed inset-0 z-9999">
+  <div class="subflow-preview__backdrop" (click)="close($event)"></div>
+
+  <div class="subflow-preview__panel">
+    <div class="subflow-preview__header">
+      <div>
+        <div class="subflow-preview__eyebrow">Read-only Subflow</div>
+        <h3 class="subflow-preview__title">{{ state()!.title }}</h3>
+      </div>
+      <button type="button" mat-stroked-button (click)="close($event)">Close</button>
+    </div>
+
+    <div class="subflow-preview__canvas">
+      <app-rete-editor
+        [flowData]="state()!.flowData"
+        [flowId]="flowId()"
+        [readonly]="true">
+      </app-rete-editor>
+    </div>
+  </div>
+</div>
+}

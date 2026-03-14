@@ -31,6 +31,7 @@ export class FlowsCallService extends FlowsCallServiceBase {
       description: undefined,
       data: {
         blocks: [],
+        containers: [],
         connections: []
       },
       status: 'DRAFT'
