@@ -5,6 +5,48 @@
   (pointermove)="onShellPointerMove($event)"
   (pointerup)="onShellPointerUp($event)"
   (pointercancel)="onShellPointerUp($event)">
+  @if (!readonly()) {
+  <div class="rete-editor-toolbar">
+    <section class="rete-editor-toolbar-group" aria-label="Editor mode controls">
+      <div class="rete-editor-toolbar-legend">Mode</div>
+      <button
+        type="button"
+        class="rete-editor-toolbar-btn"
+        [class.rete-editor-toolbar-btn-active]="!selectionModeActive"
+        (click)="setEditorMode('standard', $event)"
+        aria-label="Standard mode">
+        <i class="bi bi-cursor" aria-hidden="true"></i>
+      </button>
+      <button
+        type="button"
+        class="rete-editor-toolbar-btn"
+        [class.rete-editor-toolbar-btn-active]="selectionModeActive"
+        (click)="setEditorMode('select', $event)"
+        aria-label="Selection mode">
+        <i class="bi bi-bounding-box" aria-hidden="true"></i>
+      </button>
+    </section>
+
+    <section class="rete-editor-toolbar-group" aria-label="Zoom controls">
+      <div class="rete-editor-toolbar-legend">Zoom</div>
+      <button
+        type="button"
+        class="rete-editor-toolbar-btn"
+        (click)="zoomIn($event)"
+        aria-label="Zoom in">
+        <i class="bi bi-zoom-in" aria-hidden="true"></i>
+      </button>
+      <button
+        type="button"
+        class="rete-editor-toolbar-btn"
+        (click)="zoomOut($event)"
+        aria-label="Zoom out">
+        <i class="bi bi-zoom-out" aria-hidden="true"></i>
+      </button>
+    </section>
+  </div>
+  }
+
   <div class="h-full w-full" #editor (dragover)="onDragOver($event)" (drop)="onDrop($event)">
   </div>
 

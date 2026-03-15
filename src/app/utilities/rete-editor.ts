@@ -47,7 +47,7 @@ export async function createEditor(
   container: HTMLElement,
   injector: Injector,
   flowData: FlowData,
-  options?: { nodeView?: "editor" | "execution" }
+  options?: { nodeView?: "editor" | "execution"; readonly?: boolean }
 ): Promise<ReteEditorInstance> {
 
   const editor = new NodeEditor<HFSchemes>();
@@ -55,6 +55,7 @@ export async function createEditor(
   const connection = new ConnectionPlugin<HFSchemes, AreaExtra>();
   const render = new AngularPlugin<HFSchemes, AreaExtra>({ injector });
   const nodeView = options?.nodeView ?? "editor";
+  const readonly = options?.readonly === true;
   const runtime: ReteRuntimeContext = {
     blocksService: injector.get(BlocksService),
     containersService: injector.get(ContainersService),
@@ -106,6 +107,11 @@ export async function createEditor(
   connection.addPreset(ConnectionPresets.classic.setup());
 
   AreaExtensions.simpleNodesOrder(area);
+
+  area.addPipe((context: any) => {
+    if (readonly && context?.type === 'nodetranslate') return;
+    return context;
+  });
 
   editor.use(area);
   area.use(connection);

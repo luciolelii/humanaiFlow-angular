@@ -1,5 +1,6 @@
 import { Component, ElementRef, Injector, input, OnChanges, OnDestroy, output, signal, SimpleChanges, ViewChild } from '@angular/core';
 import { BlockType, FlowData, FlowNode } from '@models/flow';
+import { Drag } from 'rete-area-plugin';
 import { BlocksService } from '@services/blocks/blocks';
 import { ContainersService } from '@services/containers/containers';
 import { BLOCK_TYPE_DRAG_MIME } from '@shared/blocks-list/block-drag';
@@ -36,6 +37,7 @@ export class ReteEditor implements OnChanges, OnDestroy {
   private suppressDirtyEvents = false;
   creatingEmptyBlock = false;
   creatingEmptyBlockType = '';
+  editorMode = signal<'standard' | 'select'>('standard');
   selectionBox = signal<{ left: number; top: number; width: number; height: number } | null>(null);
   private selectionPointerId: number | null = null;
   private selectionStart: { x: number; y: number } | null = null;
@@ -73,6 +75,10 @@ export class ReteEditor implements OnChanges, OnDestroy {
 
   get hasSelectedBlocks() {
     return !this.readonly() && this.selectedBlockCount > 0;
+  }
+
+  get selectionModeActive() {
+    return this.editorMode() === 'select';
   }
 
   onDragOver(event: DragEvent) {
@@ -128,6 +134,31 @@ export class ReteEditor implements OnChanges, OnDestroy {
     this.selectionStart = { x: event.clientX, y: event.clientY };
     this.selectionBox.set({ left: 0, top: 0, width: 0, height: 0 });
     this.shell.nativeElement.setPointerCapture(event.pointerId);
+  }
+
+  setEditorMode(mode: 'standard' | 'select', event?: Event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+    if (this.readonly()) return;
+    this.editorMode.set(mode);
+    this.syncAreaDragMode();
+    if (mode === 'standard') {
+      this.selectionPointerId = null;
+      this.selectionStart = null;
+      this.selectionBox.set(null);
+    }
+  }
+
+  zoomIn(event?: Event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+    void this.applyZoom(1.12);
+  }
+
+  zoomOut(event?: Event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+    void this.applyZoom(1 / 1.12);
   }
 
   onShellPointerMove(event: PointerEvent) {
@@ -193,7 +224,8 @@ export class ReteEditor implements OnChanges, OnDestroy {
     host.innerHTML = '';
 
     const rete = await createEditor(host, this.injector, this.flowData(), {
-      nodeView: this.nodeView()
+      nodeView: this.nodeView(),
+      readonly: this.readonly()
     });
     if (currentVersion !== this.loadVersion) {
       rete.area.destroy();
@@ -201,6 +233,7 @@ export class ReteEditor implements OnChanges, OnDestroy {
     }
 
     this.rete = rete;
+    this.syncAreaDragMode();
     const loadedFlowId = this.flowId();
     const normalizedData = exportGraph(rete.editor);
     if (this.flowState.currentFlow()?.id === loadedFlowId) {
@@ -270,11 +303,19 @@ export class ReteEditor implements OnChanges, OnDestroy {
   }
 
   private canStartSelection(target: EventTarget | null) {
+    if (!this.selectionModeActive) return false;
     const element = target instanceof HTMLElement ? target : null;
     if (!element) return false;
     if (element.closest('[data-testid="node"]')) return false;
     if (element.closest('button, input, textarea, select, option, label, a')) return false;
     return true;
+  }
+
+  private syncAreaDragMode() {
+    const area = this.rete?.area?.area;
+    if (!area) return;
+
+    area.setDragHandler(this.selectionModeActive ? null : new Drag());
   }
 
   private resolveBlocksInsideSelection() {
@@ -307,5 +348,17 @@ export class ReteEditor implements OnChanges, OnDestroy {
       || targetRect.bottom < selectionRect.top
       || targetRect.top > selectionRect.bottom
     );
+  }
+
+  private async applyZoom(multiplier: number) {
+    const area = this.rete?.area?.area;
+    const host = this.container?.nativeElement as HTMLElement | undefined;
+    if (!area || !host) return;
+
+    const currentZoom = area.transform.k || 1;
+    const nextZoom = Math.min(2.4, Math.max(0.35, currentZoom * multiplier));
+    if (Math.abs(nextZoom - currentZoom) < 0.001) return;
+
+    await area.zoom(nextZoom, 0, 0);
   }
 }
