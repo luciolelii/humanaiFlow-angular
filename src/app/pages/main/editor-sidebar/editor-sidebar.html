@@ -21,8 +21,22 @@
          [ngClass]="{'cursor-pointer enabled' : open != 'flows'}"
          class="bi bi-lightning-charge-fill text-indigo-500 text-xl p-2" 
         (click)="open != 'flows' && openSide('flows')"></i>
-      <i [ngClass]="{'cursor-pointer text-gray-600 enabled' : !blockDisabled()}"
-        class="bi bi-boxes  text-gray-200 text-xl p-2" (click)="!blockDisabled() && openSide('blocks')"></i>
+      <i
+        [ngClass]="{
+          'cursor-pointer text-gray-600 enabled': !blockDisabled() && open != 'blocks',
+          'cursor-none bg-gray-200 text-sky-700': open == 'blocks',
+          'text-gray-200': blockDisabled()
+        }"
+        class="bi bi-boxes text-xl p-2"
+        (click)="!blockDisabled() && open != 'blocks' && openSide('blocks')"></i>
+      <i
+        [ngClass]="{
+          'cursor-pointer text-gray-600 enabled': !blockDisabled() && open != 'containers',
+          'cursor-none bg-gray-200 text-cyan-700': open == 'containers',
+          'text-gray-200': blockDisabled()
+        }"
+        class="bi bi-box-seam text-xl p-2"
+        (click)="!blockDisabled() && open != 'containers' && openSide('containers')"></i>
     </div>
   </div>
 
@@ -49,6 +63,11 @@
       @case ('blocks') {
       <app-group-holder title="Blocks" icon="bi-boxes">
         <app-blocks-list></app-blocks-list>
+      </app-group-holder>
+      }
+      @case ('containers') {
+      <app-group-holder title="Containers" icon="bi-box-seam">
+        <app-containers-list></app-containers-list>
       </app-group-holder>
       }
       }

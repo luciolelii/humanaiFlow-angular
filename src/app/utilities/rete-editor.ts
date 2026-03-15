@@ -19,6 +19,7 @@ import {
   normalizeFlowPortValueKinds
 } from "@models/flow";
 import { BlocksService } from "@services/blocks/blocks";
+import { ContainersService } from "@services/containers/containers";
 import { NodeSettingsDialogService } from "@services/dialogs/node-settings-dialog";
 import { EditorStateHolder } from "@stores/flow-editor";
 import { ContainerNodeComponent } from "@shared/nodes/container-node/container-node";
@@ -37,6 +38,7 @@ export type ReteEditorInstance = {
 
 type ReteRuntimeContext = {
   blocksService: BlocksService;
+  containersService: ContainersService;
   flowState: EditorStateHolder;
   settingsDialog: NodeSettingsDialogService;
 };
@@ -55,6 +57,7 @@ export async function createEditor(
   const nodeView = options?.nodeView ?? "editor";
   const runtime: ReteRuntimeContext = {
     blocksService: injector.get(BlocksService),
+    containersService: injector.get(ContainersService),
     flowState: injector.get(EditorStateHolder),
     settingsDialog: injector.get(NodeSettingsDialogService)
   };
@@ -255,7 +258,7 @@ export async function addBlockToEditor(
     };
     await area.update("node", node.id);
 
-    resolvedRuntime.blocksService.validateContainerSubflow(candidateSubFlow).subscribe({
+    resolvedRuntime.containersService.validateContainerSubflow(candidateSubFlow).subscribe({
       next: async (result) => {
         const liveNode = editor.getNode(node.id) as HFNode | undefined;
         if (!liveNode?.data) return;

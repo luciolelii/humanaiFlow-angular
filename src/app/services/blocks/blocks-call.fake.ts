@@ -1,4 +1,4 @@
-import { BlockType, FlowBlock, FlowContainer, FlowData, FlowSubflowValidationResult } from "@models/flow";
+import { BlockType, FlowBlock } from "@models/flow";
 import { Observable, of } from "rxjs";
 import { BlocksCallServiceBase } from "./block-call.base";
 
@@ -135,62 +135,8 @@ export class BlocksCallServiceFake extends BlocksCallServiceBase {
   },
 ];
 
-  private readonly containerTypes: BlockType[] = [
-  {
-    "type": "GenericContainer",
-    "family": "container",
-    "description": "Container block with an embedded validated subflow",
-    "userInteractive": false,
-    "configurationType": "GenericContainerConfiguration",
-    "configurationClass": "it.cnr.isti.workflow.manager.blocks.configurations.GenericContainerConfiguration",
-    "schema": {
-      "$schema": "http://json-schema.org/draft-04/schema#",
-      "title": "GenericContainerConfiguration",
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "type": {
-          "type": "string",
-          "enum": [
-            "GenericContainerConfiguration"
-          ],
-          "default": "GenericContainerConfiguration"
-        },
-        "name": {
-          "type": "string",
-          "default": "Container"
-        },
-        "subFlow": {
-          "type": "object",
-          "default": {
-            "blocks": [],
-            "containers": [],
-            "connections": []
-          }
-        },
-        "publicInputs": {
-          "type": "array",
-          "default": []
-        },
-        "publicOutputs": {
-          "type": "array",
-          "default": []
-        }
-      },
-      "required": [
-        "type",
-        "name"
-      ]
-    }
-  }
-];
-
   override retrieveAllBlocksTypes(): Observable<BlockType[]> {
     return of(this.blockTypes);
-  }
-
-  override retrieveAllContainerTypes(): Observable<BlockType[]> {
-    return of(this.containerTypes);
   }
 
   override createEmptyBlock(blockType: string): Observable<FlowBlock> {
@@ -223,27 +169,6 @@ export class BlocksCallServiceFake extends BlocksCallServiceBase {
     return of(block);
   }
 
-  override createEmptyContainer(containerType: string): Observable<FlowContainer> {
-    const descriptor = this.containerTypes.find((b) => b.type === containerType);
-    const typeName = descriptor?.type ?? containerType ?? "GenericContainer";
-    const schema = descriptor?.schema as Record<string, any> | null;
-
-    const specificConfiguration = schema
-      ? this.buildObjectFromSchema(schema, schema)
-      : {};
-
-    return of({
-      id: globalThis.crypto?.randomUUID?.() ?? `${Date.now()}`,
-      name: String((specificConfiguration as any)?.name ?? typeName),
-      position: undefined,
-      inputs: [],
-      outputs: [],
-      specificConfiguration,
-      typeName,
-      nodeFamily: 'container'
-    });
-  }
-
   override updateBlock(blockId: string, configuration: any): Observable<FlowBlock> {
     const typeName = configuration?.typeName ?? "LLMBlock";
     const io = this.defaultIOForBlockType(typeName);
@@ -258,35 +183,6 @@ export class BlocksCallServiceFake extends BlocksCallServiceBase {
       nodeFamily: 'block'
     };
     return of(block);
-  }
-
-  override validateContainerSubflow(subFlow: FlowData): Observable<FlowSubflowValidationResult> {
-    const blocks = Array.isArray(subFlow?.blocks) ? subFlow.blocks : [];
-    if (!blocks.length) {
-      return of({
-        valid: false,
-        errors: [{ entity: 'flow', field: 'blocks', message: 'Subflow cannot be empty' }],
-        openInputs: [],
-        openOutputs: []
-      });
-    }
-
-    const nestedContainer = (subFlow?.containers ?? []).find((container) => container?.typeName === 'GenericContainer');
-    if (nestedContainer) {
-      return of({
-        valid: false,
-        errors: [{
-          entity: 'block',
-          id: nestedContainer.id,
-          field: 'type',
-          message: 'Nested GenericContainer blocks are not supported'
-        }],
-        openInputs: [],
-        openOutputs: []
-      });
-    }
-
-    return of({ valid: true, errors: [], openInputs: [], openOutputs: [] });
   }
 
   private defaultIOForBlockType(typeName: string) {

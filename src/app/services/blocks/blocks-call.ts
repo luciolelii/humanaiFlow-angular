@@ -1,4 +1,4 @@
-import { BlockType, FlowBlock, FlowContainer, FlowData, FlowSubflowValidationResult, NodeFamily } from "@models/flow";
+import { BlockType, FlowBlock } from "@models/flow";
 import { HttpClient } from "@angular/common/http";
 import { inject } from "@angular/core";
 import { environment } from "@environment";
@@ -8,27 +8,14 @@ import { BlocksCallServiceBase } from "./block-call.base";
 export class BlocksCallService extends BlocksCallServiceBase {
   private readonly http = inject(HttpClient);
   private blockTypesCache: BlockType[] | null = null;
-  private containerTypesCache: BlockType[] | null = null;
 
   override retrieveAllBlocksTypes(): Observable<BlockType[]> {
     return this.http
       .get<unknown[]>(`${environment.apiUrl}/blocks/types`)
       .pipe(
-        map((raw) => (Array.isArray(raw) ? raw.map((value) => this.blockTypeFromApi(value, 'block')) : [])),
+        map((raw) => (Array.isArray(raw) ? raw.map((value) => this.blockTypeFromApi(value)) : [])),
         map((types) => {
           this.blockTypesCache = types;
-          return types;
-        })
-      );
-  }
-
-  override retrieveAllContainerTypes(): Observable<BlockType[]> {
-    return this.http
-      .get<unknown[]>(`${environment.apiUrl}/containers/types`)
-      .pipe(
-        map((raw) => (Array.isArray(raw) ? raw.map((value) => this.blockTypeFromApi(value, 'container')) : [])),
-        map((types) => {
-          this.containerTypesCache = types;
           return types;
         })
       );
@@ -39,12 +26,12 @@ export class BlocksCallService extends BlocksCallServiceBase {
       take(1),
       switchMap((types) => {
         const descriptor = types.find((type) => type.type === blockType);
-        const exampleEndpoint = this.resolveExampleEndpoint('block', blockType, descriptor);
+        const exampleEndpoint = this.resolveExampleEndpoint(blockType, descriptor);
 
         if (exampleEndpoint) {
           return this.http
             .get<unknown>(exampleEndpoint)
-            .pipe(map((raw) => this.flowNodeFromApi(raw, descriptor?.type ?? blockType, 'block') as FlowBlock));
+            .pipe(map((raw) => this.flowBlockFromApi(raw, descriptor?.type ?? blockType)));
         }
 
         const configuration = descriptor
@@ -54,21 +41,7 @@ export class BlocksCallService extends BlocksCallServiceBase {
 
         return this.http
           .post<unknown>(`${environment.apiUrl}/blocks`, payload)
-          .pipe(map((raw) => this.flowNodeFromApi(raw, descriptor?.type ?? blockType, 'block', payload) as FlowBlock));
-      })
-    );
-  }
-
-  override createEmptyContainer(containerType: string): Observable<FlowContainer> {
-    return this.getContainerTypesForCreate().pipe(
-      take(1),
-      switchMap((types) => {
-        const descriptor = types.find((type) => type.type === containerType);
-        const exampleEndpoint = this.resolveExampleEndpoint('container', containerType, descriptor);
-
-        return this.http
-          .get<unknown>(exampleEndpoint)
-          .pipe(map((raw) => this.flowNodeFromApi(raw, descriptor?.type ?? containerType, 'container') as FlowContainer));
+          .pipe(map((raw) => this.flowBlockFromApi(raw, descriptor?.type ?? blockType, payload)));
       })
     );
   }
@@ -104,15 +77,6 @@ export class BlocksCallService extends BlocksCallServiceBase {
       );
   }
 
-  override validateContainerSubflow(subFlow: FlowData): Observable<FlowSubflowValidationResult> {
-    return this.http
-      .post<unknown>(
-        `${environment.apiUrl}/containers/types/GenericContainer/validate-subflow`,
-        { subFlow }
-      )
-      .pipe(map((raw) => this.subflowValidationFromApi(raw)));
-  }
-
   private getBlockTypesForCreate(): Observable<BlockType[]> {
     if (this.blockTypesCache) {
       return of(this.blockTypesCache);
@@ -120,18 +84,11 @@ export class BlocksCallService extends BlocksCallServiceBase {
     return this.retrieveAllBlocksTypes();
   }
 
-  private getContainerTypesForCreate(): Observable<BlockType[]> {
-    if (this.containerTypesCache) {
-      return of(this.containerTypesCache);
-    }
-    return this.retrieveAllContainerTypes();
-  }
-
-  private blockTypeFromApi(raw: unknown, family: NodeFamily): BlockType {
+  private blockTypeFromApi(raw: unknown): BlockType {
     const value = this.toRecord(raw);
     return {
       type: String(value["type"] ?? value["blockType"] ?? value["name"] ?? "LLMBlock"),
-      family,
+      family: 'block',
       description: String(value["description"] ?? ""),
       userInteractive: Boolean(value["userInteractive"] ?? value["interactive"] ?? false),
       hasExampleBlock: Boolean(value["hasExampleBlock"] ?? false),
@@ -142,49 +99,9 @@ export class BlocksCallService extends BlocksCallServiceBase {
     };
   }
 
-  private subflowValidationFromApi(raw: unknown): FlowSubflowValidationResult {
-    const value = this.toRecord(raw);
-    const rawErrors = Array.isArray(value['errors']) ? value['errors'] : [];
-
-    return {
-      valid: Boolean(value['valid'] ?? false),
-      errors: rawErrors
-        .map((item) => this.toRecord(item))
-        .map((item) => ({
-          entity: this.toNullableString(item['entity']) ?? undefined,
-          id: this.toNullableString(item['id']) ?? undefined,
-          field: this.toNullableString(item['field']) ?? undefined,
-          message: String(item['message'] ?? 'Invalid subflow')
-        })),
-      openInputs: this.toPorts(value['openInputs'], []).map((port) => ({
-        ...port,
-        targetBlockId: this.toNullableString(this.toRecord(port)['targetBlockId']) ?? undefined,
-        targetInputName: this.toNullableString(this.toRecord(port)['targetInputName']) ?? undefined,
-        blockId: this.toNullableString(this.toRecord(port)['blockId']) ?? undefined,
-        inputName: this.toNullableString(this.toRecord(port)['inputName']) ?? undefined
-      })),
-      openOutputs: this.toPorts(value['openOutputs'], []).map((port) => ({
-        ...port,
-        sourceBlockId: this.toNullableString(this.toRecord(port)['sourceBlockId']) ?? undefined,
-        sourceOutputName: this.toNullableString(this.toRecord(port)['sourceOutputName']) ?? undefined,
-        blockId: this.toNullableString(this.toRecord(port)['blockId']) ?? undefined,
-        outputName: this.toNullableString(this.toRecord(port)['outputName']) ?? undefined
-      }))
-    };
-  }
-
   private flowBlockFromApi(raw: unknown, fallbackTypeName = "LLMBlock", fallbackConfig?: Record<string, unknown>): FlowBlock {
-    return this.flowNodeFromApi(raw, fallbackTypeName, 'block', fallbackConfig) as FlowBlock;
-  }
-
-  private flowNodeFromApi(
-    raw: unknown,
-    fallbackTypeName = "LLMBlock",
-    family: NodeFamily = 'block',
-    fallbackConfig?: Record<string, unknown>
-  ) {
     const root = this.toRecord(raw);
-    const value = this.toRecord(root[family] ?? root["node"] ?? root["block"] ?? root["container"] ?? root["data"] ?? root);
+    const value = this.toRecord(root["block"] ?? root["node"] ?? root["data"] ?? root);
     const specificConfigurationRaw = value["specificConfiguration"] ?? value["configuration"] ?? value["blockConfiguration"] ?? fallbackConfig ?? {};
     const specificConfiguration = this.toRecord(specificConfigurationRaw);
     const typeName = String(value["typeName"] ?? value["blockType"] ?? specificConfiguration["typeName"] ?? fallbackTypeName);
@@ -198,7 +115,7 @@ export class BlocksCallService extends BlocksCallServiceBase {
       outputs: this.toPorts(value["outputs"], io.outputs),
       specificConfiguration,
       typeName,
-      nodeFamily: family
+      nodeFamily: 'block'
     };
   }
 
@@ -274,12 +191,11 @@ export class BlocksCallService extends BlocksCallServiceBase {
     };
   }
 
-  private resolveExampleEndpoint(family: NodeFamily, typeName: string, descriptor?: BlockType): string {
+  private resolveExampleEndpoint(typeName: string, descriptor?: BlockType): string {
     if (descriptor?.hasExampleBlock && descriptor.exampleBlockEndpoint) {
       return descriptor.exampleBlockEndpoint;
     }
-    const base = family === 'container' ? 'containers' : 'blocks';
-    return `${environment.apiUrl}/${base}/types/${encodeURIComponent(typeName)}/example`;
+    return `${environment.apiUrl}/blocks/types/${encodeURIComponent(typeName)}/example`;
   }
 
   private toUpdateBlockError(error: unknown, blockType: string): Error {

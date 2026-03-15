@@ -1,6 +1,7 @@
 import { Component, ElementRef, Injector, input, OnChanges, OnDestroy, output, signal, SimpleChanges, ViewChild } from '@angular/core';
 import { BlockType, FlowData, FlowNode } from '@models/flow';
 import { BlocksService } from '@services/blocks/blocks';
+import { ContainersService } from '@services/containers/containers';
 import { BLOCK_TYPE_DRAG_MIME } from '@shared/blocks-list/block-drag';
 import { CONTAINER_SUBFLOW_DRAG_MIME } from '@shared/nodes/container-node/container-node-drag';
 import { EditorStateHolder } from '@stores/flow-editor';
@@ -22,7 +23,8 @@ export class ReteEditor implements OnChanges, OnDestroy {
   constructor(
     private injector: Injector,
     private flowState: EditorStateHolder,
-    private blocksService: BlocksService
+    private blocksService: BlocksService,
+    private containersService: ContainersService
   ) {}
 
   @ViewChild("editor") container!: ElementRef;
@@ -95,7 +97,9 @@ export class ReteEditor implements OnChanges, OnDestroy {
     this.creatingEmptyBlock = true;
     this.creatingEmptyBlockType = blockType.type;
     try {
-      newBlock = await firstValueFrom(this.blocksService.createEmptyBlock(blockType.type, blockType.family));
+      newBlock = blockType.family === 'container'
+        ? await firstValueFrom(this.containersService.createEmptyContainer(blockType.type))
+        : await firstValueFrom(this.blocksService.createEmptyBlock(blockType.type));
     } catch (error) {
       console.error('Failed to create empty block', error);
       return;

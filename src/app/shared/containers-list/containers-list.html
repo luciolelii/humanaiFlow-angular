@@ -6,41 +6,35 @@
 <div class="blocks-list-root">
   <div class="blocks-list-search">
     <mat-form-field appearance="outline">
-      <mat-label>Search blocks</mat-label>
+      <mat-label>Search containers</mat-label>
       <mat-icon matPrefix fontIcon="search"></mat-icon>
-      <input matInput placeholder="Search blocks..." [(ngModel)]="searchTerm" />
+      <input matInput placeholder="Search containers..." [(ngModel)]="searchTerm" />
     </mat-form-field>
   </div>
 
-  <!--
-  <div class="flex py-2 text-sm w-full min-w-0 items-center text-center justify-center h-18 overflow-x-hidden">
-    <app-ordering [orderFields]="orderFields" [orderView]="orderView" (orderChanged)="onOrderChanged($event)"></app-ordering>
-  </div>
-  -->
-
-  @if (filteredBlocks().length === 0) {
+  @if (filteredContainers().length === 0) {
   <div class="blocks-list-empty">
-    No blocks found
+    No containers found
   </div>
   } @else {
   <div class="blocks-list-items">
-    @for (block of filteredBlocks(); track block.type) {
+    @for (container of filteredContainers(); track container.type) {
     <mat-card
-      class="blocks-list-card"
+      class="blocks-list-card blocks-list-card--container"
       draggable="true"
-      (dragstart)="onDragStart($event, block)">
+      (dragstart)="onDragStart($event, container)">
       <mat-card-header class="blocks-list-card-header">
-        <div matCardAvatar class="blocks-list-card-avatar">
-          <mat-icon [fontIcon]="block.userInteractive ? 'touch_app' : 'auto_awesome'"></mat-icon>
+        <div matCardAvatar class="blocks-list-card-avatar blocks-list-card-avatar--container">
+          <mat-icon fontIcon="inventory_2"></mat-icon>
         </div>
         <div class="blocks-list-card-heading">
           <div class="blocks-list-card-title-row">
-            <mat-card-title class="blocks-list-card-title">{{ block.type }}</mat-card-title>
+            <mat-card-title class="blocks-list-card-title">{{ container.type }}</mat-card-title>
             <button
               type="button"
               class="blocks-list-card-info"
-              matTooltip="{{ block.description }}"
-              aria-label="Show block description"
+              matTooltip="{{ container.description }}"
+              aria-label="Show container description"
               title=""
               (pointerdown)="$event.stopPropagation()"
               (click)="$event.stopPropagation()">
@@ -48,16 +42,16 @@
             </button>
           </div>
           <mat-card-subtitle class="blocks-list-card-subtitle">
-            {{ block.userInteractive ? 'Interactive' : 'Automatic' }}
+            Container
           </mat-card-subtitle>
         </div>
       </mat-card-header>
       <mat-card-content class="blocks-list-card-content">
-        <p class="blocks-list-card-copy">{{ block.description }}</p>
+        <p class="blocks-list-card-copy">{{ container.description }}</p>
       </mat-card-content>
       <mat-card-actions class="blocks-list-card-actions" align="end">
-        <mat-chip class="blocks-list-card-chip" [class.blocks-list-card-chip-interactive]="block.userInteractive">
-          {{ block.userInteractive ? 'Human step' : 'Automated step' }}
+        <mat-chip class="blocks-list-card-chip blocks-list-card-chip-container">
+          Container node
         </mat-chip>
       </mat-card-actions>
     </mat-card>

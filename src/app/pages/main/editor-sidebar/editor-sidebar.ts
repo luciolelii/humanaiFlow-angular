@@ -2,17 +2,18 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { GroupHolder } from '@shared/group-holder/group-holder';
 import { FlowsList } from '@shared/flows-list/flows-list';
 import { BlocksList } from '@shared/blocks-list/blocks-list';
+import { ContainersList } from '@shared/containers-list/containers-list';
 import { EditorStateHolder } from '@stores/flow-editor';
 import { CommonModule } from '@angular/common';
 import { FlowsService } from '@services/flows/flows';
 import { ListState } from '@stores/list-state';
 import { finalize } from 'rxjs';
 
-type OpenedId = 'flows' | 'blocks';
+type OpenedId = 'flows' | 'blocks' | 'containers';
 
 @Component({
   selector: 'app-editor-sidebar',
-  imports: [GroupHolder, FlowsList, BlocksList, CommonModule],
+  imports: [GroupHolder, FlowsList, BlocksList, ContainersList, CommonModule],
   templateUrl: './editor-sidebar.html',
   styleUrl: './editor-sidebar.css',
   providers:[ListState]

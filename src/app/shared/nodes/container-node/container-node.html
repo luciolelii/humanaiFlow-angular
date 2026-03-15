@@ -1,4 +1,7 @@
-<div class="container-node" [class.container-node-assigning]="isAssigning">
+<div class="container-node" [class.container-node-assigning]="isAssigning" [class.container-node-delete-pending]="deleteConfirmOpen">
+  @if (deleteConfirmOpen) {
+  <div class="container-node__delete-overlay"></div>
+  }
   <div class="container-node__header">
     <div class="container-node__icon">
       <i class="bi bi-box-seam"></i>
@@ -7,9 +10,31 @@
       <div class="container-node__eyebrow">Generic Container</div>
       <div class="container-node__name">{{ name }}</div>
     </div>
-    <button type="button" class="container-node__delete" title="Delete node" (pointerdown)="$event.stopPropagation()" (click)="deleteNode($event)">
-      <i class="bi bi-trash"></i>
-    </button>
+    <div class="container-node__header-actions">
+      @if (missingRequiredParams.length) {
+      <div class="container-node__warning-wrap">
+        <div class="container-node__warning">
+          <i class="bi bi-exclamation-triangle-fill"></i>
+        </div>
+        <div class="container-node__warning-tooltip">
+          <div class="container-node__warning-title">Missing required fields</div>
+          @for (missing of missingRequiredParams; track missing) {
+          <div class="container-node__warning-item">{{ missing }}</div>
+          }
+        </div>
+      </div>
+      }
+      @if (deleteConfirmOpen) {
+      <div class="container-node__delete-confirm" (pointerdown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
+        <span class="container-node__delete-confirm-text">Delete container?</span>
+        <button type="button" class="container-node__delete-confirm-cancel" (click)="cancelDelete($event)">Cancel</button>
+        <button type="button" class="container-node__delete-confirm-action" (click)="deleteNode($event)">Delete</button>
+      </div>
+      }
+      <button type="button" class="container-node__delete" title="Delete node" (pointerdown)="$event.stopPropagation()" (click)="deleteNode($event)">
+        <i class="bi bi-trash"></i>
+      </button>
+    </div>
   </div>
 
   <div class="container-node__ports">

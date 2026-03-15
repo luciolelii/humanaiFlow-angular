@@ -20,6 +20,7 @@ import { CONTAINER_SUBFLOW_DRAG_MIME } from './container-node-drag';
 export class ContainerNodeComponent {
   private editorState = inject(EditorStateHolder);
   private subflowPreview = inject(SubflowPreviewDialogService);
+  deleteConfirmOpen = false;
 
   @Input() data!: any;
   @Input() emit!: (data: any) => void;
@@ -112,6 +113,24 @@ export class ContainerNodeComponent {
     return this.data?.data?.['__containerAssigning'] === true;
   }
 
+  get missingRequiredParams() {
+    const missing: string[] = [];
+    if (!this.name.trim()) {
+      missing.push('Name');
+    }
+    if (!this.subFlow) {
+      missing.push('Sub Flow');
+    }
+    const config = this.configuration ?? {};
+    if (!Array.isArray(config['publicInputs'])) {
+      missing.push('Public Inputs');
+    }
+    if (!Array.isArray(config['publicOutputs'])) {
+      missing.push('Public Outputs');
+    }
+    return missing;
+  }
+
   inputDisplayLabel(inputKey: string) {
     return pathToLabel(inputKey);
   }
@@ -168,11 +187,21 @@ export class ContainerNodeComponent {
   deleteNode(event?: Event) {
     event?.preventDefault();
     event?.stopPropagation();
+    if (!this.deleteConfirmOpen) {
+      this.deleteConfirmOpen = true;
+      return;
+    }
 
     const remove = this.data?.data?.deleteNode;
     if (typeof remove === 'function') {
       void remove();
     }
+  }
+
+  cancelDelete(event?: Event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+    this.deleteConfirmOpen = false;
   }
 
   openSubflowPreview(event?: Event) {
