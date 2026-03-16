@@ -217,6 +217,10 @@ export class ReteEditor implements OnChanges, OnDestroy {
     if (!host) return;
 
     const currentVersion = ++this.loadVersion;
+    this.editorMode.set('standard');
+    this.selectionPointerId = null;
+    this.selectionStart = null;
+    this.selectionBox.set(null);
     this.flowState.clearBlockSelection();
     this.suppressDirtyEvents = true;
     this.rete?.area.destroy();
