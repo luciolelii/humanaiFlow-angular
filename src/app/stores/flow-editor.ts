@@ -1,8 +1,9 @@
 import { computed, inject, Injectable, signal } from '@angular/core';
 import { Flow, FlowData } from '@models/flow';
+import { Authorization } from '@services/authorization/authorization';
 import { ConfirmDialogService } from '@services/dialogs/confirm-dialog';
 import { FlowsService } from '@services/flows/flows';
-import { tap } from 'rxjs';
+import { tap, throwError } from 'rxjs';
 
 @Injectable({ providedIn: 'root' })
 export class EditorStateHolder {
@@ -16,10 +17,19 @@ export class EditorStateHolder {
 
   /** Derived state */
   readonly hasFlow = computed(() => !!this.currentFlow());
+  readonly isCurrentFlowReadOnly = computed(() => {
+    const flow = this.currentFlow();
+    const currentUsername = this.authorization.loggedInUser()?.username ?? null;
+    if (!flow) return false;
+    return flow.visibility === 'PUBLIC' && flow.author !== currentUsername;
+  });
 
   flowsService: FlowsService = inject(FlowsService);
 
-  constructor(private confirm: ConfirmDialogService) { }
+  constructor(
+    private confirm: ConfirmDialogService,
+    private authorization: Authorization
+  ) { }
 
   /** Intent: open document */
   async openDocument(doc: Flow, options?: { skipDirtyCheck?: boolean }): Promise<boolean> {
@@ -55,12 +65,14 @@ export class EditorStateHolder {
   }
 
   loadAssistantFlow(flow: Flow, options?: { markDirty?: boolean }) {
+    if (this.isCurrentFlowReadOnly()) return;
     this.currentFlow.set(flow);
     this.isDirty.set(options?.markDirty === true);
     this.clearBlockSelection();
   }
 
   updateData(data: FlowData) {
+    if (this.isCurrentFlowReadOnly()) return;
     const current = this.currentFlow();
     if (!current) return;
     if (this.areFlowDataEqual(current.data, data)) return;
@@ -103,6 +115,7 @@ export class EditorStateHolder {
   }
   
   updateFlowTitle(newTitle: string) {
+    if (this.isCurrentFlowReadOnly()) return;
     const current = this.currentFlow();
     if (!current) return;
     if (current.name === newTitle) return;
@@ -113,6 +126,9 @@ export class EditorStateHolder {
   }
 
   save() {
+    if (this.isCurrentFlowReadOnly()) {
+      return throwError(() => new Error('Read-only public flows cannot be saved by non-owners.'));
+    }
     const flow = this.currentFlow()!;
     const save$ = flow.id.startsWith(EditorStateHolder.ASSISTANT_DRAFT_PREFIX)
       ? this.flowsService.createFlow({

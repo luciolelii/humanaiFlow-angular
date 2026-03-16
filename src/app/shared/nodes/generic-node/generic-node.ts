@@ -132,6 +132,10 @@ export class GenericNodeComponent {
     return this.blockId;
   }
 
+  @HostBinding('class.llm-node-readonly') get readonlyClass() {
+    return this.isReadonly;
+  }
+
   outputs: { key: string; socket: ClassicPreset.Socket }[] = [];
   inputs: { key: string; socket: ClassicPreset.Socket }[] = [];
   parameterFields: EditableFieldView[] = [];
@@ -192,9 +196,18 @@ export class GenericNodeComponent {
     this.rendered();
   }
 
+  get isReadonly() {
+    return this.data?.data?.['__readonly'] === true;
+  }
+
+  get nodeIdLabel() {
+    return this.blockId ?? 'unknown-id';
+  }
+
   async openNameEditor(event?: Event) {
     event?.preventDefault();
     event?.stopPropagation();
+    if (this.isReadonly) return;
 
     this.localEditorPath = 'name';
     this.localEditorLabel = 'Name';
@@ -214,6 +227,7 @@ export class GenericNodeComponent {
   async openParameterEditor(path: string, event?: Event) {
     event?.preventDefault();
     event?.stopPropagation();
+    if (this.isReadonly) return;
 
     const definition = this.editableFieldDefinitions.find((field) => field.path === path);
     if (!definition) return;
@@ -271,6 +285,7 @@ export class GenericNodeComponent {
   saveSimpleParamEditor(event?: Event) {
     event?.preventDefault();
     event?.stopPropagation();
+    if (this.isReadonly) return;
 
     if (!this.localEditorPath) return;
     if (!this.canSaveLocalEditor()) return;
@@ -304,6 +319,7 @@ export class GenericNodeComponent {
   async openMainContentEditor(path: string, event?: Event) {
     event?.preventDefault();
     event?.stopPropagation();
+    if (this.isReadonly) return;
 
     if (!this.isPathVisible(path)) return;
 
@@ -316,6 +332,7 @@ export class GenericNodeComponent {
   async confirmDelete(event?: Event) {
     event?.preventDefault();
     event?.stopPropagation();
+    if (this.isReadonly) return;
     if (!this.deleteConfirmOpen) {
       this.deleteConfirmOpen = true;
       return;
@@ -406,6 +423,7 @@ export class GenericNodeComponent {
   onPortKindChange(kind: 'input' | 'output', key: string, nextValue: string, event?: Event) {
     event?.preventDefault();
     event?.stopPropagation();
+    if (this.isReadonly) return;
 
     const ports = this.resolvePorts(kind);
     const index = ports.findIndex((candidate) => candidate.name === key);
@@ -1029,18 +1047,21 @@ export class GenericNodeComponent {
   async addArrayItem(path: string, event?: Event) {
     event?.preventDefault();
     event?.stopPropagation();
+    if (this.isReadonly) return;
     await this.openArrayItemEditor(path, null);
   }
 
   async editArrayItem(path: string, index: number, event?: Event) {
     event?.preventDefault();
     event?.stopPropagation();
+    if (this.isReadonly) return;
     await this.openArrayItemEditor(path, index);
   }
 
   removeArrayItem(path: string, index: number, event?: Event) {
     event?.preventDefault();
     event?.stopPropagation();
+    if (this.isReadonly) return;
 
     const config = this.ensureBlockConfiguration();
     const current = this.getByPath(config, path);
@@ -1650,6 +1671,12 @@ export class GenericNodeComponent {
   }
 
   private async fetchConditionalRequirement(blockType: string, field: ConditionalRequiredField) {
+    if (field.requiredWhen) {
+      return evaluateUiConditionRule(field.requiredWhen, this.blockConfiguration ?? {}, (path) => this.resolveFieldSchema(path));
+    }
+
+    if (!field.retrieverKey) return false;
+
     const retrieverBlockType = field.retrieverBlockType ?? blockType;
     const context: Record<string, string> = {};
     for (const dep of field.dependsOn) {
@@ -1690,7 +1717,11 @@ export class GenericNodeComponent {
 
   private cloneFlowData<T>(value: T): T {
     if (typeof globalThis.structuredClone === 'function') {
-      return globalThis.structuredClone(value);
+      try {
+        return globalThis.structuredClone(value);
+      } catch {
+        // Node runtime objects may include non-cloneable values.
+      }
     }
     return JSON.parse(JSON.stringify(value)) as T;
   }
@@ -1732,7 +1763,7 @@ export class GenericNodeComponent {
     ).subscribe({
       next: (createdBlock) => {
         const current = (this.data?.data ?? {}) as Record<string, unknown>;
-        const replaceNode = current['replaceWithCreatedBlock'];
+        const replaceNode = current['replaceWithCreatedNode'];
         if (typeof replaceNode === 'function') {
           void replaceNode({
             ...createdBlock,

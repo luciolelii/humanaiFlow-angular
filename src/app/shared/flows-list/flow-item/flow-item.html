@@ -22,11 +22,14 @@
                 <mat-icon [fontIcon]="flow().visibility === 'PRIVATE' ? 'lock' : 'public'"></mat-icon>
             </button>
             <button mat-icon-button matTooltip="Clone flow"
-                (click)="$event.stopPropagation(); clone()" [disabled]="this.flow().visibility!=='PRIVATE'">
+                (click)="$event.stopPropagation(); clone()">
                 <mat-icon fontIcon="content_copy"></mat-icon>
             </button>
-            <button mat-icon-button matTooltip="Delete flow"
-                (click)="$event.stopPropagation(); remove()" [disabled]="this.flow().visibility!=='PRIVATE'">
+            <button
+                mat-icon-button
+                [matTooltip]="deleteTooltip()"
+                (click)="$event.stopPropagation(); remove()"
+                [disabled]="!canDelete()">
                 <mat-icon fontIcon="delete"></mat-icon>
             </button>
         </div>

@@ -6,5 +6,7 @@ export abstract class ContainersCallServiceBase {
 
   abstract createEmptyContainer(containerType: BlockTypeName): Observable<FlowContainer>;
 
-  abstract validateContainerSubflow(subFlow: FlowData): Observable<FlowSubflowValidationResult>;
+  abstract createContainer(containerId: string, configuration: any): Observable<FlowContainer>;
+
+  abstract validateContainerSubflow(subFlow: FlowData, validationUrl?: string | null): Observable<FlowSubflowValidationResult>;
 }

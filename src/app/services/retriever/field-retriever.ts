@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { environment } from '@environment';
 import { catchError, throwError } from 'rxjs';
-import { FieldRetrieverCallServiceBase } from './field-retriever-call.base';
+import { FieldRetrieverCallServiceBase, RetrieverStructuredItem } from './field-retriever-call.base';
 
 @Injectable({
   providedIn: 'root',
@@ -18,6 +18,20 @@ export class FieldRetriever {
     return this.fieldRetrieverCallService.retrieveValues(blockType, key, context, retrieverUrl).pipe(
       catchError((err) => {
         console.error('Field retrieval failed', err);
+        return throwError(() => err);
+      })
+    );
+  }
+
+  retrieveItems<T = unknown>(
+    blockType: string,
+    key: string,
+    context?: Record<string, string>,
+    retrieverUrl?: string | null
+  ) {
+    return this.fieldRetrieverCallService.retrieveItems<T>(blockType, key, context, retrieverUrl).pipe(
+      catchError((err) => {
+        console.error('Structured field retrieval failed', err);
         return throwError(() => err);
       })
     );

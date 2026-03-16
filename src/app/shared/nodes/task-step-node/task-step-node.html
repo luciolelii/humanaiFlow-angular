@@ -45,7 +45,7 @@
   </div>
   }
 
-  <div class="llm-header cursor-move">
+  <div class="llm-header">
     <div class="llm-icon">
       @if (isHumanNode()) {
       <i class="bi bi-person-check-fill"></i>
@@ -76,6 +76,7 @@
               side: 'input',
               key: input.key,
               nodeId: data.id,
+              __readonly: true,
               payload: input.socket
             }"
             [emit]="emit">
@@ -127,6 +128,7 @@
               side: 'output',
               key: output.key,
               nodeId: data.id,
+              __readonly: true,
               payload: output.socket
             }"
             [emit]="emit">

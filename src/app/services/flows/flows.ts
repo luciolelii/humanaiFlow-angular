@@ -2,7 +2,7 @@ import { Injectable, signal } from '@angular/core';
 import { environment } from '@environment';
 import { Flow } from '@models/flow';
 import { FlowsCallServiceBase } from './flows-call.base';
-import { catchError, combineLatest, Observable, switchMap, tap, throwError } from 'rxjs';
+import { catchError, firstValueFrom, Observable, tap, throwError } from 'rxjs';
 
 @Injectable({
   providedIn: 'root',
@@ -12,24 +12,42 @@ export class FlowsService {
   flowsCallService: FlowsCallServiceBase = new environment.flowsCallService();
 
   toInit: boolean = true;
+  private loadingPromise: Promise<void> | null = null;
 
   private _flows = signal<Flow[]>([]);
+  readonly flows = this._flows.asReadonly();
 
-  async getAllFlows() {
-    console.log('Flows signal accessed');
-    if (this.toInit) {
-      this.refresh();
-      this.toInit = false;
-
-    }
-
-    return this._flows.asReadonly();
+  hasLoadedFlows() {
+    return this._flows().length > 0 || !this.toInit;
   }
 
-  refresh() {
-    this.flowsCallService.retrieveAllFlows().subscribe(flows => {
-      this._flows.set(flows);
-    });
+  async getAllFlows() {
+    if (this.toInit) {
+      this.toInit = false;
+      await this.refresh();
+    }
+
+    return this.flows;
+  }
+
+  async refresh(force = false): Promise<void> {
+    if (this.loadingPromise && !force) {
+      return this.loadingPromise;
+    }
+
+    this.loadingPromise = firstValueFrom(this.flowsCallService.retrieveAllFlows())
+      .then((flows) => {
+        this._flows.set(flows);
+      })
+      .catch((err) => {
+        console.error('Retrieve flows failed', err);
+        throw err;
+      })
+      .finally(() => {
+        this.loadingPromise = null;
+      });
+
+    return this.loadingPromise;
   }
 
   updateFlow(flow: Flow) {
@@ -75,25 +93,18 @@ export class FlowsService {
     );
   }
 
-  cloneFlow(flowId: string): Observable<Flow> {
-    const originalFlow$ = this.flowsCallService.getFlowById(flowId);
-
-    const newFlow$ = this.flowsCallService.createNewFlow();
-
-    return combineLatest([originalFlow$, newFlow$]).pipe(
-      switchMap(([originalFlow, newFlow]) => {
-        newFlow.name = this.nextFileName(originalFlow.name);
-        newFlow.data = originalFlow.data ;
-
-        return this.flowsCallService.updateFlow(newFlow);
-      }),
-      tap(() => this.refresh()),
+  cloneFlow(flow: Pick<Flow, 'name' | 'description' | 'data' | 'status'>): Observable<Flow> {
+    return this.createFlow({
+      name: `${flow.name} (cloned)`,
+      description: flow.description,
+      data: flow.data,
+      status: flow.status
+    }).pipe(
       catchError(err => {
         console.error('Cloning flow failed', err);
         return throwError(() => err);
       })
     );
-
   }
 
   createNewFlow(name? : string) {

@@ -5,6 +5,7 @@ import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Flow } from '@models/flow';
+import { Authorization } from '@services/authorization/authorization';
 import { ConfirmDialogService } from '@services/dialogs/confirm-dialog';
 import { FlowsService } from '@services/flows/flows';
 import { EditorStateHolder } from '@stores/flow-editor';
@@ -19,6 +20,7 @@ export class FlowItem {
 
   private editorState = inject(EditorStateHolder);
   private confirm = inject(ConfirmDialogService);
+  private authorization = inject(Authorization);
 
   private flowsService = inject(FlowsService);
 
@@ -27,6 +29,15 @@ export class FlowItem {
   detailOpenedId = model<string | null>(null);
 
   openedFlowId = computed(() => this.editorState.currentFlow()?.id);
+  canDelete = computed(() => {
+    const username = this.authorization.loggedInUser()?.username ?? null;
+    return !!username && this.flow().author === username;
+  });
+  deleteTooltip = computed(() =>
+    this.canDelete()
+      ? 'Delete flow'
+      : 'Only the owner can delete this flow'
+  );
 
   async open() {
     console.log('Opening flow:', this.flow());
@@ -42,7 +53,7 @@ export class FlowItem {
   }
 
   clone() {
-    this.flowsService.cloneFlow(this.flow().id).subscribe({
+    this.flowsService.cloneFlow(this.flow()).subscribe({
       next: clonedFlow => {
         console.log('Flow cloned:', clonedFlow);
       },
@@ -51,6 +62,8 @@ export class FlowItem {
   }
 
   async remove() {
+    if (!this.canDelete()) return;
+
     const confirmed = await this.confirm.open(
       this.editorState.isDirty()
         ? 'You have unsaved changes in the current flow. Delete this flow anyway?'

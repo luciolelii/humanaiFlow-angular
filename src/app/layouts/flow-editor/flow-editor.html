@@ -15,7 +15,7 @@
       <mat-card class="flow-editor-canvas-shell">
         <app-title-toolbar></app-title-toolbar>
         <div class="flow-editor-canvas">
-          <app-rete-editor [flowId]="flow()!.id" [flowData]="flow()!.data"></app-rete-editor>
+          <app-rete-editor [flowId]="flow()!.id" [flowData]="flow()!.data" [readonly]="readonly()"></app-rete-editor>
         </div>
       </mat-card>
       } @else {
@@ -26,7 +26,7 @@
       }
     </main>
 
-    @if (assistantEnabled) {
+    @if (assistantEnabled && !readonly()) {
     <section class="flow-editor-assistant" [class.flow-editor-assistant-collapsed]="!assistantOpen()">
       <button
         type="button"

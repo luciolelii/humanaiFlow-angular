@@ -26,8 +26,8 @@ export class BlocksService {
 
   async getAllBlocksTypes() {
     if (this.toInit) {
-      await this.refresh();
       this.toInit = false;
+      await this.refresh();
     }
 
     return this._blockTypes.asReadonly();
@@ -127,7 +127,11 @@ export class BlocksService {
 
   private deepClone<T>(value: T): T {
     if (typeof globalThis.structuredClone === 'function') {
-      return globalThis.structuredClone(value);
+      try {
+        return globalThis.structuredClone(value);
+      } catch {
+        // Some cached payloads may carry non-cloneable runtime fields.
+      }
     }
     return JSON.parse(JSON.stringify(value)) as T;
   }

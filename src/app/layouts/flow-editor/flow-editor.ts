@@ -22,6 +22,7 @@ export class FlowEditor {
   assistantEnabled = environment.assistantEnabled;
   assistantOpen = signal(true);
   flow = this.editorState.currentFlow; 
+  readonly = this.editorState.isCurrentFlowReadOnly;
 
   toggleAssistant() {
     this.assistantOpen.update((value) => !value);

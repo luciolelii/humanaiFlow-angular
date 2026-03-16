@@ -2,7 +2,7 @@ import { HttpClient, HttpParams } from "@angular/common/http";
 import { inject } from "@angular/core";
 import { environment } from "@environment";
 import { map, Observable, of } from "rxjs";
-import { FieldRetrieverCallServiceBase } from "./field-retriever-call.base";
+import { FieldRetrieverCallServiceBase, RetrieverStructuredItem } from "./field-retriever-call.base";
 
 export class FieldRetrieverCallService extends FieldRetrieverCallServiceBase {
   private readonly http = inject(HttpClient);
@@ -16,6 +16,18 @@ export class FieldRetrieverCallService extends FieldRetrieverCallServiceBase {
     const { url, params } = this.resolveRequest(blockType, key, context, retrieverUrl);
     return this.http.get<unknown>(url, { params }).pipe(
       map((raw) => this.normalizeStringList(raw))
+    );
+  }
+
+  override retrieveItems<T = unknown>(
+    blockType: string,
+    key: string,
+    context?: Record<string, string>,
+    retrieverUrl?: string | null
+  ): Observable<RetrieverStructuredItem<T>[]> {
+    const { url, params } = this.resolveRequest(blockType, key, context, retrieverUrl);
+    return this.http.get<unknown>(url, { params }).pipe(
+      map((raw) => this.normalizeStructuredItems<T>(raw))
     );
   }
 
@@ -126,5 +138,53 @@ export class FieldRetrieverCallService extends FieldRetrieverCallServiceBase {
     }
 
     return candidate.filter((item): item is string => typeof item === 'string');
+  }
+
+  private normalizeStructuredItems<T>(raw: unknown): RetrieverStructuredItem<T>[] {
+    const candidate = this.extractItemsArray(raw);
+    return candidate
+      .map((item) => this.toRecord(item))
+      .filter((item) => Object.keys(item).length > 0)
+      .map((item, index) => {
+        const descriptor = this.toRecord(item['descriptor']);
+        return {
+          descriptor: {
+            label: String(descriptor['label'] ?? descriptor['name'] ?? `Item ${index + 1}`),
+            description: typeof descriptor['description'] === 'string' ? descriptor['description'] : undefined,
+            meta: this.toRecordOrNull(descriptor['meta']) ?? undefined
+          },
+          data: (item['data'] as T) ?? (item as T),
+          structuredData: Boolean(item['structuredData'] ?? true),
+          valid: typeof item['valid'] === 'boolean' ? item['valid'] : undefined,
+          validationErrors: Array.isArray(item['validationErrors']) ? item['validationErrors'] : undefined
+        };
+      });
+  }
+
+  private extractItemsArray(raw: unknown): unknown[] {
+    if (Array.isArray(raw)) return raw;
+    if (!raw || typeof raw !== 'object') return [];
+
+    const payload = raw as Record<string, unknown>;
+    const candidate =
+      payload['items'] ??
+      payload['values'] ??
+      payload['data'] ??
+      payload['result'] ??
+      [];
+
+    return Array.isArray(candidate) ? candidate : [];
+  }
+
+  private toRecord(value: unknown): Record<string, unknown> {
+    return value && typeof value === 'object' && !Array.isArray(value)
+      ? value as Record<string, unknown>
+      : {};
+  }
+
+  private toRecordOrNull(value: unknown): Record<string, unknown> | null {
+    return value && typeof value === 'object' && !Array.isArray(value)
+      ? value as Record<string, unknown>
+      : null;
   }
 }

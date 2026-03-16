@@ -1,10 +1,11 @@
 import { GetSchemes, ClassicPreset } from "rete";
-import { FlowNode } from "./flow";
+import { FlowData, FlowNode } from "./flow";
 
 export type HFNodeData = FlowNode & {
   deleteNode?: () => Promise<void>;
-  replaceWithCreatedBlock?: (block: FlowNode) => Promise<void>;
+  replaceWithCreatedNode?: (block: FlowNode) => Promise<void>;
   assignSelectedBlocksToContainer?: (blockIds?: string[]) => Promise<void>;
+  assignImportedSubflow?: (subFlow: FlowData, validationUrl?: string | null) => Promise<void>;
   clearContainerSubflow?: () => Promise<void>;
   [key: string]: unknown;
 };

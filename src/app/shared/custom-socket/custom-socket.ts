@@ -18,7 +18,13 @@ export class CustomSocket {
   @HostBinding("style.display") d = "block";
   @HostBinding("style.borderRadius") br = "4px";
   @HostBinding("style.border") border = "1px solid rgba(255,255,255,0.9)";
-  @HostBinding("style.cursor") cursor = "crosshair";
+  @HostBinding("style.cursor") get cursor() {
+    return this.data?.__readonly === true ? "default" : "crosshair";
+  }
+
+  @HostBinding("style.pointerEvents") get pointerEvents() {
+    return this.data?.__readonly === true ? "none" : "auto";
+  }
 
   @HostBinding("style.background")
   get bg() {

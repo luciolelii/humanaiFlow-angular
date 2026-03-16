@@ -26,8 +26,8 @@ export class ContainersService {
 
   async getAllContainerTypes() {
     if (this.toInit) {
-      await this.refresh();
       this.toInit = false;
+      await this.refresh();
     }
 
     return this._containerTypes.asReadonly();
@@ -98,8 +98,21 @@ export class ContainersService {
     );
   }
 
-  validateContainerSubflow(subFlow: FlowData) {
-    return this.containersCallService.validateContainerSubflow(this.deepClone(subFlow)).pipe(
+  createContainer(containerId: string, configuration: any) {
+    this.pendingServerSyncCount.update((count) => count + 1);
+    return this.containersCallService.createContainer(containerId, configuration).pipe(
+      finalize(() => {
+        this.pendingServerSyncCount.update((count) => Math.max(0, count - 1));
+      }),
+      catchError((err) => {
+        console.error('Create container failed', err);
+        return throwError(() => err);
+      })
+    );
+  }
+
+  validateContainerSubflow(subFlow: FlowData, validationUrl?: string | null) {
+    return this.containersCallService.validateContainerSubflow(this.deepClone(subFlow), validationUrl).pipe(
       catchError((err) => {
         console.error('Validate container subflow failed', err);
         return throwError(() => err);
@@ -123,7 +136,11 @@ export class ContainersService {
 
   private deepClone<T>(value: T): T {
     if (typeof globalThis.structuredClone === 'function') {
-      return globalThis.structuredClone(value);
+      try {
+        return globalThis.structuredClone(value);
+      } catch {
+        // Some cached payloads may carry non-cloneable runtime fields.
+      }
     }
     return JSON.parse(JSON.stringify(value)) as T;
   }

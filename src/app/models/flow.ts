@@ -100,18 +100,6 @@ export type FlowBlockConfiguration =
   | HumanInteractiveBlockConfiguration
   | Record<string, unknown>;
 
-export type FlowContainerPublicInput = {
-  name: string;
-  targetBlockId: string;
-  targetInputName: string;
-};
-
-export type FlowContainerPublicOutput = {
-  name: string;
-  sourceBlockId: string;
-  sourceOutputName: string;
-};
-
 export type FlowContainerOpenInput = FlowPort & {
   targetBlockId?: string;
   targetInputName?: string;

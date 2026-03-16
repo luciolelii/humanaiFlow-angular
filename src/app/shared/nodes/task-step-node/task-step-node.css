@@ -11,6 +11,11 @@
   color: #0f172a;
 }
 
+:host.llm-node-readonly,
+:host.llm-node-readonly * {
+  cursor: default !important;
+}
+
 .llm-node--human {
   border-color: #f7d7a7;
   background: linear-gradient(180deg, #fffdf9 0%, #fff7ed 100%);

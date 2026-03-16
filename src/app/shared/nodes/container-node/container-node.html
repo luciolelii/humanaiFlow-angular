@@ -2,7 +2,7 @@
   @if (deleteConfirmOpen) {
   <div class="container-node__delete-overlay"></div>
   }
-  <div class="container-node__header">
+  <div class="container-node__header" [class.cursor-move]="!isReadonly">
     <div class="container-node__icon">
       <i class="bi bi-box-seam"></i>
     </div>
@@ -24,16 +24,18 @@
         </div>
       </div>
       }
-      @if (deleteConfirmOpen) {
+      @if (!isReadonly && deleteConfirmOpen) {
       <div class="container-node__delete-confirm" (pointerdown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
         <span class="container-node__delete-confirm-text">Delete container?</span>
         <button type="button" class="container-node__delete-confirm-cancel" (click)="cancelDelete($event)">Cancel</button>
         <button type="button" class="container-node__delete-confirm-action" (click)="deleteNode($event)">Delete</button>
       </div>
       }
+      @if (!isReadonly) {
       <button type="button" class="container-node__delete" title="Delete node" (pointerdown)="$event.stopPropagation()" (click)="deleteNode($event)">
         <i class="bi bi-trash"></i>
       </button>
+      }
     </div>
   </div>
 
@@ -50,12 +52,16 @@
             side: 'input',
             key: input.key,
             nodeId: data.id,
+            __readonly: isReadonly,
             payload: input.socket
           }"
           [emit]="emit">
         </div>
         <span class="container-node__port-label">
-          <span class="container-node__port-name">{{ inputDisplayLabel(input.key) }}</span>
+          @if (inputDisplayLabelParts(input.key).context; as context) {
+          <span class="container-node__port-context">{{ context }}</span>
+          }
+          <span class="container-node__port-name">{{ inputDisplayLabelParts(input.key).name }}</span>
           <span class="container-node__port-kind">{{ inputKindLabel(input.key) }}</span>
         </span>
       </div>
@@ -67,7 +73,10 @@
       @for (output of outputs; track output.key) {
       <div class="container-node__port-row container-node__port-row--right">
         <span class="container-node__port-label">
-          <span class="container-node__port-name">{{ outputDisplayLabel(output.key) }}</span>
+          @if (outputDisplayLabelParts(output.key).context; as context) {
+          <span class="container-node__port-context">{{ context }}</span>
+          }
+          <span class="container-node__port-name">{{ outputDisplayLabelParts(output.key).name }}</span>
           <span class="container-node__port-kind">{{ outputKindLabel(output.key) }}</span>
         </span>
         <div
@@ -78,6 +87,7 @@
             side: 'output',
             key: output.key,
             nodeId: data.id,
+            __readonly: isReadonly,
             payload: output.socket
           }"
           [emit]="emit">
@@ -89,17 +99,38 @@
 
   <div
     class="container-node__dropzone"
-    [class.container-node__dropzone--active]="selectedCount > 0"
+    [class.container-node__dropzone--active]="!isReadonly && selectedCount > 0"
     [class.container-node__dropzone--filled]="subFlowBlockCount > 0"
     (dragover)="onDropZoneDragOver($event)"
     (dragleave)="onDropZoneDragLeave($event)"
     (drop)="onDropZoneDrop($event)">
-    @if (isAssigning) {
+    @if (replaceConfirmOpen) {
+    <div class="container-node__replace-confirm" (pointerdown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
+      <div class="container-node__replace-confirm-text">Replace current subflow?</div>
+      <div class="container-node__replace-confirm-note">The existing embedded flow will be removed and replaced by the dropped selection.</div>
+      <div class="container-node__replace-confirm-actions">
+        <button type="button" class="container-node__replace-confirm-cancel" (click)="cancelReplaceSubflow($event)">Cancel</button>
+        <button type="button" class="container-node__replace-confirm-action" (click)="confirmReplaceSubflow($event)">Replace</button>
+      </div>
+    </div>
+    } @else if (isAssigning) {
     <div class="container-node__dropzone-main">
       <span class="container-node__spinner" aria-hidden="true"></span>
-      <span>Validating subflow...</span>
+      <span>Updating container...</span>
     </div>
     } @else if (subFlowBlockCount > 0) {
+    <div class="container-node__snapshot" aria-hidden="true">
+      @for (node of subFlowSnapshotNodes; track node.id) {
+      <span
+        class="container-node__snapshot-node"
+        [class.container-node__snapshot-node--container]="node.family === 'container'"
+        [style.left.%]="node.left"
+        [style.top.%]="node.top"
+        [style.width.px]="node.width"
+        [style.height.px]="node.height">
+      </span>
+      }
+    </div>
     <div class="container-node__dropzone-main">
       <span>{{ subFlowBlockCount }} nodes</span>
       <span>{{ subFlowConnectionCount }} connections</span>
@@ -113,6 +144,18 @@
     </div>
     <div class="container-node__dropzone-note">
       Use the selection box in the editor, then drag the floating selection badge into this area.
+    </div>
+    }
+    @if (!isReadonly && !replaceConfirmOpen && !isAssigning) {
+    <div class="container-node__dropzone-actions">
+      <button type="button" class="container-node__import" (pointerdown)="$event.stopPropagation()" (click)="importSubflow($event)">
+        @if (importLoading) {
+        <span class="container-node__spinner" aria-hidden="true"></span>
+        <span>Loading flows...</span>
+        } @else {
+        <span>Import flow</span>
+        }
+      </button>
     </div>
     }
   </div>
@@ -139,37 +182,11 @@
       }
     </div>
   </div>
-  <div class="container-node__actions">
-    <button type="button" class="container-node__action" (pointerdown)="$event.stopPropagation()" (click)="removeSubflow($event)">
-      Remove subflow
-    </button>
-  </div>
   }
 
   @if (assignmentErrorMessage) {
   <div class="container-node__message container-node__message--error">
     {{ assignmentErrorMessage }}
-  </div>
-  }
-
-  @if (validationErrors.length) {
-  <div class="container-node__message container-node__message--warning">
-    @for (error of validationErrors; track $index) {
-    <div class="container-node__validation-item">
-      <span>{{ error.message }}</span>
-      @if (error.entity || error.id || error.field) {
-      <span class="container-node__validation-meta">
-        {{ error.entity || 'entity' }}
-        @if (error.id) {
-        · {{ error.id }}
-        }
-        @if (error.field) {
-        · {{ error.field }}
-        }
-      </span>
-      }
-    </div>
-    }
   </div>
   }
 </div>

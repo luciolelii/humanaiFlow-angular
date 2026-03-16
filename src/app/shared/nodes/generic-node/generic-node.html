@@ -13,7 +13,7 @@
   @if (deleteConfirmOpen) {
   <div class="llm-delete-overlay"></div>
   }
-  <div class="llm-header cursor-move">
+  <div class="llm-header" [class.cursor-move]="!isReadonly">
     <div class="llm-icon">
       @if (isHumanNode()) {
       <i class="bi bi-person-check-fill"></i>
@@ -25,10 +25,13 @@
       <span class="llm-title">{{ nodeTitle() }}</span>
       <div class="llm-subtitle-row">
         <span class="llm-subtitle">{{ name }}</span>
+        @if (!isReadonly) {
         <button type="button" class="llm-name-edit-btn" title="Edit name" (pointerdown)="$event.stopPropagation()" (click)="openNameEditor($event)">
           <i class="bi bi-pencil-square"></i>
         </button>
+        }
       </div>
+      <div class="llm-node-id">{{ nodeIdLabel }}</div>
     </div>
     <div class="llm-header-actions">
       @if (hasUpdateBlockError()) {
@@ -55,16 +58,18 @@
         </div>
       </div>
       }
-      @if (deleteConfirmOpen) {
+      @if (!isReadonly && deleteConfirmOpen) {
       <div class="llm-delete-confirm" (pointerdown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
         <span class="llm-delete-confirm-text">Delete node?</span>
         <button type="button" class="llm-delete-confirm-cancel" (click)="cancelDelete($event)">Cancel</button>
         <button type="button" class="llm-delete-confirm-action" (click)="confirmDelete($event)">Delete</button>
       </div>
       }
+      @if (!isReadonly) {
       <button type="button" class="llm-delete-btn" title="Delete node" (pointerdown)="$event.stopPropagation()" (click)="confirmDelete($event)">
         <i class="bi bi-trash"></i>
       </button>
+      }
     </div>
   </div>
 
@@ -81,6 +86,7 @@
             side: 'input',
             key: input.key,
             nodeId: data.id,
+            __readonly: isReadonly,
             payload: input.socket
           }"
           [emit]="emit">
@@ -88,7 +94,7 @@
         <span class="llm-pill llm-pill-input">
           <span class="llm-pill-meta">
             <span class="llm-pill-name">{{ inputDisplayLabel(input.key) }}</span>
-            @if (canTogglePortMultiplicity('input', input.key)) {
+            @if (!isReadonly && canTogglePortMultiplicity('input', input.key)) {
             <select
               class="llm-pill-kind-select"
               [ngModel]="portCurrentKindValue('input', input.key)"
@@ -115,7 +121,7 @@
         <span class="llm-pill llm-pill-output" [ngClass]="outputPillClass(output.key)">
           <span class="llm-pill-meta llm-pill-meta-output">
             <span class="llm-pill-name">{{ outputDisplayLabel(output.key) }}</span>
-            @if (canTogglePortMultiplicity('output', output.key)) {
+            @if (!isReadonly && canTogglePortMultiplicity('output', output.key)) {
             <select
               class="llm-pill-kind-select"
               [ngModel]="portCurrentKindValue('output', output.key)"
@@ -139,6 +145,7 @@
             side: 'output',
             key: output.key,
             nodeId: data.id,
+            __readonly: isReadonly,
             payload: output.socket
           }"
           [emit]="emit">
@@ -159,6 +166,7 @@
           <div class="llm-param-chip" [class.llm-param-chip-wide]="field.wide">
             <div class="llm-param-row-head">
               <span class="llm-param-key">{{ field.label }}</span>
+              @if (!isReadonly) {
               <button
                 type="button"
                 class="llm-edit-btn"
@@ -167,6 +175,7 @@
                 (click)="openParameterEditor(field.path, $event)">
                 <i class="bi bi-pen"></i>
               </button>
+              }
             </div>
             <span class="llm-param-value">{{ field.value }}</span>
           </div>
@@ -183,6 +192,7 @@
       <div class="llm-param-chip" [class.llm-param-chip-wide]="field.wide">
         <div class="llm-param-row-head">
           <span class="llm-param-key">{{ field.label }}</span>
+          @if (!isReadonly) {
           <button
             type="button"
             class="llm-edit-btn"
@@ -191,6 +201,7 @@
             (click)="openParameterEditor(field.path, $event)">
             <i class="bi bi-pen"></i>
           </button>
+          }
         </div>
         <span class="llm-param-value">{{ field.value }}</span>
       </div>
@@ -203,9 +214,11 @@
     <div class="llm-param-block">
       <div class="llm-param-row-head">
         <div class="llm-param-key">{{ contentField.label }}</div>
+        @if (!isReadonly) {
         <button type="button" class="llm-edit-btn" [attr.title]="'Edit ' + contentField.label.toLowerCase()" (pointerdown)="$event.stopPropagation()" (click)="openMainContentEditor(contentField.path, $event)">
           <i class="bi bi-pen"></i>
         </button>
+        }
       </div>
       <div class="llm-param-text">
         @if (!contentField.parts.length) {
@@ -230,6 +243,7 @@
       <div class="llm-array-block">
         <div class="llm-param-row-head">
           <div class="llm-param-key">{{ arrayField.label }}</div>
+          @if (!isReadonly) {
           <button
             type="button"
             class="llm-edit-btn"
@@ -238,6 +252,7 @@
             (click)="addArrayItem(arrayField.path, $event)">
             <i class="bi bi-plus-lg"></i>
           </button>
+          }
         </div>
         @if (!arrayField.items.length) {
         <div class="llm-array-empty">No items</div>
@@ -246,6 +261,7 @@
           <div class="llm-array-item">
             <span class="llm-array-item-summary">{{ item.summary }}</span>
             <div class="llm-array-item-actions">
+              @if (!isReadonly) {
               <button
                 type="button"
                 class="llm-edit-btn"
@@ -254,6 +270,8 @@
                 (click)="editArrayItem(arrayField.path, item.index, $event)">
                 <i class="bi bi-pen"></i>
               </button>
+              }
+              @if (!isReadonly) {
               <button
                 type="button"
                 class="llm-edit-btn llm-array-remove-btn"
@@ -262,6 +280,7 @@
                 (click)="removeArrayItem(arrayField.path, item.index, $event)">
                 <i class="bi bi-trash"></i>
               </button>
+              }
             </div>
           </div>
           }

@@ -60,16 +60,24 @@ export class FlowsList extends ListStateViewHolder<Flow> {
       this.loading.set(false);
       if (existingState.filter)
         this.filter.set(existingState.filter as FlowFilter || 'all');
-      console.log('FlowsList loaded from ListState');
-    } else {
-      this.flowsService.getAllFlows().then(flowsSignal => {
-        this.flows = flowsSignal;
-        this.loading.set(false);
-        this.view.list = this.flows;
-        console.log('FlowsList initialized from service');
-    });
+      return;
     }
-    
+
+    if (this.flowsService.hasLoadedFlows()) {
+      this.flows = this.flowsService.flows;
+      this.view.list = this.flows;
+      this.loading.set(false);
+      return;
+    }
+
+    this.flowsService.getAllFlows().then(flowsSignal => {
+      this.flows = flowsSignal;
+      this.view.list = this.flows;
+    }).catch((err) => {
+      console.error('Error loading flows', err);
+    }).finally(() => {
+      this.loading.set(false);
+    });
   }
 
   filteredFlows = computed(() => {

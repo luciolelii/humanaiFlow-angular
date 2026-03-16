@@ -24,7 +24,8 @@
           type="button"
           mat-icon-button
           class="title-toolbar-edit-button"
-          matTooltip="Edit flow title"
+          [matTooltip]="readOnly() ? 'Read-only public flow' : 'Edit flow title'"
+          [disabled]="readOnly()"
           (click)="startEditingTitle()">
           <mat-icon fontIcon="edit"></mat-icon>
         </button>
@@ -39,7 +40,11 @@
       <span class="title-toolbar-spinner title-toolbar-spinner--blue" aria-hidden="true"></span>
       <span>Updating blocks...</span>
     </span>
-    } @else if (canExecute()) {
+    }
+    @if (readOnly()) {
+    <span class="title-toolbar-pill title-toolbar-pill-info">Read only</span>
+    }
+    @if (canExecute()) {
     <button
       type="button"
       mat-stroked-button

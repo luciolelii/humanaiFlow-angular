@@ -28,19 +28,16 @@ export class ContainersCallServiceFake extends ContainersCallServiceBase {
           },
           "subFlow": {
             "type": "object",
+            "x-retriever-name": "Flows",
+            "x-retriever-url": "/secure-retriever/Flows/subFlow/items",
+            "x-retriever-structured-data": true,
+            "x-retriever-requires-auth": true,
+            "x-retriever-validation-url": "/containers/validate-subflow",
             "default": {
               "blocks": [],
               "containers": [],
               "connections": []
             }
-          },
-          "publicInputs": {
-            "type": "array",
-            "default": []
-          },
-          "publicOutputs": {
-            "type": "array",
-            "default": []
           }
         },
         "required": ["type", "name"]
@@ -67,16 +64,35 @@ export class ContainersCallServiceFake extends ContainersCallServiceBase {
           blocks: [],
           containers: [],
           connections: []
-        },
-        publicInputs: [],
-        publicOutputs: []
+        }
       },
       typeName: descriptor?.type ?? containerType,
       nodeFamily: 'container'
     });
   }
 
-  override validateContainerSubflow(subFlow: FlowData): Observable<FlowSubflowValidationResult> {
+  override createContainer(containerId: string, configuration: any): Observable<FlowContainer> {
+    const typeName = String(configuration?.typeName ?? configuration?.type ?? 'GenericContainer');
+    const specificConfiguration = {
+      ...configuration,
+      name: typeof configuration?.name === 'string' && configuration.name.length > 0
+        ? configuration.name
+        : 'Container'
+    };
+
+    return of({
+      id: containerId,
+      name: String(specificConfiguration.name ?? typeName),
+      position: undefined,
+      inputs: [],
+      outputs: [],
+      specificConfiguration,
+      typeName,
+      nodeFamily: 'container'
+    });
+  }
+
+  override validateContainerSubflow(subFlow: FlowData, _validationUrl?: string | null): Observable<FlowSubflowValidationResult> {
     const blocks = Array.isArray(subFlow?.blocks) ? subFlow.blocks : [];
     const containers = Array.isArray(subFlow?.containers) ? subFlow.containers : [];
 

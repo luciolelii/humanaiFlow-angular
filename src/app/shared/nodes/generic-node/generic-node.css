@@ -11,6 +11,11 @@
   color: #0f172a;
 }
 
+:host.llm-node-readonly,
+:host.llm-node-readonly * {
+  cursor: default !important;
+}
+
 :host.selected .llm-node {
   border-color: #2563eb;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.24), 0 12px 28px rgba(15, 23, 42, 0.16);
@@ -178,6 +183,18 @@
   visibility: hidden;
   transform: translateY(-2px);
   transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease;
+}
+
+.llm-node-id {
+  margin-top: 2px;
+  font-size: 9px;
+  line-height: 1.1;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  color: rgba(255, 255, 255, 0.78);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .llm-warning-alert-wrap:hover .llm-warning-list-tooltip {

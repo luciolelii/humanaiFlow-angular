@@ -28,6 +28,7 @@ export class TitleToolbar {
   private blocksService = inject(BlocksService);
   private taskExecutionsService = inject(TaskExecutionsService);
   flow = computed(() => this.editorState.currentFlow());
+  readOnly = this.editorState.isCurrentFlowReadOnly;
   title = computed(() => {
     const flow = this.flow();
     return flow ? flow.name : 'No Flow Opened';
@@ -35,7 +36,7 @@ export class TitleToolbar {
 
   notSaved = computed(() => this.editorState.isDirty());
   blockSyncInProgress = this.blocksService.hasPendingServerSync;
-  canSave = computed(() => this.notSaved() && !this.blockSyncInProgress());
+  canSave = computed(() => !this.readOnly() && this.notSaved() && !this.blockSyncInProgress());
   canExecute = computed(() => {
     const flow = this.flow();
     return !!flow && !this.notSaved() && !this.blockSyncInProgress() && flow.status === 'EXECUTABLE';
@@ -48,7 +49,7 @@ export class TitleToolbar {
 
   startEditingTitle() {
     const flow = this.flow();
-    if (!flow) return;
+    if (!flow || this.readOnly()) return;
     this.draftTitle.set(flow.name);
     this.editingTitle.set(true);
     queueMicrotask(() => {
@@ -63,6 +64,7 @@ export class TitleToolbar {
   }
 
   changeTitle(value: string) {
+    if (this.readOnly()) return;
     const trimmed = value.trim();
     if (trimmed === this.title()) {
       this.editingTitle.set(false);

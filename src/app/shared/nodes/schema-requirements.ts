@@ -1,4 +1,4 @@
-import { resolveSchemaRef } from './node-utility';
+import { readUiConditionRule, resolveSchemaRef, type UiConditionRule } from './node-utility';
 
 export type RequiredField = {
   path: string;
@@ -9,9 +9,10 @@ export type ConditionalRequiredField = {
   path: string;
   label: string;
   retrieverBlockType: string | null;
-  retrieverKey: string;
+  retrieverKey: string | null;
   retrieverUrl: string | null;
   dependsOn: Array<{ key: string; path: string }>;
+  requiredWhen: UiConditionRule | null;
 };
 
 export type SchemaRequirements = {
@@ -40,7 +41,8 @@ function walkSchema(
   conditional: ConditionalRequiredField[],
   seenRequired: Set<string>,
   seenConditional: Set<string>,
-  requireAllDescendants = false
+  requireAllDescendants = false,
+  inheritedRequiredWhen: UiConditionRule | null = null
 ) {
   const resolved = resolveSchemaRef(node, root);
   if (!resolved || typeof resolved !== 'object') return;
@@ -58,6 +60,7 @@ function walkSchema(
     const isRequiredBySchema = requiredSet.has(key);
     const isRequiredByAncestor = requireAllDescendants && key !== 'type';
     const isRequired = isRequiredBySchema || isRequiredByAncestor;
+    const requiredWhen = readUiConditionRule(propertyResolved?.['x-ui-required-when']) ?? inheritedRequiredWhen;
 
     if (isRequired && !hasChildren && key !== 'type' && !seenRequired.has(propertyPath)) {
       seenRequired.add(propertyPath);
@@ -65,9 +68,10 @@ function walkSchema(
     }
 
     const retrieverRequiredUrl = propertyResolved?.['x-retriever-required-url'];
-    if (typeof retrieverRequiredUrl === 'string') {
+    if ((requiredWhen || typeof retrieverRequiredUrl === 'string') && key !== 'type' && !hasChildren) {
       const parsedRetriever = parseRetrieverUrl(retrieverRequiredUrl);
-      const retrieverKey = parsedRetriever?.key ?? String(propertyResolved?.['x-retriever-name'] ?? key);
+      const retrieverKey = parsedRetriever?.key
+        ?? (typeof propertyResolved?.['x-retriever-name'] === 'string' ? String(propertyResolved['x-retriever-name']) : null);
       const retrieverBlockType = parsedRetriever?.blockType ?? null;
       const rawDepends = Array.isArray(propertyResolved?.['x-retriever-required-depends-on'])
         ? (propertyResolved['x-retriever-required-depends-on'] as unknown[])
@@ -80,7 +84,7 @@ function walkSchema(
           path: pathPrefix ? `${pathPrefix}.${dep}` : dep
         }));
 
-      const signature = `${propertyPath}|${retrieverKey}|${dependsOn.map((d) => d.path).join(',')}`;
+      const signature = `${propertyPath}|${retrieverKey ?? 'local'}|${dependsOn.map((d) => d.path).join(',')}|${JSON.stringify(requiredWhen ?? null)}`;
       if (!seenConditional.has(signature)) {
         seenConditional.add(signature);
         conditional.push({
@@ -88,8 +92,9 @@ function walkSchema(
           label,
           retrieverBlockType,
           retrieverKey,
-          retrieverUrl: retrieverRequiredUrl,
-          dependsOn
+          retrieverUrl: typeof retrieverRequiredUrl === 'string' ? retrieverRequiredUrl : null,
+          dependsOn,
+          requiredWhen
         });
       }
     }
@@ -104,7 +109,8 @@ function walkSchema(
         conditional,
         seenRequired,
         seenConditional,
-        isRequired && !childHasOwnRequired
+        isRequired && !childHasOwnRequired,
+        requiredWhen
       );
     }
   }

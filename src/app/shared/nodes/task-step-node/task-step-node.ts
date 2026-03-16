@@ -79,6 +79,8 @@ export class TaskStepNodeComponent {
     return this.data.selected;
   }
 
+  @HostBinding('class.llm-node-readonly') readonlyClass = true;
+
   outputs: { key: string; socket: ClassicPreset.Socket }[] = [];
   inputs: { key: string; socket: ClassicPreset.Socket }[] = [];
   parameterFields: DisplayField[] = [];

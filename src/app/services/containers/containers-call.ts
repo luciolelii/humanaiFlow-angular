@@ -12,12 +12,17 @@ import { ContainersCallServiceBase } from "./container-call.base";
 
 export class ContainersCallService extends ContainersCallServiceBase {
   private readonly http = inject(HttpClient);
+  private containerTypesCache: BlockType[] | null = null;
 
   override retrieveAllContainerTypes(): Observable<BlockType[]> {
     return this.http
       .get<unknown[]>(`${environment.apiUrl}/containers/types`)
       .pipe(
-        map((raw) => (Array.isArray(raw) ? raw.map((value) => this.containerTypeFromApi(value)) : []))
+        map((raw) => (Array.isArray(raw) ? raw.map((value) => this.containerTypeFromApi(value)) : [])),
+        map((types) => {
+          this.containerTypesCache = types;
+          return types;
+        })
       );
   }
 
@@ -27,10 +32,39 @@ export class ContainersCallService extends ContainersCallServiceBase {
       .pipe(map((raw) => this.flowContainerFromApi(raw, containerType)));
   }
 
-  override validateContainerSubflow(subFlow: FlowData): Observable<FlowSubflowValidationResult> {
+  override createContainer(containerId: string, configuration: any): Observable<FlowContainer> {
+    const containerType = String(configuration?.typeName ?? configuration?.type ?? "GenericContainer");
+    const payload = this.buildContainerConfigurationPayload(
+      containerType,
+      this.toRecord(configuration?.specificConfiguration ?? configuration)
+    );
+
+    return this.http
+      .post<unknown>(`${environment.apiUrl}/containers`, payload)
+      .pipe(
+        map((raw) => {
+          if (!raw || typeof raw !== "object") {
+            throw new Error(`Invalid createContainer response for ${containerType}`);
+          }
+          return raw;
+        }),
+        map((raw) =>
+          this.flowContainerFromApi(
+            {
+              ...(this.toRecord(raw)),
+              id: this.toRecord(raw)["id"] ?? containerId
+            },
+            containerType
+          )
+        )
+      );
+  }
+
+  override validateContainerSubflow(subFlow: FlowData, validationUrl?: string | null): Observable<FlowSubflowValidationResult> {
+    const resolvedValidationUrl = this.toApiPath(validationUrl) ?? `${environment.apiUrl}/containers/validate-subflow`;
     return this.http
       .post<unknown>(
-        `${environment.apiUrl}/containers/types/GenericContainer/validate-subflow`,
+        resolvedValidationUrl,
         { subFlow }
       )
       .pipe(map((raw) => this.subflowValidationFromApi(raw)));
@@ -84,21 +118,47 @@ export class ContainersCallService extends ContainersCallServiceBase {
           field: this.toNullableString(item['field']) ?? undefined,
           message: String(item['message'] ?? 'Invalid subflow')
         })),
-      openInputs: this.toPorts(value['openInputs']).map((port) => ({
-        ...port,
-        targetBlockId: this.toNullableString(this.toRecord(port)['targetBlockId']) ?? undefined,
-        targetInputName: this.toNullableString(this.toRecord(port)['targetInputName']) ?? undefined,
-        blockId: this.toNullableString(this.toRecord(port)['blockId']) ?? undefined,
-        inputName: this.toNullableString(this.toRecord(port)['inputName']) ?? undefined
-      })),
-      openOutputs: this.toPorts(value['openOutputs']).map((port) => ({
-        ...port,
-        sourceBlockId: this.toNullableString(this.toRecord(port)['sourceBlockId']) ?? undefined,
-        sourceOutputName: this.toNullableString(this.toRecord(port)['sourceOutputName']) ?? undefined,
-        blockId: this.toNullableString(this.toRecord(port)['blockId']) ?? undefined,
-        outputName: this.toNullableString(this.toRecord(port)['outputName']) ?? undefined
-      }))
+      openInputs: this.toOpenInputs(value['openInputs']),
+      openOutputs: this.toOpenOutputs(value['openOutputs'])
     };
+  }
+
+  private toOpenInputs(raw: unknown) {
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .map((item) => this.toRecord(item))
+      .map((item) => {
+        const io = this.toRecord(item['io']);
+        const port = this.toPorts([Object.keys(io).length ? io : item])[0];
+        if (!port) return null;
+        return {
+          ...port,
+          targetBlockId: this.toNullableString(item['targetBlockId'] ?? item['blockId'] ?? item['nodeId']) ?? undefined,
+          targetInputName: this.toNullableString(item['targetInputName'] ?? item['inputName'] ?? io['name']) ?? undefined,
+          blockId: this.toNullableString(item['blockId'] ?? item['nodeId']) ?? undefined,
+          inputName: this.toNullableString(item['inputName'] ?? io['name']) ?? undefined
+        };
+      })
+      .filter((item): item is NonNullable<typeof item> => !!item);
+  }
+
+  private toOpenOutputs(raw: unknown) {
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .map((item) => this.toRecord(item))
+      .map((item) => {
+        const io = this.toRecord(item['io']);
+        const port = this.toPorts([Object.keys(io).length ? io : item])[0];
+        if (!port) return null;
+        return {
+          ...port,
+          sourceBlockId: this.toNullableString(item['sourceBlockId'] ?? item['blockId'] ?? item['nodeId']) ?? undefined,
+          sourceOutputName: this.toNullableString(item['sourceOutputName'] ?? item['outputName'] ?? io['name']) ?? undefined,
+          blockId: this.toNullableString(item['blockId'] ?? item['nodeId']) ?? undefined,
+          outputName: this.toNullableString(item['outputName'] ?? io['name']) ?? undefined
+        };
+      })
+      .filter((item): item is NonNullable<typeof item> => !!item);
   }
 
   private toPorts(raw: unknown) {
@@ -161,5 +221,15 @@ export class ContainersCallService extends ContainersCallServiceBase {
     if (typeof value !== "string" || value.length === 0) return null;
     if (/^https?:\/\//.test(value)) return value;
     return `${environment.apiUrl}${value.startsWith("/") ? value : `/${value}`}`;
+  }
+
+  private buildContainerConfigurationPayload(containerType: string, configuration: Record<string, unknown>) {
+    const { typeName: _ignoreTypeName, ...sanitized } = configuration;
+    return {
+      ...sanitized,
+      name: typeof sanitized["name"] === "string" && sanitized["name"].length > 0
+        ? sanitized["name"]
+        : containerType
+    };
   }
 }

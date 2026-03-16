@@ -10,26 +10,23 @@ import { HFNode, HFSchemes } from "@models/nodes";
 import {
   areFlowValueKindsCompatible,
   FlowBlock,
-  FlowContainerOpenInput,
-  FlowContainerOpenOutput,
-  FlowContainerPublicInput,
-  FlowContainerPublicOutput,
   FlowData,
   FlowNode,
   normalizeFlowPortValueKinds
 } from "@models/flow";
 import { BlocksService } from "@services/blocks/blocks";
 import { ContainersService } from "@services/containers/containers";
-import { NodeSettingsDialogService } from "@services/dialogs/node-settings-dialog";
 import { EditorStateHolder } from "@stores/flow-editor";
 import { ContainerNodeComponent } from "@shared/nodes/container-node/container-node";
 import { GenericNodeComponent } from "@shared/nodes/generic-node/generic-node";
 import { TaskStepNodeComponent } from "@shared/nodes/task-step-node/task-step-node";
 import { CustomSocket } from "@shared/custom-socket/custom-socket";
+import { firstValueFrom } from "rxjs";
 
 type AreaExtra = AngularArea2D<HFSchemes>;
 const editorSockets = new WeakMap<NodeEditor<HFSchemes>, Map<string, ClassicPreset.Socket>>();
 const editorRuntime = new WeakMap<NodeEditor<HFSchemes>, ReteRuntimeContext>();
+const areaProgrammaticTranslations = new WeakMap<AreaPlugin<HFSchemes, AreaExtra>, Set<string>>();
 
 export type ReteEditorInstance = {
   editor: NodeEditor<HFSchemes>;
@@ -40,7 +37,7 @@ type ReteRuntimeContext = {
   blocksService: BlocksService;
   containersService: ContainersService;
   flowState: EditorStateHolder;
-  settingsDialog: NodeSettingsDialogService;
+  readonly: boolean;
 };
 
 export async function createEditor(
@@ -56,11 +53,13 @@ export async function createEditor(
   const render = new AngularPlugin<HFSchemes, AreaExtra>({ injector });
   const nodeView = options?.nodeView ?? "editor";
   const readonly = options?.readonly === true;
+  const programmaticTranslations = new Set<string>();
+  areaProgrammaticTranslations.set(area, programmaticTranslations);
   const runtime: ReteRuntimeContext = {
     blocksService: injector.get(BlocksService),
     containersService: injector.get(ContainersService),
     flowState: injector.get(EditorStateHolder),
-    settingsDialog: injector.get(NodeSettingsDialogService)
+    readonly
   };
   editorRuntime.set(editor, runtime);
 
@@ -109,7 +108,10 @@ export async function createEditor(
   AreaExtensions.simpleNodesOrder(area);
 
   area.addPipe((context: any) => {
-    if (readonly && context?.type === 'nodetranslate') return;
+    if (readonly && context?.type === 'nodetranslate') {
+      const nodeId = String(context?.data?.id ?? '');
+      if (!programmaticTranslations.has(nodeId)) return;
+    }
     return context;
   });
 
@@ -191,15 +193,13 @@ export async function addBlockToEditor(
       ...cloneValue(currentNode.data.specificConfiguration ?? {})
     };
     delete (nextConfiguration as Record<string, unknown>)["subFlow"];
-    delete (nextConfiguration as Record<string, unknown>)["publicInputs"];
-    delete (nextConfiguration as Record<string, unknown>)["publicOutputs"];
     const replacement = {
       ...cloneValue(currentNode.data),
       inputs: [],
       outputs: [],
       specificConfiguration: nextConfiguration
     };
-    const replaceNode = currentNode.data['replaceWithCreatedBlock'];
+    const replaceNode = currentNode.data['replaceWithCreatedNode'];
     if (typeof replaceNode === 'function') {
       await replaceNode(replacement);
     } else {
@@ -216,6 +216,115 @@ export async function addBlockToEditor(
     }
     if (resolvedRuntime) {
       resolvedRuntime.flowState.updateData(exportGraph(editor));
+    }
+  };
+  const applyContainerSubflow = async (
+    candidateSubFlow: FlowData,
+    options?: { selectedIds?: Set<string>; validationUrl?: string | null; preValidate?: boolean; source?: 'drag' | 'import' }
+  ) => {
+    if (!resolvedRuntime) return;
+
+    const liveNode = editor.getNode(node.id) as HFNode | undefined;
+    if (!liveNode?.data) return;
+
+    liveNode.data = {
+      ...liveNode.data,
+      __containerAssigning: true,
+      __containerAssignmentError: null,
+      __containerValidationErrors: []
+    };
+    await area.update("node", node.id);
+    try {
+      const currentLiveNode = editor.getNode(node.id) as HFNode | undefined;
+      if (!currentLiveNode?.data) return;
+
+      if (options?.preValidate) {
+        const validation = await firstValueFrom(
+          resolvedRuntime.containersService.validateContainerSubflow(candidateSubFlow, options?.validationUrl)
+        );
+
+        if (!validation.valid) {
+          currentLiveNode.data = {
+            ...currentLiveNode.data,
+            __containerAssigning: false,
+            __containerAssignmentError: validation.errors[0]?.message ?? "Selected subflow is not valid",
+            __containerValidationErrors: validation.errors
+          };
+          await area.update("node", node.id);
+          return;
+        }
+      }
+
+      const nextConfiguration = {
+        ...cloneValue(currentLiveNode.data.specificConfiguration ?? {}),
+        subFlow: candidateSubFlow
+      };
+      const nextPosition = cloneValue(currentLiveNode.data['position'] ?? null);
+
+      const containerId = String(currentLiveNode.data['id'] ?? '');
+      const replacementFromServer = await firstValueFrom(
+        resolvedRuntime.containersService.createContainer(containerId, {
+          ...nextConfiguration,
+          position: nextPosition,
+          typeName: currentLiveNode.data['typeName']
+        })
+      );
+      if (options?.source === 'import') {
+        console.log('Container create response after subFlow import:', replacementFromServer);
+      }
+
+      const selectedIds = options?.selectedIds ?? new Set<string>();
+      const selectedNodeIds = editor.getNodes()
+        .filter((candidate) => selectedIds.has(String(candidate.data?.id ?? "")))
+        .map((candidate) => candidate.id)
+        .filter((candidateId) => candidateId !== node.id);
+
+      for (const selectedNodeId of selectedNodeIds) {
+        if (!editor.getNode(selectedNodeId)) continue;
+
+        const relatedConnectionIds = editor.getConnections()
+          .filter((connection) => connection.source === selectedNodeId || connection.target === selectedNodeId)
+          .map((connection) => connection.id);
+
+        for (const connectionId of relatedConnectionIds) {
+          await editor.removeConnection(connectionId);
+        }
+
+        await editor.removeNode(selectedNodeId);
+      }
+
+      const replacement = {
+        ...cloneValue(currentLiveNode.data),
+        ...cloneValue(replacementFromServer),
+        position: cloneValue(currentLiveNode.data['position'] ?? replacementFromServer.position),
+        specificConfiguration: nextConfiguration,
+        __containerAssigning: false,
+        __containerAssignmentError: null,
+        __containerValidationErrors: []
+      };
+      const replaceNode = currentLiveNode.data['replaceWithCreatedNode'];
+      if (typeof replaceNode === 'function') {
+        await replaceNode(replacement);
+      } else {
+        currentLiveNode.data = replacement;
+        await area.update("node", node.id);
+      }
+
+      resolvedRuntime.flowState.clearBlockSelection();
+      resolvedRuntime.flowState.updateData(exportGraph(editor));
+    } catch (error) {
+      const currentLiveNode = editor.getNode(node.id) as HFNode | undefined;
+      if (!currentLiveNode?.data) return;
+
+      currentLiveNode.data = {
+        ...currentLiveNode.data,
+        __containerAssigning: false,
+        __containerValidationErrors: [],
+        __containerAssignmentError: error instanceof Error
+          ? error.message
+          : "Container update failed"
+      };
+      await area.update("node", node.id);
     }
   };
   const assignSelectedBlocksToContainer = async (selectedBlockIds?: string[]) => {
@@ -255,122 +364,12 @@ export async function addBlockToEditor(
         )
       )
     };
-
-    currentNode.data = {
-      ...currentNode.data,
-      __containerAssigning: true,
-      __containerAssignmentError: null,
-      __containerValidationErrors: []
-    };
-    await area.update("node", node.id);
-
-    resolvedRuntime.containersService.validateContainerSubflow(candidateSubFlow).subscribe({
-      next: async (result) => {
-        const liveNode = editor.getNode(node.id) as HFNode | undefined;
-        if (!liveNode?.data) return;
-
-        if (!result.valid) {
-          liveNode.data = {
-            ...liveNode.data,
-            __containerAssigning: false,
-            __containerAssignmentError: null,
-            __containerValidationErrors: result.errors
-          };
-          await area.update("node", node.id);
-          return;
-        }
-
-        const publicPortMapping = await promptContainerPublicPorts(
-          resolvedRuntime.settingsDialog,
-          result.openInputs,
-          result.openOutputs
-        );
-        if (!publicPortMapping) {
-          liveNode.data = {
-            ...liveNode.data,
-            __containerAssigning: false,
-            __containerAssignmentError: null,
-            __containerValidationErrors: []
-          };
-          await area.update("node", node.id);
-          return;
-        }
-
-        const nextConfiguration = {
-          ...cloneValue(liveNode.data.specificConfiguration ?? {}),
-          subFlow: candidateSubFlow,
-          publicInputs: publicPortMapping.publicInputs,
-          publicOutputs: publicPortMapping.publicOutputs
-        };
-        const nextInputs = publicPortMapping.publicInputs.map((item, index) => ({
-          name: item.name,
-          type: result.openInputs[index]?.type ?? 'TEXT',
-          multiple: Boolean(result.openInputs[index]?.multiple ?? false),
-          valueKinds: cloneValue(result.openInputs[index]?.valueKinds ?? [])
-        }));
-        const nextOutputs = publicPortMapping.publicOutputs.map((item, index) => ({
-          name: item.name,
-          type: result.openOutputs[index]?.type ?? 'TEXT',
-          multiple: Boolean(result.openOutputs[index]?.multiple ?? false),
-          valueKinds: cloneValue(result.openOutputs[index]?.valueKinds ?? [])
-        }));
-
-        const selectedNodeIds = editor.getNodes()
-          .filter((candidate) => selectedIds.has(String(candidate.data?.id ?? "")))
-          .map((candidate) => candidate.id)
-          .filter((candidateId) => candidateId !== node.id);
-
-        for (const selectedNodeId of selectedNodeIds) {
-          if (!editor.getNode(selectedNodeId)) continue;
-
-          const relatedConnectionIds = editor.getConnections()
-            .filter((connection) => connection.source === selectedNodeId || connection.target === selectedNodeId)
-            .map((connection) => connection.id);
-
-          for (const connectionId of relatedConnectionIds) {
-            await editor.removeConnection(connectionId);
-          }
-
-          await editor.removeNode(selectedNodeId);
-        }
-
-        const replacement = {
-          ...cloneValue(liveNode.data),
-          inputs: nextInputs,
-          outputs: nextOutputs,
-          specificConfiguration: nextConfiguration,
-          __containerAssigning: false,
-          __containerAssignmentError: null,
-          __containerValidationErrors: []
-        };
-        const replaceNode = liveNode.data['replaceWithCreatedBlock'];
-        if (typeof replaceNode === 'function') {
-          await replaceNode(replacement);
-        } else {
-          liveNode.data = replacement;
-          await area.update("node", node.id);
-        }
-
-        resolvedRuntime.flowState.clearBlockSelection();
-        resolvedRuntime.flowState.updateData(exportGraph(editor));
-      },
-      error: async (error) => {
-        const liveNode = editor.getNode(node.id) as HFNode | undefined;
-        if (!liveNode?.data) return;
-
-        liveNode.data = {
-          ...liveNode.data,
-          __containerAssigning: false,
-          __containerValidationErrors: [],
-          __containerAssignmentError: error instanceof Error
-            ? error.message
-            : "Subflow validation failed"
-        };
-        await area.update("node", node.id);
-      }
-    });
+    await applyContainerSubflow(candidateSubFlow, { selectedIds, preValidate: true });
   };
-  const replaceWithCreatedBlock = async (createdBlock: FlowNode) => {
+  const assignImportedSubflow = async (subFlow: FlowData, validationUrl?: string | null) => {
+    await applyContainerSubflow(cloneValue(subFlow), { validationUrl, source: 'import' });
+  };
+  const replaceWithCreatedNode = async (createdBlock: FlowNode) => {
     if (!editor.getNode(node.id)) return;
     const previousConnections = editor.getConnections()
       .filter((connection) => connection.source === node.id || connection.target === node.id)
@@ -382,10 +381,6 @@ export async function addBlockToEditor(
         targetInput: connection.targetInput
       }));
     const currentPosition = (node.data?.position ?? position ?? createdBlock.position) as { x: number; y: number } | undefined;
-    for (const connection of previousConnections) {
-      await editor.removeConnection(connection.id);
-    }
-    await editor.removeNode(node.id);
     const replacementNode = await addBlockToEditor(
       editor,
       area,
@@ -395,6 +390,11 @@ export async function addBlockToEditor(
     );
 
     if (!replacementNode) return;
+
+    for (const connection of previousConnections) {
+      await editor.removeConnection(connection.id);
+    }
+    await editor.removeNode(node.id);
 
     const replacementOutputNames = new Set(Object.keys(replacementNode.outputs));
     const replacementInputNames = new Set(Object.keys(replacementNode.inputs));
@@ -419,17 +419,26 @@ export async function addBlockToEditor(
       if (connection.source === node.id && !replacementOutputNames.has(sourceOutput)) continue;
       if (connection.target === node.id && !replacementInputNames.has(targetInput)) continue;
 
-      await editor.addConnection(
-        new ClassicPreset.Connection(sourceNode as HFNode, sourceOutput, targetNode as HFNode, targetInput)
-      );
+      try {
+        await editor.addConnection(
+          new ClassicPreset.Connection(sourceNode as HFNode, sourceOutput, targetNode as HFNode, targetInput)
+        );
+      } catch (error) {
+        console.warn('Failed to restore connection after node replacement', {
+          connection,
+          error
+        });
+      }
     }
   };
   node.data = {
     ...cloneValue(block),
     position: position ?? block.position,
+    __readonly: resolvedRuntime?.readonly === true,
     deleteNode: removeNode,
-    replaceWithCreatedBlock,
+    replaceWithCreatedNode,
     assignSelectedBlocksToContainer,
+    assignImportedSubflow,
     clearContainerSubflow,
     __containerValidationErrors: [],
     __containerAssignmentError: null,
@@ -448,7 +457,11 @@ export async function addBlockToEditor(
 
   const targetPosition = position ?? block.position;
   if (targetPosition) {
-    await area.translate(node.id, targetPosition);
+    node.data = {
+      ...node.data,
+      position: { x: targetPosition.x, y: targetPosition.y }
+    };
+    await applyNodePosition(area, node.id, targetPosition);
   }
 
   return node;
@@ -465,8 +478,12 @@ async function loadFlowData(
 
   const nodeMapping = new Map<string, any>();
 
-  for (const block of topLevelNodes) {
-    const node = await addBlockToEditor(editor, area, block, block.position, runtime);
+  for (const [index, block] of topLevelNodes.entries()) {
+    const fallbackPosition = block.position ?? {
+      x: 120 + (index % 3) * 340,
+      y: 100 + Math.floor(index / 3) * 220
+    };
+    const node = await addBlockToEditor(editor, area, block, fallbackPosition, runtime);
     nodeMapping.set(block.id, node.id);
   }
 
@@ -505,76 +522,27 @@ function toNodeLabel(typeName: string) {
   return typeName;
 }
 
-async function promptContainerPublicPorts(
-  settingsDialog: NodeSettingsDialogService,
-  openInputs: FlowContainerOpenInput[],
-  openOutputs: FlowContainerOpenOutput[]
+async function applyNodePosition(
+  area: AreaPlugin<HFSchemes, AreaExtra>,
+  nodeId: string,
+  position: { x: number; y: number }
 ) {
-  const fields = [
-    ...openInputs.map((input, index) => ({
-      key: `input:${index}`,
-      label: `Public input for ${input.name}`,
-      type: "text" as const,
-      required: true
-    })),
-    ...openOutputs.map((output, index) => ({
-      key: `output:${index}`,
-      label: `Public output for ${output.name}`,
-      type: "text" as const,
-      required: true
-    }))
-  ];
-
-  if (!fields.length) {
-    return { publicInputs: [] as FlowContainerPublicInput[], publicOutputs: [] as FlowContainerPublicOutput[] };
+  const programmaticTranslations = areaProgrammaticTranslations.get(area);
+  if (programmaticTranslations) programmaticTranslations.add(nodeId);
+  try {
+    await area.translate(nodeId, position);
+  } finally {
+    programmaticTranslations?.delete(nodeId);
   }
-
-  const initial = Object.fromEntries([
-    ...openInputs.map((input, index) => [`input:${index}`, input.name]),
-    ...openOutputs.map((output, index) => [`output:${index}`, output.name])
-  ]);
-
-  const result = await settingsDialog.open({
-    title: 'Expose container public ports',
-    fields,
-    initial
-  });
-  if (!result) return null;
-
-  const publicInputs = openInputs.map((input, index) => ({
-    name: String(result[`input:${index}`] ?? input.name).trim(),
-    targetBlockId: resolveContainerInputBlockId(input),
-    targetInputName: resolveContainerInputName(input)
-  })).filter((input) => input.name.length > 0 && input.targetBlockId.length > 0 && input.targetInputName.length > 0);
-
-  const publicOutputs = openOutputs.map((output, index) => ({
-    name: String(result[`output:${index}`] ?? output.name).trim(),
-    sourceBlockId: resolveContainerOutputBlockId(output),
-    sourceOutputName: resolveContainerOutputName(output)
-  })).filter((output) => output.name.length > 0 && output.sourceBlockId.length > 0 && output.sourceOutputName.length > 0);
-
-  return { publicInputs, publicOutputs };
-}
-
-function resolveContainerInputBlockId(input: FlowContainerOpenInput) {
-  return String(input.targetBlockId ?? input.blockId ?? '');
-}
-
-function resolveContainerInputName(input: FlowContainerOpenInput) {
-  return String(input.targetInputName ?? input.inputName ?? input.name ?? '');
-}
-
-function resolveContainerOutputBlockId(output: FlowContainerOpenOutput) {
-  return String(output.sourceBlockId ?? output.blockId ?? '');
-}
-
-function resolveContainerOutputName(output: FlowContainerOpenOutput) {
-  return String(output.sourceOutputName ?? output.outputName ?? output.name ?? '');
 }
 
 function cloneValue<T>(value: T): T {
   if (typeof globalThis.structuredClone === "function") {
-    return globalThis.structuredClone(value);
+    try {
+      return globalThis.structuredClone(value);
+    } catch {
+      // Functions and runtime socket objects are not cloneable; fall back to JSON-safe clone.
+    }
   }
   return JSON.parse(JSON.stringify(value)) as T;
 }
