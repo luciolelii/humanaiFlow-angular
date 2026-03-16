@@ -100,7 +100,10 @@
         }
         <span class="llm-pill llm-pill-input">
           <span class="llm-pill-meta">
-            <span class="llm-pill-name">{{ inputDisplayLabel(input.key) }}</span>
+            @if (inputDisplayLabelParts(input.key).context; as context) {
+            <span class="llm-pill-context">{{ context }}</span>
+            }
+            <span class="llm-pill-name">{{ inputDisplayLabelParts(input.key).name }}</span>
             <span class="llm-pill-kind">{{ inputKindLabel(input.key) }}</span>
           </span>
         </span>
@@ -114,7 +117,10 @@
       <div class="llm-row llm-row-output">
         <span class="llm-pill llm-pill-output" [ngClass]="outputPillClass(output.key)">
           <span class="llm-pill-meta llm-pill-meta-output">
-            <span class="llm-pill-name">{{ outputDisplayLabel(output.key) }}</span>
+            @if (outputDisplayLabelParts(output.key).context; as context) {
+            <span class="llm-pill-context">{{ context }}</span>
+            }
+            <span class="llm-pill-name">{{ outputDisplayLabelParts(output.key).name }}</span>
             <span class="llm-pill-kind">{{ outputKindLabel(output.key) }}</span>
           </span>
         </span>
@@ -226,6 +232,17 @@
         }
       </div>
       }
+    </div>
+    }
+
+    @if (hasViewableSubflow()) {
+    <div class="llm-subflow-section">
+      <div class="llm-param-row-head">
+        <div class="llm-param-key">Subflow</div>
+      </div>
+      <button type="button" class="llm-subflow-view" (pointerdown)="$event.stopPropagation()" (click)="openSubflowPreview($event)">
+        View Flow
+      </button>
     </div>
     }
   </div>

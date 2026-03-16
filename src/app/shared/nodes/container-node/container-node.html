@@ -57,7 +57,7 @@
           }"
           [emit]="emit">
         </div>
-        <span class="container-node__port-label">
+        <span class="container-node__port-label container-node__port-label--input">
           @if (inputDisplayLabelParts(input.key).context; as context) {
           <span class="container-node__port-context">{{ context }}</span>
           }
@@ -72,7 +72,7 @@
       <div class="container-node__port-title">Outputs</div>
       @for (output of outputs; track output.key) {
       <div class="container-node__port-row container-node__port-row--right">
-        <span class="container-node__port-label">
+        <span class="container-node__port-label container-node__port-label--output">
           @if (outputDisplayLabelParts(output.key).context; as context) {
           <span class="container-node__port-context">{{ context }}</span>
           }
@@ -118,32 +118,19 @@
       <span class="container-node__spinner" aria-hidden="true"></span>
       <span>Updating container...</span>
     </div>
-    } @else if (subFlowBlockCount > 0) {
-    <div class="container-node__snapshot" aria-hidden="true">
-      @for (node of subFlowSnapshotNodes; track node.id) {
-      <span
-        class="container-node__snapshot-node"
-        [class.container-node__snapshot-node--container]="node.family === 'container'"
-        [style.left.%]="node.left"
-        [style.top.%]="node.top"
-        [style.width.px]="node.width"
-        [style.height.px]="node.height">
-      </span>
-      }
-    </div>
-    <div class="container-node__dropzone-main">
-      <span>{{ subFlowBlockCount }} nodes</span>
-      <span>{{ subFlowConnectionCount }} connections</span>
-    </div>
-    <div class="container-node__dropzone-note">
-      Drop a new selection here to replace the embedded subflow.
-    </div>
     } @else {
     <div class="container-node__dropzone-main">
-      <span class="container-node__dropzone-empty">Drop selected nodes here</span>
+      <span class="container-node__dropzone-empty">Drag a flow here or import from flow</span>
     </div>
     <div class="container-node__dropzone-note">
       Use the selection box in the editor, then drag the floating selection badge into this area.
+    </div>
+    }
+    @if (subFlowBlockCount > 0 && !replaceConfirmOpen && !isAssigning) {
+    <div class="container-node__dropzone-actions">
+      <button type="button" class="container-node__subflow-view" (pointerdown)="$event.stopPropagation()" (click)="openSubflowPreview($event)">
+        View Flow
+      </button>
     </div>
     }
     @if (!isReadonly && !replaceConfirmOpen && !isAssigning) {
@@ -159,30 +146,6 @@
     </div>
     }
   </div>
-
-  @if (subFlowBlockCount > 0) {
-  <div class="container-node__subflow-section">
-    <div class="container-node__subflow-head">
-      <div class="container-node__subflow-title">Subflow Content</div>
-      <button type="button" class="container-node__subflow-view" (pointerdown)="$event.stopPropagation()" (click)="openSubflowPreview($event)">
-        View Flow
-      </button>
-    </div>
-    <div class="container-node__subflow-preview">
-      @for (node of subFlowPreviewNodes; track node.id) {
-      <div class="container-node__subflow-chip" [class.container-node__subflow-chip--container]="node.family === 'container'">
-        <span class="container-node__subflow-chip-name">{{ node.name }}</span>
-        <span class="container-node__subflow-chip-type">{{ node.type }}</span>
-      </div>
-      }
-      @if (hasMoreSubFlowNodes) {
-      <div class="container-node__subflow-more">
-        +{{ subFlowBlockCount - subFlowPreviewNodes.length }} more
-      </div>
-      }
-    </div>
-  </div>
-  }
 
   @if (assignmentErrorMessage) {
   <div class="container-node__message container-node__message--error">

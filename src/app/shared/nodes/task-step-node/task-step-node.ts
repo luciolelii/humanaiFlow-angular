@@ -2,8 +2,10 @@ import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, HostBinding, Input, inject } from '@angular/core';
 import { ClassicPreset } from 'rete';
 import { ReteModule } from 'rete-angular-plugin/21';
-import { FlowPort } from '@models/flow';
+import { FlowBlock, FlowContainer, FlowData, FlowPort } from '@models/flow';
 import { BlocksService } from '@services/blocks/blocks';
+import { ContainersService } from '@services/containers/containers';
+import { SubflowPreviewDialogService } from '@services/dialogs/subflow-preview-dialog';
 import { HumanInteractionDialogService } from '@services/dialogs/human-interaction-dialog';
 import { TaskExecutionsService } from '@services/task-executions/task-executions';
 import {
@@ -56,6 +58,11 @@ type MainContentView = {
   parts: { text: string; isDynamicInput: boolean }[];
 };
 
+type PortLabelParts = {
+  context: string | null;
+  name: string;
+};
+
 @Component({
   selector: 'app-task-step-node',
   imports: [CommonModule, ReteModule],
@@ -67,6 +74,8 @@ type MainContentView = {
 })
 export class TaskStepNodeComponent {
   private blocksService = inject(BlocksService);
+  private containersService = inject(ContainersService);
+  private subflowPreview = inject(SubflowPreviewDialogService);
   private cdr = inject(ChangeDetectorRef);
   private humanInteractionDialog = inject(HumanInteractionDialogService);
   private taskExecutionsService = inject(TaskExecutionsService);
@@ -120,6 +129,7 @@ export class TaskStepNodeComponent {
     this.name = toStringOrNull(config['name']) ?? this.name;
     const arrayFieldPaths = new Set(this.arrayFieldDefinitions.map((definition) => definition.path));
     const primitiveEntries = flattenPrimitiveValues(config)
+      .filter((entry) => !this.shouldHideConfigPath(entry.path))
       .filter((entry) => !arrayFieldPaths.has(entry.path));
     const visibleEntries = primitiveEntries.filter((entry) => this.isPathVisible(entry.path));
     const mainContentEntries = visibleEntries
@@ -225,8 +235,25 @@ export class TaskStepNodeComponent {
     return this.portKindLabel('output', outputKey);
   }
 
+  inputDisplayLabelParts(inputKey: string): PortLabelParts {
+    return this.toPortLabelParts(this.inputDisplayLabel(inputKey));
+  }
+
+  outputDisplayLabelParts(outputKey: string): PortLabelParts {
+    return this.toPortLabelParts(this.outputDisplayLabel(outputKey));
+  }
+
   hasMainContent(): boolean {
     return this.mainContentFields.length > 0;
+  }
+
+  isContainerNode(): boolean {
+    return this.data?.data?.nodeFamily === 'container' || this.blockType === 'GenericContainer';
+  }
+
+  hasViewableSubflow(): boolean {
+    const subFlow = this.subFlow();
+    return !!subFlow && ((subFlow.blocks?.length ?? 0) > 0 || (subFlow.containers?.length ?? 0) > 0 || (subFlow.connections?.length ?? 0) > 0);
   }
 
   formatDynamicInputToken(token: string): string {
@@ -367,6 +394,14 @@ export class TaskStepNodeComponent {
     });
   }
 
+  openSubflowPreview(event?: Event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+    const subFlow = this.subFlow();
+    if (!subFlow) return;
+    this.subflowPreview.open(subFlow, `${this.name || this.nodeTitle()} subflow`);
+  }
+
   private get blockConfiguration(): Record<string, any> | null {
     return this.data?.data?.specificConfiguration ?? null;
   }
@@ -414,6 +449,29 @@ export class TaskStepNodeComponent {
     return port?.name ?? key;
   }
 
+  private toPortLabelParts(label: string): PortLabelParts {
+    if (!this.isContainerNode()) {
+      return {
+        context: null,
+        name: label
+      };
+    }
+
+    const trimmed = String(label ?? '').trim();
+    const separatorIndex = trimmed.lastIndexOf('.');
+    if (separatorIndex <= 0 || separatorIndex >= trimmed.length - 1) {
+      return {
+        context: null,
+        name: trimmed
+      };
+    }
+
+    return {
+      context: trimmed.slice(0, separatorIndex),
+      name: trimmed.slice(separatorIndex + 1)
+    };
+  }
+
   private portTypeLabel(port: FlowPort): string {
     const type = String(port.type ?? 'TEXT').toUpperCase();
     return port.multiple ? `${type}[]` : type;
@@ -441,8 +499,13 @@ export class TaskStepNodeComponent {
     const type = this.blockType;
     if (!type) return;
 
-    const blockType = await this.blocksService.getBlockType(type);
-    this.blockSchema = (blockType?.schema ?? null) as Record<string, any> | null;
+    const nodeFamily = this.data?.data?.nodeFamily === 'container' || type === 'GenericContainer'
+      ? 'container'
+      : 'block';
+    const typeDescriptor = nodeFamily === 'container'
+      ? await this.containersService.getContainerType(type)
+      : await this.blocksService.getBlockType(type);
+    this.blockSchema = (typeDescriptor?.schema ?? null) as Record<string, any> | null;
     this.variablePlaceholderPaths = this.extractVariablePlaceholderPaths(this.blockSchema);
     this.arrayFieldDefinitions = this.extractArrayFieldDefinitions(this.blockSchema);
     this.mainContentPaths = this.extractMainContentPaths(this.blockSchema);
@@ -522,7 +585,63 @@ export class TaskStepNodeComponent {
     };
 
     walk(schema, '');
-    return definitions;
+    return this.isContainerNode()
+      ? definitions.filter((definition) => !definition.path.startsWith('subFlow.'))
+      : definitions;
+  }
+
+  private subFlow(): FlowData | null {
+    if (!this.isContainerNode()) return null;
+
+    const raw = this.blockConfiguration?.['subFlow'];
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+
+    const candidate = raw as Record<string, unknown>;
+    const blocks = this.normalizeSubFlowBlocks(candidate['blocks']);
+    const containers = this.normalizeSubFlowContainers(candidate['containers']);
+    const connections = Array.isArray(candidate['connections'])
+      ? candidate['connections'].filter((item): item is FlowData['connections'][number] => !!item && typeof item === 'object')
+      : [];
+
+    if (!blocks.length && !containers.length && !connections.length) return null;
+    return { blocks, containers, connections };
+  }
+
+  private normalizeSubFlowBlocks(raw: unknown): FlowBlock[] {
+    if (!Array.isArray(raw)) return [];
+
+    return raw
+      .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object' && !Array.isArray(item))
+      .map((item) => ({
+        ...item,
+        nodeFamily: 'block',
+        position: this.normalizePosition(item['position'])
+      })) as FlowBlock[];
+  }
+
+  private normalizeSubFlowContainers(raw: unknown): FlowContainer[] {
+    if (!Array.isArray(raw)) return [];
+
+    return raw
+      .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object' && !Array.isArray(item))
+      .map((item) => ({
+        ...item,
+        nodeFamily: 'container',
+        position: this.normalizePosition(item['position'])
+      })) as FlowContainer[];
+  }
+
+  private normalizePosition(raw: unknown): { x: number; y: number } | undefined {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+    const value = raw as Record<string, unknown>;
+    const x = typeof value['x'] === 'number' ? value['x'] : Number(value['x']);
+    const y = typeof value['y'] === 'number' ? value['y'] : Number(value['y']);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return undefined;
+    return { x, y };
+  }
+
+  private shouldHideConfigPath(path: string): boolean {
+    return this.isContainerNode() && (path === 'subFlow' || path.startsWith('subFlow.'));
   }
 
   private extractMainContentPaths(schema: Record<string, any> | null): Set<string> {

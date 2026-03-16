@@ -213,13 +213,29 @@
   display: inline-flex;
   flex-direction: column;
   align-items: flex-start;
+  flex: 1 1 0;
+  min-width: 0;
   min-height: 36px;
   padding: 4px 10px;
   border-radius: 14px;
-  background: #e2e8f0;
-  color: #0f172a;
+  border: 1px solid transparent;
   font-size: 12px;
   font-weight: 600;
+  box-sizing: border-box;
+}
+
+.container-node__port-label--input {
+  background: #ecfdf3;
+  color: #166534;
+  border-color: #bbf7d0;
+}
+
+.container-node__port-label--output {
+  background: #fff1f2;
+  color: #9f1239;
+  border-color: #fecdd3;
+  align-items: flex-end;
+  text-align: right;
 }
 
 .container-node__port-context {
@@ -243,7 +259,7 @@
 
 .container-node__dropzone {
   margin: 0 14px 14px;
-  min-height: 152px;
+  min-height: 128px;
   border: 2px dashed #94a3b8;
   border-radius: 18px;
   padding: 18px 14px;
@@ -254,41 +270,6 @@
   background:
     linear-gradient(135deg, rgba(240, 253, 250, 0.9) 0%, rgba(239, 246, 255, 0.95) 100%);
   text-align: center;
-}
-
-.container-node__snapshot {
-  position: relative;
-  width: 100%;
-  height: 74px;
-  border-radius: 14px;
-  border: 1px solid rgba(148, 163, 184, 0.3);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.88) 0%, rgba(226, 232, 240, 0.56) 100%);
-  overflow: hidden;
-}
-
-.container-node__snapshot::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(148, 163, 184, 0.12) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(148, 163, 184, 0.12) 1px, transparent 1px);
-  background-size: 18px 18px;
-}
-
-.container-node__snapshot-node {
-  position: absolute;
-  z-index: 1;
-  display: block;
-  border-radius: 5px;
-  background: linear-gradient(135deg, #0f766e 0%, #14b8a6 100%);
-  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.16);
-}
-
-.container-node__snapshot-node--container {
-  background: linear-gradient(135deg, #0284c7 0%, #38bdf8 100%);
-  border-radius: 6px;
 }
 
 .container-node__dropzone--active {
@@ -308,6 +289,7 @@
   font-size: 14px;
   font-weight: 700;
   color: #0f172a;
+  flex-wrap: wrap;
 }
 
 .container-node__replace-confirm {
@@ -372,9 +354,12 @@
   display: flex;
   justify-content: center;
   margin-top: 2px;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
-.container-node__import {
+.container-node__import,
+.container-node__subflow-view {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -387,83 +372,14 @@
   color: #f8fafc;
   font-size: 11px;
   font-weight: 700;
+}
+
+.container-node__import {
   box-shadow: 0 10px 18px rgba(15, 118, 110, 0.18);
-}
-
-.container-node__subflow-preview {
-  display: grid;
-  gap: 8px;
-  margin-top: 4px;
-  text-align: left;
-}
-
-.container-node__subflow-chip {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 8px 10px;
-  border: 1px solid rgba(148, 163, 184, 0.38);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.86);
-}
-
-.container-node__subflow-chip--container {
-  border-color: rgba(14, 165, 233, 0.34);
-  background: rgba(224, 242, 254, 0.72);
-}
-
-.container-node__subflow-chip-name {
-  min-width: 0;
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 12px;
-  font-weight: 700;
-  color: #0f172a;
-}
-
-.container-node__subflow-chip-type {
-  font-size: 11px;
-  font-weight: 600;
-  color: #475569;
-  white-space: nowrap;
-}
-
-.container-node__subflow-more {
-  font-size: 11px;
-  font-weight: 700;
-  color: #0f766e;
-  text-align: center;
 }
 
 .container-node__dropzone-empty {
   font-size: 16px;
-}
-
-.container-node__subflow-section {
-  margin: 0 14px 14px;
-  border: 1px solid #dbe2ea;
-  border-radius: 16px;
-  padding: 12px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.96));
-}
-
-.container-node__subflow-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-
-.container-node__subflow-title {
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #475569;
 }
 
 .container-node__subflow-view {

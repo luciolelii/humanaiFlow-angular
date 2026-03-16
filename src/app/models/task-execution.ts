@@ -1,4 +1,4 @@
-import { FlowBlock, FlowBlockConnection, FlowPort } from './flow';
+import { FlowBlock, FlowBlockConnection, FlowContainer, FlowNode, FlowPort } from './flow';
 
 export type TaskExecutionStatus = 'CREATED' | 'READY' | 'RUNNING' | 'WAITING' | 'SUCCESS' | 'ERROR';
 export type TaskExecutionStatusGroup = 'INIT' | 'RUNNING' | 'FINAL';
@@ -38,7 +38,9 @@ export type TaskExecutionContext = {
 };
 
 export type TaskExecutionStep = {
-  block: FlowBlock;
+  node?: FlowNode;
+  block?: FlowBlock;
+  container?: FlowContainer;
   id: string;
   inputs: TaskExecutionStepInput[];
   outputs: TaskExecutionStepOutput[];
@@ -88,4 +90,20 @@ export function normalizeExecutionStatus(status: string | null | undefined): Tas
   if (normalized === 'SUCCESS' || normalized === 'COMPLETED') return 'SUCCESS';
   if (normalized === 'ERROR' || normalized === 'FAILED') return 'ERROR';
   return 'CREATED';
+}
+
+export function getTaskExecutionStepNode(step: TaskExecutionStep | null | undefined): FlowNode | null {
+  if (!step) return null;
+  if (step.node) {
+    return step.node.nodeFamily === 'container'
+      ? { ...step.node, nodeFamily: 'container' }
+      : { ...step.node, nodeFamily: 'block' };
+  }
+  if (step.container) {
+    return { ...step.container, nodeFamily: 'container' };
+  }
+  if (step.block) {
+    return { ...step.block, nodeFamily: 'block' };
+  }
+  return null;
 }

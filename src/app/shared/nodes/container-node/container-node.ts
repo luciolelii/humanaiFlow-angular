@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, HostBinding, Input, inject } from '@angular/core';
-import { currentFlowPortValueKind, flowValueKindLabel, FlowBlock, FlowContainer, FlowData, FlowNode } from '@models/flow';
+import { currentFlowPortValueKind, flowValueKindLabel, FlowBlock, FlowContainer, FlowData } from '@models/flow';
 import { NodeSettingsDialogService } from '@services/dialogs/node-settings-dialog';
 import { ContainersService } from '@services/containers/containers';
 import { FieldRetriever } from '@services/retriever/field-retriever';
@@ -8,7 +8,6 @@ import { ClassicPreset } from 'rete';
 import { ReteModule } from 'rete-angular-plugin/21';
 import { SubflowPreviewDialogService } from '@services/dialogs/subflow-preview-dialog';
 import { EditorStateHolder } from '@stores/flow-editor';
-import { pathToLabel } from '../node-utility';
 import { CONTAINER_SUBFLOW_DRAG_MIME } from './container-node-drag';
 import { firstValueFrom } from 'rxjs';
 
@@ -109,55 +108,6 @@ export class ContainerNodeComponent {
 
   get subFlowBlockCount() {
     return (this.subFlow?.blocks?.length ?? 0) + (this.subFlow?.containers?.length ?? 0);
-  }
-
-  get subFlowConnectionCount() {
-    return this.subFlow?.connections?.length ?? 0;
-  }
-
-  get subFlowPreviewNodes() {
-    const subFlow = this.subFlow;
-    if (!subFlow) return [];
-    return [...(subFlow.blocks ?? []), ...(subFlow.containers ?? [])]
-      .slice(0, 6)
-      .map((node) => this.toPreviewNode(node));
-  }
-
-  get hasMoreSubFlowNodes() {
-    return this.subFlowBlockCount > this.subFlowPreviewNodes.length;
-  }
-
-  get subFlowSnapshotNodes() {
-    const subFlow = this.subFlow;
-    if (!subFlow) return [];
-
-    const allNodes = [...(subFlow.blocks ?? []), ...(subFlow.containers ?? [])];
-    if (!allNodes.length) return [];
-
-    const positioned = allNodes.map((node) => ({
-      id: node.id,
-      family: node.nodeFamily === 'container' ? 'container' : 'block',
-      x: typeof node.position?.x === 'number' ? node.position.x : 0,
-      y: typeof node.position?.y === 'number' ? node.position.y : 0,
-      width: node.nodeFamily === 'container' ? 24 : 18,
-      height: node.nodeFamily === 'container' ? 14 : 12
-    }));
-
-    const minX = Math.min(...positioned.map((node) => node.x));
-    const minY = Math.min(...positioned.map((node) => node.y));
-    const maxX = Math.max(...positioned.map((node) => node.x + node.width));
-    const maxY = Math.max(...positioned.map((node) => node.y + node.height));
-    const spanX = Math.max(1, maxX - minX);
-    const spanY = Math.max(1, maxY - minY);
-
-    return positioned.map((node) => ({
-      id: node.id,
-      family: node.family,
-      left: 6 + ((node.x - minX) / spanX) * 100,
-      top: 6 + ((node.y - minY) / spanY) * 52,
-      width: node.width,
-      height: node.height
-    }));
   }
 
   get replaceConfirmOpen() {
@@ -432,15 +382,6 @@ export class ContainerNodeComponent {
     return ports.find((item: any) => item?.name === key) ?? null;
   }
 
-  private toPreviewNode(node: FlowNode) {
-    return {
-      id: node.id,
-      name: String(node.name ?? node.typeName ?? 'Node'),
-      type: this.nodeTypeLabel(String(node.typeName ?? 'Node')),
-      family: node.nodeFamily === 'container' ? 'container' : 'block'
-    };
-  }
-
   private normalizeSubFlowBlocks(raw: unknown): FlowBlock[] {
     if (!Array.isArray(raw)) return [];
 
@@ -502,8 +443,4 @@ export class ContainerNodeComponent {
     };
   }
 
-  private nodeTypeLabel(typeName: string) {
-    if (typeName === 'HumanInteractionBlock') return 'Human Task';
-    return pathToLabel(typeName.replace(/Block$/, ''));
-  }
 }

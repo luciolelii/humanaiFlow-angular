@@ -3,8 +3,17 @@ import { Component, computed, effect, inject, input, OnDestroy, signal } from '@
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { areFlowValueKindsCompatible, FlowBlockConnection, FlowData, normalizeFlowPortValueKinds } from '@models/flow';
 import {
+  areFlowValueKindsCompatible,
+  FlowBlock,
+  FlowBlockConnection,
+  FlowContainer,
+  FlowData,
+  FlowNode,
+  normalizeFlowPortValueKinds
+} from '@models/flow';
+import {
+  getTaskExecutionStepNode,
   getExecutionStatusGroup,
   TaskExecution,
   TaskExecutionAuthorizationRequirement,
@@ -118,31 +127,45 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     const contextWarnings = this.execution()?.context.warnings ?? {};
     const waitingSteps = this.execution()?.context.waitingSteps ?? [];
     const steps = this.stepsArray();
-    const blocks = steps.map((step, index) => ({
-      ...step.block,
-      nodeFamily: 'block' as const,
-      specificConfiguration: {
-        ...(step.block.specificConfiguration ?? {}),
-        __executionId: this.execution()?.id ?? null,
-        __executionNodeId: step.id,
-        __stepStatus: step.status,
-        __executionStatusGroup: executionStatusGroup,
-        __isWaitingStep: waitingSteps.includes(step.id),
-        __executionInputs: this.getExecutionInputValues(step, contextInputs),
-        __connectedInputs: this.getConnectedInputs(step),
-        __executionOutputs: this.getExecutionOutputValues(step, contextResults),
-        __connectedOutputs: this.getConnectedOutputs(step),
-        __executionErrors: this.getExecutionErrors(step.id, contextErrors),
-        __executionWarnings: this.getExecutionWarnings(step.id, contextWarnings)
-      },
-      position: step.block.position ?? {
-        x: 120 + (index % 3) * 340,
-        y: 100 + Math.floor(index / 3) * 220
+    const blocks: FlowBlock[] = [];
+    const containers: FlowContainer[] = [];
+
+    for (const [index, step] of steps.entries()) {
+      const stepNode = getTaskExecutionStepNode(step);
+      if (!stepNode) continue;
+
+      const executionNode: FlowNode = {
+        ...stepNode,
+        nodeFamily: stepNode.nodeFamily === 'container' ? 'container' : 'block',
+        specificConfiguration: {
+          ...(stepNode.specificConfiguration ?? {}),
+          __executionId: this.execution()?.id ?? null,
+          __executionNodeId: step.id,
+          __stepStatus: step.status,
+          __executionStatusGroup: executionStatusGroup,
+          __isWaitingStep: waitingSteps.includes(step.id),
+          __executionInputs: this.getExecutionInputValues(step, contextInputs),
+          __connectedInputs: this.getConnectedInputs(step),
+          __executionOutputs: this.getExecutionOutputValues(step, contextResults),
+          __connectedOutputs: this.getConnectedOutputs(step),
+          __executionErrors: this.getExecutionErrors(step.id, contextErrors),
+          __executionWarnings: this.getExecutionWarnings(step.id, contextWarnings)
+        },
+        position: stepNode.position ?? {
+          x: 120 + (index % 3) * 340,
+          y: 100 + Math.floor(index / 3) * 220
+        }
+      };
+
+      if (executionNode.nodeFamily === 'container') {
+        containers.push(executionNode);
+      } else {
+        blocks.push(executionNode);
       }
-    }));
+    }
 
     const connections = this.getExecutionConnections(steps);
-    return { blocks, containers: [], connections };
+    return { blocks, containers, connections };
   });
 
   readonly formattedDuration = computed(() => {
@@ -239,7 +262,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
           key,
           nodeId: step.id,
           inputName,
-          title: step.block.name,
+          title: this.stepTitle(step),
           subtitle: inputName,
           type: String(input.descriptor?.type ?? 'TEXT').toUpperCase(),
           multiple: Boolean(input.descriptor?.multiple),
@@ -460,10 +483,10 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     const nodeId = key.slice(0, separatorIndex);
     const outputName = key.slice(separatorIndex + 1);
     const step = steps[nodeId];
-    const blockName = step?.block?.name?.trim();
+    const nodeName = this.stepTitle(step).trim();
 
     return {
-      title: blockName || key,
+      title: nodeName || key,
       subtitle: outputName || 'Execution output'
     };
   }
@@ -535,9 +558,9 @@ export class TaskExecutionViewerComponent implements OnDestroy {
 
         connections.push({
           id,
-          sourceId: source.sourceStep.block.id,
+          sourceId: this.stepNodeId(source.sourceStep),
           sourceName: source.sourceOutputName,
-          targetId: targetStep.block.id,
+          targetId: this.stepNodeId(targetStep),
           targetName: input.descriptor.name
         });
       }
@@ -686,5 +709,13 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     } catch {
       return String(value);
     }
+  }
+
+  private stepTitle(step: TaskExecutionStep | null | undefined): string {
+    return getTaskExecutionStepNode(step)?.name?.trim() || step?.id || 'Step';
+  }
+
+  private stepNodeId(step: TaskExecutionStep | null | undefined): string {
+    return getTaskExecutionStepNode(step)?.id || step?.id || '';
   }
 }
