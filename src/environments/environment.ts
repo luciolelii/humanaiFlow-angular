@@ -10,6 +10,7 @@ export const environment = {
         apiUrl: '/api',
         production: true,
         assistantEnabled: false,
+        tourModeAlwaysOn: false,
         authorizationCallService: AuthorizationCallService,
         assistantCallService: AssistantCallService,
         flowsCallService: FlowsCallService,

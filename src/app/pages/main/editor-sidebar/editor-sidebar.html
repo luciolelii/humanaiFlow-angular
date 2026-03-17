@@ -1,5 +1,6 @@
 <div
     class="editor-sidebar-shell transition-all duration-300 ease-in-out overflow-hidden"
+    data-tour="editor-sidebar-shell"
     [class.w-14]="collapsed()"
     [class.w-80]="!collapsed()"
   >
@@ -47,6 +48,7 @@
     <div class="editor-sidebar-content h-full min-h-0 min-w-0 overflow-hidden">
       @switch (open) {
       @case ('flows') {
+      <div data-tour="editor-sidebar-flows">
       <app-group-holder title="Flows" icon="bi-lightning-charge-fill">
         @if (!creatingFlow()) {
         <i ngProjectAs="header-button" 
@@ -59,16 +61,21 @@
         }
         <app-flows-list></app-flows-list>
       </app-group-holder>
+      </div>
       }
       @case ('blocks') {
+      <div data-tour="editor-sidebar-blocks">
       <app-group-holder title="Blocks" icon="bi-boxes">
         <app-blocks-list></app-blocks-list>
       </app-group-holder>
+      </div>
       }
       @case ('containers') {
+      <div data-tour="editor-sidebar-containers">
       <app-group-holder title="Containers" icon="bi-box-seam">
         <app-containers-list></app-containers-list>
       </app-group-holder>
+      </div>
       }
       }
     </div>

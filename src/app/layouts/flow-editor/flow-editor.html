@@ -7,15 +7,21 @@
   <div class="flex flex-row flex-1 overflow-hidden">
 
     <!-- LEFT SIDEBAR -->
-    <app-editor-sidebar></app-editor-sidebar>
+    <div data-tour="editor-sidebar">
+      <app-editor-sidebar></app-editor-sidebar>
+    </div>
 
     <!-- CENTER EDITOR -->
     <main class="flow-editor-main">
       @if (flow()) {
       <mat-card class="flow-editor-canvas-shell">
-        <app-title-toolbar></app-title-toolbar>
+        <div data-tour="editor-title-toolbar">
+          <app-title-toolbar></app-title-toolbar>
+        </div>
         <div class="flow-editor-canvas">
-          <app-rete-editor [flowId]="flow()!.id" [flowData]="flow()!.data" [readonly]="readonly()"></app-rete-editor>
+          <div data-tour="editor-canvas" class="flow-editor-tour-target">
+            <app-rete-editor [flowId]="flow()!.id" [flowData]="flow()!.data" [readonly]="readonly()"></app-rete-editor>
+          </div>
         </div>
       </mat-card>
       } @else {
@@ -27,7 +33,7 @@
     </main>
 
     @if (assistantEnabled && !readonly()) {
-    <section class="flow-editor-assistant" [class.flow-editor-assistant-collapsed]="!assistantOpen()">
+    <section class="flow-editor-assistant" data-tour="editor-assistant" [class.flow-editor-assistant-collapsed]="!assistantOpen()">
       <button
         type="button"
         class="flow-editor-assistant-toggle"
@@ -51,4 +57,23 @@
     }
 
   </div>
+
+  @if (tourActive() && activeTourStep(); as step) {
+  <div class="flow-editor-tour-overlay" (click)="skipTour()"></div>
+  <div class="flow-editor-tour-spotlight" [ngStyle]="tourSpotlightStyle()"></div>
+  <section class="flow-editor-tour-card" [ngStyle]="tourCardStyle()" (click)="$event.stopPropagation()">
+    <div class="flow-editor-tour-step">Step {{ tourStepIndex() + 1 }} / {{ tourSteps().length }}</div>
+    <h3 class="flow-editor-tour-title">{{ step.title }}</h3>
+    <p class="flow-editor-tour-text">{{ step.description }}</p>
+    <div class="flow-editor-tour-actions">
+      <button type="button" mat-stroked-button (click)="skipTour()">Skip</button>
+      <div class="flow-editor-tour-actions-right">
+        <button type="button" mat-stroked-button [disabled]="tourStepIndex() === 0" (click)="previousTourStep()">Back</button>
+        <button type="button" mat-flat-button color="primary" (click)="nextTourStep()">
+          {{ tourStepIndex() === tourSteps().length - 1 ? 'Finish' : 'Next' }}
+        </button>
+      </div>
+    </div>
+  </section>
+  }
 </div>

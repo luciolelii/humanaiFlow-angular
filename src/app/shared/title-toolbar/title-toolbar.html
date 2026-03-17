@@ -48,6 +48,7 @@
     <button
       type="button"
       mat-stroked-button
+      data-tour="editor-execute"
       class="title-toolbar-execute"
       [disabled]="executeLoading()"
       (click)="execute()">
@@ -63,6 +64,7 @@
     <button
       type="button"
       mat-flat-button
+      data-tour="editor-save"
       tabindex="-1"
       [disabled]="!canSave()"
       (click)="save()">

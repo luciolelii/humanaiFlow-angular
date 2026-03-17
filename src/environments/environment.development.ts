@@ -10,6 +10,7 @@ export const environment = {
     production: false,
     apiUrl: 'http://localhost:8080',
     assistantEnabled: false,
+    tourModeAlwaysOn: true,
     authorizationCallService: AuthorizationCallFakeService, // Assign the appropriate service here
     assistantCallService: AssistantCallServiceFake,
     flowsCallService: FlowsCallServiceFake,

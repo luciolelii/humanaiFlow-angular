@@ -125,6 +125,75 @@
   line-height: 1.5;
 }
 
+.flow-editor-tour-target {
+  height: 100%;
+}
+
+.flow-editor-tour-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.46);
+  z-index: 1500;
+}
+
+.flow-editor-tour-spotlight {
+  position: fixed;
+  border-radius: 18px;
+  box-shadow:
+    0 0 0 9999px rgba(15, 23, 42, 0.18),
+    0 0 0 3px rgba(255, 255, 255, 0.9),
+    0 18px 36px rgba(15, 23, 42, 0.18);
+  z-index: 1501;
+  pointer-events: none;
+}
+
+.flow-editor-tour-card {
+  position: fixed;
+  width: min(320px, calc(100vw - 32px));
+  padding: 18px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.24);
+  z-index: 1502;
+}
+
+.flow-editor-tour-step {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #0f766e;
+}
+
+.flow-editor-tour-title {
+  margin: 8px 0 6px;
+  font-size: 20px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.flow-editor-tour-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #334155;
+}
+
+.flow-editor-tour-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.flow-editor-tour-actions-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 @media (max-width: 1100px) {
   .flow-editor-main {
     flex-direction: column;
@@ -142,5 +211,11 @@
     width: 72px;
     min-width: 72px;
     height: 42vh;
+  }
+
+  .flow-editor-tour-card {
+    left: 16px !important;
+    right: 16px;
+    width: auto;
   }
 }
