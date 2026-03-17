@@ -7,7 +7,7 @@
       <i class="bi bi-box-seam"></i>
     </div>
     <div class="container-node__titles">
-      <div class="container-node__eyebrow">Generic Container</div>
+      <div class="container-node__eyebrow">{{ containerLabel }}</div>
       <div class="container-node__name">{{ name }}</div>
     </div>
     <div class="container-node__header-actions">
@@ -96,6 +96,29 @@
       }
     </div>
   </div>
+
+  @if (hasParameterFields()) {
+  <div class="container-node__params">
+    @for (field of parameterFields; track field.path) {
+    <div class="container-node__param-chip" [class.container-node__param-chip--wide]="field.wide">
+      <div class="container-node__param-head">
+        <span class="container-node__param-key">{{ field.label }}</span>
+        @if (!isReadonly) {
+        <button
+          type="button"
+          class="container-node__param-edit"
+          title="Edit field"
+          (pointerdown)="$event.stopPropagation()"
+          (click)="openParameterEditor(field.path, $event)">
+          <i class="bi bi-pen"></i>
+        </button>
+        }
+      </div>
+      <span class="container-node__param-value">{{ field.value }}</span>
+    </div>
+    }
+  </div>
+  }
 
   <div
     class="container-node__dropzone"

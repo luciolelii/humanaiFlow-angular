@@ -68,8 +68,8 @@ export async function createEditor(
       customize: {
         node(context: any) {
           if (nodeView === "execution") return TaskStepNodeComponent;
-          const typeName = context?.payload?.data?.typeName;
-          return typeName === "GenericContainer" ? ContainerNodeComponent : GenericNodeComponent;
+          const nodeFamily = context?.payload?.data?.nodeFamily;
+          return nodeFamily === "container" ? ContainerNodeComponent : GenericNodeComponent;  
         },
         socket(context: any) {
           // rete-angular passes only `payload` to the socket component.
@@ -173,7 +173,7 @@ export async function addBlockToEditor(
   runtime?: ReteRuntimeContext
 ) {
   const resolvedRuntime = runtime ?? editorRuntime.get(editor);
-  const node = new ClassicPreset.Node(toNodeLabel(block.typeName)) as HFNode;
+  const node = new ClassicPreset.Node(block.typeName) as HFNode;
   const removeNode = async () => {
     if (!editor.getNode(node.id)) return;
     const relatedConnectionIds = editor.getConnections()
@@ -514,12 +514,6 @@ function resolveNodePort(node: HFNode | undefined, kind: "input" | "output", por
   const ports = node?.data?.[kind === "input" ? "inputs" : "outputs"];
   if (!Array.isArray(ports)) return null;
   return ports.find((port) => port?.name === portName) ?? null;
-}
-
-function toNodeLabel(typeName: string) {
-  if (typeName === "InputBlock" || typeName === "SourceBlock") return "Input";
-  if (typeName === "OutputBlock") return "Output";
-  return typeName;
 }
 
 async function applyNodePosition(

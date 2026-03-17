@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
-import { Component, HostBinding, Input, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, HostBinding, Input, inject } from '@angular/core';
 import { currentFlowPortValueKind, flowValueKindLabel, FlowBlock, FlowContainer, FlowData } from '@models/flow';
-import { NodeSettingsDialogService } from '@services/dialogs/node-settings-dialog';
+import { NodeSettingField, NodeSettingsDialogService } from '@services/dialogs/node-settings-dialog';
 import { ContainersService } from '@services/containers/containers';
 import { FieldRetriever } from '@services/retriever/field-retriever';
 import { ClassicPreset } from 'rete';
@@ -10,6 +10,26 @@ import { SubflowPreviewDialogService } from '@services/dialogs/subflow-preview-d
 import { EditorStateHolder } from '@stores/flow-editor';
 import { CONTAINER_SUBFLOW_DRAG_MIME } from './container-node-drag';
 import { firstValueFrom } from 'rxjs';
+import { extractSchemaRequirements, SchemaRequirements } from '../schema-requirements';
+import { evaluateUiConditionRule, getValueByPath, pathToLabel, readUiConditionRule, resolveSchemaRef, valueToDisplayString } from '../node-utility';
+
+type ContainerFieldType = 'string' | 'number' | 'integer' | 'boolean' | 'unknown';
+
+type ContainerFieldDefinition = {
+  path: string;
+  label: string;
+  type: ContainerFieldType;
+  enumOptions: string[];
+  widget: 'textarea' | null;
+  structural: boolean;
+};
+
+type ContainerFieldView = {
+  path: string;
+  label: string;
+  value: string;
+  wide: boolean;
+};
 
 type StructuredRetrieverConfig = {
   retrieverName: string;
@@ -30,14 +50,19 @@ type StructuredRetrieverConfig = {
 })
 export class ContainerNodeComponent {
   private editorState = inject(EditorStateHolder);
+  private cdr = inject(ChangeDetectorRef);
   private subflowPreview = inject(SubflowPreviewDialogService);
   private fieldRetriever = inject(FieldRetriever);
   private containersService = inject(ContainersService);
   private settingsDialog = inject(NodeSettingsDialogService);
+  private containerSchema: Record<string, any> | null = null;
+  private schemaRequirements: SchemaRequirements = { required: [], conditional: [] };
+  private containerFieldDefinitions: ContainerFieldDefinition[] = [];
   deleteConfirmOpen = false;
   replaceConfirmSelection: string[] | null = null;
   importLoading = false;
   private importErrorMessage: string | null = null;
+  parameterFields: ContainerFieldView[] = [];
 
   @Input() data!: any;
   @Input() emit!: (data: any) => void;
@@ -55,6 +80,10 @@ export class ContainerNodeComponent {
     return this.isReadonly;
   }
 
+  ngOnInit() {
+    void this.loadSchemaContext();
+  }
+
   ngAfterViewInit() {
     this.rendered();
   }
@@ -65,6 +94,10 @@ export class ContainerNodeComponent {
 
   get name() {
     return String(this.configuration?.['name'] ?? this.data?.data?.name ?? 'Container');
+  }
+
+  get containerLabel() {
+    return pathToLabel(this.typeName.replace(/Container$/, ' Container'));
   }
 
   get inputs() {
@@ -125,14 +158,25 @@ export class ContainerNodeComponent {
   }
 
   get missingRequiredParams() {
-    const missing: string[] = [];
-    if (!this.name.trim()) {
-      missing.push('Name');
-    }
-    if (!this.subFlow) {
-      missing.push('Sub Flow');
-    }
-    return missing;
+    const config = this.configuration ?? {};
+    const requiredFields = [
+      ...this.schemaRequirements.required,
+      ...this.schemaRequirements.conditional.filter((field) =>
+        field.requiredWhen
+          ? evaluateUiConditionRule(field.requiredWhen, config, (path) => this.resolveFieldSchema(path))
+          : false
+      )
+    ].filter((field) => field.path !== 'type');
+
+    return requiredFields
+      .filter((field, index, fields) => fields.findIndex((candidate) => candidate.path === field.path) === index)
+      .filter((field) => field.path !== 'name' && field.path !== 'subFlow')
+      .filter((field) => this.isMissingValue(getValueByPath(config, field.path)))
+      .map((field) => field.label);
+  }
+
+  hasParameterFields() {
+    return this.parameterFields.length > 0;
   }
 
   inputDisplayLabel(inputKey: string) {
@@ -230,11 +274,42 @@ export class ContainerNodeComponent {
       }
 
       await assignImportedSubflow(selectedItem.data, retriever.validationUrl);
+      this.refreshParameterFields();
     } catch {
       this.importErrorMessage = 'Failed to load importable flows.';
     } finally {
       this.importLoading = false;
     }
+  }
+
+  async openParameterEditor(path: string, event?: Event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+    if (this.isReadonly) return;
+
+    const definition = this.containerFieldDefinitions.find((field) => field.path === path);
+    if (!definition) return;
+
+    const initialValue = this.getEditorInitialValue(definition);
+    const field: NodeSettingField = {
+      key: definition.path,
+      label: definition.label,
+      type: this.toDialogFieldType(definition),
+      required: this.missingRequiredParams.includes(definition.label),
+      rows: definition.widget === 'textarea' ? 6 : undefined,
+      options: definition.enumOptions.map((option) => ({ label: option, value: option }))
+    };
+
+    const result = await this.settingsDialog.open({
+      title: `Edit ${definition.label}`,
+      fields: [field],
+      initial: {
+        [definition.path]: initialValue
+      }
+    });
+
+    if (!result) return;
+    await this.applyFieldValue(definition, result[definition.path]);
   }
 
   onDropZoneDragOver(event: DragEvent) {
@@ -441,6 +516,281 @@ export class ContainerNodeComponent {
       structuredData: fieldSchema['x-retriever-structured-data'] === true,
       requiresAuth: fieldSchema['x-retriever-requires-auth'] === true
     };
+  }
+
+  private async loadSchemaContext() {
+    const containerType = await this.containersService.getContainerType(this.typeName);
+    this.containerSchema = (containerType?.schema ?? null) as Record<string, any> | null;
+    this.schemaRequirements = extractSchemaRequirements(this.containerSchema);
+    this.containerFieldDefinitions = this.buildContainerFieldDefinitions(this.containerSchema);
+    this.refreshParameterFields();
+    queueMicrotask(() => {
+      try {
+        this.cdr.detectChanges();
+      } catch {
+        // Node may have been removed while schema was loading.
+      }
+    });
+  }
+
+  private isMissingValue(value: unknown): boolean {
+    if (value == null) return true;
+    if (typeof value === 'string') return value.trim().length === 0;
+    return false;
+  }
+
+  private refreshParameterFields() {
+    const config = this.configuration ?? {};
+    this.parameterFields = this.containerFieldDefinitions
+      .filter((field) => this.isFieldVisible(field.path))
+      .map((field) => ({
+        path: field.path,
+        label: field.label,
+        value: valueToDisplayString(getValueByPath(config, field.path)),
+        wide: field.widget === 'textarea' || field.label.length >= 18
+      }));
+  }
+
+  private buildContainerFieldDefinitions(schema: Record<string, any> | null): ContainerFieldDefinition[] {
+    if (!schema) return [];
+
+    const definitions: ContainerFieldDefinition[] = [];
+    const walk = (node: Record<string, any>, pathPrefix: string) => {
+      const resolved = resolveSchemaRef(node, schema);
+      if (!resolved || typeof resolved !== 'object') return;
+
+      const properties = resolved.properties as Record<string, any> | undefined;
+      if (!properties) return;
+
+      for (const [key, childSchema] of Object.entries(properties)) {
+        if (key === 'type') continue;
+        const path = pathPrefix ? `${pathPrefix}.${key}` : key;
+        if (path === 'name' || path === 'subFlow') continue;
+
+        const childResolved = resolveSchemaRef(childSchema as Record<string, any>, schema);
+        const hasChildren = !!childResolved?.properties || childResolved?.type === 'object';
+        if (hasChildren) {
+          walk(childResolved as Record<string, any>, path);
+          continue;
+        }
+
+        definitions.push({
+          path,
+          label: pathToLabel(path),
+          type: this.toFieldType(childResolved),
+          enumOptions: Array.isArray(childResolved?.enum)
+            ? childResolved.enum.filter((item: unknown): item is string => typeof item === 'string')
+            : [],
+          widget: typeof childResolved?.['x-ui-widget'] === 'string' && String(childResolved['x-ui-widget']).toLowerCase() === 'textarea'
+            ? 'textarea'
+            : null,
+          structural: childResolved?.['x-ui-structural'] === true
+        });
+      }
+    };
+
+    walk(schema, '');
+    return definitions;
+  }
+
+  private isFieldVisible(path: string, visited = new Set<string>()): boolean {
+    if (visited.has(path)) return true;
+    visited.add(path);
+
+    const schema = this.resolveFieldSchema(path);
+    const rule = readUiConditionRule(schema?.['x-ui-visible-when']);
+    if (!rule) return true;
+
+    const parent = typeof rule.field === 'string' ? rule.field : null;
+    if (parent && !this.isFieldVisible(parent, visited)) return false;
+
+    return evaluateUiConditionRule(rule, this.configuration ?? {}, (fieldPath) => this.resolveFieldSchema(fieldPath));
+  }
+
+  private toFieldType(schema: Record<string, any> | null): ContainerFieldType {
+    const type = typeof schema?.['type'] === 'string' ? String(schema['type']) : 'unknown';
+    if (type === 'string' || type === 'number' || type === 'integer' || type === 'boolean') {
+      return type;
+    }
+    return 'unknown';
+  }
+
+  private toDialogFieldType(definition: ContainerFieldDefinition): NodeSettingField['type'] {
+    if (definition.type === 'boolean') return 'checkbox';
+    if (definition.widget === 'textarea') return 'textarea';
+    if (definition.enumOptions.length) return 'select';
+    return 'text';
+  }
+
+  private getEditorInitialValue(definition: ContainerFieldDefinition): string | boolean {
+    const raw = getValueByPath(this.configuration ?? {}, definition.path);
+    if (definition.type === 'boolean') return raw === true;
+    if (raw == null) return '';
+    return String(raw);
+  }
+
+  private async applyFieldValue(definition: ContainerFieldDefinition, rawValue: string | boolean | undefined) {
+    const nextValue = this.parseFieldValue(definition, rawValue);
+    const nextConfiguration = this.cloneConfiguration();
+    this.setByPath(nextConfiguration, definition.path, nextValue);
+
+    if (definition.structural) {
+      this.updateCurrentFlowData(nextConfiguration);
+      await this.recreateContainer(nextConfiguration);
+      return;
+    }
+
+    this.data.data = {
+      ...this.data.data,
+      specificConfiguration: nextConfiguration
+    };
+    this.refreshParameterFields();
+    this.updateCurrentFlowData(nextConfiguration);
+    this.refreshView();
+  }
+
+  private parseFieldValue(definition: ContainerFieldDefinition, rawValue: string | boolean | undefined): unknown {
+    if (definition.type === 'boolean') return rawValue === true;
+    const stringValue = typeof rawValue === 'string' ? rawValue : '';
+    if (definition.type === 'number' || definition.type === 'integer') {
+      const parsed = Number(stringValue);
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+    return stringValue;
+  }
+
+  private cloneConfiguration(): Record<string, unknown> {
+    if (typeof globalThis.structuredClone === 'function') {
+      try {
+        return globalThis.structuredClone(this.configuration ?? {});
+      } catch {
+        // Ignore non-cloneable runtime metadata.
+      }
+    }
+    return JSON.parse(JSON.stringify(this.configuration ?? {})) as Record<string, unknown>;
+  }
+
+  private async recreateContainer(nextConfiguration: Record<string, unknown>) {
+    const current = (this.data?.data ?? {}) as Record<string, unknown>;
+    const containerId = String(current['id'] ?? '');
+    if (!containerId) return;
+
+    this.data.data = {
+      ...current,
+      __containerAssigning: true,
+      __containerAssignmentError: null,
+      specificConfiguration: nextConfiguration
+    };
+    this.refreshView();
+
+    try {
+      const createdContainer = await firstValueFrom(
+        this.containersService.createContainer(containerId, {
+          ...nextConfiguration,
+          position: current['position'],
+          typeName: this.typeName
+        })
+      );
+
+      const replaceNode = current['replaceWithCreatedNode'];
+      if (typeof replaceNode === 'function') {
+        await replaceNode({
+          ...createdContainer,
+          position: (current['position'] as { x: number; y: number } | undefined) ?? createdContainer.position
+        });
+        return;
+      }
+
+      this.data.data = {
+        ...current,
+        ...createdContainer,
+        specificConfiguration: nextConfiguration,
+        position: (current['position'] as { x: number; y: number } | undefined) ?? createdContainer.position,
+        __containerAssigning: false,
+        __containerAssignmentError: null
+      };
+      this.refreshParameterFields();
+      this.updateCurrentFlowData(nextConfiguration);
+      this.refreshView();
+    } catch (error) {
+      this.data.data = {
+        ...current,
+        __containerAssigning: false,
+        __containerAssignmentError: error instanceof Error ? error.message : 'Container update failed'
+      };
+      this.refreshView();
+    }
+  }
+
+  private updateCurrentFlowData(nextConfiguration: Record<string, unknown>) {
+    const flow = this.editorState.currentFlow();
+    const blockId = this.blockId;
+    if (!flow || !blockId) return;
+
+    const nextFlow: FlowData = {
+      blocks: flow.data.blocks,
+      containers: flow.data.containers.map((container) =>
+        container.id === blockId
+          ? {
+            ...container,
+            name: String(nextConfiguration['name'] ?? container.name),
+            specificConfiguration: this.cloneConfigurationValue(nextConfiguration)
+          }
+          : container
+      ),
+      connections: flow.data.connections
+    };
+
+    this.editorState.updateData(nextFlow);
+  }
+
+  private cloneConfigurationValue<T>(value: T): T {
+    if (typeof globalThis.structuredClone === 'function') {
+      try {
+        return globalThis.structuredClone(value);
+      } catch {
+        // Ignore non-cloneable runtime metadata.
+      }
+    }
+    return JSON.parse(JSON.stringify(value)) as T;
+  }
+
+  private setByPath(target: Record<string, any>, path: string, value: unknown) {
+    const parts = path.split('.');
+    let current = target;
+    for (let index = 0; index < parts.length - 1; index += 1) {
+      const key = parts[index];
+      const next = current[key];
+      if (!next || typeof next !== 'object' || Array.isArray(next)) {
+        current[key] = {};
+      }
+      current = current[key] as Record<string, any>;
+    }
+    current[parts[parts.length - 1]] = value;
+  }
+
+  private refreshView() {
+    queueMicrotask(() => {
+      try {
+        this.cdr.detectChanges();
+      } catch {
+        // Node may have been removed while async refresh was running.
+      }
+    });
+  }
+
+  private resolveFieldSchema(path: string): Record<string, any> | null {
+    if (!this.containerSchema) return null;
+
+    let current: Record<string, any> | null = this.containerSchema;
+    for (const key of path.split('.')) {
+      const resolved = current ? resolveSchemaRef(current, this.containerSchema) : null;
+      const properties = resolved?.properties as Record<string, any> | undefined;
+      if (!properties?.[key]) return null;
+      current = resolveSchemaRef(properties[key], this.containerSchema) as Record<string, any> | null;
+    }
+
+    return current;
   }
 
 }
