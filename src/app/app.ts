@@ -12,5 +12,5 @@ import { SubflowPreviewDialogHostComponent } from '@shared/subflow-preview-dialo
   styleUrl: './app.css'
 })
 export class App {
-  protected readonly title = signal('humainFlow-gui-a21');
+  protected readonly title = signal('HumAInFlow');
 }

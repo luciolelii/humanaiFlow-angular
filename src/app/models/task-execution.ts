@@ -44,6 +44,7 @@ export type TaskExecutionStep = {
   id: string;
   inputs: TaskExecutionStepInput[];
   outputs: TaskExecutionStepOutput[];
+  result?: Record<string, unknown>;
   status: StepStatus;
   started: boolean;
   simulated: boolean;

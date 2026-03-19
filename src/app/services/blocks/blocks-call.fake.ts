@@ -9,6 +9,14 @@ export class BlocksCallServiceFake extends BlocksCallServiceBase {
     "family": "block",
     "description": "A block that requires human interaction",
     "userInteractive": true,
+    "interactionContract": {
+      "kind": "single-response",
+      "messageField": null,
+      "completionField": "output",
+      "historyField": null,
+      "responseField": "output",
+      "supportsPartialResult": false
+    },
     "configurationType": "HumanInteractiveBlockConfiguration",
     "configurationClass": "it.cnr.isti.workflow.manager.blocks.configurations.HumanInteractiveBlockConfiguration",
     "schema": {

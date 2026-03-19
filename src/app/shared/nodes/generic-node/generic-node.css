@@ -717,6 +717,10 @@
   overflow: hidden;
 }
 
+.llm-param-chip-disabled {
+  opacity: 0.58;
+}
+
 .llm-param-chip-wide {
   grid-column: 1 / -1;
 }
@@ -752,6 +756,12 @@
 
 .llm-edit-btn:active {
   transform: translateY(0);
+}
+
+.llm-edit-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+  pointer-events: none;
 }
 
 .llm-param-block {

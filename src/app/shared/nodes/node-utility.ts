@@ -1,7 +1,8 @@
 export type TemplatedTextPart = { text: string; isDynamicInput: boolean };
 export type UiConditionRule =
   | { field: string; equals: string }
-  | { field: string; in: string[] };
+  | { field: string; in: string[] }
+  | { field: string; present: boolean };
 
 export function toStringOrNull(value: unknown): string | null {
   if (typeof value === 'string' && value.trim().length > 0) return value;
@@ -45,6 +46,27 @@ export function pathToLabel(path: string): string {
     .replace(/^./, (c) => c.toUpperCase());
 }
 
+export function readUiLabel(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const normalized = value.trim();
+  return normalized.length ? normalized : null;
+}
+
+export function readUiDescription(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const normalized = value.trim();
+  return normalized.length ? normalized : null;
+}
+
+export function schemaFieldLabel(path: string, schema: Record<string, any> | null | undefined): string {
+  return readUiLabel(schema?.['x-ui-label']) ?? pathToLabel(path);
+}
+
+export function schemaFieldDescription(schema: Record<string, any> | null | undefined): string | null {
+  return readUiDescription(schema?.['x-ui-description'])
+    ?? (typeof schema?.['x-ui-tip'] === 'string' ? String(schema['x-ui-tip']).trim() || null : null);
+}
+
 export function parentPath(path: string): string | null {
   const index = path.lastIndexOf('.');
   if (index <= 0) return null;
@@ -71,12 +93,38 @@ export function resolveSchemaRef(node: Record<string, any>, root: Record<string,
   };
 }
 
+export function resolveSchemaPath(root: Record<string, any> | null | undefined, path: string): Record<string, any> | null {
+  if (!root || !path.trim()) return root ?? null;
+
+  let current: Record<string, any> | null = root;
+  for (const segment of path.split('.')) {
+    if (!current) return null;
+
+    const resolved = resolveSchemaRef(current, root);
+    if (!resolved || typeof resolved !== 'object') return null;
+
+    if (/^\d+$/.test(segment)) {
+      const items = resolved.items;
+      if (!items || typeof items !== 'object') return null;
+      current = resolveSchemaRef(items as Record<string, any>, root) as Record<string, any> | null;
+      continue;
+    }
+
+    const properties = resolved.properties as Record<string, unknown> | undefined;
+    if (!properties || !properties[segment]) return null;
+    current = resolveSchemaRef(properties[segment] as Record<string, any>, root) as Record<string, any> | null;
+  }
+
+  return current;
+}
+
 export function readUiConditionRule(value: unknown): UiConditionRule | null {
   if (!value || typeof value !== 'object') return null;
 
   const field = (value as Record<string, unknown>)['field'];
   const equals = (value as Record<string, unknown>)['equals'];
   const includes = (value as Record<string, unknown>)['in'];
+  const present = (value as Record<string, unknown>)['present'];
   if (typeof field !== 'string' || field.trim().length === 0) return null;
   if (typeof equals === 'string') {
     return {
@@ -91,6 +139,13 @@ export function readUiConditionRule(value: unknown): UiConditionRule | null {
     return {
       field: field.trim(),
       in: values
+    };
+  }
+
+  if (typeof present === 'boolean') {
+    return {
+      field: field.trim(),
+      present
     };
   }
 
@@ -110,6 +165,47 @@ export function getValueByPath(source: Record<string, any> | null | undefined, p
   }, source ?? {});
 }
 
+export function validateUniqueByConstraint(
+  items: unknown[],
+  nextItem: Record<string, unknown>,
+  uniqueBy: string | null | undefined,
+  currentIndex: number | null,
+  isMissingValue: (value: unknown) => boolean,
+  areValuesEqual: (left: unknown, right: unknown) => boolean
+): { path: string; value: unknown } | null {
+  if (!uniqueBy) return null;
+
+  const uniqueValue = getValueByPath(nextItem, uniqueBy);
+  if (isMissingValue(uniqueValue)) return null;
+
+  const duplicateIndex = items.findIndex((item, index) => {
+    if (currentIndex != null && index === currentIndex) return false;
+    const candidateValue = item && typeof item === 'object' && !Array.isArray(item)
+      ? getValueByPath(item as Record<string, unknown>, uniqueBy)
+      : undefined;
+    return areValuesEqual(candidateValue, uniqueValue);
+  });
+
+  if (duplicateIndex < 0) return null;
+
+  return {
+    path: uniqueBy,
+    value: uniqueValue
+  };
+}
+
+export function shouldSkipSchemaField(key: string, schema: Record<string, any> | null | undefined): boolean {
+  if (key.startsWith('__')) return true;
+  if (key !== 'type') return false;
+
+  const enumValues = Array.isArray(schema?.['enum'])
+    ? schema['enum'].filter((value: unknown): value is string => typeof value === 'string')
+    : [];
+  const defaultValue = typeof schema?.['default'] === 'string' ? String(schema['default']) : null;
+
+  return enumValues.length === 1 && defaultValue != null && enumValues[0] === defaultValue;
+}
+
 export function evaluateUiConditionRule(
   rule: UiConditionRule | null | undefined,
   config: Record<string, any> | null | undefined,
@@ -123,6 +219,11 @@ export function evaluateUiConditionRule(
   const type = typeof schemaType === 'string' ? schemaType : null;
   const expectedValues = 'in' in rule ? rule.in : null;
   const expectedValue = 'equals' in rule ? rule.equals : null;
+  const expectedPresence = 'present' in rule ? rule.present : null;
+  if (expectedPresence != null) {
+    const isPresent = isMeaningfullyPresent(actualValue);
+    return isPresent === expectedPresence;
+  }
 
   if (type === 'boolean' || typeof actualValue === 'boolean') {
     if (expectedValues) {
@@ -151,6 +252,16 @@ export function evaluateUiConditionRule(
 
 function parseBooleanCondition(value: string): boolean {
   return value.trim().toLowerCase() === 'true';
+}
+
+function isMeaningfullyPresent(value: unknown): boolean {
+  if (value == null) return false;
+  if (typeof value === 'string') return value.trim().length > 0;
+  if (Array.isArray(value)) return value.some((item) => isMeaningfullyPresent(item));
+  if (typeof value === 'object') {
+    return Object.values(value as Record<string, unknown>).some((item) => isMeaningfullyPresent(item));
+  }
+  return true;
 }
 
 export function splitTemplatedTextParts(text: string | null): TemplatedTextPart[] {

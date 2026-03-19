@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, HostBinding, Input, inject } from '@angular/core';
 import { ClassicPreset } from 'rete';
 import { ReteModule } from 'rete-angular-plugin/21';
-import { FlowBlock, FlowContainer, FlowData, FlowPort } from '@models/flow';
+import { BlockInteractionContract, BlockType, FlowBlock, FlowContainer, FlowData, FlowPort } from '@models/flow';
 import { BlocksService } from '@services/blocks/blocks';
 import { ContainersService } from '@services/containers/containers';
 import { SubflowPreviewDialogService } from '@services/dialogs/subflow-preview-dialog';
@@ -17,6 +17,9 @@ import {
   readUiConditionRule,
   readUiGroup,
   resolveSchemaRef,
+  resolveSchemaPath,
+  schemaFieldLabel,
+  shouldSkipSchemaField,
   splitTemplatedTextParts,
   toStringOrNull,
   valueToDisplayString
@@ -101,6 +104,7 @@ export class TaskStepNodeComponent {
   interactionSubmitting = false;
 
   private blockSchema: Record<string, any> | null = null;
+  private blockDescriptor: BlockType | null = null;
   private variablePlaceholderPaths = new Set<string>();
   private arrayFieldDefinitions: ArrayFieldDefinition[] = [];
   private mainContentPaths = new Set<string>();
@@ -138,7 +142,7 @@ export class TaskStepNodeComponent {
     const richContentPaths = mainContentEntries.map((entry) => entry.path);
     this.mainContentFields = mainContentEntries.map((entry) => ({
       path: entry.path,
-      label: pathToLabel(entry.path),
+      label: this.displayLabelForPath(entry.path),
       parts: this.toMainContentParts(entry.path, String(entry.value))
     }));
     this.arrayFields = this.arrayFieldDefinitions
@@ -157,9 +161,9 @@ export class TaskStepNodeComponent {
       .filter((entry) => !this.isEmptyDisplayValue(entry.value))
       .map((entry) => ({
         path: entry.path,
-        label: pathToLabel(entry.path),
+        label: this.displayLabelForPath(entry.path),
         value: valueToDisplayString(entry.value),
-        wide: this.shouldRenderWideField(pathToLabel(entry.path), this.mainContentPaths.has(entry.path))
+        wide: this.shouldRenderWideField(this.displayLabelForPath(entry.path), this.mainContentPaths.has(entry.path))
       }));
 
     for (const field of orderedFields) {
@@ -178,7 +182,7 @@ export class TaskStepNodeComponent {
     this.parameterFields = rootFields;
     this.parameterFieldGroups = Array.from(grouped.entries()).map(([key, fields]) => ({
       key,
-      legend: key.startsWith('group:') ? key.slice('group:'.length) : pathToLabel(key),
+      legend: key.startsWith('group:') ? key.slice('group:'.length) : this.displayLabelForPath(key),
       fields
     }));
 
@@ -190,11 +194,12 @@ export class TaskStepNodeComponent {
   }
 
   isHumanNode(): boolean {
-    return this.blockType === 'HumanInteractionBlock';
+    return !!this.interactionContract();
   }
 
   isConditionalNode(): boolean {
-    return this.blockType === 'ConditionalBlock';
+    const outputNames = this.resolvePorts('output').map((port) => port.name.trim().toLowerCase());
+    return outputNames.includes('true') && outputNames.includes('false');
   }
 
   nodeTitle(): string {
@@ -248,7 +253,7 @@ export class TaskStepNodeComponent {
   }
 
   isContainerNode(): boolean {
-    return this.data?.data?.nodeFamily === 'container' || this.blockType === 'GenericContainer';
+    return this.data?.data?.nodeFamily === 'container';
   }
 
   hasViewableSubflow(): boolean {
@@ -364,18 +369,28 @@ export class TaskStepNodeComponent {
 
     const executionId = this.executionId();
     const executionNodeId = this.executionNodeId();
-    const interactionFieldName = this.interactionFieldName();
-    if (!executionId || !executionNodeId || !interactionFieldName) return;
+    const contract = this.interactionContract();
+    if (!executionId || !executionNodeId || !contract) return;
 
     const currentInput = this.currentInputValue();
     const actionDescription = this.actionDescriptionValue();
 
     const result = await this.humanInteractionDialog.open({
-      title: `Send output for ${this.name || 'Interaction Step'}`,
+      title: this.interactionDialogTitle(contract),
+      kind: contract.kind,
       actionDescription,
-      currentInput
+      currentInput,
+      history: this.chatHistory(contract),
+      latestResponse: this.latestInteractionResponse(contract),
+      messageField: contract.messageField,
+      completionField: contract.completionField
     });
     if (!result) return;
+
+    const interactionFieldName = result.mode === 'message'
+      ? contract.messageField
+      : contract.completionField;
+    if (!interactionFieldName) return;
 
     this.interactionSubmitting = true;
     this.taskExecutionsService.submitInteractionText(
@@ -430,11 +445,6 @@ export class TaskStepNodeComponent {
   private executionNodeId(): string | null {
     const value = this.blockConfiguration?.['__executionNodeId'];
     return typeof value === 'string' && value.length > 0 ? value : null;
-  }
-
-  private interactionFieldName(): string | null {
-    const outputKey = this.outputs[0]?.key;
-    return typeof outputKey === 'string' && outputKey.length > 0 ? outputKey : null;
   }
 
   private getExecutionMessages(key: '__executionErrors' | '__executionWarnings'): string[] {
@@ -499,17 +509,125 @@ export class TaskStepNodeComponent {
     const type = this.blockType;
     if (!type) return;
 
-    const nodeFamily = this.data?.data?.nodeFamily === 'container' || type === 'GenericContainer'
+    const nodeFamily = this.data?.data?.nodeFamily === 'container'
       ? 'container'
       : 'block';
     const typeDescriptor = nodeFamily === 'container'
       ? await this.containersService.getContainerType(type)
       : await this.blocksService.getBlockType(type);
+    this.blockDescriptor = (typeDescriptor ?? null) as BlockType | null;
     this.blockSchema = (typeDescriptor?.schema ?? null) as Record<string, any> | null;
     this.variablePlaceholderPaths = this.extractVariablePlaceholderPaths(this.blockSchema);
     this.arrayFieldDefinitions = this.extractArrayFieldDefinitions(this.blockSchema);
     this.mainContentPaths = this.extractMainContentPaths(this.blockSchema);
     this.rebuildDisplayState();
+  }
+
+  private interactionContract(): BlockInteractionContract | null {
+    return this.blockDescriptor?.interactionContract ?? null;
+  }
+
+  private interactionDialogTitle(contract: BlockInteractionContract): string {
+    if (contract.kind === 'chat-session') {
+      return `Chat with ${this.name || 'Interaction Step'}`;
+    }
+    return `Send response for ${this.name || 'Interaction Step'}`;
+  }
+
+  private executionPartialResult(): Record<string, unknown> | null {
+    const value = this.blockConfiguration?.['__executionPartialResult'];
+    return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null;
+  }
+
+  private executionResultData(): Record<string, unknown> | null {
+    const value = this.blockConfiguration?.['__executionResultData'];
+    return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null;
+  }
+
+  private stepResultData(): Record<string, unknown> | null {
+    const value = this.blockConfiguration?.['__stepResultData'];
+    return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null;
+  }
+
+  private executionScopedFieldName(fieldName: string): string | null {
+    const nodeId = this.executionNodeId();
+    return nodeId ? `${nodeId}:${fieldName}` : null;
+  }
+
+  private interactionFieldValue(fieldName: string | null | undefined, preferPartial: boolean): unknown {
+    if (!fieldName) return undefined;
+
+    if (!preferPartial) {
+      const stepSource = this.stepResultData();
+      if (stepSource && Object.prototype.hasOwnProperty.call(stepSource, fieldName)) {
+        return stepSource[fieldName];
+      }
+    }
+
+    const scopedFieldName = this.executionScopedFieldName(fieldName);
+    const executionSource = preferPartial ? this.executionPartialResult() : this.executionResultData();
+    if (executionSource) {
+      if (Object.prototype.hasOwnProperty.call(executionSource, fieldName)) {
+        return executionSource[fieldName];
+      }
+      if (scopedFieldName && Object.prototype.hasOwnProperty.call(executionSource, scopedFieldName)) {
+        return executionSource[scopedFieldName];
+      }
+    }
+
+    return undefined;
+  }
+
+  private chatHistory(contract: BlockInteractionContract): Array<{ role: 'user' | 'assistant' | 'system'; content: string }> {
+    const historyField = contract.historyField;
+    if (!historyField) return [];
+
+    const rawHistory = this.interactionFieldValue(historyField, Boolean(contract.supportsPartialResult));
+    if (!Array.isArray(rawHistory)) return [];
+
+    return rawHistory
+      .map((entry) => {
+        if (typeof entry === 'string') {
+          return this.parseChatHistoryLine(entry);
+        }
+        if (!entry || typeof entry !== 'object') return null;
+        const record = entry as Record<string, unknown>;
+        const role = record['role'];
+        const content = record['content'] ?? record['message'] ?? record['text'];
+        if ((role !== 'user' && role !== 'assistant' && role !== 'system') || typeof content !== 'string') {
+          return null;
+        }
+        return { role, content };
+      })
+      .filter((entry): entry is { role: 'user' | 'assistant' | 'system'; content: string } => entry != null);
+  }
+
+  private latestInteractionResponse(contract: BlockInteractionContract): string {
+    const fieldName = contract.responseField;
+    if (!fieldName) return '';
+    const value =
+      this.interactionFieldValue(fieldName, true)
+      ?? this.interactionFieldValue(fieldName, false);
+    return typeof value === 'string' ? value : '';
+  }
+
+  private parseChatHistoryLine(rawLine: string): { role: 'user' | 'assistant' | 'system'; content: string } | null {
+    const line = rawLine.trim();
+    if (!line) return null;
+
+    const prefixed = line.match(/^\[(USER|ASSISTANT|SYSTEM)\]\s*([\s\S]*)$/i);
+    if (prefixed) {
+      const role = prefixed[1].toLowerCase() as 'user' | 'assistant' | 'system';
+      return {
+        role,
+        content: prefixed[2] ?? ''
+      };
+    }
+
+    return {
+      role: 'assistant',
+      content: line
+    };
   }
 
   private extractVariablePlaceholderPaths(schema: Record<string, any> | null): Set<string> {
@@ -565,13 +683,13 @@ export class TaskStepNodeComponent {
         const path = pathPrefix ? `${pathPrefix}.${key}` : key;
 
         if (childResolved?.type === 'array') {
-          if (key === 'type' || key === 'name' || key.startsWith('__') || seen.has(path)) {
+          if (shouldSkipSchemaField(key, childResolved) || key === 'name' || seen.has(path)) {
             continue;
           }
           seen.add(path);
           definitions.push({
             path,
-            label: pathToLabel(path),
+            label: schemaFieldLabel(path, childResolved),
             itemSchema: this.resolveArrayItemSchema(childResolved, schema)
           });
           continue;
@@ -729,6 +847,10 @@ export class TaskStepNodeComponent {
     return current;
   }
 
+  private displayLabelForPath(path: string): string {
+    return schemaFieldLabel(path, this.resolveFieldSchema(path));
+  }
+
   private shouldRenderWideField(label: string, isTextarea: boolean) {
     return isTextarea || label.trim().length >= 18;
   }
@@ -767,19 +889,7 @@ export class TaskStepNodeComponent {
   }
 
   private resolveFieldSchema(path: string): Record<string, any> | null {
-    const root = this.blockSchema;
-    if (!root) return null;
-
-    let current: Record<string, any> | null = root;
-    for (const segment of path.split('.')) {
-      if (!current) return null;
-      const resolved = resolveSchemaRef(current, root);
-      const properties = resolved?.properties as Record<string, unknown> | undefined;
-      if (!properties || !properties[segment]) return null;
-      current = resolveSchemaRef(properties[segment] as Record<string, any>, root);
-    }
-
-    return current;
+    return resolveSchemaPath(this.blockSchema, path);
   }
 
   private getFieldUiMeta(path: string) {
@@ -792,9 +902,15 @@ export class TaskStepNodeComponent {
     for (const segment of path.split('.')) {
       if (!current) return this.toFieldUiMeta(null, inheritedUi);
       const resolved = resolveSchemaRef(current, root);
-      const properties = resolved?.properties as Record<string, unknown> | undefined;
-      if (!properties || !properties[segment]) return this.toFieldUiMeta(null, inheritedUi);
-      current = resolveSchemaRef(properties[segment] as Record<string, any>, root);
+      if (/^\d+$/.test(segment)) {
+        const items = resolved?.items;
+        if (!items || typeof items !== 'object') return this.toFieldUiMeta(null, inheritedUi);
+        current = resolveSchemaRef(items as Record<string, any>, root);
+      } else {
+        const properties = resolved?.properties as Record<string, unknown> | undefined;
+        if (!properties || !properties[segment]) return this.toFieldUiMeta(null, inheritedUi);
+        current = resolveSchemaRef(properties[segment] as Record<string, any>, root);
+      }
       const nextUi = this.toFieldUiMeta(current, inheritedUi);
       inheritedUi = {
         visibleWhen: nextUi.visibleWhen,

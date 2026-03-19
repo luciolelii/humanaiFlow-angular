@@ -42,11 +42,23 @@ export type NodeFamily = 'block' | 'container';
 
 export type BlockTypeSchema = Record<string, unknown> | null;
 
+export type BlockInteractionContractKind = 'chat-session' | 'single-response' | string;
+
+export type BlockInteractionContract = {
+  kind: BlockInteractionContractKind;
+  messageField: string | null;
+  completionField: string | null;
+  historyField: string | null;
+  responseField: string | null;
+  supportsPartialResult: boolean;
+};
+
 export type BlockType = {
   type: BlockTypeName;
   family: NodeFamily;
   description: string;
   userInteractive: boolean;
+  interactionContract?: BlockInteractionContract | null;
   hasExampleBlock?: boolean;
   exampleBlockEndpoint?: string | null;
   configurationType: string | null;

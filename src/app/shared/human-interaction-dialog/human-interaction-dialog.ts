@@ -26,8 +26,8 @@ export class HumanInteractionDialogHostComponent {
     effect(() => {
       const state = this.state();
       if (!state) return;
-      this.editing.set(false);
-      this.draftValue = state.currentInput;
+      this.editing.set(state.kind !== 'chat-session');
+      this.draftValue = '';
       queueMicrotask(() => {
         const target = this.host.nativeElement.querySelector('[data-autofocus="true"]') as HTMLElement | null;
         target?.focus();
@@ -64,7 +64,7 @@ export class HumanInteractionDialogHostComponent {
   confirmInput(event?: Event) {
     event?.preventDefault();
     event?.stopPropagation();
-    this.closeWith({ mode: 'confirm', value: this.state()?.currentInput ?? '' });
+    this.closeWith({ mode: 'complete', value: this.state()?.currentInput ?? '' });
   }
 
   sendEditedOutput(event?: Event) {
@@ -72,7 +72,23 @@ export class HumanInteractionDialogHostComponent {
     event?.stopPropagation();
     const value = this.draftValue.trim();
     if (!value) return;
-    this.closeWith({ mode: 'edit', value: this.draftValue });
+    this.closeWith({ mode: 'complete', value: this.draftValue });
+  }
+
+  sendChatMessage(event?: Event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+    const value = this.draftValue.trim();
+    if (!value) return;
+    this.closeWith({ mode: 'message', value: this.draftValue });
+  }
+
+  completeChatSession(event?: Event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+    const value = this.draftValue.trim();
+    if (!value) return;
+    this.closeWith({ mode: 'complete', value: this.draftValue });
   }
 
   canSendEditedOutput(): boolean {

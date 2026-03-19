@@ -100,13 +100,14 @@
   @if (hasParameterFields()) {
   <div class="container-node__params">
     @for (field of parameterFields; track field.path) {
-    <div class="container-node__param-chip" [class.container-node__param-chip--wide]="field.wide">
+    <div class="container-node__param-chip" [class.container-node__param-chip--wide]="field.wide" [class.container-node__param-chip--disabled]="!field.enabled">
       <div class="container-node__param-head">
         <span class="container-node__param-key">{{ field.label }}</span>
         @if (!isReadonly) {
         <button
           type="button"
           class="container-node__param-edit"
+          [disabled]="!field.enabled"
           title="Edit field"
           (pointerdown)="$event.stopPropagation()"
           (click)="openParameterEditor(field.path, $event)">

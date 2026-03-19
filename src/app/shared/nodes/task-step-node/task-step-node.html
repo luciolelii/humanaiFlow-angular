@@ -6,7 +6,7 @@
   [class.llm-node-attention]="needsAttention()"
   [class.llm-node-error]="hasExecutionErrors()"
   [class.llm-node-warning]="hasExecutionWarnings() && !hasExecutionErrors()">
-  @if (needsAttention()) {
+  @if (needsAttention() && isHumanNode()) {
   <div class="llm-attention-wrap" (pointerdown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
     <button
       type="button"

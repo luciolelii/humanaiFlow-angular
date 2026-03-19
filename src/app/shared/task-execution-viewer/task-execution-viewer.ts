@@ -149,7 +149,10 @@ export class TaskExecutionViewerComponent implements OnDestroy {
           __executionOutputs: this.getExecutionOutputValues(step, contextResults),
           __connectedOutputs: this.getConnectedOutputs(step),
           __executionErrors: this.getExecutionErrors(step.id, contextErrors),
-          __executionWarnings: this.getExecutionWarnings(step.id, contextWarnings)
+          __executionWarnings: this.getExecutionWarnings(step.id, contextWarnings),
+          __stepResultData: step.result ?? null,
+          __executionPartialResult: (this.execution()?.context as Record<string, unknown> | undefined)?.['partialResult'] ?? null,
+          __executionResultData: this.execution()?.context.result ?? {}
         },
         position: stepNode.position ?? {
           x: 120 + (index % 3) * 340,

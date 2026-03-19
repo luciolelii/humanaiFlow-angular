@@ -163,13 +163,14 @@
         <legend class="llm-param-legend">{{ group.legend }}</legend>
         <div class="llm-param-grid">
           @for (field of group.fields; track field.path) {
-          <div class="llm-param-chip" [class.llm-param-chip-wide]="field.wide">
+          <div class="llm-param-chip" [class.llm-param-chip-wide]="field.wide" [class.llm-param-chip-disabled]="!field.enabled">
             <div class="llm-param-row-head">
               <span class="llm-param-key">{{ field.label }}</span>
               @if (!isReadonly) {
               <button
                 type="button"
                 class="llm-edit-btn"
+                [disabled]="!field.enabled"
                 [attr.title]="'Edit ' + field.label.toLowerCase()"
                 (pointerdown)="$event.stopPropagation()"
                 (click)="openParameterEditor(field.path, $event)">
@@ -189,13 +190,14 @@
     @if (parameterFields.length) {
     <div class="llm-param-grid">
       @for (field of parameterFields; track field.path) {
-      <div class="llm-param-chip" [class.llm-param-chip-wide]="field.wide">
+      <div class="llm-param-chip" [class.llm-param-chip-wide]="field.wide" [class.llm-param-chip-disabled]="!field.enabled">
         <div class="llm-param-row-head">
           <span class="llm-param-key">{{ field.label }}</span>
           @if (!isReadonly) {
           <button
             type="button"
             class="llm-edit-btn"
+            [disabled]="!field.enabled"
             [attr.title]="'Edit ' + field.label.toLowerCase()"
             (pointerdown)="$event.stopPropagation()"
             (click)="openParameterEditor(field.path, $event)">
@@ -345,8 +347,8 @@
         } @else if (localEditorHasRetriever) {
         <select [(ngModel)]="localEditorValue" (pointerdown)="$event.stopPropagation()">
           <option value="">{{ localEditorOptions.length ? ('Select ' + (localEditorLabel | lowercase) + '...') : 'No options available' }}</option>
-          @for (option of localEditorOptions; track option) {
-          <option [value]="option">{{ option }}</option>
+          @for (option of localEditorOptions; track option.value) {
+          <option [value]="option.value">{{ option.label }}</option>
           }
         </select>
         } @else {

@@ -1,4 +1,4 @@
-import { readUiConditionRule, resolveSchemaRef, type UiConditionRule } from './node-utility';
+import { readUiConditionRule, resolveSchemaRef, schemaFieldLabel, type UiConditionRule } from './node-utility';
 
 export type RequiredField = {
   path: string;
@@ -17,20 +17,23 @@ export type ConditionalRequiredField = {
 
 export type SchemaRequirements = {
   required: RequiredField[];
+  requiredObjects: RequiredField[];
   conditional: ConditionalRequiredField[];
 };
 
 export function extractSchemaRequirements(schema: Record<string, unknown> | null): SchemaRequirements {
-  if (!schema) return { required: [], conditional: [] };
+  if (!schema) return { required: [], requiredObjects: [], conditional: [] };
 
   const required: RequiredField[] = [];
+  const requiredObjects: RequiredField[] = [];
   const conditional: ConditionalRequiredField[] = [];
   const seenRequired = new Set<string>();
+  const seenRequiredObjects = new Set<string>();
   const seenConditional = new Set<string>();
 
-  walkSchema(schema as Record<string, any>, schema as Record<string, any>, '', required, conditional, seenRequired, seenConditional);
+  walkSchema(schema as Record<string, any>, schema as Record<string, any>, '', required, requiredObjects, conditional, seenRequired, seenRequiredObjects, seenConditional);
 
-  return { required, conditional };
+  return { required, requiredObjects, conditional };
 }
 
 function walkSchema(
@@ -38,8 +41,10 @@ function walkSchema(
   root: Record<string, any>,
   pathPrefix: string,
   required: RequiredField[],
+  requiredObjects: RequiredField[],
   conditional: ConditionalRequiredField[],
   seenRequired: Set<string>,
+  seenRequiredObjects: Set<string>,
   seenConditional: Set<string>,
   requireAllDescendants = false,
   inheritedRequiredWhen: UiConditionRule | null = null
@@ -56,11 +61,16 @@ function walkSchema(
     const propertyPath = pathPrefix ? `${pathPrefix}.${key}` : key;
     const propertyResolved = resolveSchemaRef(propertySchema as Record<string, any>, root);
     const hasChildren = !!propertyResolved?.properties || propertyResolved?.type === 'object';
-    const label = toLabel(key);
+    const label = schemaFieldLabel(key, propertyResolved);
     const isRequiredBySchema = requiredSet.has(key);
     const isRequiredByAncestor = requireAllDescendants && key !== 'type';
     const isRequired = isRequiredBySchema || isRequiredByAncestor;
     const requiredWhen = readUiConditionRule(propertyResolved?.['x-ui-required-when']) ?? inheritedRequiredWhen;
+
+    if (isRequiredBySchema && hasChildren && key !== 'type' && !seenRequiredObjects.has(propertyPath)) {
+      seenRequiredObjects.add(propertyPath);
+      requiredObjects.push({ path: propertyPath, label });
+    }
 
     if (isRequired && !hasChildren && key !== 'type' && !seenRequired.has(propertyPath)) {
       seenRequired.add(propertyPath);
@@ -106,21 +116,16 @@ function walkSchema(
         root,
         propertyPath,
         required,
+        requiredObjects,
         conditional,
         seenRequired,
+        seenRequiredObjects,
         seenConditional,
         isRequired && !childHasOwnRequired,
         requiredWhen
       );
     }
   }
-}
-
-function toLabel(key: string): string {
-  return key
-    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-    .replace(/[_-]/g, ' ')
-    .replace(/^./, (c) => c.toUpperCase());
 }
 
 function parseRetrieverUrl(rawUrl: unknown): { blockType: string; key: string } | null {

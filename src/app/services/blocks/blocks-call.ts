@@ -91,6 +91,7 @@ export class BlocksCallService extends BlocksCallServiceBase {
       family: 'block',
       description: String(value["description"] ?? ""),
       userInteractive: Boolean(value["userInteractive"] ?? value["interactive"] ?? false),
+      interactionContract: this.toInteractionContract(value["interactionContract"]),
       hasExampleBlock: Boolean(value["hasExampleBlock"] ?? false),
       exampleBlockEndpoint: this.toApiPath(value["exampleBlockEndpoint"]),
       configurationType: this.toNullableString(value["configurationType"]),
@@ -164,6 +165,27 @@ export class BlocksCallService extends BlocksCallServiceBase {
   private toSchema(raw: unknown): Record<string, unknown> | null {
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
     return raw as Record<string, unknown>;
+  }
+
+  private toInteractionContract(raw: unknown): BlockType["interactionContract"] {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+    const value = raw as Record<string, unknown>;
+    const kind = typeof value["kind"] === "string" && value["kind"].trim().length > 0
+      ? value["kind"].trim()
+      : null;
+    if (!kind) return null;
+
+    const asNullableString = (input: unknown) =>
+      typeof input === "string" && input.trim().length > 0 ? input.trim() : null;
+
+    return {
+      kind,
+      messageField: asNullableString(value["messageField"]),
+      completionField: asNullableString(value["completionField"]),
+      historyField: asNullableString(value["historyField"]),
+      responseField: asNullableString(value["responseField"]),
+      supportsPartialResult: value["supportsPartialResult"] === true
+    };
   }
 
   private toRecord(value: unknown): Record<string, unknown> {

@@ -272,6 +272,10 @@
   padding: 8px 10px;
 }
 
+.container-node__param-chip--disabled {
+  opacity: 0.58;
+}
+
 .container-node__param-chip--wide {
   grid-column: 1 / -1;
 }
@@ -316,6 +320,12 @@
 
 .container-node__param-edit:hover {
   background: rgba(15, 118, 110, 0.12);
+}
+
+.container-node__param-edit:disabled {
+  opacity: 0.45;
+  cursor: default;
+  pointer-events: none;
 }
 
 .container-node__dropzone {

@@ -48,7 +48,7 @@
     <div class="editor-sidebar-content h-full min-h-0 min-w-0 overflow-hidden">
       @switch (open) {
       @case ('flows') {
-      <div data-tour="editor-sidebar-flows">
+      <div data-tour="editor-sidebar-flows" class="h-full min-h-0 flex flex-col">
       <app-group-holder title="Flows" icon="bi-lightning-charge-fill">
         @if (!creatingFlow()) {
         <i ngProjectAs="header-button" 
@@ -64,14 +64,14 @@
       </div>
       }
       @case ('blocks') {
-      <div data-tour="editor-sidebar-blocks">
+      <div data-tour="editor-sidebar-blocks" class="h-full min-h-0 flex flex-col">
       <app-group-holder title="Blocks" icon="bi-boxes">
         <app-blocks-list></app-blocks-list>
       </app-group-holder>
       </div>
       }
       @case ('containers') {
-      <div data-tour="editor-sidebar-containers">
+      <div data-tour="editor-sidebar-containers" class="h-full min-h-0 flex flex-col">
       <app-group-holder title="Containers" icon="bi-box-seam">
         <app-containers-list></app-containers-list>
       </app-group-holder>

@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, HostBinding, Input, inject } from '@angular/core';
 import { currentFlowPortValueKind, flowValueKindLabel, FlowBlock, FlowContainer, FlowData } from '@models/flow';
-import { NodeSettingField, NodeSettingsDialogService } from '@services/dialogs/node-settings-dialog';
+import { NodeSettingField, NodeSettingOption, NodeSettingsDialogService } from '@services/dialogs/node-settings-dialog';
 import { ContainersService } from '@services/containers/containers';
 import { FieldRetriever } from '@services/retriever/field-retriever';
 import { ClassicPreset } from 'rete';
@@ -11,17 +11,25 @@ import { EditorStateHolder } from '@stores/flow-editor';
 import { CONTAINER_SUBFLOW_DRAG_MIME } from './container-node-drag';
 import { firstValueFrom } from 'rxjs';
 import { extractSchemaRequirements, SchemaRequirements } from '../schema-requirements';
-import { evaluateUiConditionRule, getValueByPath, pathToLabel, readUiConditionRule, resolveSchemaRef, valueToDisplayString } from '../node-utility';
+import { evaluateUiConditionRule, getValueByPath, parentPath, pathToLabel, readUiConditionRule, resolveSchemaPath, resolveSchemaRef, schemaFieldLabel, shouldSkipSchemaField, valueToDisplayString } from '../node-utility';
 
 type ContainerFieldType = 'string' | 'number' | 'integer' | 'boolean' | 'unknown';
+
+type NodeOptionsSource = {
+  collection: 'inputs' | 'outputs';
+  valueField: string;
+  labelField: string;
+};
 
 type ContainerFieldDefinition = {
   path: string;
   label: string;
   type: ContainerFieldType;
   enumOptions: string[];
+  nodeOptionsSource: NodeOptionsSource | null;
   widget: 'textarea' | null;
   structural: boolean;
+  enabledWhen: ReturnType<typeof readUiConditionRule>[];
 };
 
 type ContainerFieldView = {
@@ -29,6 +37,7 @@ type ContainerFieldView = {
   label: string;
   value: string;
   wide: boolean;
+  enabled: boolean;
 };
 
 type StructuredRetrieverConfig = {
@@ -56,7 +65,7 @@ export class ContainerNodeComponent {
   private containersService = inject(ContainersService);
   private settingsDialog = inject(NodeSettingsDialogService);
   private containerSchema: Record<string, any> | null = null;
-  private schemaRequirements: SchemaRequirements = { required: [], conditional: [] };
+  private schemaRequirements: SchemaRequirements = { required: [], requiredObjects: [], conditional: [] };
   private containerFieldDefinitions: ContainerFieldDefinition[] = [];
   deleteConfirmOpen = false;
   replaceConfirmSelection: string[] | null = null;
@@ -171,8 +180,17 @@ export class ContainerNodeComponent {
     return requiredFields
       .filter((field, index, fields) => fields.findIndex((candidate) => candidate.path === field.path) === index)
       .filter((field) => field.path !== 'name' && field.path !== 'subFlow')
+      .filter((field) => this.isFieldEnabled(field.path))
       .filter((field) => this.isMissingValue(getValueByPath(config, field.path)))
-      .map((field) => field.label);
+      .map((field) => field.label)
+      .concat(
+        this.schemaRequirements.requiredObjects
+          .filter((field) => field.path !== 'name' && field.path !== 'subFlow')
+          .filter((field) => this.isFieldEnabled(field.path))
+          .filter((field) => this.isMissingValue(getValueByPath(config, field.path)))
+          .map((field) => field.label)
+      )
+      .filter((field, index, fields) => fields.indexOf(field) === index);
   }
 
   hasParameterFields() {
@@ -288,7 +306,7 @@ export class ContainerNodeComponent {
     if (this.isReadonly) return;
 
     const definition = this.containerFieldDefinitions.find((field) => field.path === path);
-    if (!definition) return;
+    if (!definition || !this.isFieldEnabled(definition.path)) return;
 
     const initialValue = this.getEditorInitialValue(definition);
     const field: NodeSettingField = {
@@ -297,7 +315,7 @@ export class ContainerNodeComponent {
       type: this.toDialogFieldType(definition),
       required: this.missingRequiredParams.includes(definition.label),
       rows: definition.widget === 'textarea' ? 6 : undefined,
-      options: definition.enumOptions.map((option) => ({ label: option, value: option }))
+      options: this.resolveSelectableOptions(definition)
     };
 
     const result = await this.settingsDialog.open({
@@ -536,6 +554,11 @@ export class ContainerNodeComponent {
   private isMissingValue(value: unknown): boolean {
     if (value == null) return true;
     if (typeof value === 'string') return value.trim().length === 0;
+    if (Array.isArray(value)) return value.length === 0 || value.every((item) => this.isMissingValue(item));
+    if (typeof value === 'object') {
+      const entries = Object.values(value as Record<string, unknown>);
+      return entries.length === 0 || entries.every((item) => this.isMissingValue(item));
+    }
     return false;
   }
 
@@ -547,7 +570,8 @@ export class ContainerNodeComponent {
         path: field.path,
         label: field.label,
         value: valueToDisplayString(getValueByPath(config, field.path)),
-        wide: field.widget === 'textarea' || field.label.length >= 18
+        wide: field.widget === 'textarea' || field.label.length >= 18,
+        enabled: this.isFieldEnabled(field.path)
       }));
   }
 
@@ -563,11 +587,11 @@ export class ContainerNodeComponent {
       if (!properties) return;
 
       for (const [key, childSchema] of Object.entries(properties)) {
-        if (key === 'type') continue;
+        const childResolved = resolveSchemaRef(childSchema as Record<string, any>, schema);
+        if (shouldSkipSchemaField(key, childResolved)) continue;
         const path = pathPrefix ? `${pathPrefix}.${key}` : key;
         if (path === 'name' || path === 'subFlow') continue;
 
-        const childResolved = resolveSchemaRef(childSchema as Record<string, any>, schema);
         const hasChildren = !!childResolved?.properties || childResolved?.type === 'object';
         if (hasChildren) {
           walk(childResolved as Record<string, any>, path);
@@ -576,15 +600,17 @@ export class ContainerNodeComponent {
 
         definitions.push({
           path,
-          label: pathToLabel(path),
+          label: schemaFieldLabel(path, childResolved),
           type: this.toFieldType(childResolved),
           enumOptions: Array.isArray(childResolved?.enum)
             ? childResolved.enum.filter((item: unknown): item is string => typeof item === 'string')
             : [],
+          nodeOptionsSource: this.toNodeOptionsSource(childResolved),
           widget: typeof childResolved?.['x-ui-widget'] === 'string' && String(childResolved['x-ui-widget']).toLowerCase() === 'textarea'
             ? 'textarea'
             : null,
-          structural: childResolved?.['x-ui-structural'] === true
+          structural: childResolved?.['x-ui-structural'] === true,
+          enabledWhen: [readUiConditionRule(childResolved?.['x-ui-enabled-when'])].filter((rule) => !!rule)
         });
       }
     };
@@ -607,6 +633,23 @@ export class ContainerNodeComponent {
     return evaluateUiConditionRule(rule, this.configuration ?? {}, (fieldPath) => this.resolveFieldSchema(fieldPath));
   }
 
+  private isFieldEnabled(path: string, visited = new Set<string>()): boolean {
+    if (visited.has(path)) return true;
+    visited.add(path);
+
+    const parent = parentPath(path);
+    if (parent && !this.isFieldEnabled(parent, visited)) return false;
+
+    const schema = this.resolveFieldSchema(path);
+    const rules = [readUiConditionRule(schema?.['x-ui-enabled-when'])].filter((rule) => !!rule);
+    return rules.every((rule) => {
+      if (!rule) return true;
+      const dependency = typeof rule.field === 'string' ? rule.field : null;
+      if (dependency && !this.isFieldVisible(dependency, visited)) return false;
+      return evaluateUiConditionRule(rule, this.configuration ?? {}, (fieldPath) => this.resolveFieldSchema(fieldPath));
+    });
+  }
+
   private toFieldType(schema: Record<string, any> | null): ContainerFieldType {
     const type = typeof schema?.['type'] === 'string' ? String(schema['type']) : 'unknown';
     if (type === 'string' || type === 'number' || type === 'integer' || type === 'boolean') {
@@ -618,8 +661,57 @@ export class ContainerNodeComponent {
   private toDialogFieldType(definition: ContainerFieldDefinition): NodeSettingField['type'] {
     if (definition.type === 'boolean') return 'checkbox';
     if (definition.widget === 'textarea') return 'textarea';
-    if (definition.enumOptions.length) return 'select';
+    if (definition.enumOptions.length || definition.nodeOptionsSource) return 'select';
     return 'text';
+  }
+
+  private toNodeOptionsSource(schema: Record<string, any> | null | undefined): NodeOptionsSource | null {
+    if (!schema || typeof schema !== 'object') return null;
+    const raw = schema['x-ui-options-from-node'];
+    if (!raw || typeof raw !== 'object') return null;
+
+    const collection = (raw as Record<string, unknown>)['collection'];
+    const valueField = (raw as Record<string, unknown>)['valueField'];
+    const labelField = (raw as Record<string, unknown>)['labelField'];
+    if ((collection !== 'inputs' && collection !== 'outputs')
+      || typeof valueField !== 'string'
+      || typeof labelField !== 'string'
+      || valueField.trim().length === 0
+      || labelField.trim().length === 0) {
+      return null;
+    }
+
+    return {
+      collection,
+      valueField: valueField.trim(),
+      labelField: labelField.trim()
+    };
+  }
+
+  private resolveSelectableOptions(definition: ContainerFieldDefinition): NodeSettingOption[] | undefined {
+    if (definition.nodeOptionsSource) {
+      return this.resolveNodeOptions(definition.nodeOptionsSource);
+    }
+    if (!definition.enumOptions.length) return undefined;
+    return definition.enumOptions.map((option) => ({ label: option, value: option }));
+  }
+
+  private resolveNodeOptions(source: NodeOptionsSource): NodeSettingOption[] {
+    const items = source.collection === 'inputs'
+      ? (Array.isArray(this.data?.data?.inputs) ? this.data.data.inputs : [])
+      : (Array.isArray(this.data?.data?.outputs) ? this.data.data.outputs : []);
+
+    return items
+      .map((item: unknown) => {
+        const record = item && typeof item === 'object' ? item as Record<string, unknown> : null;
+        const value = record?.[source.valueField];
+        const label = record?.[source.labelField];
+        if (typeof value !== 'string' || typeof label !== 'string' || value.trim().length === 0 || label.trim().length === 0) {
+          return null;
+        }
+        return { label, value } satisfies NodeSettingOption;
+      })
+      .filter((option: NodeSettingOption | null): option is NodeSettingOption => option != null);
   }
 
   private getEditorInitialValue(definition: ContainerFieldDefinition): string | boolean {
@@ -780,17 +872,7 @@ export class ContainerNodeComponent {
   }
 
   private resolveFieldSchema(path: string): Record<string, any> | null {
-    if (!this.containerSchema) return null;
-
-    let current: Record<string, any> | null = this.containerSchema;
-    for (const key of path.split('.')) {
-      const resolved = current ? resolveSchemaRef(current, this.containerSchema) : null;
-      const properties = resolved?.properties as Record<string, any> | undefined;
-      if (!properties?.[key]) return null;
-      current = resolveSchemaRef(properties[key], this.containerSchema) as Record<string, any> | null;
-    }
-
-    return current;
+    return resolveSchemaPath(this.containerSchema, path);
   }
 
 }
