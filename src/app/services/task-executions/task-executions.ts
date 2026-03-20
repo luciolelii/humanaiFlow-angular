@@ -67,6 +67,16 @@ export class TaskExecutionsService {
     );
   }
 
+  cancelExecution(executionId: string) {
+    return this.taskExecutionsCallService.cancelTaskExecution(executionId).pipe(
+      tap(() => this.refresh()),
+      catchError((err) => {
+        console.error('Cancel execution failed', err);
+        return throwError(() => err);
+      })
+    );
+  }
+
   prepareStringInput(executionId: string, nodeId: string, inputName: string, value: string) {
     return this.taskExecutionsCallService.prepareStringInput(executionId, nodeId, inputName, value).pipe(
       tap(() => this.refresh()),

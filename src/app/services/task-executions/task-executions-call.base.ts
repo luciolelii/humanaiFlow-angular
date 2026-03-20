@@ -6,6 +6,7 @@ export abstract class TaskExecutionsCallServiceBase {
   abstract createTaskExecution(flowId: string): Observable<TaskExecution>;
   abstract deleteTaskExecution(executionId: string): Observable<void>;
   abstract startTaskExecution(executionId: string): Observable<TaskExecution>;
+  abstract cancelTaskExecution(executionId: string): Observable<TaskExecution>;
   abstract prepareStringInput(
     executionId: string,
     nodeId: string,

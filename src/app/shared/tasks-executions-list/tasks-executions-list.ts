@@ -108,6 +108,7 @@ export class TasksExecutionsListComponent {
     const normalized = String(status).toUpperCase();
     if (normalized === 'SUCCESS') return 'bg-emerald-100 text-emerald-700 border-emerald-200';
     if (normalized === 'ERROR') return 'bg-rose-100 text-rose-700 border-rose-200';
+    if (normalized === 'CANCELLED') return 'bg-slate-200 text-slate-700 border-slate-300';
     if (normalized === 'WAITING') return 'bg-amber-100 text-amber-700 border-amber-200';
     if (normalized === 'RUNNING') return 'bg-blue-100 text-blue-700 border-blue-200';
     if (normalized === 'CREATED' || normalized === 'READY') return 'bg-slate-100 text-slate-700 border-slate-200';

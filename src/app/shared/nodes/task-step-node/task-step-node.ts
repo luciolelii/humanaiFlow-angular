@@ -372,39 +372,10 @@ export class TaskStepNodeComponent {
     const contract = this.interactionContract();
     if (!executionId || !executionNodeId || !contract) return;
 
-    const currentInput = this.currentInputValue();
-    const actionDescription = this.actionDescriptionValue();
-
-    const result = await this.humanInteractionDialog.open({
-      title: this.interactionDialogTitle(contract),
-      kind: contract.kind,
-      actionDescription,
-      currentInput,
-      history: this.chatHistory(contract),
-      latestResponse: this.latestInteractionResponse(contract),
-      messageField: contract.messageField,
-      completionField: contract.completionField
-    });
-    if (!result) return;
-
-    const interactionFieldName = result.mode === 'message'
-      ? contract.messageField
-      : contract.completionField;
-    if (!interactionFieldName) return;
-
-    this.interactionSubmitting = true;
-    this.taskExecutionsService.submitInteractionText(
-      executionId,
-      executionNodeId,
-      interactionFieldName,
-      result.value
-    ).subscribe({
-      next: () => {
-        this.interactionSubmitting = false;
-      },
-      error: (error) => {
-        this.interactionSubmitting = false;
-        console.error('Submit interaction output failed', error);
+    this.humanInteractionDialog.open({
+      ...this.buildInteractionDialogState(executionId, executionNodeId, contract),
+      onSubmit: (result) => {
+        this.submitInteractionResult(executionId, executionNodeId, contract, result);
       }
     });
   }
@@ -579,13 +550,20 @@ export class TaskStepNodeComponent {
   }
 
   private chatHistory(contract: BlockInteractionContract): Array<{ role: 'user' | 'assistant' | 'system'; content: string }> {
-    const historyField = contract.historyField;
-    if (!historyField) return [];
+    const historyField = this.resolveInteractionFieldName(contract, 'history');
+    const latestResponse = this.latestInteractionResponse(contract);
+    if (!historyField) {
+      return latestResponse
+        ? [{ role: 'assistant', content: latestResponse }]
+        : [];
+    }
 
-    const rawHistory = this.interactionFieldValue(historyField, Boolean(contract.supportsPartialResult));
-    if (!Array.isArray(rawHistory)) return [];
-
-    return rawHistory
+    const rawHistory =
+      this.interactionFieldValue(historyField, true)
+      ?? this.interactionFieldValue(historyField, false);
+    const normalizedHistory = !Array.isArray(rawHistory)
+      ? []
+      : rawHistory
       .map((entry) => {
         if (typeof entry === 'string') {
           return this.parseChatHistoryLine(entry);
@@ -600,15 +578,106 @@ export class TaskStepNodeComponent {
         return { role, content };
       })
       .filter((entry): entry is { role: 'user' | 'assistant' | 'system'; content: string } => entry != null);
+
+    if (!latestResponse) return normalizedHistory;
+
+    const lastMessage = normalizedHistory[normalizedHistory.length - 1];
+    if (lastMessage?.role === 'assistant' && lastMessage.content === latestResponse) {
+      return normalizedHistory;
+    }
+
+    return [
+      ...normalizedHistory,
+      { role: 'assistant', content: latestResponse }
+    ];
   }
 
   private latestInteractionResponse(contract: BlockInteractionContract): string {
-    const fieldName = contract.responseField;
+    const fieldName = this.resolveInteractionFieldName(contract, 'response');
     if (!fieldName) return '';
     const value =
       this.interactionFieldValue(fieldName, true)
       ?? this.interactionFieldValue(fieldName, false);
     return typeof value === 'string' ? value : '';
+  }
+
+  private resolveInteractionFieldName(
+    contract: BlockInteractionContract,
+    target: 'history' | 'response'
+  ): string | null {
+    const explicit = target === 'history'
+      ? contract.historyField
+      : contract.responseField;
+    if (explicit) return explicit;
+
+    if (contract.kind !== 'chat-session') return null;
+    return target;
+  }
+
+  private buildInteractionDialogState(executionId: string, executionNodeId: string, contract: BlockInteractionContract) {
+    return {
+      executionId,
+      nodeId: executionNodeId,
+      title: this.interactionDialogTitle(contract),
+      kind: contract.kind,
+      actionDescription: this.actionDescriptionValue(),
+      currentInput: this.currentInputValue(),
+      history: this.chatHistory(contract),
+      latestResponse: this.latestInteractionResponse(contract),
+      historyField: contract.historyField,
+      responseField: contract.responseField,
+      messageField: contract.messageField,
+      completionField: contract.completionField,
+      pendingUserMessage: null,
+      awaitingAssistantResponse: false,
+      assistantResponseBaseline: this.latestInteractionResponse(contract),
+      isRunning: this.isRunning(),
+      isSubmitting: this.interactionSubmitting,
+      submitError: null
+    };
+  }
+
+  private submitInteractionResult(
+    executionId: string,
+    executionNodeId: string,
+    contract: BlockInteractionContract,
+    result: { mode: 'message' | 'complete'; value: string }
+  ) {
+    const interactionFieldName = result.mode === 'message'
+      ? contract.messageField
+      : contract.completionField;
+    if (!interactionFieldName) return;
+
+    this.interactionSubmitting = true;
+    this.humanInteractionDialog.update({
+      pendingUserMessage: result.value,
+      awaitingAssistantResponse: true,
+      assistantResponseBaseline: this.latestInteractionResponse(contract),
+      isSubmitting: true,
+      submitError: null
+    });
+    this.taskExecutionsService.submitInteractionText(
+      executionId,
+      executionNodeId,
+      interactionFieldName,
+      result.value
+    ).subscribe({
+      next: () => {
+        this.interactionSubmitting = false;
+        this.humanInteractionDialog.update({
+          isSubmitting: false,
+          submitError: null
+        });
+      },
+      error: (error) => {
+        this.interactionSubmitting = false;
+        this.humanInteractionDialog.update({
+          isSubmitting: false,
+          submitError: 'Failed to send the interaction response.'
+        });
+        console.error('Submit interaction output failed', error);
+      }
+    });
   }
 
   private parseChatHistoryLine(rawLine: string): { role: 'user' | 'assistant' | 'system'; content: string } | null {

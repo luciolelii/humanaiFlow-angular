@@ -1,6 +1,6 @@
 import { FlowBlock, FlowBlockConnection, FlowContainer, FlowNode, FlowPort } from './flow';
 
-export type TaskExecutionStatus = 'CREATED' | 'READY' | 'RUNNING' | 'WAITING' | 'SUCCESS' | 'ERROR';
+export type TaskExecutionStatus = 'CREATED' | 'READY' | 'RUNNING' | 'WAITING' | 'SUCCESS' | 'ERROR' | 'CANCELLED';
 export type TaskExecutionStatusGroup = 'INIT' | 'RUNNING' | 'FINAL';
 
 export type StepStatus = 'WAITING_FOR_INPUT' | 'FAILED' | 'COMPLETED' | 'RUNNING' | string;
@@ -73,7 +73,7 @@ export function getExecutionStatusGroup(status: string | null | undefined): Task
   ) {
     return 'RUNNING';
   }
-  if (normalized === 'SUCCESS' || normalized === 'ERROR') {
+  if (normalized === 'SUCCESS' || normalized === 'ERROR' || normalized === 'CANCELLED') {
     return 'FINAL';
   }
 
@@ -88,6 +88,7 @@ export function normalizeExecutionStatus(status: string | null | undefined): Tas
   if (normalized === 'WAITING' || normalized === 'WAITING_FOR_INPUT' || normalized === 'WAITING_FOR_INTERACTION') {
     return 'WAITING';
   }
+  if (normalized === 'CANCELLED') return 'CANCELLED';
   if (normalized === 'SUCCESS' || normalized === 'COMPLETED') return 'SUCCESS';
   if (normalized === 'ERROR' || normalized === 'FAILED') return 'ERROR';
   return 'CREATED';

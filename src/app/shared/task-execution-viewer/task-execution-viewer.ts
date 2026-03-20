@@ -24,6 +24,10 @@ import {
   TaskExecutionInputsPanelComponent
 } from '@shared/task-execution-inputs-panel/task-execution-inputs-panel';
 import { ReteEditor } from '@shared/rete-editor/rete-editor';
+import {
+  HumanInteractionChatMessage,
+  HumanInteractionDialogService
+} from '@services/dialogs/human-interaction-dialog';
 import { TaskExecutionsService } from '@services/task-executions/task-executions';
 
 type ExecutionOutputEntry = {
@@ -44,6 +48,7 @@ type ExecutionOutputEntry = {
 export class TaskExecutionViewerComponent implements OnDestroy {
   private static readonly TEXT_INPUT_DEBOUNCE_MS = 1200;
   private taskExecutionsService = inject(TaskExecutionsService);
+  private humanInteractionDialog = inject(HumanInteractionDialogService);
   private readonly textInputDebounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private lastExecutionId: string | null = null;
   private lastExecutionStatus: string | null = null;
@@ -51,6 +56,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   readonly contextAsideOpen = signal(true);
   readonly activeAsideTab = signal<'inputs' | 'output'>('inputs');
   readonly startInProgress = signal(false);
+  readonly cancelInProgress = signal(false);
   readonly savingInputs = signal<Record<string, boolean>>({});
   readonly savingErrors = signal<Record<string, string>>({});
   readonly pendingTextInputs = signal<Record<string, string | string[]>>({});
@@ -93,6 +99,71 @@ export class TaskExecutionViewerComponent implements OnDestroy {
       }
 
       this.lastExecutionStatus = status;
+    });
+
+    effect(() => {
+      const dialogState = this.humanInteractionDialog.state();
+      const execution = this.execution();
+      if (!dialogState || !execution) return;
+      if (dialogState.executionId !== execution.id || !dialogState.nodeId) return;
+
+      const executionStatus = String(execution.context.status ?? '').toUpperCase();
+      if (executionStatus === 'CANCELLED') {
+        this.humanInteractionDialog.close(null);
+        return;
+      }
+
+      const step = execution.context.steps?.[dialogState.nodeId];
+      const stepResult = step?.result && typeof step.result === 'object' ? step.result as Record<string, unknown> : {};
+      const finalResult = execution.context.result ?? {};
+      const executionResult = execution.context.executionResult ?? {};
+      const partialResult = ((execution.context as Record<string, unknown>)['partialResult'] as Record<string, unknown> | undefined) ?? {};
+
+      const historyField = dialogState.historyField || (dialogState.kind === 'chat-session' ? 'history' : null);
+      const responseField = dialogState.responseField || (dialogState.kind === 'chat-session' ? 'response' : null);
+      const historyKey = historyField ? `${dialogState.nodeId}:${historyField}` : null;
+      const responseKey = responseField ? `${dialogState.nodeId}:${responseField}` : null;
+
+      const rawHistory = historyField
+        ? partialResult[historyKey ?? '']
+          ?? finalResult[historyKey ?? '']
+          ?? executionResult[historyKey ?? '']
+          ?? stepResult[historyField]
+        : undefined;
+      const rawResponse = responseField
+        ? partialResult[responseKey ?? '']
+          ?? finalResult[responseKey ?? '']
+          ?? executionResult[responseKey ?? '']
+          ?? stepResult[responseField]
+        : undefined;
+
+      const nextHistory = this.toDialogHistory(rawHistory);
+      const nextLatestResponse = typeof rawResponse === 'string' ? rawResponse : '';
+      const nextIsRunning = String(step?.status ?? '').toUpperCase() === 'RUNNING';
+      const historyHasPendingUser = !!dialogState.pendingUserMessage
+        && nextHistory.some((message) =>
+          message.role === 'user' && String(message.content ?? '').trim() === String(dialogState.pendingUserMessage ?? '').trim()
+        );
+      const nextPendingUserMessage = historyHasPendingUser ? null : dialogState.pendingUserMessage;
+      const nextAwaitingAssistantResponse = dialogState.awaitingAssistantResponse
+        && nextLatestResponse.trim().length > 0
+        && nextLatestResponse.trim() !== String(dialogState.assistantResponseBaseline ?? '').trim()
+        ? false
+        : dialogState.awaitingAssistantResponse;
+      const sameHistory = JSON.stringify(dialogState.history) === JSON.stringify(nextHistory);
+      const sameLatestResponse = dialogState.latestResponse === nextLatestResponse;
+      const sameIsRunning = dialogState.isRunning === nextIsRunning;
+      const samePendingUserMessage = dialogState.pendingUserMessage === nextPendingUserMessage;
+      const sameAwaitingAssistantResponse = dialogState.awaitingAssistantResponse === nextAwaitingAssistantResponse;
+      if (sameHistory && sameLatestResponse && sameIsRunning && samePendingUserMessage && sameAwaitingAssistantResponse) return;
+
+      this.humanInteractionDialog.update({
+        history: nextHistory,
+        latestResponse: nextLatestResponse,
+        pendingUserMessage: nextPendingUserMessage,
+        awaitingAssistantResponse: nextAwaitingAssistantResponse,
+        isRunning: nextIsRunning
+      });
     });
   }
 
@@ -211,6 +282,11 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     return getExecutionStatusGroup(status) !== 'INIT';
   });
 
+  readonly canCancelExecution = computed(() => {
+    const status = String(this.execution()?.context.status ?? '').toUpperCase();
+    return !this.cancelInProgress() && (status === 'RUNNING' || status === 'WAITING');
+  });
+
   readonly canStartExecution = computed(() => {
     const execution = this.execution();
     if (!execution) return false;
@@ -307,6 +383,20 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     this.taskExecutionsService.startExecution(executionId).subscribe({
       next: () => this.startInProgress.set(false),
       error: () => this.startInProgress.set(false)
+    });
+  }
+
+  cancelExecution() {
+    const executionId = this.execution()?.id;
+    if (!executionId || !this.canCancelExecution()) return;
+
+    this.cancelInProgress.set(true);
+    this.taskExecutionsService.cancelExecution(executionId).subscribe({
+      next: () => {
+        this.cancelInProgress.set(false);
+        this.humanInteractionDialog.close(null);
+      },
+      error: () => this.cancelInProgress.set(false)
     });
   }
 
@@ -624,6 +714,45 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     }
 
     return result;
+  }
+
+  private toDialogHistory(rawHistory: unknown): HumanInteractionChatMessage[] {
+    if (!Array.isArray(rawHistory)) return [];
+
+    return rawHistory
+      .map((entry) => {
+        if (typeof entry === 'string') {
+          return this.parseChatHistoryLine(entry);
+        }
+        if (!entry || typeof entry !== 'object') return null;
+        const record = entry as Record<string, unknown>;
+        const role = record['role'];
+        const content = record['content'] ?? record['message'] ?? record['text'];
+        if ((role !== 'user' && role !== 'assistant' && role !== 'system') || typeof content !== 'string') {
+          return null;
+        }
+        return { role, content };
+      })
+      .filter((entry): entry is HumanInteractionChatMessage => entry != null);
+  }
+
+  private parseChatHistoryLine(rawLine: string): HumanInteractionChatMessage | null {
+    const line = rawLine.trim();
+    if (!line) return null;
+
+    const prefixed = line.match(/^\[(USER|ASSISTANT|SYSTEM)\]\s*([\s\S]*)$/i);
+    if (prefixed) {
+      const role = prefixed[1].toLowerCase() as 'user' | 'assistant' | 'system';
+      return {
+        role,
+        content: prefixed[2] ?? ''
+      };
+    }
+
+    return {
+      role: 'assistant',
+      content: line
+    };
   }
 
   private getConnectedInputs(step: TaskExecutionStep): string[] {

@@ -494,6 +494,28 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
     return of(execution);
   }
 
+  override cancelTaskExecution(executionId: string): Observable<TaskExecution> {
+    const execution = this.findExecution(executionId);
+    execution.context.status = 'CANCELLED';
+    execution.context.endTime = Date.now();
+    execution.context.inputs = {};
+    execution.context.result = {};
+    execution.context.executionResult = {};
+    (execution.context as Record<string, unknown>)['partialResult'] = {};
+    execution.context.errors = {};
+    execution.context.warnings = {};
+    execution.context.waitingSteps = [];
+
+    for (const step of Object.values(execution.context.steps ?? {})) {
+      const status = String(step.status ?? '').toUpperCase();
+      if (status === 'RUNNING' || status === 'WAITING_FOR_INPUT' || status === 'WAITING_FOR_INTERACTION' || status === 'WAITING') {
+        step.status = 'CANCELLED';
+      }
+    }
+
+    return of(execution);
+  }
+
   override prepareStringInput(
     executionId: string,
     nodeId: string,

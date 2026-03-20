@@ -7,15 +7,26 @@
           <h2 class="text-base font-semibold text-slate-900">{{ execution()!.name }}</h2>
           <p class="text-sm text-slate-500">Execution ID: {{ execution()!.id }}</p>
         </div>
-        <button
-          type="button"
-          class="self-stretch h-full w-10 rounded-md border border-emerald-300 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 disabled:opacity-40 disabled:cursor-not-allowed"
-          matTooltip="Start execution"
-          aria-label="Start execution"
-          [disabled]="!canStartExecution() || startInProgress()"
-          (click)="startExecution()">
-          <mat-icon fontIcon="play_arrow"></mat-icon>
-        </button>
+        <div class="flex items-stretch gap-2">
+          <button
+            type="button"
+            class="self-stretch h-full w-10 rounded-md border border-rose-300 bg-rose-50 text-rose-600 hover:bg-rose-100 disabled:opacity-40 disabled:cursor-not-allowed"
+            matTooltip="Cancel execution"
+            aria-label="Cancel execution"
+            [disabled]="!canCancelExecution()"
+            (click)="cancelExecution()">
+            <mat-icon fontIcon="stop"></mat-icon>
+          </button>
+          <button
+            type="button"
+            class="self-stretch h-full w-10 rounded-md border border-emerald-300 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 disabled:opacity-40 disabled:cursor-not-allowed"
+            matTooltip="Start execution"
+            aria-label="Start execution"
+            [disabled]="!canStartExecution() || startInProgress()"
+            (click)="startExecution()">
+            <mat-icon fontIcon="play_arrow"></mat-icon>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -41,6 +52,12 @@
         <div class="text-sm font-medium text-slate-800">{{ stepsArray().length }}</div>
       </div>
     </div>
+
+    @if (execution()!.context.status === 'CANCELLED') {
+    <div class="mx-1 mt-1 rounded-md border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+      Execution cancelled. This execution is closed. Start a new execution to continue.
+    </div>
+    }
 
     <div class="flex-1 min-h-0 flex gap-2 p-1">
       <div class="flex-1 border border-slate-200 rounded-md bg-slate-50 min-h-0 overflow-hidden">

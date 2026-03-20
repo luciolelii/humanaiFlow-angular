@@ -19,9 +19,28 @@
 
     @if (currentState.kind === 'chat-session') {
     <div class="flex min-h-0 flex-1 flex-col bg-slate-50">
-      <div class="flex-1 overflow-y-auto px-5 py-5">
+      <div #messagesContainer class="flex-1 overflow-y-auto px-5 py-5">
+        @if (currentState.isSubmitting || currentState.isRunning) {
+        <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <div class="font-medium">
+            @if (currentState.isSubmitting) {
+            Sending message...
+            } @else {
+            Waiting for node response...
+            }
+          </div>
+          <div class="mt-1 text-amber-800/80">The window stays open until you close it.</div>
+        </div>
+        }
+
+        @if (currentState.submitError) {
+        <div class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {{ currentState.submitError }}
+        </div>
+        }
+
         <div class="flex flex-col gap-3">
-          @for (message of currentState.history; track $index) {
+          @for (message of displayMessages(); track $index) {
           <div class="flex" [class.justify-end]="message.role === 'user'" [class.justify-start]="message.role !== 'user'">
             <div
               class="max-w-[85%] rounded-2xl px-4 py-3 shadow-sm"
@@ -37,13 +56,27 @@
           </div>
           }
 
-          @if (!currentState.history.length) {
+          @if (!displayMessages().length) {
           <div class="py-8 text-center text-sm text-slate-500">No messages yet.</div>
           }
         </div>
       </div>
 
       <div class="border-t border-slate-200 bg-white px-5 py-4">
+        @if (currentState.isSubmitting || currentState.isRunning) {
+        <div class="flex min-h-[5.5rem] items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-4 py-5 text-slate-600">
+          <div class="flex items-center gap-3">
+            <div class="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-slate-700"></div>
+            <div class="text-sm font-medium">
+              @if (currentState.isSubmitting) {
+              Sending message...
+              } @else {
+              Waiting for node response...
+              }
+            </div>
+          </div>
+        </div>
+        } @else {
         <mat-form-field appearance="outline" class="w-full">
           <mat-label>Type a message</mat-label>
           <textarea
@@ -55,6 +88,7 @@
             (ngModelChange)="setDraftValue($event)">
           </textarea>
         </mat-form-field>
+        }
       </div>
     </div>
     } @else {
@@ -79,6 +113,7 @@
           class="min-h-40"
           rows="7"
           [ngModel]="draftValue"
+          [disabled]="currentState.isSubmitting || currentState.isRunning"
           [attr.data-autofocus]="'true'"
           (ngModelChange)="setDraftValue($event)">
         </textarea>
