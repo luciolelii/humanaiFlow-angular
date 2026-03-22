@@ -57,6 +57,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   readonly activeAsideTab = signal<'inputs' | 'output'>('inputs');
   readonly startInProgress = signal(false);
   readonly cancelInProgress = signal(false);
+  readonly resumeInProgress = signal(false);
   readonly savingInputs = signal<Record<string, boolean>>({});
   readonly savingErrors = signal<Record<string, string>>({});
   readonly pendingTextInputs = signal<Record<string, string | string[]>>({});
@@ -108,7 +109,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
       if (dialogState.executionId !== execution.id || !dialogState.nodeId) return;
 
       const executionStatus = String(execution.context.status ?? '').toUpperCase();
-      if (executionStatus === 'CANCELLED') {
+      if (executionStatus === 'CANCELLED' || executionStatus === 'SUSPENDED') {
         this.humanInteractionDialog.close(null);
         return;
       }
@@ -212,6 +213,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
           ...(stepNode.specificConfiguration ?? {}),
           __executionId: this.execution()?.id ?? null,
           __executionNodeId: step.id,
+          __executionStatus: this.execution()?.context.status ?? null,
           __stepStatus: step.status,
           __executionStatusGroup: executionStatusGroup,
           __isWaitingStep: waitingSteps.includes(step.id),
@@ -285,6 +287,11 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   readonly canCancelExecution = computed(() => {
     const status = String(this.execution()?.context.status ?? '').toUpperCase();
     return !this.cancelInProgress() && (status === 'RUNNING' || status === 'WAITING');
+  });
+
+  readonly canResumeExecution = computed(() => {
+    const status = String(this.execution()?.context.status ?? '').toUpperCase();
+    return !this.resumeInProgress() && status === 'SUSPENDED';
   });
 
   readonly canStartExecution = computed(() => {
@@ -397,6 +404,17 @@ export class TaskExecutionViewerComponent implements OnDestroy {
         this.humanInteractionDialog.close(null);
       },
       error: () => this.cancelInProgress.set(false)
+    });
+  }
+
+  resumeExecution() {
+    const executionId = this.execution()?.id;
+    if (!executionId || !this.canResumeExecution()) return;
+
+    this.resumeInProgress.set(true);
+    this.taskExecutionsService.resumeExecution(executionId).subscribe({
+      next: () => this.resumeInProgress.set(false),
+      error: () => this.resumeInProgress.set(false)
     });
   }
 

@@ -516,6 +516,24 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
     return of(execution);
   }
 
+  override resumeTaskExecution(executionId: string): Observable<TaskExecution> {
+    const execution = this.findExecution(executionId);
+    const hasWaitingSteps = (execution.context.waitingSteps?.length ?? 0) > 0;
+    execution.context.status = hasWaitingSteps ? 'WAITING' : 'RUNNING';
+    execution.context.endTime = null;
+
+    for (const stepId of execution.context.waitingSteps ?? []) {
+      const step = execution.context.steps?.[stepId];
+      if (!step) continue;
+      const status = String(step.status ?? '').toUpperCase();
+      if (status === 'SUSPENDED' || status === 'WAITING' || status === 'WAITING_FOR_INPUT' || status === 'WAITING_FOR_INTERACTION') {
+        step.status = 'WAITING_FOR_INTERACTION';
+      }
+    }
+
+    return of(execution);
+  }
+
   override prepareStringInput(
     executionId: string,
     nodeId: string,

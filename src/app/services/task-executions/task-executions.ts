@@ -77,6 +77,22 @@ export class TaskExecutionsService {
     );
   }
 
+  resumeExecution(executionId: string) {
+    const execution = this._taskExecutions().find((item) => item.id === executionId);
+    const status = String(execution?.context.status ?? '').toUpperCase();
+    if (status !== 'SUSPENDED') {
+      return throwError(() => new Error('Resume is only supported for suspended executions.'));
+    }
+
+    return this.taskExecutionsCallService.resumeTaskExecution(executionId).pipe(
+      tap(() => this.refresh()),
+      catchError((err) => {
+        console.error('Resume execution failed', err);
+        return throwError(() => err);
+      })
+    );
+  }
+
   prepareStringInput(executionId: string, nodeId: string, inputName: string, value: string) {
     return this.taskExecutionsCallService.prepareStringInput(executionId, nodeId, inputName, value).pipe(
       tap(() => this.refresh()),

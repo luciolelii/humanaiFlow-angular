@@ -366,6 +366,7 @@ export class TaskStepNodeComponent {
     event?.preventDefault();
     event?.stopPropagation();
     if (this.interactionSubmitting) return;
+    if (this.executionStatus() === 'SUSPENDED') return;
 
     const executionId = this.executionId();
     const executionNodeId = this.executionNodeId();
@@ -416,6 +417,11 @@ export class TaskStepNodeComponent {
   private executionNodeId(): string | null {
     const value = this.blockConfiguration?.['__executionNodeId'];
     return typeof value === 'string' && value.length > 0 ? value : null;
+  }
+
+  private executionStatus(): string {
+    const value = this.blockConfiguration?.['__executionStatus'];
+    return typeof value === 'string' ? value.toUpperCase() : '';
   }
 
   private getExecutionMessages(key: '__executionErrors' | '__executionWarnings'): string[] {

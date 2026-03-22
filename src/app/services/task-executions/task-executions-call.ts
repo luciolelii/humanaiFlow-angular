@@ -28,6 +28,10 @@ export class TaskExecutionsCallService extends TaskExecutionsCallServiceBase {
     return this.http.put<TaskExecution>(`${environment.apiUrl}/executions/${encodeURIComponent(executionId)}/cancel`, null);
   }
 
+  override resumeTaskExecution(executionId: string): Observable<TaskExecution> {
+    return this.http.put<TaskExecution>(`${environment.apiUrl}/executions/${encodeURIComponent(executionId)}/resume`, null);
+  }
+
   override prepareStringInput(
     executionId: string,
     nodeId: string,

@@ -4,7 +4,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { form, Field, minLength, email, required, validate, maxLength, disabled } from '@angular/forms/signals'
+import { Field, form, minLength, email, required, validate, maxLength, disabled } from '@angular/forms/signals'
 import { Router, RouterLink } from '@angular/router';
 import { UserRegistration } from '@models/user';
 import { Authorization } from '@services/authorization/authorization';
@@ -13,7 +13,7 @@ import { FormUtility } from '@utilities/form-utility';
 
 @Component({
   selector: 'app-signup',
-  imports: [FormsModule, Field, RouterLink, MatButtonModule, MatCardModule, MatFormFieldModule, MatInputModule],
+  imports: [FormsModule, RouterLink, Field, MatButtonModule, MatCardModule, MatFormFieldModule, MatInputModule],
   templateUrl: './signup.html',
   styleUrl: './signup.css',
 })

@@ -10,6 +10,15 @@
         <div class="flex items-stretch gap-2">
           <button
             type="button"
+            class="self-stretch h-full rounded-md border border-violet-300 bg-violet-50 px-3 text-violet-700 hover:bg-violet-100 disabled:opacity-40 disabled:cursor-not-allowed"
+            matTooltip="Resume execution"
+            aria-label="Resume execution"
+            [disabled]="!canResumeExecution()"
+            (click)="resumeExecution()">
+            Resume
+          </button>
+          <button
+            type="button"
             class="self-stretch h-full w-10 rounded-md border border-rose-300 bg-rose-50 text-rose-600 hover:bg-rose-100 disabled:opacity-40 disabled:cursor-not-allowed"
             matTooltip="Cancel execution"
             aria-label="Cancel execution"
@@ -56,6 +65,11 @@
     @if (execution()!.context.status === 'CANCELLED') {
     <div class="mx-1 mt-1 rounded-md border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-700">
       Execution cancelled. This execution is closed. Start a new execution to continue.
+    </div>
+    }
+    @if (execution()!.context.status === 'SUSPENDED') {
+    <div class="mx-1 mt-1 rounded-md border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-900">
+      Execution suspended after service restart. Resume the execution to continue.
     </div>
     }
 
