@@ -22,6 +22,7 @@ import {
 export class NodeSettingsDialogHostComponent {
   private dialog = inject(NodeSettingsDialogService);
   private host = inject(ElementRef<HTMLElement>);
+  private refreshVersion = 0;
   state = this.dialog.state;
 
   draft: NodeSettingsValues = {};
@@ -31,6 +32,7 @@ export class NodeSettingsDialogHostComponent {
     effect(() => {
       const state = this.state();
       if (!state) return;
+      this.refreshVersion += 1;
       this.fields = state.fields;
       this.draft = this.buildDraft(state.fields, state.initial);
       queueMicrotask(() => {
@@ -54,6 +56,7 @@ export class NodeSettingsDialogHostComponent {
 
   setFieldValue(key: string, value: string | boolean) {
     this.draft[key] = value;
+    void this.refreshFieldsFromDraft();
   }
 
   async copyFieldValue(key: string, event?: Event) {
@@ -84,5 +87,24 @@ export class NodeSettingsDialogHostComponent {
       }
     }
     return values;
+  }
+
+  private async refreshFieldsFromDraft() {
+    const state = this.state();
+    if (!state?.onValuesChange) return;
+
+    const requestVersion = ++this.refreshVersion;
+    const currentDraft = { ...this.draft };
+    const next = await state.onValuesChange(currentDraft);
+    if (!next || requestVersion !== this.refreshVersion) return;
+
+    this.fields = next.fields;
+    const rebuiltDraft = this.buildDraft(next.fields, next.initial ?? {});
+    for (const field of next.fields) {
+      if (Object.prototype.hasOwnProperty.call(currentDraft, field.key)) {
+        rebuiltDraft[field.key] = currentDraft[field.key];
+      }
+    }
+    this.draft = rebuiltDraft;
   }
 }

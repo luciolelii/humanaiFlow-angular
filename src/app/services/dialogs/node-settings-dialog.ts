@@ -23,10 +23,17 @@ export type NodeSettingField = {
 
 export type NodeSettingsValues = Record<string, string | boolean>;
 
+export type NodeSettingsDialogRefresh = {
+  fields: NodeSettingField[];
+  initial?: NodeSettingsValues;
+};
+
 export type NodeSettingsDialogInput = {
   title?: string;
   fields: NodeSettingField[];
   initial?: NodeSettingsValues;
+  onValuesChange?: (draft: NodeSettingsValues) =>
+    Promise<NodeSettingsDialogRefresh | null> | NodeSettingsDialogRefresh | null;
 };
 
 @Injectable({ providedIn: "root" })
@@ -35,6 +42,8 @@ export class NodeSettingsDialogService {
     title: string;
     fields: NodeSettingField[];
     initial: NodeSettingsValues;
+    onValuesChange: ((draft: NodeSettingsValues) =>
+      Promise<NodeSettingsDialogRefresh | null> | NodeSettingsDialogRefresh | null) | null;
     resolve: (value: NodeSettingsValues | null) => void;
   } | null>(null);
 
@@ -46,6 +55,7 @@ export class NodeSettingsDialogService {
         title: input.title ?? "Node Settings",
         fields: input.fields,
         initial: input.initial ?? {},
+        onValuesChange: input.onValuesChange ?? null,
         resolve
       });
     });

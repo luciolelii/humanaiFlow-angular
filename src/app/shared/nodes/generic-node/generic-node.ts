@@ -6,6 +6,7 @@ import { ClassicPreset } from 'rete';
 import { ReteModule } from 'rete-angular-plugin/21';
 import {
   NodeSettingField,
+  NodeSettingsDialogInput,
   NodeSettingOption,
   NodeSettingsDialogService
 } from '@services/dialogs/node-settings-dialog';
@@ -1197,7 +1198,7 @@ export class GenericNodeComponent {
     definition: ArrayFieldDefinition,
     item: Record<string, unknown>,
     index: number | null
-  ) {
+  ): Promise<NodeSettingsDialogInput | null> {
     const itemSchema = definition.itemSchema;
     const properties = itemSchema?.['properties'] as Record<string, any> | undefined;
     const schemaRoot = this.blockSchema ?? itemSchema ?? {};
@@ -1265,7 +1266,16 @@ export class GenericNodeComponent {
     return {
       title: `${index == null ? 'Add' : 'Edit'} ${definition.label} item`,
       fields,
-      initial
+      initial,
+      onValuesChange: async (draft) => {
+        const draftItem = this.parseArrayItemDialogResult(definition, draft, item);
+        const nextDialog = await this.buildArrayItemDialog(definition, draftItem, index);
+        if (!nextDialog) return null;
+        return {
+          fields: nextDialog.fields,
+          initial: nextDialog.initial
+        };
+      }
     };
   }
 
