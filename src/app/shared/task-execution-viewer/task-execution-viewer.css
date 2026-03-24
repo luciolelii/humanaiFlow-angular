@@ -202,16 +202,8 @@
   color: #991b1b;
 }
 
-.execution-log-details {
-  margin: 10px 0 0;
-  border: 1px solid #dbe4ee;
-  border-radius: 10px;
-  background: #ffffff;
-  color: #0f172a;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-  font-size: 11px;
-  line-height: 1.45;
-  padding: 10px;
-  white-space: pre-wrap;
-  word-break: break-word;
+.execution-logs-scroll {
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }

@@ -140,7 +140,7 @@
         </button>
         }
       </div>
-      <span class="container-node__param-value">{{ field.type === 'boolean' ? (field.booleanValue ? 'Enabled' : 'Disabled') : field.value }}</span>
+      <span class="container-node__param-value" [class.container-node__param-value--clamped]="field.expandable">{{ field.type === 'boolean' ? (field.booleanValue ? 'Enabled' : 'Disabled') : field.value }}</span>
     </div>
     }
     @for (contentField of richContentFields; track contentField.path) {
@@ -148,7 +148,7 @@
       <div class="container-node__param-head">
         <span class="container-node__param-key">{{ contentField.label }}</span>
       </div>
-      <div class="container-node__param-value">
+      <div class="container-node__param-value" [class.container-node__param-value--clamped]="contentField.expandable">
         @for (part of contentField.parts; track $index) {
           @if (part.isDynamicInput) {
           <span class="llm-inline-token">{{ formatDynamicInputToken(part.text) }}</span>

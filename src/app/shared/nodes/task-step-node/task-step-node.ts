@@ -543,9 +543,14 @@ export class TaskStepNodeComponent {
     const nodeFamily = this.data?.data?.nodeFamily === 'container'
       ? 'container'
       : 'block';
-    const typeDescriptor = nodeFamily === 'container'
-      ? await this.containersService.getContainerType(type)
-      : await this.blocksService.getBlockType(type);
+    const cachedDescriptor = nodeFamily === 'container'
+      ? this.containersService.peekContainerType(type)
+      : this.blocksService.peekBlockType(type);
+    const typeDescriptor = cachedDescriptor ?? (
+      nodeFamily === 'container'
+        ? await this.containersService.getContainerType(type)
+        : await this.blocksService.getBlockType(type)
+    );
     this.blockDescriptor = (typeDescriptor ?? null) as BlockType | null;
     this.blockSchema = (typeDescriptor?.schema ?? null) as Record<string, any> | null;
     const typeKey = this.nodeTypeCacheKey();
@@ -1076,7 +1081,7 @@ export class TaskStepNodeComponent {
     const normalized = String(value ?? '');
     if (!normalized.trim()) return false;
     const lineCount = normalized.split(/\r?\n/).length;
-    return lineCount > 2 || normalized.length > 160;
+    return lineCount > 2 || normalized.length > 80;
   }
 
   private async openReadonlyTextDialog(label: string, value: string) {

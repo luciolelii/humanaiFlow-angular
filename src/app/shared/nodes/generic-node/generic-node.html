@@ -203,7 +203,7 @@
               </button>
               }
             </div>
-            <span class="llm-param-value">{{ field.type === 'boolean' ? (field.booleanValue ? 'Enabled' : 'Disabled') : field.value }}</span>
+            <span class="llm-param-value" [class.llm-param-value-clamped]="field.expandable">{{ field.type === 'boolean' ? (field.booleanValue ? 'Enabled' : 'Disabled') : field.value }}</span>
           </div>
           }
         </div>
@@ -242,7 +242,7 @@
           </button>
           }
         </div>
-        <span class="llm-param-value">{{ field.type === 'boolean' ? (field.booleanValue ? 'Enabled' : 'Disabled') : field.value }}</span>
+        <span class="llm-param-value" [class.llm-param-value-clamped]="field.expandable">{{ field.type === 'boolean' ? (field.booleanValue ? 'Enabled' : 'Disabled') : field.value }}</span>
       </div>
       }
     </div>
@@ -259,7 +259,7 @@
         </button>
         }
       </div>
-      <div class="llm-param-text">
+      <div class="llm-param-text" [class.llm-param-text-clamped]="contentField.expandable">
         @if (!contentField.parts.length) {
         -
         } @else {

@@ -86,6 +86,7 @@ type EditableFieldView = {
   label: string;
   value: string;
   wide: boolean;
+  expandable: boolean;
   enabled: boolean;
   type: FieldType;
   booleanValue: boolean;
@@ -124,6 +125,8 @@ type EditableFieldGroupView = {
 type RichContentView = {
   path: string;
   label: string;
+  rawValue: string;
+  expandable: boolean;
   parts: { text: string; isDynamicInput: boolean }[];
 };
 
@@ -545,7 +548,7 @@ export class GenericNodeComponent {
     }
 
     try {
-      const blockType = await this.blocksService.getBlockType(type);
+      const blockType = this.blocksService.peekBlockType(type) ?? await this.blocksService.getBlockType(type);
       this.blockDescriptor = blockType ?? null;
       this.blockSchema = (blockType?.schema ?? null) as Record<string, any> | null;
       this.schemaRequirements = extractSchemaRequirements(this.blockSchema);
@@ -1078,6 +1081,10 @@ export class GenericNodeComponent {
       .filter((option): option is NodeSettingOption => option != null);
   }
 
+  private isLongTextValue(value: string): boolean {
+    return String(value ?? '').trim().length > 80;
+  }
+
   private refreshParameterFields() {
     const config = this.blockConfiguration ?? {};
     const richContentPaths = new Set(this.richContentPaths());
@@ -1086,11 +1093,16 @@ export class GenericNodeComponent {
 
     this.richContentFields = this.richContentPaths()
       .filter((path) => this.isPathVisible(path))
-      .map((path) => ({
-        path,
-        label: this.fieldDisplayLabel(path),
-        parts: this.toRichContentParts(path)
-      }));
+      .map((path) => {
+        const rawValue = String(this.getByPath(config, path) ?? '');
+        return {
+          path,
+          label: this.fieldDisplayLabel(path),
+          rawValue,
+          expandable: this.isLongTextValue(rawValue),
+          parts: this.toRichContentParts(path)
+        };
+      });
 
     this.arrayFields = this.arrayFieldDefinitions
       .filter((definition) => this.isPathVisible(definition.path))
@@ -1108,6 +1120,7 @@ export class GenericNodeComponent {
           label: definition.label,
           value: this.fieldDisplayValue(definition, value),
           wide: this.shouldRenderWideField(definition.label, definition.ui.widget === 'textarea'),
+          expandable: this.isLongTextValue(this.fieldDisplayValue(definition, value)),
           enabled: this.isPathEnabled(definition.path),
           type: definition.type,
           booleanValue: value === true
@@ -1145,6 +1158,7 @@ export class GenericNodeComponent {
         label: this.fieldDisplayLabel(entry.path),
         value: valueToDisplayString(entry.value),
         wide: this.shouldRenderWideField(this.fieldDisplayLabel(entry.path), false),
+        expandable: this.isLongTextValue(valueToDisplayString(entry.value)),
         enabled: this.isPathEnabled(entry.path),
         type: (typeof entry.value === 'boolean' ? 'boolean' : 'unknown') as FieldType,
         booleanValue: entry.value === true

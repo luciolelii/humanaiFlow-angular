@@ -423,6 +423,16 @@
   white-space: nowrap;
 }
 
+.container-node__param-value--clamped {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .container-node__param-edit {
   border: 0;
   background: transparent;
@@ -444,6 +454,7 @@
   cursor: default;
   pointer-events: none;
 }
+
 
 .container-node__dropzone {
   margin: 0 14px 14px;

@@ -64,6 +64,10 @@ export class ContainersService {
     return containerTypes.find((containerType) => containerType.type === typeName);
   }
 
+  peekContainerType(typeName: BlockTypeName) {
+    return this._containerTypes().find((containerType) => containerType.type === typeName) ?? null;
+  }
+
   createEmptyContainer(containerType: BlockTypeName) {
     const cacheKey = String(containerType);
     const cached = this.emptyContainerCache.get(cacheKey);

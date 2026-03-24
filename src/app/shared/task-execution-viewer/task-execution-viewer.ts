@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, effect, inject, input, OnDestroy, signal } from '@angular/core';
+import { Component, computed, effect, ElementRef, inject, input, OnDestroy, signal, ViewChild } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -84,6 +84,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   readonly executionLogs = signal<ExecutionEventLogEntry[]>([]);
   readonly logsLoading = signal(false);
   readonly logsError = signal<string | null>(null);
+  @ViewChild('logsScrollViewport') private logsScrollViewport?: ElementRef<HTMLDivElement>;
 
   constructor() {
     effect(() => {
@@ -139,6 +140,12 @@ export class TaskExecutionViewerComponent implements OnDestroy {
       }, TaskExecutionViewerComponent.EVENTS_POLL_INTERVAL_MS);
 
       onCleanup(() => clearInterval(timer));
+    });
+
+    effect(() => {
+      this.executionLogs();
+      this.logsLoading();
+      queueMicrotask(() => this.scrollLogsToBottom());
     });
 
     effect(() => {
@@ -730,6 +737,12 @@ export class TaskExecutionViewerComponent implements OnDestroy {
         this.logsLoading.set(false);
       }
     });
+  }
+
+  private scrollLogsToBottom() {
+    const element = this.logsScrollViewport?.nativeElement;
+    if (!element || this.activeAsideTab() !== 'logs') return;
+    element.scrollTop = element.scrollHeight;
   }
 
   private async loadSimulationOptions(

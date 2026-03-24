@@ -154,7 +154,7 @@
             (fileInputChange)="onFileInputChange($event.input, $event.files)">
           </app-task-execution-inputs-panel>
           } @else if (activeAsideTab() === 'logs') {
-          <div class="p-3 space-y-3">
+          <div #logsScrollViewport class="execution-logs-scroll p-3 space-y-3">
             @if (logsLoading()) {
             <div class="text-xs text-slate-500">Loading execution log...</div>
             } @else if (logsError()) {
@@ -184,9 +184,6 @@
                     {{ event.levelText }}
                   </span>
                 </div>
-                @if (event.details) {
-                <pre class="execution-log-details">{{ event.details | json }}</pre>
-                }
               </div>
               }
             }

@@ -897,6 +897,14 @@
   line-height: 1.45;
 }
 
+.llm-param-text-clamped {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .llm-inline-token {
   display: inline-flex;
   align-items: center;
@@ -1003,6 +1011,17 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.llm-param-value-clamped {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 
 .llm-modal-backdrop {
   position: fixed;

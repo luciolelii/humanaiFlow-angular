@@ -37,6 +37,7 @@ type ContainerFieldView = {
   label: string;
   value: string;
   wide: boolean;
+  expandable: boolean;
   enabled: boolean;
   type: ContainerFieldType;
   booleanValue: boolean;
@@ -45,6 +46,8 @@ type ContainerFieldView = {
 type RichContentView = {
   path: string;
   label: string;
+  rawValue: string;
+  expandable: boolean;
   parts: { text: string; isDynamicInput: boolean }[];
 };
 
@@ -569,7 +572,7 @@ export class ContainerNodeComponent {
 
   private async loadSchemaContext() {
     try {
-      const containerType = await this.containersService.getContainerType(this.typeName);
+      const containerType = this.containersService.peekContainerType(this.typeName) ?? await this.containersService.getContainerType(this.typeName);
       this.containerSchema = (containerType?.schema ?? null) as Record<string, any> | null;
       this.schemaRequirements = extractSchemaRequirements(this.containerSchema);
       this.containerFieldDefinitions = this.buildContainerFieldDefinitions(this.containerSchema);
@@ -602,11 +605,16 @@ export class ContainerNodeComponent {
     const richContentPaths = new Set(this.richContentPaths());
     this.richContentFields = this.richContentPaths()
       .filter((path) => this.isFieldVisible(path))
-      .map((path) => ({
-        path,
-        label: this.containerFieldDefinitions.find((field) => field.path === path)?.label ?? pathToLabel(path),
-        parts: this.toRichContentParts(path)
-      }))
+      .map((path) => {
+        const rawValue = String(getValueByPath(config, path) ?? '');
+        return {
+          path,
+          label: this.containerFieldDefinitions.find((field) => field.path === path)?.label ?? pathToLabel(path),
+          rawValue,
+          expandable: this.isLongTextValue(rawValue),
+          parts: this.toRichContentParts(path)
+        };
+      })
       .filter((field) => field.parts.length > 0);
 
     this.parameterFields = this.containerFieldDefinitions
@@ -617,6 +625,7 @@ export class ContainerNodeComponent {
         label: field.label,
         value: valueToDisplayString(getValueByPath(config, field.path)),
         wide: field.widget === 'textarea' || field.label.length >= 18,
+        expandable: this.isLongTextValue(valueToDisplayString(getValueByPath(config, field.path))),
         enabled: this.isFieldEnabled(field.path),
         type: field.type,
         booleanValue: getValueByPath(config, field.path) === true
@@ -773,6 +782,10 @@ export class ContainerNodeComponent {
         return { label, value } satisfies NodeSettingOption;
       })
       .filter((option: NodeSettingOption | null): option is NodeSettingOption => option != null);
+  }
+
+  private isLongTextValue(value: string): boolean {
+    return String(value ?? '').trim().length > 80;
   }
 
   private getEditorInitialValue(definition: ContainerFieldDefinition): string | boolean {

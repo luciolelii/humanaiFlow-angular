@@ -64,6 +64,10 @@ export class BlocksService {
     return blockTypes.find((blockType) => blockType.type === typeName);
   }
 
+  peekBlockType(typeName: BlockTypeName) {
+    return this._blockTypes().find((blockType) => blockType.type === typeName) ?? null;
+  }
+
   createEmptyBlock(blockType: BlockTypeName, context?: BlockDraftContext) {
     const flowId = typeof context?.flowId === 'string' && context.flowId.trim().length > 0 ? context.flowId.trim() : '';
     const cacheKey = `${String(blockType)}::${flowId}`;

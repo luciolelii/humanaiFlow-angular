@@ -351,15 +351,47 @@ export class ReteEditor implements OnChanges, OnDestroy {
       const currentNode = currentNodes.get(String(nextNode.id));
       if (!currentNode?.data) continue;
 
-      currentNode.data = {
+      const nextReadonlyNode = {
         ...currentNode.data,
         ...nextNode,
         position: nextNode.position ?? currentNode.data.position,
         __readonly: true
       };
 
+      if (this.hasSameReadonlyNodePayload(currentNode.data as FlowNode & Record<string, unknown>, nextReadonlyNode as FlowNode & Record<string, unknown>)) {
+        continue;
+      }
+
+      currentNode.data = nextReadonlyNode;
+
       await rete.area.update('node', currentNode.id);
     }
+  }
+
+  private hasSameReadonlyNodePayload(currentNode: FlowNode & Record<string, unknown>, nextNode: FlowNode & Record<string, unknown>) {
+    return JSON.stringify({
+      id: currentNode.id,
+      name: currentNode.name,
+      position: currentNode.position,
+      inputs: currentNode.inputs,
+      outputs: currentNode.outputs,
+      specificConfiguration: currentNode.specificConfiguration,
+      typeName: currentNode.typeName,
+      userInteractive: currentNode['userInteractive'],
+      nodeFamily: currentNode.nodeFamily,
+      __readonly: currentNode['__readonly']
+    }) === JSON.stringify({
+      id: nextNode.id,
+      name: nextNode.name,
+      position: nextNode.position,
+      inputs: nextNode.inputs,
+      outputs: nextNode.outputs,
+      specificConfiguration: nextNode.specificConfiguration,
+      typeName: nextNode.typeName,
+      userInteractive: nextNode['userInteractive'],
+      nodeFamily: nextNode.nodeFamily,
+      __readonly: nextNode['__readonly']
+    });
   }
 
   private getDropPosition(event: DragEvent) {
