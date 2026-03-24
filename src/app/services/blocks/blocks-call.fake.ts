@@ -1,6 +1,6 @@
 import { BlockType, FlowBlock } from "@models/flow";
 import { Observable, of } from "rxjs";
-import { BlocksCallServiceBase } from "./block-call.base";
+import { BlockDraftContext, BlocksCallServiceBase } from "./block-call.base";
 
 export class BlocksCallServiceFake extends BlocksCallServiceBase {
   private readonly blockTypes: BlockType[] =[
@@ -147,7 +147,7 @@ export class BlocksCallServiceFake extends BlocksCallServiceBase {
     return of(this.blockTypes);
   }
 
-  override createEmptyBlock(blockType: string): Observable<FlowBlock> {
+  override createEmptyBlock(blockType: string, _context?: BlockDraftContext): Observable<FlowBlock> {
     const descriptor = this.blockTypes.find((b) => b.type === blockType);
     const typeName = descriptor?.type ?? blockType ?? "LLMBlock";
     const schema = descriptor?.schema as Record<string, any> | null;
@@ -177,20 +177,85 @@ export class BlocksCallServiceFake extends BlocksCallServiceBase {
     return of(block);
   }
 
-  override updateBlock(blockId: string, configuration: any): Observable<FlowBlock> {
+  override updateBlock(blockId: string, configuration: any, _context?: BlockDraftContext): Observable<FlowBlock> {
     const typeName = configuration?.typeName ?? "LLMBlock";
     const io = this.defaultIOForBlockType(typeName);
+    const descriptor = this.blockTypes.find((item) => item.type === typeName);
+    const specificConfiguration = this.sanitizeConfigurationBySchema(
+      configuration?.specificConfiguration ?? configuration ?? {},
+      (descriptor?.schema as Record<string, unknown> | null) ?? null,
+      (descriptor?.schema as Record<string, unknown> | null) ?? null
+    );
     const block: FlowBlock = {
       id: blockId,
-      name: configuration?.name ?? typeName,
+      name: specificConfiguration?.['name'] ?? configuration?.name ?? typeName,
       position: configuration?.position,
       inputs: configuration?.inputs ?? io.inputs,
       outputs: configuration?.outputs ?? io.outputs,
-      specificConfiguration: configuration?.specificConfiguration ?? {},
+      specificConfiguration,
       typeName,
       nodeFamily: 'block'
     };
     return of(block);
+  }
+
+  private sanitizeConfigurationBySchema(
+    configuration: any,
+    schemaNode: Record<string, unknown> | null,
+    schemaRoot: Record<string, unknown> | null
+  ) {
+    if (!configuration || typeof configuration !== 'object' || Array.isArray(configuration)) return {};
+    if (!schemaNode || !schemaRoot) return { ...(configuration as Record<string, unknown>) };
+
+    const resolved = this.resolveRef(schemaNode, schemaRoot);
+    const schemaRecord = resolved && typeof resolved === 'object' && !Array.isArray(resolved)
+      ? resolved as Record<string, unknown>
+      : {};
+    const properties = schemaRecord['properties'] && typeof schemaRecord['properties'] === 'object' && !Array.isArray(schemaRecord['properties'])
+      ? schemaRecord['properties'] as Record<string, unknown>
+      : {};
+
+    if (!Object.keys(properties).length) {
+      return { ...(configuration as Record<string, unknown>) };
+    }
+
+    const sanitized: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(configuration as Record<string, unknown>)) {
+      if (!Object.prototype.hasOwnProperty.call(properties, key)) continue;
+      const propertySchema = properties[key] && typeof properties[key] === 'object' && !Array.isArray(properties[key])
+        ? properties[key] as Record<string, unknown>
+        : null;
+      sanitized[key] = this.sanitizeSchemaValue(value, propertySchema, schemaRoot);
+    }
+
+    return sanitized;
+  }
+
+  private sanitizeSchemaValue(
+    value: unknown,
+    schemaNode: Record<string, unknown> | null,
+    schemaRoot: Record<string, unknown> | null
+  ): unknown {
+    if (!schemaNode || !schemaRoot || value == null) return value;
+
+    const resolved = this.resolveRef(schemaNode, schemaRoot);
+    const schemaRecord = resolved && typeof resolved === 'object' && !Array.isArray(resolved)
+      ? resolved as Record<string, unknown>
+      : {};
+    const type = schemaRecord['type'];
+
+    if ((type === 'object' || schemaRecord['properties']) && value && typeof value === 'object' && !Array.isArray(value)) {
+      return this.sanitizeConfigurationBySchema(value as Record<string, unknown>, schemaRecord, schemaRoot);
+    }
+
+    if (type === 'array' && Array.isArray(value)) {
+      const itemSchema = schemaRecord['items'] && typeof schemaRecord['items'] === 'object' && !Array.isArray(schemaRecord['items'])
+        ? schemaRecord['items'] as Record<string, unknown>
+        : null;
+      return value.map((item) => this.sanitizeSchemaValue(item, itemSchema, schemaRoot));
+    }
+
+    return value;
   }
 
   private defaultIOForBlockType(typeName: string) {

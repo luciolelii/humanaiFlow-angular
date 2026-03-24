@@ -152,6 +152,11 @@ export function readUiConditionRule(value: unknown): UiConditionRule | null {
   return null;
 }
 
+export function readEffectiveUiVisibleConditionRule(schema: Record<string, any> | null | undefined): UiConditionRule | null {
+  return readUiConditionRule(schema?.['x-ui-visible-when'])
+    ?? readUiConditionRule(schema?.['x-ui-enabled-when']);
+}
+
 export function readUiGroup(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   const normalized = value.trim();
@@ -226,10 +231,11 @@ export function evaluateUiConditionRule(
   }
 
   if (type === 'boolean' || typeof actualValue === 'boolean') {
+    const normalizedActual = typeof actualValue === 'boolean' ? actualValue : false;
     if (expectedValues) {
-      return expectedValues.some((value) => actualValue === parseBooleanCondition(value));
+      return expectedValues.some((value) => normalizedActual === parseBooleanCondition(value));
     }
-    return expectedValue != null && actualValue === parseBooleanCondition(expectedValue);
+    return expectedValue != null && normalizedActual === parseBooleanCondition(expectedValue);
   }
 
   if (type === 'number' || type === 'integer' || typeof actualValue === 'number') {

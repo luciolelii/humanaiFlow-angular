@@ -58,8 +58,12 @@ export class ReteEditor implements OnChanges, OnDestroy {
 
   ngOnChanges(changes: SimpleChanges): void {
     if (!this.viewReady) return;
-    if (changes['flowId'] || (this.readonly() && changes['flowData'])) {
+    if (changes['flowId']) {
       void this.reloadEditor();
+      return;
+    }
+    if (this.readonly() && changes['flowData']) {
+      void this.syncReadonlyFlowData();
     }
   }
 
@@ -105,7 +109,9 @@ export class ReteEditor implements OnChanges, OnDestroy {
     try {
       newBlock = blockType.family === 'container'
         ? await firstValueFrom(this.containersService.createEmptyContainer(blockType.type))
-        : await firstValueFrom(this.blocksService.createEmptyBlock(blockType.type));
+        : await firstValueFrom(this.blocksService.createEmptyBlock(blockType.type, {
+          flowId: this.flowId()
+        }));
     } catch (error) {
       console.error('Failed to create empty block', error);
       return;
@@ -264,6 +270,96 @@ export class ReteEditor implements OnChanges, OnDestroy {
         this.suppressDirtyEvents = false;
       }
     });
+  }
+
+  private async syncReadonlyFlowData() {
+    if (!this.readonly()) return;
+    const rete = this.rete;
+    if (!rete) {
+      await this.reloadEditor();
+      return;
+    }
+
+    const nextFlowData = this.flowData();
+    if (!this.canPatchReadonlyFlowData(rete, nextFlowData)) {
+      await this.reloadEditor();
+      return;
+    }
+
+    await this.patchReadonlyNodes(rete, nextFlowData);
+  }
+
+  private canPatchReadonlyFlowData(rete: ReteEditorInstance, nextFlowData: FlowData) {
+    const currentNodes = rete.editor.getNodes() as any[];
+    const nextNodes = [...(nextFlowData.blocks ?? []), ...(nextFlowData.containers ?? [])];
+    if (currentNodes.length !== nextNodes.length) return false;
+
+    const currentByBlockId = new Map(
+      currentNodes.map((node: any) => [String(node.data?.id ?? ''), node])
+    );
+
+    for (const nextNode of nextNodes) {
+      const currentNode = currentByBlockId.get(String(nextNode.id));
+      if (!currentNode?.data) return false;
+      if (!this.hasSameNodeStructure(currentNode.data as FlowNode, nextNode)) return false;
+    }
+
+    return this.hasSameConnectionStructure(exportGraph(rete.editor), nextFlowData);
+  }
+
+  private hasSameNodeStructure(currentNode: FlowNode, nextNode: FlowNode) {
+    return currentNode.id === nextNode.id
+      && currentNode.nodeFamily === nextNode.nodeFamily
+      && currentNode.typeName === nextNode.typeName
+      && this.hasSamePortStructure(currentNode.inputs, nextNode.inputs)
+      && this.hasSamePortStructure(currentNode.outputs, nextNode.outputs);
+  }
+
+  private hasSamePortStructure(
+    currentPorts: FlowNode['inputs'] | FlowNode['outputs'],
+    nextPorts: FlowNode['inputs'] | FlowNode['outputs']
+  ) {
+    const current = currentPorts ?? [];
+    const next = nextPorts ?? [];
+    if (current.length !== next.length) return false;
+
+    return current.every((port, index) => {
+      const candidate = next[index];
+      return port.name === candidate?.name && port.type === candidate?.type;
+    });
+  }
+
+  private hasSameConnectionStructure(currentFlowData: FlowData, nextFlowData: FlowData) {
+    const currentConnections = [...(currentFlowData.connections ?? [])]
+      .map((connection) => `${connection.sourceId}:${connection.sourceName}->${connection.targetId}:${connection.targetName}`)
+      .sort();
+    const nextConnections = [...(nextFlowData.connections ?? [])]
+      .map((connection) => `${connection.sourceId}:${connection.sourceName}->${connection.targetId}:${connection.targetName}`)
+      .sort();
+
+    if (currentConnections.length !== nextConnections.length) return false;
+    return currentConnections.every((connection, index) => connection === nextConnections[index]);
+  }
+
+  private async patchReadonlyNodes(rete: ReteEditorInstance, nextFlowData: FlowData) {
+    const nextNodes = [...(nextFlowData.blocks ?? []), ...(nextFlowData.containers ?? [])];
+    const currentNodes = new Map(
+      (rete.editor.getNodes() as any[]).map((node) => [String(node.data?.id ?? ''), node])
+    );
+
+    for (const nextNode of nextNodes) {
+      const currentNode = currentNodes.get(String(nextNode.id));
+      if (!currentNode?.data) continue;
+
+      currentNode.data = {
+        ...currentNode.data,
+        ...nextNode,
+        position: nextNode.position ?? currentNode.data.position,
+        __readonly: true
+      };
+
+      await rete.area.update('node', currentNode.id);
+    }
   }
 
   private getDropPosition(event: DragEvent) {

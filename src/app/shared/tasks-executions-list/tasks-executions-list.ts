@@ -22,6 +22,7 @@ export type TaskExecutionListItem = {
   status: TaskExecutionStatus;
   startedAt: string;
   duration?: string;
+  simulated?: boolean;
 };
 
 @Component({

@@ -161,7 +161,20 @@
     </div>
   </div>
 
-  <div class="llm-params">
+  <div class="llm-params llm-params-shell">
+    @if (!schemaReady) {
+    <div class="llm-skeleton-overlay" aria-hidden="true">
+      <div class="llm-skeleton-stack">
+        <div class="llm-skeleton-line llm-skeleton-line-title"></div>
+        <div class="llm-skeleton-line llm-skeleton-line-short"></div>
+        <div class="llm-skeleton-grid">
+          <div class="llm-skeleton-pill"></div>
+          <div class="llm-skeleton-pill"></div>
+          <div class="llm-skeleton-pill llm-skeleton-pill-wide"></div>
+        </div>
+      </div>
+    </div>
+    }
     @if (parameterFieldGroups.length) {
     <div class="llm-param-groups">
       @for (group of parameterFieldGroups; track group.key) {
@@ -172,8 +185,23 @@
           <div class="llm-param-chip" [class.llm-param-chip-wide]="field.wide">
             <div class="llm-param-row-head">
               <span class="llm-param-key">{{ field.label }}</span>
+              @if (field.expandable) {
+              <button
+                type="button"
+                class="llm-param-view-btn"
+                aria-label="View full value"
+                (pointerdown)="$event.stopPropagation()"
+                (click)="openFieldPreview(field, $event)">
+                <i class="bi bi-eye"></i>
+              </button>
+              }
             </div>
-            <span class="llm-param-value">{{ field.value }}</span>
+            <span
+              class="llm-param-value"
+              [class.llm-param-value-wide]="field.wide"
+              [class.llm-param-value-clamped]="field.expandable">
+              {{ field.value }}
+            </span>
           </div>
           }
         </div>
@@ -188,8 +216,23 @@
       <div class="llm-param-chip" [class.llm-param-chip-wide]="field.wide">
         <div class="llm-param-row-head">
           <span class="llm-param-key">{{ field.label }}</span>
+          @if (field.expandable) {
+          <button
+            type="button"
+            class="llm-param-view-btn"
+            aria-label="View full value"
+            (pointerdown)="$event.stopPropagation()"
+            (click)="openFieldPreview(field, $event)">
+            <i class="bi bi-eye"></i>
+          </button>
+          }
         </div>
-        <span class="llm-param-value">{{ field.value }}</span>
+        <span
+          class="llm-param-value"
+          [class.llm-param-value-wide]="field.wide"
+          [class.llm-param-value-clamped]="field.expandable">
+          {{ field.value }}
+        </span>
       </div>
       }
     </div>
@@ -200,8 +243,18 @@
     <div class="llm-param-block">
       <div class="llm-param-row-head">
         <div class="llm-param-key">{{ contentField.label }}</div>
+        @if (contentField.expandable) {
+        <button
+          type="button"
+          class="llm-param-view-btn"
+          aria-label="View full content"
+          (pointerdown)="$event.stopPropagation()"
+          (click)="openMainContentPreview(contentField, $event)">
+          <i class="bi bi-eye"></i>
+        </button>
+        }
       </div>
-      <div class="llm-param-text">
+      <div class="llm-param-text" [class.llm-param-text-clamped]="contentField.expandable">
         @for (part of contentField.parts; track $index) {
           @if (part.isDynamicInput) {
           <span class="llm-inline-token">{{ formatDynamicInputToken(part.text) }}</span>

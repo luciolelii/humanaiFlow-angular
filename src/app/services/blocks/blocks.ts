@@ -1,7 +1,7 @@
 import { computed, Injectable, signal } from '@angular/core';
 import { environment } from '@environment';
 import { BlockType, BlockTypeName, FlowBlock } from '@models/flow';
-import { BlocksCallServiceBase } from './block-call.base';
+import { BlockDraftContext, BlocksCallServiceBase } from './block-call.base';
 import { catchError, finalize, firstValueFrom, map, Observable, of, shareReplay, throwError } from 'rxjs';
 
 @Injectable({
@@ -64,8 +64,9 @@ export class BlocksService {
     return blockTypes.find((blockType) => blockType.type === typeName);
   }
 
-  createEmptyBlock(blockType: BlockTypeName) {
-    const cacheKey = String(blockType);
+  createEmptyBlock(blockType: BlockTypeName, context?: BlockDraftContext) {
+    const flowId = typeof context?.flowId === 'string' && context.flowId.trim().length > 0 ? context.flowId.trim() : '';
+    const cacheKey = `${String(blockType)}::${flowId}`;
     const cached = this.emptyBlockCache.get(cacheKey);
     if (cached) {
       return of(this.cloneEmptyBlock(cached));
@@ -76,7 +77,7 @@ export class BlocksService {
       return pending.pipe(map((block) => this.cloneEmptyBlock(block)));
     }
 
-    const request = this.blocksCallService.createEmptyBlock(blockType).pipe(
+    const request = this.blocksCallService.createEmptyBlock(blockType, context).pipe(
       map((block) => {
         this.emptyBlockCache.set(cacheKey, this.cloneEmptyBlock(block));
         return block;
@@ -98,9 +99,9 @@ export class BlocksService {
     );
   }
 
-  updateBlock(blockId: string, configuration: any) {
+  updateBlock(blockId: string, configuration: any, context?: BlockDraftContext) {
     this.pendingServerSyncCount.update((count) => count + 1);
-    return this.blocksCallService.updateBlock(blockId, configuration).pipe(
+    return this.blocksCallService.updateBlock(blockId, configuration, context).pipe(
       finalize(() => {
         this.pendingServerSyncCount.update((count) => Math.max(0, count - 1));
       }),

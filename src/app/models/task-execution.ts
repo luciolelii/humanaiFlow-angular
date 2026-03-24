@@ -1,15 +1,30 @@
-import { FlowBlock, FlowBlockConnection, FlowContainer, FlowNode, FlowPort } from './flow';
+import { FlowBlockConnection, FlowNode, FlowPort, LLMDescriptor } from './flow';
 
 export type TaskExecutionStatus = 'CREATED' | 'READY' | 'RUNNING' | 'WAITING' | 'SUSPENDED' | 'SUCCESS' | 'ERROR' | 'CANCELLED';
 export type TaskExecutionStatusGroup = 'INIT' | 'RUNNING' | 'PAUSED' | 'FINAL';
 
 export type StepStatus = 'WAITING_FOR_INPUT' | 'FAILED' | 'COMPLETED' | 'RUNNING' | string;
 
+export type ExecutionEventLogEntry = {
+  id: string;
+  timestamp: number;
+  stepId?: string | null;
+  nodeId?: string | null;
+  nodeName?: string | null;
+  level?: string | null;
+  type?: string | null;
+  message?: string | null;
+  details?: unknown;
+};
+
 export type TaskExecution = {
   id: string;
   name: string;
   creationTime: number;
   context: TaskExecutionContext;
+  interactionSimulationEnabled?: boolean;
+  simulationAvailable?: boolean;
+  interactionSimulationDescriptor?: LLMDescriptor;
   stepConnections?: FlowBlockConnection[];
   requiredAuthorizations?: Record<string, TaskExecutionAuthorizationRequirement>;
   providedAuthorizations?: Record<string, unknown>;
@@ -27,6 +42,7 @@ export type TaskExecutionAuthorizationRequirement = {
 export type TaskExecutionContext = {
   inputs: Record<string, unknown>;
   result: Record<string, unknown>;
+  partialResult?: Record<string, unknown>;
   startTime?: number | null;
   endTime?: number | null;
   errors: Record<string, string>;
@@ -34,13 +50,10 @@ export type TaskExecutionContext = {
   steps: Record<string, TaskExecutionStep>;
   status: TaskExecutionStatus;
   waitingSteps: string[];
-  executionResult: Record<string, unknown>;
 };
 
 export type TaskExecutionStep = {
   node?: FlowNode;
-  block?: FlowBlock;
-  container?: FlowContainer;
   id: string;
   inputs: TaskExecutionStepInput[];
   outputs: TaskExecutionStepOutput[];
@@ -104,12 +117,6 @@ export function getTaskExecutionStepNode(step: TaskExecutionStep | null | undefi
     return step.node.nodeFamily === 'container'
       ? { ...step.node, nodeFamily: 'container' }
       : { ...step.node, nodeFamily: 'block' };
-  }
-  if (step.container) {
-    return { ...step.container, nodeFamily: 'container' };
-  }
-  if (step.block) {
-    return { ...step.block, nodeFamily: 'block' };
   }
   return null;
 }

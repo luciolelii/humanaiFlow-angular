@@ -11,7 +11,7 @@ export type ConditionalRequiredField = {
   retrieverBlockType: string | null;
   retrieverKey: string | null;
   retrieverUrl: string | null;
-  dependsOn: Array<{ key: string; path: string }>;
+  dependsOn: Array<{ key: string; path: string; source: 'field' | 'context' }>;
   requiredWhen: UiConditionRule | null;
 };
 
@@ -89,10 +89,7 @@ function walkSchema(
 
       const dependsOn = rawDepends
         .filter((dep): dep is string => typeof dep === 'string' && dep.length > 0)
-        .map((dep) => ({
-          key: dep,
-          path: pathPrefix ? `${pathPrefix}.${dep}` : dep
-        }));
+        .map((dep) => toRetrieverDependency(dep, pathPrefix));
 
       const signature = `${propertyPath}|${retrieverKey ?? 'local'}|${dependsOn.map((d) => d.path).join(',')}|${JSON.stringify(requiredWhen ?? null)}`;
       if (!seenConditional.has(signature)) {
@@ -134,7 +131,7 @@ function parseRetrieverUrl(rawUrl: unknown): { blockType: string; key: string } 
   const path = rawUrl.split('?')[0];
   const normalized = path.endsWith('/required') ? path.slice(0, -'/required'.length) : path;
   const parts = normalized.split('/').filter(Boolean);
-  const retrieverIndex = parts.findIndex((part) => part === 'retriever');
+  const retrieverIndex = parts.findIndex((part) => part === 'retriever' || part === 'secure-retriever');
   if (retrieverIndex < 0 || parts.length < retrieverIndex + 3) return null;
 
   const blockType = parts[retrieverIndex + 1];
@@ -142,4 +139,22 @@ function parseRetrieverUrl(rawUrl: unknown): { blockType: string; key: string } 
   if (!blockType || !key) return null;
 
   return { blockType, key };
+}
+
+function toRetrieverDependency(dependency: string, pathPrefix: string) {
+  const normalized = dependency.trim();
+  if (normalized.startsWith('$context.')) {
+    const contextKey = normalized.slice('$context.'.length).trim();
+    return {
+      key: contextKey,
+      path: normalized,
+      source: 'context' as const
+    };
+  }
+
+  return {
+    key: normalized,
+    path: pathPrefix ? `${pathPrefix}.${normalized}` : normalized,
+    source: 'field' as const
+  };
 }

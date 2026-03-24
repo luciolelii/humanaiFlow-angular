@@ -118,7 +118,7 @@ export class FieldRetrieverCallService extends FieldRetrieverCallServiceBase {
 
   private normalizeStringList(raw: unknown): string[] {
     if (Array.isArray(raw)) {
-      return raw.filter((item): item is string => typeof item === 'string');
+      return this.normalizeStringArray(raw);
     }
 
     if (!raw || typeof raw !== 'object') {
@@ -137,7 +137,7 @@ export class FieldRetrieverCallService extends FieldRetrieverCallServiceBase {
       return [];
     }
 
-    return candidate.filter((item): item is string => typeof item === 'string');
+    return this.normalizeStringArray(candidate);
   }
 
   private normalizeStructuredItems<T>(raw: unknown): RetrieverStructuredItem<T>[] {
@@ -174,6 +174,22 @@ export class FieldRetrieverCallService extends FieldRetrieverCallServiceBase {
       [];
 
     return Array.isArray(candidate) ? candidate : [];
+  }
+
+  private normalizeStringArray(candidate: unknown[]): string[] {
+    return candidate
+      .map((item) => {
+        if (typeof item === 'string') return item;
+        if (!item || typeof item !== 'object' || Array.isArray(item)) return null;
+
+        const record = item as Record<string, unknown>;
+        if (typeof record['data'] === 'string') {
+          return record['data'];
+        }
+
+        return null;
+      })
+      .filter((item): item is string => typeof item === 'string' && item.length > 0);
   }
 
   private toRecord(value: unknown): Record<string, unknown> {

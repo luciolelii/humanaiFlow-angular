@@ -6,6 +6,7 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { Authorization } from '@services/authorization/authorization';
 import { BlocksService } from '@services/blocks/blocks';
+import { ContainersService } from '@services/containers/containers';
 
 @Component({
   selector: 'app-app-layout',
@@ -19,6 +20,7 @@ export class AppLayout {
   
   private authService = inject(Authorization);
   private blocksService = inject(BlocksService);
+  private containersService = inject(ContainersService);
 
   loggedUser = this.authService.loggedInUser;
 
@@ -26,6 +28,9 @@ export class AppLayout {
     afterNextRender(() => {
       void this.blocksService.getAllBlocksTypes().catch((err) => {
         console.error('Blocks preload failed', err);
+      });
+      void this.containersService.getAllContainerTypes().catch((err) => {
+        console.error('Containers preload failed', err);
       });
     });
   }

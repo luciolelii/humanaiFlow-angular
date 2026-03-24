@@ -23,6 +23,7 @@ import {
   parentPath,
   pathToLabel,
   readUiConditionRule,
+  readEffectiveUiVisibleConditionRule,
   readUiLabel,
   readUiGroup,
   resolveSchemaRef,
@@ -41,6 +42,7 @@ type FieldType = 'string' | 'number' | 'integer' | 'boolean' | 'unknown';
 type RetrieverDependency = {
   key: string;
   path: string;
+  source: 'field' | 'context';
 };
 
 type NodeOptionsSource = {
@@ -58,6 +60,7 @@ type EditableFieldDefinition = {
   retrieverBlockType: string | null;
   retrieverKey: string | null;
   retrieverUrl: string | null;
+  retrieverStructuredData: boolean;
   retrieverDependsOn: RetrieverDependency[];
   ui: {
     widget: 'textarea' | null;
@@ -84,6 +87,8 @@ type EditableFieldView = {
   value: string;
   wide: boolean;
   enabled: boolean;
+  type: FieldType;
+  booleanValue: boolean;
 };
 
 type ArrayFieldDefinition = {
@@ -173,10 +178,12 @@ export class GenericNodeComponent {
   localEditorType: FieldType = 'string';
   localEditorMaxLength: number | null = null;
   localEditorWidget: 'textarea' | null = null;
+  localEditorRows: number | null = null;
   localEditorBindableAsInput = false;
   localEditorUseInput = false;
   localEditorBindableInputName: string | null = null;
   deleteConfirmOpen = false;
+  schemaReady = false;
 
   missingRequiredParams: string[] = [];
   private blockSchema: Record<string, any> | null = null;
@@ -239,6 +246,7 @@ export class GenericNodeComponent {
     this.localEditorHasRetriever = false;
     this.localEditorOpen = true;
     this.localEditorWidget = null;
+    this.localEditorRows = null;
     this.localEditorBindableAsInput = false;
     this.localEditorUseInput = false;
     this.localEditorBindableInputName = null;
@@ -258,6 +266,7 @@ export class GenericNodeComponent {
     this.localEditorType = definition.type;
     this.localEditorMaxLength = null;
     this.localEditorWidget = definition.ui.widget;
+    this.localEditorRows = definition.ui.rows ?? null;
     this.localEditorValue = this.valueToEditorString(this.getByPath(this.blockConfiguration ?? {}, definition.path), definition.type);
     this.localEditorOptions = this.resolveSelectableOptions(definition);
     this.localEditorBindableAsInput = definition.ui.bindableAsInput;
@@ -270,12 +279,18 @@ export class GenericNodeComponent {
     if (definition.retrieverKey && !this.localEditorUseInput) {
       const missingDependencies = definition.retrieverDependsOn
         .filter((dep) => {
-          const value = this.getByPath(this.blockConfiguration ?? {}, dep.path);
+          const value = this.resolveRetrieverDependencyValue(this.blockConfiguration ?? {}, dep);
           return this.isMissingValue(value);
         })
-        .map((dep) => pathToLabel(dep.path));
+        .map((dep) => dep.source === 'context' ? pathToLabel(dep.key) : pathToLabel(dep.path));
 
-      if (missingDependencies.length > 0) {
+      const hasMissingFieldDependencies = definition.retrieverDependsOn.some((dep) => {
+        if (dep.source !== 'field') return false;
+        const value = this.resolveRetrieverDependencyValue(this.blockConfiguration ?? {}, dep);
+        return this.isMissingValue(value);
+      });
+
+      if (hasMissingFieldDependencies) {
         this.localEditorLoading = false;
         return;
       }
@@ -297,6 +312,7 @@ export class GenericNodeComponent {
     this.localEditorType = 'string';
     this.localEditorMaxLength = null;
     this.localEditorWidget = null;
+    this.localEditorRows = null;
     this.localEditorBindableAsInput = false;
     this.localEditorUseInput = false;
     this.localEditorBindableInputName = null;
@@ -329,6 +345,7 @@ export class GenericNodeComponent {
       }
     }
 
+    this.pruneInactiveConfiguration(config);
     this.refreshParameterFields();
     this.refreshValidationState();
     this.markFlowDirty();
@@ -522,19 +539,27 @@ export class GenericNodeComponent {
 
   private async loadSchemaContext() {
     const type = this.blockType;
-    if (!type) return;
+    if (!type) {
+      this.schemaReady = true;
+      return;
+    }
 
-    const blockType = await this.blocksService.getBlockType(type);
-    this.blockDescriptor = blockType ?? null;
-    this.blockSchema = (blockType?.schema ?? null) as Record<string, any> | null;
-    this.schemaRequirements = extractSchemaRequirements(this.blockSchema);
-    this.editableFieldDefinitions = this.buildEditableFieldDefinitions(this.blockSchema);
-    this.arrayFieldDefinitions = this.buildArrayFieldDefinitions(this.blockSchema);
+    try {
+      const blockType = await this.blocksService.getBlockType(type);
+      this.blockDescriptor = blockType ?? null;
+      this.blockSchema = (blockType?.schema ?? null) as Record<string, any> | null;
+      this.schemaRequirements = extractSchemaRequirements(this.blockSchema);
+      this.editableFieldDefinitions = this.buildEditableFieldDefinitions(this.blockSchema);
+      this.arrayFieldDefinitions = this.buildArrayFieldDefinitions(this.blockSchema);
+      this.pruneInactiveConfiguration(this.ensureBlockConfiguration());
 
-    await this.refreshConditionalRequirements();
-    this.refreshParameterFields();
-    this.refreshValidationState();
-    this.maybeCreateBlockOnServer();
+      await this.refreshConditionalRequirements();
+      this.refreshParameterFields();
+      this.refreshValidationState();
+      this.maybeCreateBlockOnServer();
+    } finally {
+      this.schemaReady = true;
+    }
   }
 
   private async openTextareaEditor(
@@ -569,6 +594,7 @@ export class GenericNodeComponent {
         this.markBlockForServerRecreate();
       }
     }
+    this.pruneInactiveConfiguration(config);
     this.refreshParameterFields();
     this.refreshValidationState();
     this.markFlowDirty();
@@ -623,6 +649,7 @@ export class GenericNodeComponent {
           retrieverBlockType: this.toRetrieverBlockType(childResolved),
           retrieverKey: this.toRetrieverKey(childResolved),
           retrieverUrl: this.toRetrieverUrl(childResolved),
+          retrieverStructuredData: childResolved?.['x-retriever-structured-data'] === true,
           retrieverDependsOn: this.toRetrieverDependsOn(childResolved, pathPrefix),
           ui: childUi
         });
@@ -724,10 +751,14 @@ export class GenericNodeComponent {
     const structuralReason = typeof schema?.['x-ui-structural-reason'] === 'string'
       ? String(schema['x-ui-structural-reason'])
       : undefined;
-    const visibleWhen = readUiConditionRule(schema?.['x-ui-visible-when']);
+    const visibleWhen = readEffectiveUiVisibleConditionRule(schema);
     const enabledWhen = readUiConditionRule(schema?.['x-ui-enabled-when']);
-    const group = readUiGroup(schema?.['x-ui-group']) ?? inheritedUi?.group ?? null;
     const label = readUiLabel(schema?.['x-ui-label']) ?? undefined;
+    const isObjectLike = schema?.['type'] === 'object' || !!schema?.['properties'];
+    const group = readUiGroup(schema?.['x-ui-group'])
+      ?? (isObjectLike ? label ?? null : null)
+      ?? inheritedUi?.group
+      ?? null;
 
     return {
       widget: normalizedWidget,
@@ -812,7 +843,10 @@ export class GenericNodeComponent {
 
   private toRetrieverBlockType(schema: Record<string, any> | null | undefined): string | null {
     if (!schema || typeof schema !== 'object') return null;
-    return this.parseRetrieverUrl(schema['x-retriever-url'])?.blockType ?? null;
+    return this.parseRetrieverUrl(schema['x-retriever-url'])?.blockType
+      ?? (typeof schema['x-retriever-owner'] === 'string' && String(schema['x-retriever-owner']).trim().length > 0
+        ? String(schema['x-retriever-owner']).trim()
+        : null);
   }
 
   private toEnumOptions(schema: Record<string, any> | null | undefined): string[] {
@@ -855,7 +889,7 @@ export class GenericNodeComponent {
 
     const path = rawUrl.split('?')[0];
     const parts = path.split('/').filter(Boolean);
-    const retrieverIndex = parts.findIndex((part) => part === 'retriever');
+    const retrieverIndex = parts.findIndex((part) => part === 'retriever' || part === 'secure-retriever');
     if (retrieverIndex < 0 || parts.length < retrieverIndex + 3) return null;
 
     const blockType = parts[retrieverIndex + 1];
@@ -971,10 +1005,25 @@ export class GenericNodeComponent {
 
     return raw
       .filter((dep): dep is string => typeof dep === 'string' && dep.length > 0)
-      .map((dep) => ({
-        key: dep,
-        path: pathPrefix ? `${pathPrefix}.${dep}` : dep
-      }));
+      .map((dep) => this.toRetrieverDependency(dep, pathPrefix));
+  }
+
+  private toRetrieverDependency(dependency: string, pathPrefix: string): RetrieverDependency {
+    const normalized = dependency.trim();
+    if (normalized.startsWith('$context.')) {
+      const contextKey = normalized.slice('$context.'.length).trim();
+      return {
+        key: contextKey,
+        path: normalized,
+        source: 'context'
+      };
+    }
+
+    return {
+      key: normalized,
+      path: pathPrefix ? `${pathPrefix}.${normalized}` : normalized,
+      source: 'field'
+    };
   }
 
   private async loadLocalEditorOptions(definition: EditableFieldDefinition) {
@@ -984,22 +1033,19 @@ export class GenericNodeComponent {
       return;
     }
 
-    const context: Record<string, string> = {};
-    for (const dep of definition.retrieverDependsOn) {
-      const value = this.getByPath(this.blockConfiguration ?? {}, dep.path);
-      context[dep.key] = value == null ? '' : String(value);
-    }
+    const context = this.buildRetrieverContext(
+      this.blockConfiguration ?? {},
+      definition.retrieverDependsOn
+    );
 
     try {
-      const options = await firstValueFrom(
-        this.fieldRetriever.retrieveValues(
-          blockType,
-          definition.retrieverKey,
-          definition.retrieverDependsOn.length ? context : undefined,
-          definition.retrieverUrl
-        )
+      this.localEditorOptions = await this.fetchRetrieverOptions(
+        blockType,
+        definition.retrieverKey,
+        definition.retrieverUrl,
+        definition.retrieverStructuredData,
+        context
       );
-      this.localEditorOptions = (options ?? []).map((option) => ({ label: option, value: option }));
     } catch {
       this.localEditorOptions = [];
     } finally {
@@ -1062,7 +1108,9 @@ export class GenericNodeComponent {
           label: definition.label,
           value: this.fieldDisplayValue(definition, value),
           wide: this.shouldRenderWideField(definition.label, definition.ui.widget === 'textarea'),
-          enabled: this.isPathEnabled(definition.path)
+          enabled: this.isPathEnabled(definition.path),
+          type: definition.type,
+          booleanValue: value === true
         };
       }).filter((field) => !richContentPaths.has(field.path))
         .filter((field) => this.isPathVisible(field.path));
@@ -1097,7 +1145,9 @@ export class GenericNodeComponent {
         label: this.fieldDisplayLabel(entry.path),
         value: valueToDisplayString(entry.value),
         wide: this.shouldRenderWideField(this.fieldDisplayLabel(entry.path), false),
-        enabled: this.isPathEnabled(entry.path)
+        enabled: this.isPathEnabled(entry.path),
+        type: (typeof entry.value === 'boolean' ? 'boolean' : 'unknown') as FieldType,
+        booleanValue: entry.value === true
       }));
 
     for (const field of fallbackFields) {
@@ -1151,6 +1201,7 @@ export class GenericNodeComponent {
     if (this.isStructuralField(path)) {
       this.markBlockForServerRecreate();
     }
+    this.pruneInactiveConfiguration(config);
     this.refreshParameterFields();
     this.refreshValidationState();
     this.markFlowDirty();
@@ -1188,6 +1239,7 @@ export class GenericNodeComponent {
     if (this.isStructuralField(path)) {
       this.markBlockForServerRecreate();
     }
+    this.pruneInactiveConfiguration(config);
     this.refreshParameterFields();
     this.refreshValidationState();
     this.markFlowDirty();
@@ -1529,22 +1581,16 @@ export class GenericNodeComponent {
     if (!retrieverKey || !retrieverBlockType) return undefined;
 
     const retrieverDependsOn = this.toRetrieverDependsOn(propertySchema, pathPrefix);
-    const retrieverContext: Record<string, string> = {};
-    for (const dep of retrieverDependsOn) {
-      const depValue = getValueByPath(item as Record<string, any>, dep.path);
-      retrieverContext[dep.key] = depValue == null ? '' : String(depValue);
-    }
+    const retrieverContext = this.buildRetrieverContext(item as Record<string, any>, retrieverDependsOn);
 
     try {
-      const values = await firstValueFrom(
-        this.fieldRetriever.retrieveValues(
-          retrieverBlockType,
-          retrieverKey,
-          retrieverDependsOn.length ? retrieverContext : undefined,
-          this.toRetrieverUrl(propertySchema)
-        )
+      return await this.fetchRetrieverOptions(
+        retrieverBlockType,
+        retrieverKey,
+        this.toRetrieverUrl(propertySchema),
+        propertySchema['x-retriever-structured-data'] === true,
+        retrieverContext
       );
-      return values.map((value) => ({ label: value, value }));
     } catch {
       return [];
     }
@@ -1645,6 +1691,47 @@ export class GenericNodeComponent {
     current[keys[keys.length - 1]] = value;
   }
 
+  private deleteByPath(target: Record<string, any>, path: string) {
+    const keys = path.split('.').filter(Boolean);
+    if (!keys.length) return;
+
+    let current: Record<string, any> | undefined = target;
+    const parents: Array<{ owner: Record<string, any>; key: string }> = [];
+
+    for (let i = 0; i < keys.length - 1; i++) {
+      const key = keys[i];
+      const next = current?.[key];
+      if (!next || typeof next !== 'object' || Array.isArray(next)) {
+        return;
+      }
+      parents.push({ owner: current!, key });
+      current = next as Record<string, any>;
+    }
+
+    if (!current) return;
+    delete current[keys[keys.length - 1]];
+
+    for (let i = parents.length - 1; i >= 0; i--) {
+      const { owner, key } = parents[i];
+      const value = owner[key];
+      if (!value || typeof value !== 'object' || Array.isArray(value)) break;
+      if (Object.keys(value).length > 0) break;
+      delete owner[key];
+    }
+  }
+
+  private pruneInactiveConfiguration(config: Record<string, any>) {
+    const candidatePaths = [
+      ...this.editableFieldDefinitions.map((field) => field.path),
+      ...this.arrayFieldDefinitions.map((field) => field.path)
+    ].sort((left, right) => right.length - left.length);
+
+    for (const path of candidatePaths) {
+      if (this.isPathVisible(path) && this.isPathEnabled(path)) continue;
+      this.deleteByPath(config, path);
+    }
+  }
+
   private resetDependentRetrieverFields(
     config: Record<string, any>,
     changedPath: string,
@@ -1668,11 +1755,11 @@ export class GenericNodeComponent {
   }
 
   private richContentPaths(): string[] {
-    const preferredPaths = this.editableFieldDefinitions
-      .filter((field) => field.ui.widget === 'textarea' && field.ui.acceptVariableAsPlaceholder)
+    const textareaPaths = this.editableFieldDefinitions
+      .filter((field) => field.ui.widget === 'textarea')
       .map((field) => field.path);
-    if (preferredPaths.length) {
-      return preferredPaths;
+    if (textareaPaths.length) {
+      return textareaPaths;
     }
 
     return this.findMainContentCandidatePaths(this.blockSchema);
@@ -1717,8 +1804,7 @@ export class GenericNodeComponent {
           ? String(childResolved['x-ui-widget']).toLowerCase().trim()
           : '';
         const isTextarea = rawWidget === 'textarea' || rawWidget === 'text-area';
-        const acceptsVariable = childResolved?.['x-ui-accept-variable-as-placeholder'] === true;
-        if (!isTextarea || !acceptsVariable || seen.has(path)) continue;
+        if (!isTextarea || seen.has(path)) continue;
 
         seen.add(path);
         paths.push(path);
@@ -1814,11 +1900,7 @@ export class GenericNodeComponent {
     if (!field.retrieverKey) return false;
 
     const retrieverBlockType = field.retrieverBlockType ?? blockType;
-    const context: Record<string, string> = {};
-    for (const dep of field.dependsOn) {
-      const value = this.getByPath(this.blockConfiguration ?? {}, dep.path);
-      context[dep.key] = typeof value === 'string' ? value : '';
-    }
+    const context = this.buildRetrieverContext(this.blockConfiguration ?? {}, field.dependsOn);
 
     try {
       return await firstValueFrom(
@@ -1894,6 +1976,9 @@ export class GenericNodeComponent {
     this.blocksService.updateBlock(String(nodeData['id'] ?? ''), {
       ...configuration,
       typeName: blockType
+    }, {
+      flowId: this.editorFlowId(),
+      replacesBlockId: String(nodeData['id'] ?? '')
     }).pipe(
       take(1)
     ).subscribe({
@@ -1943,6 +2028,100 @@ export class GenericNodeComponent {
     return this.isFieldConditionSatisfied(path);
   }
 
+  private editorFlowId(): string | null {
+    const flowId = this.editorState.currentFlow()?.id;
+    return typeof flowId === 'string' && flowId.trim().length > 0 ? flowId.trim() : null;
+  }
+
+  private buildRetrieverContext(
+    source: Record<string, unknown>,
+    dependencies: RetrieverDependency[]
+  ) {
+    const context = this.withEditorFlowContext({});
+    for (const dep of dependencies) {
+      const value = this.resolveRetrieverDependencyValue(source, dep);
+      context[dep.key] = value == null ? '' : String(value);
+    }
+    return context;
+  }
+
+  private resolveRetrieverDependencyValue(source: Record<string, unknown>, dependency: RetrieverDependency): unknown {
+    if (dependency.source === 'context') {
+      return this.resolveEditorContextDependencyValue(dependency.key);
+    }
+    return getValueByPath(source as Record<string, any>, dependency.path);
+  }
+
+  private resolveEditorContextDependencyValue(contextKey: string): unknown {
+    if (contextKey === 'flowId') {
+      return this.editorFlowId();
+    }
+    if (contextKey === 'blockId') {
+      const blockId = this.blockId;
+      return typeof blockId === 'string' && blockId.trim().length > 0 ? blockId.trim() : null;
+    }
+    if (contextKey === 'inputNames') {
+      return this.resolvePorts('input').map((port) => port.name).join(',');
+    }
+    if (contextKey === 'outputNames') {
+      return this.resolvePorts('output').map((port) => port.name).join(',');
+    }
+    return null;
+  }
+
+  private async fetchRetrieverOptions(
+    blockType: string,
+    retrieverKey: string,
+    retrieverUrl: string | null,
+    structuredData: boolean,
+    context?: Record<string, string>
+  ): Promise<NodeSettingOption[]> {
+    if (structuredData) {
+      const items = await firstValueFrom(
+        this.fieldRetriever.retrieveItems<unknown>(
+          blockType,
+          retrieverKey,
+          context,
+          retrieverUrl
+        )
+      );
+      return this.toStructuredRetrieverOptions(items ?? []);
+    }
+
+    const values = await firstValueFrom(
+      this.fieldRetriever.retrieveValues(
+        blockType,
+        retrieverKey,
+        context,
+        retrieverUrl
+      )
+    );
+    return (values ?? []).map((value) => ({ label: value, value }));
+  }
+
+  private toStructuredRetrieverOptions(items: Array<{ descriptor?: { label?: string; description?: string }; data?: unknown }>) {
+    return items
+      .map((item, index) => {
+        const value = item?.data == null ? '' : String(item.data);
+        const label = item.descriptor?.label?.trim() || value || `Item ${index + 1}`;
+        const description = item.descriptor?.description?.trim();
+        return {
+          label: description ? `${label} - ${description}` : label,
+          value
+        };
+      })
+      .filter((option) => option.value.trim().length > 0);
+  }
+
+  private withEditorFlowContext(context?: Record<string, string>) {
+    const nextContext = { ...(context ?? {}) };
+    const flowId = this.editorFlowId();
+    if (flowId) {
+      nextContext['flowId'] = flowId;
+    }
+    return nextContext;
+  }
+
   private isPathEnabled(path: string, visited = new Set<string>()): boolean {
     if (visited.has(path)) return true;
     visited.add(path);
@@ -1950,13 +2129,37 @@ export class GenericNodeComponent {
     const ui = this.getFieldUiMeta(path);
     return ui.enabledWhen.every((rule) => {
       if (!rule) return true;
-      if (!this.isFieldConditionSatisfied(rule.field, visited)) return false;
       return evaluateUiConditionRule(rule, this.blockConfiguration, (fieldPath) => this.resolveFieldSchema(fieldPath));
     });
   }
 
   private isFieldVisible(field: EditableFieldDefinition): boolean {
     return this.isPathVisible(field.path);
+  }
+
+  toggleBooleanParameter(path: string, event?: Event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+    if (this.isReadonly) return;
+
+    const definition = this.editableFieldDefinitions.find((field) => field.path === path);
+    if (!definition || definition.type !== 'boolean') return;
+    if (!this.isFieldVisible(definition) || !this.isPathEnabled(definition.path)) return;
+
+    const config = this.ensureBlockConfiguration();
+    const previousValue = this.getByPath(config, path);
+    const nextValue = previousValue !== true;
+    this.setByPath(config, path, nextValue);
+    this.resetDependentRetrieverFields(config, path);
+    if (!this.areValuesEqual(previousValue, nextValue) && this.isStructuralField(path)) {
+      this.markBlockForServerRecreate();
+    }
+
+    this.pruneInactiveConfiguration(config);
+    this.refreshParameterFields();
+    this.refreshValidationState();
+    this.markFlowDirty();
+    this.maybeCreateBlockOnServer();
   }
 
   private isFieldConditionSatisfied(path: string, visited = new Set<string>()): boolean {
@@ -1966,7 +2169,6 @@ export class GenericNodeComponent {
     const ui = this.getFieldUiMeta(path);
     return ui.visibleWhen.every((rule) => {
       if (!rule) return true;
-      if (!this.isFieldConditionSatisfied(rule.field, visited)) return false;
       return evaluateUiConditionRule(rule, this.blockConfiguration, (fieldPath) => this.resolveFieldSchema(fieldPath));
     });
   }

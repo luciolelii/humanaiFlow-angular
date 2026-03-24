@@ -9,10 +9,12 @@ import {
   FlowBlockConnection,
   FlowContainer,
   FlowData,
+  LLMDescriptor,
   FlowNode,
   normalizeFlowPortValueKinds
 } from '@models/flow';
 import {
+  ExecutionEventLogEntry,
   getTaskExecutionStepNode,
   getExecutionStatusGroup,
   TaskExecution,
@@ -28,7 +30,10 @@ import {
   HumanInteractionChatMessage,
   HumanInteractionDialogService
 } from '@services/dialogs/human-interaction-dialog';
+import { NodeSettingField, NodeSettingsDialogService } from '@services/dialogs/node-settings-dialog';
+import { FieldRetriever } from '@services/retriever/field-retriever';
 import { TaskExecutionsService } from '@services/task-executions/task-executions';
+import { firstValueFrom } from 'rxjs';
 
 type ExecutionOutputEntry = {
   key: string;
@@ -39,6 +44,11 @@ type ExecutionOutputEntry = {
   isLong: boolean;
 };
 
+type ExecutionLogEntryView = ExecutionEventLogEntry & {
+  messageText: string;
+  levelText: string;
+};
+
 @Component({
   selector: 'app-task-execution-viewer',
   imports: [CommonModule, ReteEditor, TaskExecutionInputsPanelComponent, MatButtonModule, MatIconModule, MatTooltipModule],
@@ -47,15 +57,21 @@ type ExecutionOutputEntry = {
 })
 export class TaskExecutionViewerComponent implements OnDestroy {
   private static readonly TEXT_INPUT_DEBOUNCE_MS = 1200;
+  private static readonly EVENTS_POLL_INTERVAL_MS = 5000;
   private taskExecutionsService = inject(TaskExecutionsService);
   private humanInteractionDialog = inject(HumanInteractionDialogService);
+  private settingsDialog = inject(NodeSettingsDialogService);
+  private fieldRetriever = inject(FieldRetriever);
   private readonly textInputDebounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private lastExecutionId: string | null = null;
   private lastExecutionStatus: string | null = null;
+  private static readonly SIMULATOR_PROVIDER_RETRIEVER_URL = '/retriever/LLM/providers';
+  private static readonly SIMULATOR_MODEL_RETRIEVER_URL = '/retriever/LLM/models';
   readonly execution = input<TaskExecution | null>(null);
   readonly contextAsideOpen = signal(true);
-  readonly activeAsideTab = signal<'inputs' | 'output'>('inputs');
+  readonly activeAsideTab = signal<'inputs' | 'logs' | 'output'>('inputs');
   readonly startInProgress = signal(false);
+  readonly simulateInProgress = signal(false);
   readonly cancelInProgress = signal(false);
   readonly resumeInProgress = signal(false);
   readonly savingInputs = signal<Record<string, boolean>>({});
@@ -65,6 +81,9 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   readonly savingAuthorizations = signal<Record<string, boolean>>({});
   readonly authorizationErrors = signal<Record<string, string>>({});
   readonly outputPreviewModal = signal<ExecutionOutputEntry | null>(null);
+  readonly executionLogs = signal<ExecutionEventLogEntry[]>([]);
+  readonly logsLoading = signal(false);
+  readonly logsError = signal<string | null>(null);
 
   constructor() {
     effect(() => {
@@ -77,6 +96,9 @@ export class TaskExecutionViewerComponent implements OnDestroy {
       this.authorizationErrors.set({});
       this.activeAsideTab.set('inputs');
       this.outputPreviewModal.set(null);
+      this.executionLogs.set([]);
+      this.logsError.set(null);
+      this.logsLoading.set(false);
     });
 
     effect(() => {
@@ -102,6 +124,23 @@ export class TaskExecutionViewerComponent implements OnDestroy {
       this.lastExecutionStatus = status;
     });
 
+    effect((onCleanup) => {
+      const execution = this.execution();
+      const executionId = execution?.id ?? null;
+      if (!executionId || !execution) return;
+
+      this.fetchExecutionLogs(executionId);
+
+      const statusGroup = getExecutionStatusGroup(execution.context.status);
+      if (statusGroup !== 'RUNNING' && statusGroup !== 'PAUSED') return;
+
+      const timer = setInterval(() => {
+        this.fetchExecutionLogs(executionId);
+      }, TaskExecutionViewerComponent.EVENTS_POLL_INTERVAL_MS);
+
+      onCleanup(() => clearInterval(timer));
+    });
+
     effect(() => {
       const dialogState = this.humanInteractionDialog.state();
       const execution = this.execution();
@@ -109,7 +148,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
       if (dialogState.executionId !== execution.id || !dialogState.nodeId) return;
 
       const executionStatus = String(execution.context.status ?? '').toUpperCase();
-      if (executionStatus === 'CANCELLED' || executionStatus === 'SUSPENDED') {
+      if (executionStatus === 'CANCELLED' || executionStatus === 'SUSPENDED' || execution.interactionSimulationEnabled === true) {
         this.humanInteractionDialog.close(null);
         return;
       }
@@ -117,8 +156,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
       const step = execution.context.steps?.[dialogState.nodeId];
       const stepResult = step?.result && typeof step.result === 'object' ? step.result as Record<string, unknown> : {};
       const finalResult = execution.context.result ?? {};
-      const executionResult = execution.context.executionResult ?? {};
-      const partialResult = ((execution.context as Record<string, unknown>)['partialResult'] as Record<string, unknown> | undefined) ?? {};
+      const partialResult = execution.context.partialResult ?? {};
 
       const historyField = dialogState.historyField || (dialogState.kind === 'chat-session' ? 'history' : null);
       const responseField = dialogState.responseField || (dialogState.kind === 'chat-session' ? 'response' : null);
@@ -128,13 +166,11 @@ export class TaskExecutionViewerComponent implements OnDestroy {
       const rawHistory = historyField
         ? partialResult[historyKey ?? '']
           ?? finalResult[historyKey ?? '']
-          ?? executionResult[historyKey ?? '']
           ?? stepResult[historyField]
         : undefined;
       const rawResponse = responseField
         ? partialResult[responseKey ?? '']
           ?? finalResult[responseKey ?? '']
-          ?? executionResult[responseKey ?? '']
           ?? stepResult[responseField]
         : undefined;
 
@@ -191,10 +227,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   readonly executionFlowData = computed<FlowData>(() => {
     const executionStatusGroup = getExecutionStatusGroup(this.execution()?.context.status);
     const contextInputs = this.execution()?.context.inputs ?? {};
-    const contextResults = {
-      ...(this.execution()?.context.result ?? {}),
-      ...(this.execution()?.context.executionResult ?? {})
-    };
+    const contextResults = this.execution()?.context.result ?? {};
     const contextErrors = this.execution()?.context.errors ?? {};
     const contextWarnings = this.execution()?.context.warnings ?? {};
     const waitingSteps = this.execution()?.context.waitingSteps ?? [];
@@ -214,6 +247,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
           __executionId: this.execution()?.id ?? null,
           __executionNodeId: step.id,
           __executionStatus: this.execution()?.context.status ?? null,
+          __interactionSimulationEnabled: this.execution()?.interactionSimulationEnabled === true,
           __stepStatus: step.status,
           __executionStatusGroup: executionStatusGroup,
           __isWaitingStep: waitingSteps.includes(step.id),
@@ -224,8 +258,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
           __executionErrors: this.getExecutionErrors(step.id, contextErrors),
           __executionWarnings: this.getExecutionWarnings(step.id, contextWarnings),
           __stepResultData: step.result ?? null,
-          __executionPartialResult: (this.execution()?.context as Record<string, unknown> | undefined)?.['partialResult'] ?? null,
-          __executionResultData: this.execution()?.context.result ?? {}
+          __executionPartialResult: this.execution()?.context.partialResult ?? null
         },
         position: stepNode.position ?? {
           x: 120 + (index % 3) * 340,
@@ -257,10 +290,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
 
   readonly executionOutputs = computed<ExecutionOutputEntry[]>(() => {
     const steps = this.execution()?.context.steps ?? {};
-    const resultMap = {
-      ...(this.execution()?.context.result ?? {}),
-      ...(this.execution()?.context.executionResult ?? {})
-    };
+    const resultMap = this.execution()?.context.result ?? {};
 
     return Object.entries(resultMap)
       .map(([key, rawValue]) => {
@@ -283,6 +313,16 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     const status = this.execution()?.context.status;
     return getExecutionStatusGroup(status) !== 'INIT';
   });
+
+  readonly visibleExecutionLogs = computed<ExecutionLogEntryView[]>(() =>
+    [...this.executionLogs()]
+      .sort((a, b) => a.timestamp - b.timestamp)
+      .map((entry) => ({
+        ...entry,
+        messageText: String(entry.message ?? '').trim() || this.fallbackExecutionLogMessage(entry),
+        levelText: String(entry.level ?? 'INFO').toUpperCase()
+      }))
+  );
 
   readonly canCancelExecution = computed(() => {
     const status = String(this.execution()?.context.status ?? '').toUpperCase();
@@ -322,6 +362,23 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     }
 
     return true;
+  });
+
+  readonly canSimulateExecution = computed(() => {
+    return this.execution()?.simulationAvailable === true && this.canStartExecution() && !this.simulateInProgress();
+  });
+
+  readonly isSimulatedExecution = computed(() => this.execution()?.interactionSimulationEnabled === true);
+  readonly simulationDescriptorLabel = computed(() => {
+    const descriptor = this.execution()?.interactionSimulationDescriptor;
+    if (!descriptor) return null;
+
+    const provider = String(descriptor.provider ?? '').trim();
+    const model = String(descriptor.model ?? '').trim();
+    if (!provider && !model) return null;
+    if (!provider) return model;
+    if (!model) return provider;
+    return `${provider} / ${model}`;
   });
 
   readonly editableInputs = computed<EditableExecutionInput[]>(() => {
@@ -364,7 +421,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     this.contextAsideOpen.update((open) => !open);
   }
 
-  selectAsideTab(tab: 'inputs' | 'output') {
+  selectAsideTab(tab: 'inputs' | 'logs' | 'output') {
     if (tab === 'output' && !this.executionOutputTabEnabled()) return;
     this.activeAsideTab.set(tab);
   }
@@ -390,6 +447,20 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     this.taskExecutionsService.startExecution(executionId).subscribe({
       next: () => this.startInProgress.set(false),
       error: () => this.startInProgress.set(false)
+    });
+  }
+
+  async simulateExecution() {
+    const executionId = this.execution()?.id;
+    if (!executionId || !this.canSimulateExecution()) return;
+
+    const simulator = await this.openSimulationSettings();
+    if (!simulator) return;
+
+    this.simulateInProgress.set(true);
+    this.taskExecutionsService.simulateExecution(executionId, simulator).subscribe({
+      next: () => this.simulateInProgress.set(false),
+      error: () => this.simulateInProgress.set(false)
     });
   }
 
@@ -571,6 +642,111 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     });
   }
 
+  private async openSimulationSettings(): Promise<LLMDescriptor | null> {
+    const providerOptions = await this.loadSimulationOptions(
+      'providers',
+      {},
+      TaskExecutionViewerComponent.SIMULATOR_PROVIDER_RETRIEVER_URL
+    );
+    if (!providerOptions.length) {
+      return null;
+    }
+
+    const defaultProvider = providerOptions[0].value;
+    const initialModelOptions = await this.loadSimulationOptions(
+      'models',
+      { provider: defaultProvider },
+      TaskExecutionViewerComponent.SIMULATOR_MODEL_RETRIEVER_URL
+    );
+
+    const buildFields = (providers: { label: string; value: string; }[], models: { label: string; value: string; }[]): NodeSettingField[] => [
+      {
+        key: 'provider',
+        label: 'Provider',
+        type: 'select',
+        options: providers,
+        required: true,
+        autofocus: true
+      },
+      {
+        key: 'model',
+        label: 'Model',
+        type: 'select',
+        options: models,
+        required: true
+      }
+    ];
+
+    const result = await this.settingsDialog.open({
+      title: 'Simulation Settings',
+      fields: buildFields(providerOptions, initialModelOptions),
+      initial: {
+        provider: defaultProvider,
+        model: initialModelOptions[0]?.value ?? ''
+      },
+      onValuesChange: async (draft) => {
+        const provider = String(draft['provider'] ?? '').trim();
+        const modelOptions = provider
+          ? await this.loadSimulationOptions(
+            'models',
+            { provider },
+            TaskExecutionViewerComponent.SIMULATOR_MODEL_RETRIEVER_URL
+          )
+          : [];
+
+        return {
+          fields: buildFields(providerOptions, modelOptions),
+          initial: {
+            provider,
+            model: modelOptions[0]?.value ?? ''
+          }
+        };
+      }
+    });
+
+    if (!result) return null;
+
+    const provider = String(result['provider'] ?? '').trim();
+    const model = String(result['model'] ?? '').trim();
+    if (!provider || !model) {
+      return null;
+    }
+
+    return { provider, model };
+  }
+
+  private fetchExecutionLogs(executionId: string) {
+    this.logsLoading.set(true);
+    this.logsError.set(null);
+    this.taskExecutionsService.retrieveExecutionEvents(executionId).subscribe({
+      next: (events) => {
+        if (this.execution()?.id !== executionId) return;
+        this.executionLogs.set(Array.isArray(events) ? events : []);
+        this.logsLoading.set(false);
+      },
+      error: () => {
+        if (this.execution()?.id !== executionId) return;
+        this.logsError.set('Unable to load execution logs.');
+        this.logsLoading.set(false);
+      }
+    });
+  }
+
+  private async loadSimulationOptions(
+    key: string,
+    context: Record<string, string>,
+    retrieverUrl: string
+  ): Promise<Array<{ label: string; value: string }>> {
+    const values = await firstValueFrom(
+      this.fieldRetriever.retrieveValues('LLM', key, context, retrieverUrl)
+    );
+
+    return values.map((value) => ({
+      label: value,
+      value
+    }));
+  }
+
   private stringifyOutputValue(value: unknown): string {
     if (value == null) return '';
     if (typeof value === 'string') return value;
@@ -580,6 +756,32 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     } catch {
       return String(value);
     }
+  }
+
+  private fallbackExecutionLogMessage(entry: ExecutionEventLogEntry): string {
+    const type = String(entry.type ?? '').trim();
+    if (type) {
+      return type.replaceAll('_', ' ').toLowerCase().replace(/^\w/, (letter) => letter.toUpperCase());
+    }
+    return 'Execution event';
+  }
+
+  logLevelClass(level: string | null | undefined): string {
+    const normalized = String(level ?? '').toUpperCase();
+    if (normalized === 'ERROR') return 'execution-log-level-error';
+    if (normalized === 'WARN' || normalized === 'WARNING') return 'execution-log-level-warn';
+    return 'execution-log-level-info';
+  }
+
+  logTypeIcon(type: string | null | undefined): string {
+    const normalized = String(type ?? '').toUpperCase();
+    if (normalized.includes('FAILED') || normalized.includes('ERROR')) return 'error';
+    if (normalized.includes('WAITING') || normalized.includes('PAUSED')) return 'pause_circle';
+    if (normalized.includes('COMPLETED') || normalized.includes('SUCCESS')) return 'check_circle';
+    if (normalized.includes('HTTP')) return 'language';
+    if (normalized.includes('LLM')) return 'smart_toy';
+    if (normalized.includes('MCP_SESSION')) return 'hub';
+    return 'schedule';
   }
 
   private formatExecutionOutputLabel(

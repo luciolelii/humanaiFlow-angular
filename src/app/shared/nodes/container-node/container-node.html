@@ -97,13 +97,38 @@
     </div>
   </div>
 
-  @if (hasParameterFields()) {
-  <div class="container-node__params">
+  @if (hasParameterFields() || hasMainContent()) {
+  <div class="container-node__params container-node__params-shell">
+    @if (!schemaReady) {
+    <div class="container-node__skeleton-overlay" aria-hidden="true">
+      <div class="container-node__skeleton-stack">
+        <div class="container-node__skeleton-line container-node__skeleton-line-title"></div>
+        <div class="container-node__skeleton-line container-node__skeleton-line-short"></div>
+        <div class="container-node__skeleton-grid">
+          <div class="container-node__skeleton-pill"></div>
+          <div class="container-node__skeleton-pill"></div>
+          <div class="container-node__skeleton-pill container-node__skeleton-pill-wide"></div>
+        </div>
+      </div>
+    </div>
+    }
     @for (field of parameterFields; track field.path) {
     <div class="container-node__param-chip" [class.container-node__param-chip--wide]="field.wide" [class.container-node__param-chip--disabled]="!field.enabled">
       <div class="container-node__param-head">
         <span class="container-node__param-key">{{ field.label }}</span>
-        @if (!isReadonly) {
+        @if (field.type === 'boolean' && !isReadonly) {
+        <button
+          type="button"
+          class="container-node__bool-toggle"
+          [class.container-node__bool-toggle--on]="field.booleanValue"
+          [disabled]="!field.enabled"
+          [attr.aria-pressed]="field.booleanValue"
+          title="Toggle field"
+          (pointerdown)="$event.stopPropagation()"
+          (click)="toggleBooleanParameter(field.path, $event)">
+          <span class="container-node__bool-toggle-thumb"></span>
+        </button>
+        } @else if (!isReadonly) {
         <button
           type="button"
           class="container-node__param-edit"
@@ -115,7 +140,23 @@
         </button>
         }
       </div>
-      <span class="container-node__param-value">{{ field.value }}</span>
+      <span class="container-node__param-value">{{ field.type === 'boolean' ? (field.booleanValue ? 'Enabled' : 'Disabled') : field.value }}</span>
+    </div>
+    }
+    @for (contentField of richContentFields; track contentField.path) {
+    <div class="container-node__param-chip container-node__param-chip--wide">
+      <div class="container-node__param-head">
+        <span class="container-node__param-key">{{ contentField.label }}</span>
+      </div>
+      <div class="container-node__param-value">
+        @for (part of contentField.parts; track $index) {
+          @if (part.isDynamicInput) {
+          <span class="llm-inline-token">{{ formatDynamicInputToken(part.text) }}</span>
+          } @else {
+          <span>{{ part.text }}</span>
+          }
+        }
+      </div>
     </div>
     }
   </div>

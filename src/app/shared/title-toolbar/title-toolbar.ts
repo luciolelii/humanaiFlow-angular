@@ -106,9 +106,11 @@ export class TitleToolbar {
     this.taskExecutionsService.createExecution(flow.id).pipe(
       take(1)
     ).subscribe({
-      next: () => {
+      next: (execution) => {
         this.executeLoading.set(false);
-        this.router.navigate(['/tasks']);
+        this.router.navigate(['/tasks'], {
+          queryParams: { executionId: execution.id }
+        });
       },
       error: (err) => {
         this.executeLoading.set(false);

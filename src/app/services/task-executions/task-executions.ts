@@ -1,6 +1,7 @@
 import { Injectable, signal } from '@angular/core';
 import { environment } from '@environment';
-import { getExecutionStatusGroup, TaskExecution } from '@models/task-execution';
+import { LLMDescriptor } from '@models/flow';
+import { ExecutionEventLogEntry, getExecutionStatusGroup, TaskExecution } from '@models/task-execution';
 import { catchError, finalize, tap, throwError } from 'rxjs';
 import { TaskExecutionsCallServiceBase } from './task-executions-call.base';
 
@@ -37,6 +38,15 @@ export class TaskExecutionsService {
     });
   }
 
+  retrieveExecutionEvents(executionId: string) {
+    return this.taskExecutionsCallService.retrieveExecutionEvents(executionId).pipe(
+      catchError((err) => {
+        console.error('Retrieve execution events failed', err);
+        return throwError(() => err);
+      })
+    );
+  }
+
   createExecution(flowId: string) {
     return this.taskExecutionsCallService.createTaskExecution(flowId).pipe(
       tap(() => this.refresh()),
@@ -62,6 +72,24 @@ export class TaskExecutionsService {
       tap(() => this.refresh()),
       catchError((err) => {
         console.error('Start execution failed', err);
+        return throwError(() => err);
+      })
+    );
+  }
+
+  simulateExecution(executionId: string, simulator: LLMDescriptor) {
+    const execution = this._taskExecutions().find((item) => item.id === executionId);
+    if (execution?.simulationAvailable !== true) {
+      return throwError(() => new Error('Simulation is not available for this execution.'));
+    }
+    if (!simulator?.provider?.trim() || !simulator?.model?.trim()) {
+      return throwError(() => new Error('A simulator descriptor is required to start simulation.'));
+    }
+
+    return this.taskExecutionsCallService.simulateTaskExecution(executionId, simulator).pipe(
+      tap(() => this.refresh()),
+      catchError((err) => {
+        console.error('Simulate execution failed', err);
         return throwError(() => err);
       })
     );
@@ -134,6 +162,11 @@ export class TaskExecutionsService {
   }
 
   submitInteractionText(executionId: string, nodeId: string, fieldName: string, value: string) {
+    const execution = this._taskExecutions().find((item) => item.id === executionId);
+    if (execution?.interactionSimulationEnabled === true) {
+      return throwError(() => new Error('Manual interaction is disabled for simulated executions.'));
+    }
+
     return this.taskExecutionsCallService.submitInteractionText(executionId, nodeId, fieldName, value).pipe(
       tap(() => this.refresh()),
       catchError((err) => {

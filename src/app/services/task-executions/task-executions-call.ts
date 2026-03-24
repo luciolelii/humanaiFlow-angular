@@ -1,7 +1,8 @@
 import { HttpClient } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { environment } from '@environment';
-import { TaskExecution } from '@models/task-execution';
+import { LLMDescriptor } from '@models/flow';
+import { ExecutionEventLogEntry, TaskExecution } from '@models/task-execution';
 import { Observable } from 'rxjs';
 import { TaskExecutionsCallServiceBase } from './task-executions-call.base';
 
@@ -10,6 +11,10 @@ export class TaskExecutionsCallService extends TaskExecutionsCallServiceBase {
 
   override retrieveAllTaskExecutions(): Observable<TaskExecution[]> {
     return this.http.get<TaskExecution[]>(`${environment.apiUrl}/executions`);
+  }
+
+  override retrieveExecutionEvents(executionId: string): Observable<ExecutionEventLogEntry[]> {
+    return this.http.get<ExecutionEventLogEntry[]>(`${environment.apiUrl}/executions/${encodeURIComponent(executionId)}/events`);
   }
 
   override createTaskExecution(flowId: string): Observable<TaskExecution> {
@@ -22,6 +27,10 @@ export class TaskExecutionsCallService extends TaskExecutionsCallServiceBase {
 
   override startTaskExecution(executionId: string): Observable<TaskExecution> {
     return this.http.put<TaskExecution>(`${environment.apiUrl}/executions/${encodeURIComponent(executionId)}/start`, null);
+  }
+
+  override simulateTaskExecution(executionId: string, simulator: LLMDescriptor): Observable<TaskExecution> {
+    return this.http.put<TaskExecution>(`${environment.apiUrl}/executions/${encodeURIComponent(executionId)}/simulate`, { simulator });
   }
 
   override cancelTaskExecution(executionId: string): Observable<TaskExecution> {

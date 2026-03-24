@@ -1,4 +1,5 @@
-import { TaskExecution } from '@models/task-execution';
+import { LLMDescriptor } from '@models/flow';
+import { ExecutionEventLogEntry, TaskExecution } from '@models/task-execution';
 import { Observable, of } from 'rxjs';
 import { TaskExecutionsCallServiceBase } from './task-executions-call.base';
 
@@ -34,7 +35,7 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
         },
         steps: {
           'b2540579-ca7b-4beb-8ed3-65136e7f03d6': {
-            block: {
+            node: {
               id: 'b2540579-ca7b-4beb-8ed3-65136e7f03d6',
               position: { x: 120, y: 160 },
               name: 'first',
@@ -68,7 +69,7 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
             simulated: false
           },
           '5ceb9b7b-88a0-41bb-afef-76fcb1f57918': {
-            block: {
+            node: {
               id: '5ceb9b7b-88a0-41bb-afef-76fcb1f57918',
               position: { x: 500, y: 160 },
               name: 'second',
@@ -104,7 +105,6 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
         },
         status: 'ERROR',
         waitingSteps: [],
-        executionResult: {}
       }
     },
     {
@@ -128,7 +128,7 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
         warnings: {},
         steps: {
           '95ebb03f-80e0-412d-87ee-2d4b7ddef240': {
-            block: {
+            node: {
               id: '95ebb03f-80e0-412d-87ee-2d4b7ddef240',
               position: { x: 120, y: 140 },
               name: 'first',
@@ -173,7 +173,7 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
             simulated: false
           },
           '68c5949c-1c74-400e-a1aa-b5f7739e5bb2': {
-            block: {
+            node: {
               id: '68c5949c-1c74-400e-a1aa-b5f7739e5bb2',
               position: { x: 500, y: 140 },
               name: 'interactive',
@@ -221,10 +221,6 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
         },
         status: 'SUCCESS',
         waitingSteps: [],
-        executionResult: {
-          '68c5949c-1c74-400e-a1aa-b5f7739e5bb2:output':
-            'Based on the provided context, Marie Curie is a remarkable scientist and explorer who made significant contributions to the field of science and exploration. She is often considered a pioneer in the field of radioactivity.\n'
-        }
       }
     },
     {
@@ -245,7 +241,7 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
         warnings: {},
         steps: {
           'ab7e0b08-c653-4d11-b808-e0e51c89d989': {
-            block: {
+            node: {
               id: 'ab7e0b08-c653-4d11-b808-e0e51c89d989',
               position: { x: 500, y: 140 },
               name: 'interactive',
@@ -290,7 +286,7 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
             simulated: false
           },
           'f91ec0f7-03e8-4208-89ac-bd9db46dca8c': {
-            block: {
+            node: {
               id: 'f91ec0f7-03e8-4208-89ac-bd9db46dca8c',
               position: { x: 120, y: 140 },
               name: 'first',
@@ -337,7 +333,6 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
         },
         status: 'READY',
         waitingSteps: [],
-        executionResult: {}
       }
     },
     {
@@ -355,7 +350,7 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
         warnings: {},
         steps: {
           '82844256-d9c1-4f81-a415-49b18c371a13': {
-            block: {
+            node: {
               id: '82844256-d9c1-4f81-a415-49b18c371a13',
               position: { x: 500, y: 140 },
               name: 'interactive',
@@ -401,7 +396,7 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
             simulated: false
           },
           'f80bce81-f1e4-4e03-9982-d35a042b1276': {
-            block: {
+            node: {
               id: 'f80bce81-f1e4-4e03-9982-d35a042b1276',
               position: { x: 120, y: 140 },
               name: 'first',
@@ -448,13 +443,17 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
         },
         status: 'WAITING',
         waitingSteps: ['82844256-d9c1-4f81-a415-49b18c371a13'],
-        executionResult: {}
       }
     }
   ];
 
   override retrieveAllTaskExecutions(): Observable<TaskExecution[]> {
-    return of(this.data);
+    return of(this.data.map((execution) => this.withSimulationAvailability(execution)));
+  }
+
+  override retrieveExecutionEvents(executionId: string): Observable<ExecutionEventLogEntry[]> {
+    const execution = this.findExecution(executionId);
+    return of(this.buildExecutionEvents(execution));
   }
 
   override createTaskExecution(flowId: string): Observable<TaskExecution> {
@@ -462,6 +461,7 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
       id: crypto.randomUUID(),
       name: flowId || 'Execution',
       creationTime: Date.now(),
+      simulationAvailable: false,
       context: {
         inputs: {},
         result: {},
@@ -472,11 +472,10 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
         steps: {},
         status: 'CREATED',
         waitingSteps: [],
-        executionResult: {}
       }
     };
     this.data.unshift(execution);
-    return of(execution);
+    return of(this.withSimulationAvailability(execution));
   }
 
   override deleteTaskExecution(executionId: string): Observable<void> {
@@ -489,9 +488,39 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
 
   override startTaskExecution(executionId: string): Observable<TaskExecution> {
     const execution = this.findExecution(executionId);
+    execution.interactionSimulationEnabled = false;
     execution.context.status = 'RUNNING';
     execution.context.startTime = execution.context.startTime ?? Date.now();
     return of(execution);
+  }
+
+  override simulateTaskExecution(executionId: string, simulator: LLMDescriptor): Observable<TaskExecution> {
+    const execution = this.findExecution(executionId);
+    if (execution.simulationAvailable !== true) {
+      throw new Error('Simulation is not available for this execution.');
+    }
+    if (!simulator?.provider?.trim() || !simulator?.model?.trim()) {
+      throw new Error('A simulator descriptor is required to start simulation.');
+    }
+    execution.interactionSimulationEnabled = true;
+    execution.interactionSimulationDescriptor = {
+      provider: simulator.provider.trim(),
+      model: simulator.model.trim()
+    };
+    execution.context.startTime = execution.context.startTime ?? Date.now();
+    execution.context.endTime = Date.now();
+    execution.context.status = 'SUCCESS';
+
+    for (const step of Object.values(execution.context.steps ?? {})) {
+      const status = String(step.status ?? '').toUpperCase();
+      if (status === 'WAITING_FOR_INPUT' || status === 'WAITING_FOR_INTERACTION' || status === 'WAITING' || status === 'RUNNING') {
+        step.status = 'COMPLETED';
+        step.simulated = true;
+      }
+    }
+
+    execution.context.waitingSteps = [];
+    return of(this.withSimulationAvailability(execution));
   }
 
   override cancelTaskExecution(executionId: string): Observable<TaskExecution> {
@@ -500,8 +529,7 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
     execution.context.endTime = Date.now();
     execution.context.inputs = {};
     execution.context.result = {};
-    execution.context.executionResult = {};
-    (execution.context as Record<string, unknown>)['partialResult'] = {};
+    execution.context.partialResult = {};
     execution.context.errors = {};
     execution.context.warnings = {};
     execution.context.waitingSteps = [];
@@ -589,7 +617,6 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
     value: string
   ): Observable<TaskExecution> {
     const execution = this.findExecution(executionId);
-    execution.context.executionResult[`${nodeId}:${fieldName}`] = value;
     execution.context.result[`${nodeId}:${fieldName}`] = value;
     execution.context.waitingSteps = execution.context.waitingSteps.filter((stepId) => stepId !== nodeId);
 
@@ -622,5 +649,118 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
       throw new Error(`Execution with id ${executionId} not found`);
     }
     return execution;
+  }
+
+  private withSimulationAvailability(execution: TaskExecution): TaskExecution {
+    execution.simulationAvailable = Object.values(execution.context.steps ?? {}).some((step) => {
+      const typeName = String(step.node?.typeName ?? '').trim();
+      return typeName === 'HumanInteractionBlock' || typeName === 'ChatInteraction' || typeName === 'MCPAgentChat';
+    });
+    return execution;
+  }
+
+  private buildExecutionEvents(execution: TaskExecution): ExecutionEventLogEntry[] {
+    const events: ExecutionEventLogEntry[] = [
+      {
+        id: `${execution.id}:created`,
+        timestamp: execution.creationTime,
+        level: 'INFO',
+        type: 'EXECUTION_CREATED',
+        message: 'Execution created'
+      }
+    ];
+
+    if (execution.context.startTime) {
+      events.push({
+        id: `${execution.id}:started`,
+        timestamp: execution.context.startTime,
+        level: 'INFO',
+        type: execution.interactionSimulationEnabled ? 'EXECUTION_STARTED' : 'EXECUTION_STARTED',
+        message: execution.interactionSimulationEnabled
+          ? 'Execution started in simulation mode'
+          : 'Execution started'
+      });
+    }
+
+    for (const step of Object.values(execution.context.steps ?? {})) {
+      const nodeName = step.node?.name ?? step.id;
+      const normalizedStatus = String(step.status ?? '').toUpperCase();
+
+      events.push({
+        id: `${execution.id}:${step.id}:step`,
+        timestamp: execution.context.startTime ?? execution.creationTime,
+        stepId: step.id,
+        nodeId: step.id,
+        nodeName,
+        level: normalizedStatus === 'FAILED' ? 'ERROR' : normalizedStatus.includes('WAITING') ? 'WARN' : 'INFO',
+        type: this.toStepEventType(normalizedStatus),
+        message: this.toStepEventMessage(nodeName, normalizedStatus)
+      });
+    }
+
+    const executionStatus = String(execution.context.status ?? '').toUpperCase();
+    if (executionStatus === 'WAITING') {
+      events.push({
+        id: `${execution.id}:waiting`,
+        timestamp: execution.context.startTime ?? execution.creationTime,
+        level: 'WARN',
+        type: 'EXECUTION_WAITING',
+        message: 'Execution waiting for interaction'
+      });
+    }
+    if (executionStatus === 'SUSPENDED') {
+      events.push({
+        id: `${execution.id}:suspended`,
+        timestamp: execution.context.startTime ?? execution.creationTime,
+        level: 'WARN',
+        type: 'EXECUTION_WAITING',
+        message: 'Execution suspended after restart'
+      });
+    }
+    if (executionStatus === 'SUCCESS') {
+      events.push({
+        id: `${execution.id}:completed`,
+        timestamp: execution.context.endTime ?? execution.context.startTime ?? execution.creationTime,
+        level: 'INFO',
+        type: 'EXECUTION_COMPLETED',
+        message: 'Execution completed'
+      });
+    }
+    if (executionStatus === 'ERROR') {
+      events.push({
+        id: `${execution.id}:failed`,
+        timestamp: execution.context.endTime ?? execution.context.startTime ?? execution.creationTime,
+        level: 'ERROR',
+        type: 'EXECUTION_FAILED',
+        message: 'Execution failed'
+      });
+    }
+    if (executionStatus === 'CANCELLED') {
+      events.push({
+        id: `${execution.id}:cancelled`,
+        timestamp: execution.context.endTime ?? execution.context.startTime ?? execution.creationTime,
+        level: 'WARN',
+        type: 'EXECUTION_CANCELLED',
+        message: 'Execution cancelled'
+      });
+    }
+
+    return [...events].sort((a, b) => a.timestamp - b.timestamp);
+  }
+
+  private toStepEventType(status: string): string {
+    if (status === 'FAILED') return 'STEP_FAILED';
+    if (status === 'COMPLETED') return 'STEP_COMPLETED';
+    if (status.includes('WAITING')) return 'STEP_WAITING_FOR_INTERACTION';
+    if (status === 'RUNNING') return 'STEP_STARTED';
+    return 'STEP_STARTED';
+  }
+
+  private toStepEventMessage(nodeName: string, status: string): string {
+    if (status === 'FAILED') return `Step ${nodeName} failed`;
+    if (status === 'COMPLETED') return `Completed step ${nodeName}`;
+    if (status.includes('WAITING')) return `Waiting for interaction on ${nodeName}`;
+    if (status === 'RUNNING') return `Started step ${nodeName}`;
+    return `Started step ${nodeName}`;
   }
 }

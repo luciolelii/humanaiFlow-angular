@@ -110,6 +110,20 @@
   color: #64748b;
 }
 
+.tasks-list-simulated-badge {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #bae6fd;
+  border-radius: 999px;
+  background: #e0f2fe;
+  color: #0c4a6e;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  padding: 2px 8px;
+  text-transform: uppercase;
+}
+
 .tasks-list-status {
   padding: 3px 9px;
   border-radius: 999px;

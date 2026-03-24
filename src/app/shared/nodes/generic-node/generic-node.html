@@ -155,7 +155,20 @@
     </div>
   </div>
 
-  <div class="llm-params">
+  <div class="llm-params llm-params-shell">
+    @if (!schemaReady) {
+    <div class="llm-skeleton-overlay" aria-hidden="true">
+      <div class="llm-skeleton-stack">
+        <div class="llm-skeleton-line llm-skeleton-line-title"></div>
+        <div class="llm-skeleton-line llm-skeleton-line-short"></div>
+        <div class="llm-skeleton-grid">
+          <div class="llm-skeleton-pill"></div>
+          <div class="llm-skeleton-pill"></div>
+          <div class="llm-skeleton-pill llm-skeleton-pill-wide"></div>
+        </div>
+      </div>
+    </div>
+    }
     @if (parameterFieldGroups.length) {
     <div class="llm-param-groups">
       @for (group of parameterFieldGroups; track group.key) {
@@ -166,7 +179,19 @@
           <div class="llm-param-chip" [class.llm-param-chip-wide]="field.wide" [class.llm-param-chip-disabled]="!field.enabled">
             <div class="llm-param-row-head">
               <span class="llm-param-key">{{ field.label }}</span>
-              @if (!isReadonly) {
+              @if (field.type === 'boolean' && !isReadonly) {
+              <button
+                type="button"
+                class="llm-bool-toggle"
+                [class.llm-bool-toggle-on]="field.booleanValue"
+                [disabled]="!field.enabled"
+                [attr.aria-pressed]="field.booleanValue"
+                [attr.title]="'Toggle ' + field.label.toLowerCase()"
+                (pointerdown)="$event.stopPropagation()"
+                (click)="toggleBooleanParameter(field.path, $event)">
+                <span class="llm-bool-toggle-thumb"></span>
+              </button>
+              } @else if (!isReadonly) {
               <button
                 type="button"
                 class="llm-edit-btn"
@@ -178,7 +203,7 @@
               </button>
               }
             </div>
-            <span class="llm-param-value">{{ field.value }}</span>
+            <span class="llm-param-value">{{ field.type === 'boolean' ? (field.booleanValue ? 'Enabled' : 'Disabled') : field.value }}</span>
           </div>
           }
         </div>
@@ -193,7 +218,19 @@
       <div class="llm-param-chip" [class.llm-param-chip-wide]="field.wide" [class.llm-param-chip-disabled]="!field.enabled">
         <div class="llm-param-row-head">
           <span class="llm-param-key">{{ field.label }}</span>
-          @if (!isReadonly) {
+          @if (field.type === 'boolean' && !isReadonly) {
+          <button
+            type="button"
+            class="llm-bool-toggle"
+            [class.llm-bool-toggle-on]="field.booleanValue"
+            [disabled]="!field.enabled"
+            [attr.aria-pressed]="field.booleanValue"
+            [attr.title]="'Toggle ' + field.label.toLowerCase()"
+            (pointerdown)="$event.stopPropagation()"
+            (click)="toggleBooleanParameter(field.path, $event)">
+            <span class="llm-bool-toggle-thumb"></span>
+          </button>
+          } @else if (!isReadonly) {
           <button
             type="button"
             class="llm-edit-btn"
@@ -205,7 +242,7 @@
           </button>
           }
         </div>
-        <span class="llm-param-value">{{ field.value }}</span>
+        <span class="llm-param-value">{{ field.type === 'boolean' ? (field.booleanValue ? 'Enabled' : 'Disabled') : field.value }}</span>
       </div>
       }
     </div>
@@ -339,7 +376,7 @@
         </button>
         } @else if (localEditorWidget === 'textarea') {
         <textarea
-          rows="6"
+          [rows]="localEditorRows ?? 6"
           [(ngModel)]="localEditorValue"
           [attr.maxlength]="localEditorMaxLength"
           [placeholder]="localEditorMaxLength ? 'Max ' + localEditorMaxLength + ' characters' : 'Value...'"

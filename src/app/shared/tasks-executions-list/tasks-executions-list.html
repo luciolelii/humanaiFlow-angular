@@ -44,6 +44,11 @@
           <div class="tasks-list-item-meta">
             <div class="tasks-list-item-title">{{ execution.title }}</div>
             <div class="tasks-list-item-subtitle">{{ execution.flowName }}</div>
+            @if (execution.simulated) {
+            <div class="mt-1">
+              <span class="tasks-list-simulated-badge">Simulated</span>
+            </div>
+            }
           </div>
           <span class="tasks-list-status"
                 [ngClass]="statusBadgeClass(execution.status)">

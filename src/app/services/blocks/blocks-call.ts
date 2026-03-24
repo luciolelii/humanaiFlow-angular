@@ -1,9 +1,9 @@
 import { BlockType, FlowBlock } from "@models/flow";
-import { HttpClient } from "@angular/common/http";
+import { HttpClient, HttpParams } from "@angular/common/http";
 import { inject } from "@angular/core";
 import { environment } from "@environment";
 import { catchError, map, Observable, of, switchMap, take, throwError } from "rxjs";
-import { BlocksCallServiceBase } from "./block-call.base";
+import { BlockDraftContext, BlocksCallServiceBase } from "./block-call.base";
 
 export class BlocksCallService extends BlocksCallServiceBase {
   private readonly http = inject(HttpClient);
@@ -21,7 +21,7 @@ export class BlocksCallService extends BlocksCallServiceBase {
       );
   }
 
-  override createEmptyBlock(blockType: string): Observable<FlowBlock> {
+  override createEmptyBlock(blockType: string, context?: BlockDraftContext): Observable<FlowBlock> {
     return this.getBlockTypesForCreate().pipe(
       take(1),
       switchMap((types) => {
@@ -40,41 +40,51 @@ export class BlocksCallService extends BlocksCallServiceBase {
         const payload = this.buildBlockConfigurationPayload(blockType, configuration);
 
         return this.http
-          .post<unknown>(`${environment.apiUrl}/blocks`, payload)
+          .post<unknown>(`${environment.apiUrl}/blocks`, payload, {
+            params: this.toDraftContextParams(context)
+          })
           .pipe(map((raw) => this.flowBlockFromApi(raw, descriptor?.type ?? blockType, payload)));
       })
     );
   }
 
-  override updateBlock(blockId: string, configuration: any): Observable<FlowBlock> {
+  override updateBlock(blockId: string, configuration: any, context?: BlockDraftContext): Observable<FlowBlock> {
     const blockType = String(configuration?.typeName ?? configuration?.type ?? "LLMBlock");
-    const payload = this.buildBlockConfigurationPayload(
-      blockType,
-      this.toRecord(configuration?.specificConfiguration ?? configuration)
-    );
+    return this.getBlockTypesForCreate().pipe(
+      take(1),
+      switchMap((types) => {
+        const descriptor = types.find((type) => type.type === blockType);
+        const payload = this.buildBlockConfigurationPayload(
+          blockType,
+          this.toRecord(configuration?.specificConfiguration ?? configuration),
+          descriptor?.schema ?? null
+        );
 
-    return this.http
-      .post<unknown>(`${environment.apiUrl}/blocks`, payload)
-      .pipe(
-        map((raw) => {
-          if (!raw || typeof raw !== "object") {
-            throw new Error(`Invalid updateBlock response for ${blockType}`);
-          }
-          return raw;
-        }),
-        map((raw) =>
-          this.flowBlockFromApi(
-          
-            {
-              ...(this.toRecord(raw)),
-              id: this.toRecord(raw)["id"] ?? blockId
-            },
-            blockType,
-            payload
-          )
-        ),
-        catchError((error) => throwError(() => this.toUpdateBlockError(error, blockType)))
-      );
+        return this.http
+          .post<unknown>(`${environment.apiUrl}/blocks`, payload, {
+            params: this.toDraftContextParams(context, blockId)
+          })
+          .pipe(
+            map((raw) => {
+              if (!raw || typeof raw !== "object") {
+                throw new Error(`Invalid updateBlock response for ${blockType}`);
+              }
+              return raw;
+            }),
+            map((raw) =>
+              this.flowBlockFromApi(
+                {
+                  ...(this.toRecord(raw)),
+                  id: this.toRecord(raw)["id"] ?? blockId
+                },
+                blockType,
+                payload
+              )
+            )
+          );
+      }),
+      catchError((error) => throwError(() => this.toUpdateBlockError(error, blockType)))
+    );
   }
 
   private getBlockTypesForCreate(): Observable<BlockType[]> {
@@ -203,14 +213,38 @@ export class BlocksCallService extends BlocksCallServiceBase {
     return `${environment.apiUrl}${value.startsWith("/") ? value : `/${value}`}`;
   }
 
-  private buildBlockConfigurationPayload(blockType: string, configuration: Record<string, unknown>) {
-    const { typeName: _ignoreTypeName, ...sanitized } = configuration;
+  private buildBlockConfigurationPayload(
+    blockType: string,
+    configuration: Record<string, unknown>,
+    schema?: Record<string, unknown> | null
+  ) {
+    const { typeName: _ignoreTypeName, ...rawConfiguration } = configuration;
+    const sanitized = this.sanitizeConfigurationBySchema(rawConfiguration, schema ?? null, schema ?? null);
     return {
       ...sanitized,
       name: typeof sanitized["name"] === "string" && sanitized["name"].length > 0
         ? sanitized["name"]
         : blockType
     };
+  }
+
+  private toDraftContextParams(context?: BlockDraftContext, blockId?: string) {
+    let params = new HttpParams();
+    const flowId = typeof context?.flowId === 'string' && context.flowId.trim().length > 0
+      ? context.flowId.trim()
+      : null;
+    const replacesBlockId = typeof context?.replacesBlockId === 'string' && context.replacesBlockId.trim().length > 0
+      ? context.replacesBlockId.trim()
+      : (typeof blockId === 'string' && blockId.trim().length > 0 ? blockId.trim() : null);
+
+    if (flowId) {
+      params = params.set('flowId', flowId);
+    }
+    if (replacesBlockId) {
+      params = params.set('replacesBlockId', replacesBlockId);
+    }
+
+    return params;
   }
 
   private resolveExampleEndpoint(typeName: string, descriptor?: BlockType): string {
@@ -276,6 +310,53 @@ export class BlocksCallService extends BlocksCallServiceBase {
     }
 
     return null;
+  }
+
+  private sanitizeConfigurationBySchema(
+    configuration: Record<string, unknown>,
+    schemaNode: Record<string, unknown> | null,
+    schemaRoot: Record<string, unknown> | null
+  ): Record<string, unknown> {
+    if (!schemaNode || !schemaRoot) return { ...configuration };
+
+    const resolved = this.resolveRef(schemaNode, schemaRoot);
+    const schemaRecord = this.toRecord(resolved);
+    const properties = this.toRecord(schemaRecord["properties"]);
+    if (!Object.keys(properties).length) {
+      return { ...configuration };
+    }
+
+    const sanitized: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(configuration)) {
+      if (!Object.prototype.hasOwnProperty.call(properties, key)) continue;
+      const propertySchema = this.toRecord(properties[key]);
+      sanitized[key] = this.sanitizeSchemaValue(value, propertySchema, schemaRoot);
+    }
+
+    return sanitized;
+  }
+
+  private sanitizeSchemaValue(
+    value: unknown,
+    schemaNode: Record<string, unknown> | null,
+    schemaRoot: Record<string, unknown> | null
+  ): unknown {
+    if (!schemaNode || !schemaRoot || value == null) return value;
+
+    const resolved = this.resolveRef(schemaNode, schemaRoot);
+    const schemaRecord = this.toRecord(resolved);
+    const type = schemaRecord["type"];
+
+    if ((type === "object" || schemaRecord["properties"]) && value && typeof value === "object" && !Array.isArray(value)) {
+      return this.sanitizeConfigurationBySchema(this.toRecord(value), schemaRecord, schemaRoot);
+    }
+
+    if (type === "array" && Array.isArray(value)) {
+      const itemSchema = this.toRecord(schemaRecord["items"]);
+      return value.map((item) => this.sanitizeSchemaValue(item, itemSchema, schemaRoot));
+    }
+
+    return value;
   }
 
   private resolveRef(node: unknown, root: unknown): unknown {

@@ -11,7 +11,7 @@ import { EditorStateHolder } from '@stores/flow-editor';
 import { CONTAINER_SUBFLOW_DRAG_MIME } from './container-node-drag';
 import { firstValueFrom } from 'rxjs';
 import { extractSchemaRequirements, SchemaRequirements } from '../schema-requirements';
-import { evaluateUiConditionRule, getValueByPath, parentPath, pathToLabel, readUiConditionRule, resolveSchemaPath, resolveSchemaRef, schemaFieldLabel, shouldSkipSchemaField, valueToDisplayString } from '../node-utility';
+import { evaluateUiConditionRule, getValueByPath, parentPath, pathToLabel, readEffectiveUiVisibleConditionRule, readUiConditionRule, resolveSchemaPath, resolveSchemaRef, schemaFieldLabel, shouldSkipSchemaField, splitTemplatedTextParts, valueToDisplayString } from '../node-utility';
 
 type ContainerFieldType = 'string' | 'number' | 'integer' | 'boolean' | 'unknown';
 
@@ -38,6 +38,14 @@ type ContainerFieldView = {
   value: string;
   wide: boolean;
   enabled: boolean;
+  type: ContainerFieldType;
+  booleanValue: boolean;
+};
+
+type RichContentView = {
+  path: string;
+  label: string;
+  parts: { text: string; isDynamicInput: boolean }[];
 };
 
 type StructuredRetrieverConfig = {
@@ -72,6 +80,8 @@ export class ContainerNodeComponent {
   importLoading = false;
   private importErrorMessage: string | null = null;
   parameterFields: ContainerFieldView[] = [];
+  richContentFields: RichContentView[] = [];
+  schemaReady = false;
 
   @Input() data!: any;
   @Input() emit!: (data: any) => void;
@@ -195,6 +205,15 @@ export class ContainerNodeComponent {
 
   hasParameterFields() {
     return this.parameterFields.length > 0;
+  }
+
+  hasMainContent() {
+    return this.richContentFields.length > 0;
+  }
+
+  formatDynamicInputToken(token: string): string {
+    const match = token.match(/^\$\{\{\s*([^}]+?)\s*\}\}$/);
+    return match ? match[1] : token;
   }
 
   inputDisplayLabel(inputKey: string) {
@@ -328,6 +347,18 @@ export class ContainerNodeComponent {
 
     if (!result) return;
     await this.applyFieldValue(definition, result[definition.path]);
+  }
+
+  async toggleBooleanParameter(path: string, event?: Event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+    if (this.isReadonly) return;
+
+    const definition = this.containerFieldDefinitions.find((field) => field.path === path);
+    if (!definition || definition.type !== 'boolean' || !this.isFieldEnabled(definition.path)) return;
+
+    const currentValue = getValueByPath(this.configuration ?? {}, definition.path);
+    await this.applyFieldValue(definition, currentValue !== true);
   }
 
   onDropZoneDragOver(event: DragEvent) {
@@ -537,18 +568,22 @@ export class ContainerNodeComponent {
   }
 
   private async loadSchemaContext() {
-    const containerType = await this.containersService.getContainerType(this.typeName);
-    this.containerSchema = (containerType?.schema ?? null) as Record<string, any> | null;
-    this.schemaRequirements = extractSchemaRequirements(this.containerSchema);
-    this.containerFieldDefinitions = this.buildContainerFieldDefinitions(this.containerSchema);
-    this.refreshParameterFields();
-    queueMicrotask(() => {
-      try {
-        this.cdr.detectChanges();
-      } catch {
-        // Node may have been removed while schema was loading.
-      }
-    });
+    try {
+      const containerType = await this.containersService.getContainerType(this.typeName);
+      this.containerSchema = (containerType?.schema ?? null) as Record<string, any> | null;
+      this.schemaRequirements = extractSchemaRequirements(this.containerSchema);
+      this.containerFieldDefinitions = this.buildContainerFieldDefinitions(this.containerSchema);
+      this.refreshParameterFields();
+    } finally {
+      this.schemaReady = true;
+      queueMicrotask(() => {
+        try {
+          this.cdr.detectChanges();
+        } catch {
+          // Node may have been removed while schema was loading.
+        }
+      });
+    }
   }
 
   private isMissingValue(value: unknown): boolean {
@@ -564,14 +599,27 @@ export class ContainerNodeComponent {
 
   private refreshParameterFields() {
     const config = this.configuration ?? {};
+    const richContentPaths = new Set(this.richContentPaths());
+    this.richContentFields = this.richContentPaths()
+      .filter((path) => this.isFieldVisible(path))
+      .map((path) => ({
+        path,
+        label: this.containerFieldDefinitions.find((field) => field.path === path)?.label ?? pathToLabel(path),
+        parts: this.toRichContentParts(path)
+      }))
+      .filter((field) => field.parts.length > 0);
+
     this.parameterFields = this.containerFieldDefinitions
       .filter((field) => this.isFieldVisible(field.path))
+      .filter((field) => !richContentPaths.has(field.path))
       .map((field) => ({
         path: field.path,
         label: field.label,
         value: valueToDisplayString(getValueByPath(config, field.path)),
         wide: field.widget === 'textarea' || field.label.length >= 18,
-        enabled: this.isFieldEnabled(field.path)
+        enabled: this.isFieldEnabled(field.path),
+        type: field.type,
+        booleanValue: getValueByPath(config, field.path) === true
       }));
   }
 
@@ -619,16 +667,31 @@ export class ContainerNodeComponent {
     return definitions;
   }
 
+  private richContentPaths(): string[] {
+    return this.containerFieldDefinitions
+      .filter((field) => field.widget === 'textarea')
+      .map((field) => field.path);
+  }
+
+  private toRichContentParts(path: string): { text: string; isDynamicInput: boolean }[] {
+    const content = String(getValueByPath(this.configuration ?? {}, path) ?? '').trim();
+    if (!content) return [];
+
+    const schema = this.resolveFieldSchema(path);
+    if (schema?.['x-ui-accept-variable-as-placeholder'] === true) {
+      return splitTemplatedTextParts(content);
+    }
+
+    return [{ text: content, isDynamicInput: false }];
+  }
+
   private isFieldVisible(path: string, visited = new Set<string>()): boolean {
     if (visited.has(path)) return true;
     visited.add(path);
 
     const schema = this.resolveFieldSchema(path);
-    const rule = readUiConditionRule(schema?.['x-ui-visible-when']);
+    const rule = readEffectiveUiVisibleConditionRule(schema);
     if (!rule) return true;
-
-    const parent = typeof rule.field === 'string' ? rule.field : null;
-    if (parent && !this.isFieldVisible(parent, visited)) return false;
 
     return evaluateUiConditionRule(rule, this.configuration ?? {}, (fieldPath) => this.resolveFieldSchema(fieldPath));
   }
@@ -644,8 +707,6 @@ export class ContainerNodeComponent {
     const rules = [readUiConditionRule(schema?.['x-ui-enabled-when'])].filter((rule) => !!rule);
     return rules.every((rule) => {
       if (!rule) return true;
-      const dependency = typeof rule.field === 'string' ? rule.field : null;
-      if (dependency && !this.isFieldVisible(dependency, visited)) return false;
       return evaluateUiConditionRule(rule, this.configuration ?? {}, (fieldPath) => this.resolveFieldSchema(fieldPath));
     });
   }

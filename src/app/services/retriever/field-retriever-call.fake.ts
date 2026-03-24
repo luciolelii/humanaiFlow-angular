@@ -58,6 +58,39 @@ export class FieldRetrieverCallServiceFake extends FieldRetrieverCallServiceBase
     }
   ];
 
+  private readonly sharedExecutionVariableItems = [
+    {
+      descriptor: {
+        label: 'Primary MCP Session',
+        description: 'Shared by MCPAgent Producer',
+        meta: {
+          kind: 'MCP_SESSION',
+          producerBlockId: 'mcp-producer-1',
+          producerBlockName: 'MCPAgent Producer'
+        }
+      },
+      data: 'primary-mcp-session',
+      structuredData: true,
+      valid: true,
+      validationErrors: []
+    },
+    {
+      descriptor: {
+        label: 'Support MCP Session',
+        description: 'Shared by MCPAgentChat Support',
+        meta: {
+          kind: 'MCP_SESSION',
+          producerBlockId: 'mcp-chat-1',
+          producerBlockName: 'MCPAgentChat Support'
+        }
+      },
+      data: 'support-mcp-session',
+      structuredData: true,
+      valid: true,
+      validationErrors: []
+    }
+  ];
+
   override retrieveValues(
     blockType: string,
     key: string,
@@ -79,11 +112,20 @@ export class FieldRetrieverCallServiceFake extends FieldRetrieverCallServiceBase
   override retrieveItems<T = unknown>(
     _blockType: string,
     key: string,
-    _context?: Record<string, string>,
-    _retrieverUrl?: string | null
+    context?: Record<string, string>,
+    retrieverUrl?: string | null
   ): Observable<RetrieverStructuredItem<T>[]> {
     if (key === 'subFlow') {
       return of(this.subFlowItems as unknown as RetrieverStructuredItem<T>[]);
+    }
+    if (
+      key === 'shared'
+      || retrieverUrl?.includes('/ExecutionVariables/shared/items')
+    ) {
+      const kind = context?.['kind'] ?? this.readQueryParam(retrieverUrl, 'kind');
+      if (kind === 'MCP_SESSION') {
+        return of(this.sharedExecutionVariableItems as unknown as RetrieverStructuredItem<T>[]);
+      }
     }
     return of([]);
   }
@@ -127,5 +169,14 @@ export class FieldRetrieverCallServiceFake extends FieldRetrieverCallServiceBase
         }
       }
     });
+  }
+
+  private readQueryParam(url: string | null | undefined, key: string): string | null {
+    if (typeof url !== 'string' || url.trim().length === 0) return null;
+    const queryString = url.split('?', 2)[1];
+    if (!queryString) return null;
+    const params = new URLSearchParams(queryString);
+    const value = params.get(key);
+    return value && value.trim().length > 0 ? value.trim() : null;
   }
 }

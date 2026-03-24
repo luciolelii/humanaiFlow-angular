@@ -101,9 +101,14 @@ export class NodeSettingsDialogHostComponent {
     this.fields = next.fields;
     const rebuiltDraft = this.buildDraft(next.fields, next.initial ?? {});
     for (const field of next.fields) {
-      if (Object.prototype.hasOwnProperty.call(currentDraft, field.key)) {
-        rebuiltDraft[field.key] = currentDraft[field.key];
+      if (!Object.prototype.hasOwnProperty.call(currentDraft, field.key)) continue;
+      const currentValue = currentDraft[field.key];
+      if (field.type === 'select' && Array.isArray(field.options) && field.options.length > 0) {
+        const currentStringValue = typeof currentValue === 'string' ? currentValue : String(currentValue ?? '');
+        const optionStillAvailable = field.options.some((option) => option.value === currentStringValue);
+        if (!optionStillAvailable) continue;
       }
+      rebuiltDraft[field.key] = currentValue;
     }
     this.draft = rebuiltDraft;
   }

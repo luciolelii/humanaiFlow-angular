@@ -245,8 +245,9 @@ export class FlowEditor {
   }
 
   private async buildDemoFlowData(): Promise<FlowData> {
-    const firstBlock = await firstValueFrom(this.blocksService.createEmptyBlock('LLMBlock'));
-    const secondBlock = await firstValueFrom(this.blocksService.createEmptyBlock('LLMBlock'));
+    const flowId = this.editorState.currentFlow()?.id ?? null;
+    const firstBlock = await firstValueFrom(this.blocksService.createEmptyBlock('LLMBlock', { flowId }));
+    const secondBlock = await firstValueFrom(this.blocksService.createEmptyBlock('LLMBlock', { flowId }));
 
     const left = this.decorateDemoBlock(firstBlock, 'Collect Prompt', { x: 140, y: 180 });
     const right = this.decorateDemoBlock(secondBlock, 'Generate Answer', { x: 520, y: 180 });

@@ -5,6 +5,7 @@ import { ReteModule } from 'rete-angular-plugin/21';
 import { BlockInteractionContract, BlockType, FlowBlock, FlowContainer, FlowData, FlowPort } from '@models/flow';
 import { BlocksService } from '@services/blocks/blocks';
 import { ContainersService } from '@services/containers/containers';
+import { NodeSettingsDialogService } from '@services/dialogs/node-settings-dialog';
 import { SubflowPreviewDialogService } from '@services/dialogs/subflow-preview-dialog';
 import { HumanInteractionDialogService } from '@services/dialogs/human-interaction-dialog';
 import { TaskExecutionsService } from '@services/task-executions/task-executions';
@@ -15,7 +16,9 @@ import {
   parentPath,
   pathToLabel,
   readUiConditionRule,
+  readEffectiveUiVisibleConditionRule,
   readUiGroup,
+  readUiLabel,
   resolveSchemaRef,
   resolveSchemaPath,
   schemaFieldLabel,
@@ -30,6 +33,7 @@ type DisplayField = {
   label: string;
   value: string;
   wide: boolean;
+  expandable: boolean;
 };
 
 type ArrayFieldDefinition = {
@@ -58,12 +62,21 @@ type DisplayFieldGroup = {
 type MainContentView = {
   path: string;
   label: string;
+  rawValue: string;
+  expandable: boolean;
   parts: { text: string; isDynamicInput: boolean }[];
 };
 
 type PortLabelParts = {
   context: string | null;
   name: string;
+};
+
+type FieldUiMeta = {
+  visibleWhen: UiConditionRule[];
+  group: string | null;
+  widget: 'textarea' | null;
+  acceptVariableAsPlaceholder: boolean;
 };
 
 @Component({
@@ -76,8 +89,13 @@ type PortLabelParts = {
   }
 })
 export class TaskStepNodeComponent {
+  private static readonly globalFieldSchemaCache = new Map<string, Map<string, Record<string, any> | null>>();
+  private static readonly globalFieldUiMetaCache = new Map<string, Map<string, FieldUiMeta>>();
+  private static readonly globalFieldLabelCache = new Map<string, Map<string, string>>();
+
   private blocksService = inject(BlocksService);
   private containersService = inject(ContainersService);
+  private settingsDialog = inject(NodeSettingsDialogService);
   private subflowPreview = inject(SubflowPreviewDialogService);
   private cdr = inject(ChangeDetectorRef);
   private humanInteractionDialog = inject(HumanInteractionDialogService);
@@ -102,12 +120,11 @@ export class TaskStepNodeComponent {
   name = 'Step';
   mainContentFields: MainContentView[] = [];
   interactionSubmitting = false;
+  schemaReady = false;
 
   private blockSchema: Record<string, any> | null = null;
   private blockDescriptor: BlockType | null = null;
-  private variablePlaceholderPaths = new Set<string>();
   private arrayFieldDefinitions: ArrayFieldDefinition[] = [];
-  private mainContentPaths = new Set<string>();
 
   ngOnInit() {
     this.outputs = [];
@@ -136,13 +153,25 @@ export class TaskStepNodeComponent {
       .filter((entry) => !this.shouldHideConfigPath(entry.path))
       .filter((entry) => !arrayFieldPaths.has(entry.path));
     const visibleEntries = primitiveEntries.filter((entry) => this.isPathVisible(entry.path));
+    const fieldMetaByPath = new Map<string, { label: string; ui: FieldUiMeta; value: string }>();
+    for (const entry of visibleEntries) {
+      const ui = this.getFieldUiMeta(entry.path);
+      const label = this.displayLabelForPath(entry.path);
+      fieldMetaByPath.set(entry.path, {
+        label,
+        ui,
+        value: valueToDisplayString(entry.value)
+      });
+    }
     const mainContentEntries = visibleEntries
-      .filter((entry) => this.mainContentPaths.has(entry.path))
+      .filter((entry) => fieldMetaByPath.get(entry.path)?.ui.widget === 'textarea')
       .filter((entry) => typeof entry.value === 'string' && String(entry.value).trim().length > 0);
     const richContentPaths = mainContentEntries.map((entry) => entry.path);
     this.mainContentFields = mainContentEntries.map((entry) => ({
       path: entry.path,
-      label: this.displayLabelForPath(entry.path),
+      label: fieldMetaByPath.get(entry.path)?.label ?? this.displayLabelForPath(entry.path),
+      rawValue: String(entry.value),
+      expandable: this.isLongTextValue(String(entry.value)),
       parts: this.toMainContentParts(entry.path, String(entry.value))
     }));
     this.arrayFields = this.arrayFieldDefinitions
@@ -159,12 +188,18 @@ export class TaskStepNodeComponent {
       .filter((entry) => !['name', 'type'].includes(entry.path))
       .filter((entry) => !richContentPaths.includes(entry.path))
       .filter((entry) => !this.isEmptyDisplayValue(entry.value))
-      .map((entry) => ({
-        path: entry.path,
-        label: this.displayLabelForPath(entry.path),
-        value: valueToDisplayString(entry.value),
-        wide: this.shouldRenderWideField(this.displayLabelForPath(entry.path), this.mainContentPaths.has(entry.path))
-      }));
+      .map((entry) => {
+        const meta = fieldMetaByPath.get(entry.path);
+        const label = meta?.label ?? this.displayLabelForPath(entry.path);
+        const value = meta?.value ?? valueToDisplayString(entry.value);
+        return {
+          path: entry.path,
+          label,
+          value,
+          wide: this.shouldRenderWideField(label, meta?.ui.widget === 'textarea'),
+          expandable: this.isLongTextValue(value)
+        };
+      });
 
     for (const field of orderedFields) {
       const groupLabel = this.groupLabelForPath(field.path);
@@ -367,6 +402,7 @@ export class TaskStepNodeComponent {
     event?.stopPropagation();
     if (this.interactionSubmitting) return;
     if (this.executionStatus() === 'SUSPENDED') return;
+    if (this.isInteractionSimulationEnabled()) return;
 
     const executionId = this.executionId();
     const executionNodeId = this.executionNodeId();
@@ -387,6 +423,20 @@ export class TaskStepNodeComponent {
     const subFlow = this.subFlow();
     if (!subFlow) return;
     this.subflowPreview.open(subFlow, `${this.name || this.nodeTitle()} subflow`);
+  }
+
+  openFieldPreview(field: DisplayField, event?: Event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+    if (!field.expandable) return;
+    void this.openReadonlyTextDialog(field.label, field.value);
+  }
+
+  openMainContentPreview(field: MainContentView, event?: Event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+    if (!field.expandable) return;
+    void this.openReadonlyTextDialog(field.label, field.rawValue);
   }
 
   private get blockConfiguration(): Record<string, any> | null {
@@ -422,6 +472,10 @@ export class TaskStepNodeComponent {
   private executionStatus(): string {
     const value = this.blockConfiguration?.['__executionStatus'];
     return typeof value === 'string' ? value.toUpperCase() : '';
+  }
+
+  private isInteractionSimulationEnabled(): boolean {
+    return this.blockConfiguration?.['__interactionSimulationEnabled'] === true;
   }
 
   private getExecutionMessages(key: '__executionErrors' | '__executionWarnings'): string[] {
@@ -476,7 +530,7 @@ export class TaskStepNodeComponent {
   }
 
   private toMainContentParts(path: string, value: string): { text: string; isDynamicInput: boolean }[] {
-    if (this.variablePlaceholderPaths.has(path)) {
+    if (this.getFieldUiMeta(path).acceptVariableAsPlaceholder) {
       return splitTemplatedTextParts(value);
     }
     return [{ text: value, isDynamicInput: false }];
@@ -494,10 +548,15 @@ export class TaskStepNodeComponent {
       : await this.blocksService.getBlockType(type);
     this.blockDescriptor = (typeDescriptor ?? null) as BlockType | null;
     this.blockSchema = (typeDescriptor?.schema ?? null) as Record<string, any> | null;
-    this.variablePlaceholderPaths = this.extractVariablePlaceholderPaths(this.blockSchema);
+    const typeKey = this.nodeTypeCacheKey();
+    if (typeKey) {
+      TaskStepNodeComponent.globalFieldSchemaCache.delete(typeKey);
+      TaskStepNodeComponent.globalFieldUiMetaCache.delete(typeKey);
+      TaskStepNodeComponent.globalFieldLabelCache.delete(typeKey);
+    }
     this.arrayFieldDefinitions = this.extractArrayFieldDefinitions(this.blockSchema);
-    this.mainContentPaths = this.extractMainContentPaths(this.blockSchema);
     this.rebuildDisplayState();
+    this.schemaReady = true;
   }
 
   private interactionContract(): BlockInteractionContract | null {
@@ -513,11 +572,6 @@ export class TaskStepNodeComponent {
 
   private executionPartialResult(): Record<string, unknown> | null {
     const value = this.blockConfiguration?.['__executionPartialResult'];
-    return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null;
-  }
-
-  private executionResultData(): Record<string, unknown> | null {
-    const value = this.blockConfiguration?.['__executionResultData'];
     return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null;
   }
 
@@ -542,7 +596,7 @@ export class TaskStepNodeComponent {
     }
 
     const scopedFieldName = this.executionScopedFieldName(fieldName);
-    const executionSource = preferPartial ? this.executionPartialResult() : this.executionResultData();
+    const executionSource = preferPartial ? this.executionPartialResult() : null;
     if (executionSource) {
       if (Object.prototype.hasOwnProperty.call(executionSource, fieldName)) {
         return executionSource[fieldName];
@@ -649,6 +703,8 @@ export class TaskStepNodeComponent {
     contract: BlockInteractionContract,
     result: { mode: 'message' | 'complete'; value: string }
   ) {
+    if (this.isInteractionSimulationEnabled()) return;
+
     const interactionFieldName = result.mode === 'message'
       ? contract.messageField
       : contract.completionField;
@@ -703,41 +759,6 @@ export class TaskStepNodeComponent {
       role: 'assistant',
       content: line
     };
-  }
-
-  private extractVariablePlaceholderPaths(schema: Record<string, any> | null): Set<string> {
-    const paths = new Set<string>();
-    if (!schema) return paths;
-
-    const walk = (node: Record<string, any>, pathPrefix: string) => {
-      const resolved = resolveSchemaRef(node, schema);
-      if (!resolved || typeof resolved !== 'object') return;
-
-      const properties = resolved.properties as Record<string, any> | undefined;
-      if (!properties) return;
-
-      for (const [key, childSchema] of Object.entries(properties)) {
-        const childResolved = resolveSchemaRef(childSchema as Record<string, any>, schema);
-        const path = pathPrefix ? `${pathPrefix}.${key}` : key;
-        const hasChildren = !!childResolved?.properties || childResolved?.type === 'object';
-        if (hasChildren) {
-          walk(childResolved as Record<string, any>, path);
-          continue;
-        }
-
-        const rawWidget = typeof childResolved?.['x-ui-widget'] === 'string'
-          ? String(childResolved['x-ui-widget']).toLowerCase().trim()
-          : '';
-        const isTextarea = rawWidget === 'textarea' || rawWidget === 'text-area';
-        const acceptsVariable = childResolved?.['x-ui-accept-variable-as-placeholder'] === true;
-        if (isTextarea && acceptsVariable) {
-          paths.add(path);
-        }
-      }
-    };
-
-    walk(schema, '');
-    return paths;
   }
 
   private extractArrayFieldDefinitions(schema: Record<string, any> | null): ArrayFieldDefinition[] {
@@ -837,42 +858,6 @@ export class TaskStepNodeComponent {
     return this.isContainerNode() && (path === 'subFlow' || path.startsWith('subFlow.'));
   }
 
-  private extractMainContentPaths(schema: Record<string, any> | null): Set<string> {
-    const paths = new Set<string>();
-    if (!schema) return paths;
-
-    const walk = (node: Record<string, any>, pathPrefix: string) => {
-      const resolved = resolveSchemaRef(node, schema);
-      if (!resolved || typeof resolved !== 'object') return;
-
-      const properties = resolved.properties as Record<string, any> | undefined;
-      if (!properties) return;
-
-      for (const [key, childSchema] of Object.entries(properties)) {
-        const childResolved = resolveSchemaRef(childSchema as Record<string, any>, schema);
-        const path = pathPrefix ? `${pathPrefix}.${key}` : key;
-        const hasChildren = !!childResolved?.properties || childResolved?.type === 'object';
-
-        if (hasChildren) {
-          walk(childResolved as Record<string, any>, path);
-          continue;
-        }
-
-        const rawWidget = typeof childResolved?.['x-ui-widget'] === 'string'
-          ? String(childResolved['x-ui-widget']).toLowerCase().trim()
-          : '';
-        const isTextarea = rawWidget === 'textarea' || rawWidget === 'text-area';
-        const acceptsVariable = childResolved?.['x-ui-accept-variable-as-placeholder'] === true;
-        if (isTextarea && acceptsVariable) {
-          paths.add(path);
-        }
-      }
-    };
-
-    walk(schema, '');
-    return paths;
-  }
-
   private toArrayFieldItems(definition: ArrayFieldDefinition, value: unknown): ArrayFieldItemView[] {
     if (!Array.isArray(value)) return [];
 
@@ -923,7 +908,17 @@ export class TaskStepNodeComponent {
   }
 
   private displayLabelForPath(path: string): string {
-    return schemaFieldLabel(path, this.resolveFieldSchema(path));
+    const typeKey = this.nodeTypeCacheKey();
+    if (!typeKey || !this.blockSchema) return schemaFieldLabel(path, this.resolveFieldSchema(path));
+
+    const cache = this.getGlobalCache(TaskStepNodeComponent.globalFieldLabelCache, typeKey);
+    if (cache.has(path)) {
+      return cache.get(path) ?? path;
+    }
+
+    const label = schemaFieldLabel(path, this.resolveFieldSchema(path));
+    cache.set(path, label);
+    return label;
   }
 
   private shouldRenderWideField(label: string, isTextarea: boolean) {
@@ -954,7 +949,6 @@ export class TaskStepNodeComponent {
     const ui = this.getFieldUiMeta(path);
     return ui.visibleWhen.every((rule) => {
       if (!rule) return true;
-      if (!this.isPathVisible(rule.field, visited)) return false;
       return evaluateUiConditionRule(rule, this.blockConfiguration, (fieldPath) => this.resolveFieldSchema(fieldPath));
     });
   }
@@ -964,26 +958,61 @@ export class TaskStepNodeComponent {
   }
 
   private resolveFieldSchema(path: string): Record<string, any> | null {
-    return resolveSchemaPath(this.blockSchema, path);
+    const typeKey = this.nodeTypeCacheKey();
+    if (!typeKey || !this.blockSchema) {
+      return resolveSchemaPath(this.blockSchema, path);
+    }
+
+    const cache = this.getGlobalCache(TaskStepNodeComponent.globalFieldSchemaCache, typeKey);
+    if (cache.has(path)) {
+      return cache.get(path) ?? null;
+    }
+
+    const resolved = resolveSchemaPath(this.blockSchema, path);
+    cache.set(path, resolved);
+    return resolved;
   }
 
-  private getFieldUiMeta(path: string) {
+  private getFieldUiMeta(path: string): FieldUiMeta {
+    const typeKey = this.nodeTypeCacheKey();
+    const globalCache = typeKey && this.blockSchema
+      ? this.getGlobalCache(TaskStepNodeComponent.globalFieldUiMetaCache, typeKey)
+      : null;
+    const cached = globalCache?.get(path);
+    if (cached) return cached;
+
     const root = this.blockSchema;
-    if (!root) return this.toFieldUiMeta(null);
+    if (!root) {
+      const empty = this.toFieldUiMeta(null);
+      globalCache?.set(path, empty);
+      return empty;
+    }
 
     let current: Record<string, any> | null = root;
     let inheritedUi = { visibleWhen: [] as UiConditionRule[], group: null as string | null };
 
     for (const segment of path.split('.')) {
-      if (!current) return this.toFieldUiMeta(null, inheritedUi);
+      if (!current) {
+        const empty = this.toFieldUiMeta(null, inheritedUi);
+        globalCache?.set(path, empty);
+        return empty;
+      }
       const resolved = resolveSchemaRef(current, root);
       if (/^\d+$/.test(segment)) {
         const items = resolved?.items;
-        if (!items || typeof items !== 'object') return this.toFieldUiMeta(null, inheritedUi);
+        if (!items || typeof items !== 'object') {
+          const empty = this.toFieldUiMeta(null, inheritedUi);
+          globalCache?.set(path, empty);
+          return empty;
+        }
         current = resolveSchemaRef(items as Record<string, any>, root);
       } else {
         const properties = resolved?.properties as Record<string, unknown> | undefined;
-        if (!properties || !properties[segment]) return this.toFieldUiMeta(null, inheritedUi);
+        if (!properties || !properties[segment]) {
+          const empty = this.toFieldUiMeta(null, inheritedUi);
+          globalCache?.set(path, empty);
+          return empty;
+        }
         current = resolveSchemaRef(properties[segment] as Record<string, any>, root);
       }
       const nextUi = this.toFieldUiMeta(current, inheritedUi);
@@ -993,23 +1022,79 @@ export class TaskStepNodeComponent {
       };
     }
 
-    return this.toFieldUiMeta(current, inheritedUi);
+    const meta = this.toFieldUiMeta(current, inheritedUi);
+    globalCache?.set(path, meta);
+    return meta;
+  }
+
+  private nodeTypeCacheKey(): string | null {
+    const type = this.blockType;
+    if (!type) return null;
+    const family = this.isContainerNode() ? 'container' : 'block';
+    return `${family}:${type}`;
+  }
+
+  private getGlobalCache<T>(store: Map<string, Map<string, T>>, typeKey: string): Map<string, T> {
+    let cache = store.get(typeKey);
+    if (!cache) {
+      cache = new Map<string, T>();
+      store.set(typeKey, cache);
+    }
+    return cache;
   }
 
   private toFieldUiMeta(
     schema: Record<string, any> | null | undefined,
     inheritedUi?: { visibleWhen: UiConditionRule[]; group: string | null }
-  ) {
-    const visibleWhen = readUiConditionRule(schema?.['x-ui-visible-when']);
-    const group = readUiGroup(schema?.['x-ui-group']) ?? inheritedUi?.group ?? null;
+  ): FieldUiMeta {
+    const visibleWhen = readEffectiveUiVisibleConditionRule(schema);
+    const label = readUiLabel(schema?.['x-ui-label']);
+    const isObjectLike = schema?.['type'] === 'object' || !!schema?.['properties'];
+    const group = readUiGroup(schema?.['x-ui-group'])
+      ?? (isObjectLike ? label ?? null : null)
+      ?? inheritedUi?.group
+      ?? null;
+    const rawWidget = typeof schema?.['x-ui-widget'] === 'string'
+      ? String(schema['x-ui-widget']).toLowerCase().trim()
+      : '';
+    const widget: 'textarea' | null =
+      rawWidget === 'textarea' || rawWidget === 'text-area' ? 'textarea' : null;
+    const acceptVariableAsPlaceholder = schema?.['x-ui-accept-variable-as-placeholder'] === true;
 
     return {
       visibleWhen: [
         ...(inheritedUi?.visibleWhen ?? []),
         ...(visibleWhen ? [visibleWhen] : [])
       ],
-      group
+      group,
+      widget,
+      acceptVariableAsPlaceholder
     };
+  }
+
+  private isLongTextValue(value: string): boolean {
+    const normalized = String(value ?? '');
+    if (!normalized.trim()) return false;
+    const lineCount = normalized.split(/\r?\n/).length;
+    return lineCount > 2 || normalized.length > 160;
+  }
+
+  private async openReadonlyTextDialog(label: string, value: string) {
+    await this.settingsDialog.open({
+      title: label,
+      fields: [
+        {
+          key: 'value',
+          label,
+          type: 'textarea',
+          readonly: true,
+          rows: 18
+        }
+      ],
+      initial: {
+        value
+      }
+    });
   }
 
 }
