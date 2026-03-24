@@ -35,8 +35,10 @@ export class ReteEditor implements OnChanges, OnDestroy {
   private viewReady = false;
   private loadVersion = 0;
   private suppressDirtyEvents = false;
+  private typesLoadingPromise: Promise<void> | null = null;
   creatingEmptyBlock = false;
   creatingEmptyBlockType = '';
+  initialTypesLoading = signal(false);
   editorMode = signal<'standard' | 'select'>('standard');
   selectionBox = signal<{ left: number; top: number; width: number; height: number } | null>(null);
   private selectionPointerId: number | null = null;
@@ -221,6 +223,8 @@ export class ReteEditor implements OnChanges, OnDestroy {
   private async reloadEditor() {
     const host = this.container?.nativeElement as HTMLElement | undefined;
     if (!host) return;
+
+    await this.ensureNodeTypesLoaded();
 
     const currentVersion = ++this.loadVersion;
     this.editorMode.set('standard');
@@ -492,5 +496,31 @@ export class ReteEditor implements OnChanges, OnDestroy {
     if (Math.abs(nextZoom - currentZoom) < 0.001) return;
 
     await area.zoom(nextZoom, 0, 0);
+  }
+
+  private async ensureNodeTypesLoaded() {
+    if (this.blocksService.hasLoadedBlockTypes() && this.containersService.hasLoadedContainerTypes()) {
+      this.initialTypesLoading.set(false);
+      return;
+    }
+
+    if (this.typesLoadingPromise) {
+      this.initialTypesLoading.set(true);
+      await this.typesLoadingPromise;
+      this.initialTypesLoading.set(false);
+      return;
+    }
+
+    this.initialTypesLoading.set(true);
+    this.typesLoadingPromise = Promise.all([
+      this.blocksService.getAllBlocksTypes(),
+      this.containersService.getAllContainerTypes()
+    ]).then(() => undefined)
+      .finally(() => {
+        this.typesLoadingPromise = null;
+        this.initialTypesLoading.set(false);
+      });
+
+    await this.typesLoadingPromise;
   }
 }

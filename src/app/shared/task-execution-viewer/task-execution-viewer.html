@@ -190,25 +190,31 @@
           </div>
           } @else {
           <div class="p-3 space-y-3">
-            @if (!executionOutputs().length) {
+            @if (!executionOutputGroups().length) {
             <div class="text-xs text-slate-500">No execution output available.</div>
             } @else {
-              @for (output of executionOutputs(); track output.key) {
-              <div class="rounded-md border border-slate-200 bg-slate-50 p-3">
-                <div class="execution-output-badge">
-                  <div class="execution-output-title">{{ output.title }}</div>
-                  <div class="execution-output-subtitle">{{ output.subtitle }}</div>
+              @for (group of executionOutputGroups(); track group.nodeTitle) {
+              <div class="execution-output-group">
+                <div class="execution-output-group-title">{{ group.nodeTitle }}</div>
+                <div class="execution-output-group-list">
+                  @for (output of group.outputs; track output.key) {
+                  <div class="execution-output-item">
+                    <div class="execution-output-item-head">
+                      <div class="execution-output-item-name">{{ output.outputName }}</div>
+                      @if (output.isLong) {
+                      <button
+                        type="button"
+                        class="execution-output-view-btn"
+                        aria-label="View full output"
+                        (click)="openOutputPreview(output, $event)">
+                        <i class="bi bi-eye"></i>
+                      </button>
+                      }
+                    </div>
+                    <div class="execution-output-preview">{{ output.preview }}</div>
+                  </div>
+                  }
                 </div>
-                <div class="execution-output-preview mt-3">{{ output.preview }}</div>
-                @if (output.isLong) {
-                <button
-                  type="button"
-                  mat-stroked-button
-                  class="mt-3"
-                  (click)="openOutputPreview(output, $event)">
-                  View full output
-                </button>
-                }
               </div>
               }
             }
@@ -225,8 +231,8 @@
     <div class="relative z-10 flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
       <div class="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
         <div class="min-w-0">
-          <h3 class="text-lg font-semibold text-slate-900">{{ outputModal.title }}</h3>
-          <p class="mt-1 break-all text-xs text-slate-500">{{ outputModal.subtitle }}</p>
+          <h3 class="text-lg font-semibold text-slate-900">{{ outputPreviewTitle(outputModal) }}</h3>
+          <p class="mt-1 break-all text-xs text-slate-500">{{ outputPreviewSubtitle(outputModal) }}</p>
         </div>
         <button type="button" mat-stroked-button (click)="closeOutputPreview($event)">Close</button>
       </div>

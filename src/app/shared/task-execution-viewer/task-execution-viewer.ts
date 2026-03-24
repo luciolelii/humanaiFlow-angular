@@ -37,11 +37,16 @@ import { firstValueFrom } from 'rxjs';
 
 type ExecutionOutputEntry = {
   key: string;
-  title: string;
-  subtitle: string;
+  nodeTitle: string;
+  outputName: string;
   value: string;
   preview: string;
   isLong: boolean;
+};
+
+type ExecutionOutputGroup = {
+  nodeTitle: string;
+  outputs: ExecutionOutputEntry[];
 };
 
 type ExecutionLogEntryView = ExecutionEventLogEntry & {
@@ -58,6 +63,7 @@ type ExecutionLogEntryView = ExecutionEventLogEntry & {
 export class TaskExecutionViewerComponent implements OnDestroy {
   private static readonly TEXT_INPUT_DEBOUNCE_MS = 1200;
   private static readonly EVENTS_POLL_INTERVAL_MS = 5000;
+  private static readonly OUTPUT_PREVIEW_LIMIT = 80;
   private taskExecutionsService = inject(TaskExecutionsService);
   private humanInteractionDialog = inject(HumanInteractionDialogService);
   private settingsDialog = inject(NodeSettingsDialogService);
@@ -302,18 +308,36 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     return Object.entries(resultMap)
       .map(([key, rawValue]) => {
         const value = this.stringifyOutputValue(rawValue);
-        const isLong = value.length > 160;
+        const isLong = value.length > TaskExecutionViewerComponent.OUTPUT_PREVIEW_LIMIT;
         const label = this.formatExecutionOutputLabel(key, steps);
         return {
           key,
-          title: label.title,
-          subtitle: label.subtitle,
+          nodeTitle: label.nodeTitle,
+          outputName: label.outputName,
           value,
-          preview: isLong ? `${value.slice(0, 160)}...` : value,
+          preview: isLong ? `${value.slice(0, TaskExecutionViewerComponent.OUTPUT_PREVIEW_LIMIT)}...` : value,
           isLong
         };
       })
-      .sort((a, b) => a.title.localeCompare(b.title) || a.subtitle.localeCompare(b.subtitle));
+      .sort((a, b) => a.nodeTitle.localeCompare(b.nodeTitle) || a.outputName.localeCompare(b.outputName));
+  });
+
+  readonly executionOutputGroups = computed<ExecutionOutputGroup[]>(() => {
+    const groups = new Map<string, ExecutionOutputEntry[]>();
+
+    for (const output of this.executionOutputs()) {
+      if (!groups.has(output.nodeTitle)) {
+        groups.set(output.nodeTitle, []);
+      }
+      groups.get(output.nodeTitle)!.push(output);
+    }
+
+    return Array.from(groups.entries())
+      .map(([nodeTitle, outputs]) => ({
+        nodeTitle,
+        outputs
+      }))
+      .sort((a, b) => a.nodeTitle.localeCompare(b.nodeTitle));
   });
 
   readonly inputsReadOnly = computed(() => {
@@ -438,6 +462,16 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     event?.stopPropagation();
     if (!output.isLong) return;
     this.outputPreviewModal.set(output);
+  }
+
+  outputPreviewTitle(output: ExecutionOutputEntry | null): string {
+    if (!output) return 'Output';
+    return output.nodeTitle;
+  }
+
+  outputPreviewSubtitle(output: ExecutionOutputEntry | null): string {
+    if (!output) return '';
+    return output.outputName;
   }
 
   closeOutputPreview(event?: Event) {
@@ -800,10 +834,10 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   private formatExecutionOutputLabel(
     key: string,
     steps: Record<string, TaskExecutionStep>
-  ): { title: string; subtitle: string } {
+  ): { nodeTitle: string; outputName: string } {
     const separatorIndex = key.indexOf(':');
     if (separatorIndex < 0) {
-      return { title: key, subtitle: 'Execution output' };
+      return { nodeTitle: 'Execution output', outputName: key };
     }
 
     const nodeId = key.slice(0, separatorIndex);
@@ -812,8 +846,8 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     const nodeName = this.stepTitle(step).trim();
 
     return {
-      title: nodeName || key,
-      subtitle: outputName || 'Execution output'
+      nodeTitle: nodeName || key,
+      outputName: outputName || 'Execution output'
     };
   }
 

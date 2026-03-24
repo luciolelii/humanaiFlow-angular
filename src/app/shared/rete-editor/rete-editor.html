@@ -78,4 +78,13 @@
     </div>
   </div>
   }
+
+  @if (initialTypesLoading()) {
+  <div class="rete-editor-loading">
+    <div class="rete-editor-loading-card">
+      <span class="rete-editor-spinner" aria-hidden="true"></span>
+      <span>Loading node types...</span>
+    </div>
+  </div>
+  }
 </div>
