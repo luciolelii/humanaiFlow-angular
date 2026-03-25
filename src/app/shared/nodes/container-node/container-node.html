@@ -32,7 +32,10 @@
       </div>
       }
       @if (!isReadonly) {
-      <button type="button" class="container-node__delete" title="Delete node" (pointerdown)="$event.stopPropagation()" (click)="deleteNode($event)">
+      <button type="button" class="container-node__clone" matTooltip="Clone node" (pointerdown)="$event.stopPropagation()" (click)="cloneCurrentNode($event)">
+        <i class="bi bi-copy"></i>
+      </button>
+      <button type="button" class="container-node__delete" matTooltip="Delete node" (pointerdown)="$event.stopPropagation()" (click)="deleteNode($event)">
         <i class="bi bi-trash"></i>
       </button>
       }

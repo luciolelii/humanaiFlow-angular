@@ -32,6 +32,7 @@ export type NodeSettingsDialogInput = {
   title?: string;
   fields: NodeSettingField[];
   initial?: NodeSettingsValues;
+  previewOnly?: boolean;
   onValuesChange?: (draft: NodeSettingsValues) =>
     Promise<NodeSettingsDialogRefresh | null> | NodeSettingsDialogRefresh | null;
 };
@@ -42,6 +43,7 @@ export class NodeSettingsDialogService {
     title: string;
     fields: NodeSettingField[];
     initial: NodeSettingsValues;
+    previewOnly: boolean;
     onValuesChange: ((draft: NodeSettingsValues) =>
       Promise<NodeSettingsDialogRefresh | null> | NodeSettingsDialogRefresh | null) | null;
     resolve: (value: NodeSettingsValues | null) => void;
@@ -55,6 +57,7 @@ export class NodeSettingsDialogService {
         title: input.title ?? "Node Settings",
         fields: input.fields,
         initial: input.initial ?? {},
+        previewOnly: input.previewOnly === true,
         onValuesChange: input.onValuesChange ?? null,
         resolve
       });

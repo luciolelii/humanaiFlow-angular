@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, HostBinding, Input, inject } from '@angular/core';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { currentFlowPortValueKind, flowValueKindLabel, FlowBlock, FlowContainer, FlowData } from '@models/flow';
 import { NodeSettingField, NodeSettingOption, NodeSettingsDialogService } from '@services/dialogs/node-settings-dialog';
 import { ContainersService } from '@services/containers/containers';
@@ -61,7 +62,7 @@ type StructuredRetrieverConfig = {
 
 @Component({
   selector: 'app-container-node',
-  imports: [CommonModule, ReteModule],
+  imports: [CommonModule, ReteModule, MatTooltipModule],
   templateUrl: './container-node.html',
   styleUrl: './container-node.css',
   host: {
@@ -433,6 +434,17 @@ export class ContainerNodeComponent {
     event?.preventDefault();
     event?.stopPropagation();
     this.deleteConfirmOpen = false;
+  }
+
+  cloneCurrentNode(event?: Event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+    if (this.isReadonly) return;
+
+    const cloneNode = this.data?.data?.cloneNode;
+    if (typeof cloneNode === 'function') {
+      void cloneNode();
+    }
   }
 
   openSubflowPreview(event?: Event) {

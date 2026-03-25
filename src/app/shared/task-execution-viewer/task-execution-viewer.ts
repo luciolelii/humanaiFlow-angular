@@ -33,6 +33,7 @@ import {
 import { NodeSettingField, NodeSettingsDialogService } from '@services/dialogs/node-settings-dialog';
 import { FieldRetriever } from '@services/retriever/field-retriever';
 import { TaskExecutionsService } from '@services/task-executions/task-executions';
+import { ContainersService } from '@services/containers/containers';
 import { firstValueFrom } from 'rxjs';
 
 type ExecutionOutputEntry = {
@@ -68,6 +69,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   private humanInteractionDialog = inject(HumanInteractionDialogService);
   private settingsDialog = inject(NodeSettingsDialogService);
   private fieldRetriever = inject(FieldRetriever);
+  private containersService = inject(ContainersService);
   private readonly textInputDebounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private lastExecutionId: string | null = null;
   private lastExecutionStatus: string | null = null;
@@ -254,7 +256,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
 
       const executionNode: FlowNode = {
         ...stepNode,
-        nodeFamily: stepNode.nodeFamily === 'container' ? 'container' : 'block',
+        nodeFamily: this.isContainerExecutionNode(stepNode) ? 'container' : 'block',
         specificConfiguration: {
           ...(stepNode.specificConfiguration ?? {}),
           __executionId: this.execution()?.id ?? null,
@@ -771,6 +773,15 @@ export class TaskExecutionViewerComponent implements OnDestroy {
         this.logsLoading.set(false);
       }
     });
+  }
+
+  private isContainerExecutionNode(stepNode: FlowNode): boolean {
+    if (stepNode.nodeFamily === 'container') return true;
+
+    const subFlow = (stepNode.specificConfiguration as Record<string, unknown> | null | undefined)?.['subFlow'];
+    if (subFlow && typeof subFlow === 'object' && !Array.isArray(subFlow)) return true;
+
+    return !!this.containersService.peekContainerType(stepNode.typeName);
   }
 
   private scrollLogsToBottom() {

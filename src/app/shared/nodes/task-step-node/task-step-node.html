@@ -290,11 +290,8 @@
 
     @if (hasViewableSubflow()) {
     <div class="llm-subflow-section">
-      <div class="llm-param-row-head">
-        <div class="llm-param-key">Subflow</div>
-      </div>
       <button type="button" class="llm-subflow-view" (pointerdown)="$event.stopPropagation()" (click)="openSubflowPreview($event)">
-        View Flow
+        View Subflow
       </button>
     </div>
     }

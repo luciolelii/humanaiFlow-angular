@@ -8,6 +8,7 @@ let lastServiceErrorNotificationAt = 0;
 export const authTokenInterceptor: HttpInterceptorFn = (req, next) => {
   const token = getToken();
   const requestPath = req.url.split('?')[0];
+  const isChangePasswordEndpoint = requestPath.endsWith('/auth/change-password');
   const isAuthEndpoint =
     requestPath.endsWith('/auth/login') ||
     requestPath.endsWith('/auth/register');
@@ -40,6 +41,7 @@ export const authTokenInterceptor: HttpInterceptorFn = (req, next) => {
       if (
         hasToken &&
         !isAuthEndpoint &&
+        !isChangePasswordEndpoint &&
         error instanceof HttpErrorResponse &&
         error.status === 401
       ) {

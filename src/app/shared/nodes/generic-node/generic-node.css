@@ -366,6 +366,26 @@
   transition: background-color 0.15s ease;
 }
 
+.llm-clone-btn {
+  position: relative;
+  z-index: 146;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  border: 1px solid rgba(191, 219, 254, 0.7);
+  background: rgba(30, 64, 175, 0.18);
+  color: #eff6ff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.llm-clone-btn:hover {
+  background: rgba(30, 64, 175, 0.34);
+}
+
 .llm-delete-btn:hover {
   background: rgba(127, 29, 29, 0.35);
 }

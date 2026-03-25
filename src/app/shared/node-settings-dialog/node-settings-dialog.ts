@@ -56,6 +56,10 @@ export class NodeSettingsDialogHostComponent {
     this.dialog.close({ ...this.draft });
   }
 
+  isPreviewOnly(): boolean {
+    return this.state()?.previewOnly === true;
+  }
+
   setFieldValue(key: string, value: string | boolean) {
     this.draft[key] = value;
     void this.refreshFieldsFromDraft();

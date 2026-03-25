@@ -1,4 +1,4 @@
-import { afterNextRender, Component, inject } from '@angular/core';
+import { afterNextRender, Component, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
@@ -26,9 +26,10 @@ export class AppLayout {
   private containersService = inject(ContainersService);
 
   loggedUser = this.authService.loggedInUser;
-  changePasswordOpen = false;
-  changePasswordSaving = false;
-  changePasswordError: string | null = null;
+  changePasswordOpen = signal(false);
+  changePasswordSaving = signal(false);
+  changePasswordError = signal<string | null>(null);
+  changePasswordSuccess = signal<string | null>(null);
 
   constructor() {
     afterNextRender(() => {
@@ -48,29 +49,33 @@ logout() {
 
   openChangePasswordDialog() {
     if (!this.loggedUser()?.username?.trim()) return;
-    this.changePasswordError = null;
-    this.changePasswordOpen = true;
+    this.changePasswordError.set(null);
+    this.changePasswordOpen.set(true);
   }
 
   closeChangePasswordDialog() {
-    if (this.changePasswordSaving) return;
-    this.changePasswordOpen = false;
-    this.changePasswordError = null;
+    if (this.changePasswordSaving()) return;
+    this.changePasswordOpen.set(false);
+    this.changePasswordError.set(null);
   }
 
   submitPasswordChange(request: ChangePasswordRequest) {
-    this.changePasswordSaving = true;
-    this.changePasswordError = null;
+    this.changePasswordSaving.set(true);
+    this.changePasswordError.set(null);
 
     this.authService.changePassword(request).subscribe({
       next: () => {
-        this.changePasswordSaving = false;
-        this.changePasswordOpen = false;
-        window.alert('Password changed successfully.');
+        this.changePasswordSaving.set(false);
+        this.changePasswordOpen.set(false);
+        this.changePasswordError.set(null);
+        this.changePasswordSuccess.set('Password changed successfully.');
+        setTimeout(() => {
+          this.changePasswordSuccess.set(null);
+        }, 3000);
       },
       error: (error) => {
-        this.changePasswordSaving = false;
-        this.changePasswordError = error instanceof Error ? error.message : 'Unable to change password.';
+        this.changePasswordSaving.set(false);
+        this.changePasswordError.set(error instanceof Error ? error.message : 'Unable to change password.');
       }
     });
   }

@@ -437,30 +437,30 @@ body {
 }
 
 .llm-subflow-section {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  border: 1px solid #dbe7f5;
-  border-radius: 12px;
-  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
-  padding: 10px 12px;
+  margin-top: 4px;
 }
 
 .llm-subflow-view {
-  align-self: flex-start;
-  border: 1px solid #bfdbfe;
-  border-radius: 999px;
-  background: #eff6ff;
-  color: #1d4ed8;
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #c7d2fe;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #eef4ff 0%, #e0ecff 100%);
+  color: #1e40af;
   cursor: pointer;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   line-height: 1;
-  padding: 7px 10px;
+  padding: 11px 12px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
 }
 
 .llm-subflow-view:hover {
-  background: #dbeafe;
+  background: linear-gradient(180deg, #dbeafe 0%, #c7ddff 100%);
+  border-color: #93c5fd;
 }
 .link {
   @apply font-medium text-primary-600 hover:underline dark:text-primary-500;

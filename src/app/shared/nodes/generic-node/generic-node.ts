@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, HostBinding, inject, Input } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { BlockType, currentFlowPortValueKind, flowValueKindLabel, FlowData, FlowPort, FlowValueKind, normalizeFlowPortValueKinds } from '@models/flow';
 import { ClassicPreset } from 'rete';
 import { ReteModule } from 'rete-angular-plugin/21';
@@ -132,7 +133,7 @@ type RichContentView = {
 
 @Component({
   selector: 'app-generic-node',
-  imports: [CommonModule, FormsModule, ReteModule],
+  imports: [CommonModule, FormsModule, ReteModule, MatTooltipModule],
   templateUrl: './generic-node.html',
   styleUrl: './generic-node.css',
   host: {
@@ -388,6 +389,17 @@ export class GenericNodeComponent {
     event?.preventDefault();
     event?.stopPropagation();
     this.deleteConfirmOpen = false;
+  }
+
+  async cloneCurrentNode(event?: Event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+    if (this.isReadonly) return;
+
+    const cloneNode = this.data?.data?.cloneNode;
+    if (typeof cloneNode === 'function') {
+      await cloneNode();
+    }
   }
 
   isHumanNode(): boolean {

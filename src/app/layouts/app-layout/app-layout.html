@@ -27,11 +27,18 @@
     </button>
   </mat-menu>
 
-  @if (changePasswordOpen && loggedUser()?.username; as username) {
+  @if (changePasswordSuccess()) {
+  <div class="app-password-success-banner">
+    <mat-icon fontIcon="check_circle"></mat-icon>
+    <span>{{ changePasswordSuccess() }}</span>
+  </div>
+  }
+
+  @if (changePasswordOpen() && loggedUser()?.username; as username) {
   <app-change-password-dialog
     [username]="username"
-    [saving]="changePasswordSaving"
-    [submitError]="changePasswordError"
+    [saving]="changePasswordSaving()"
+    [submitError]="changePasswordError()"
     (closed)="closeChangePasswordDialog()"
     (submitted)="submitPasswordChange($event)">
   </app-change-password-dialog>

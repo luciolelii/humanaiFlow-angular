@@ -16,6 +16,11 @@
   cursor: default !important;
 }
 
+:host.llm-node-readonly .llm-subflow-view,
+:host.llm-node-readonly .llm-subflow-view * {
+  cursor: pointer !important;
+}
+
 .llm-node--human {
   border-color: #f7d7a7;
   background: linear-gradient(180deg, #fffdf9 0%, #fff7ed 100%);

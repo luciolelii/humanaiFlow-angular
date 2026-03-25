@@ -42,7 +42,45 @@ export class AuthorizationCallService extends AuthorizationCallServiceBase {
     }
 
     override changePassword(request: ChangePasswordRequest): Observable<void> {
-         return this.http.post<void>(`${environment.apiUrl}/auth/change-password`, request);
+         return this.http
+            .post(`${environment.apiUrl}/auth/change-password`, request, { responseType: 'text' })
+            .pipe(
+                map(() => undefined),
+                catchError((error: unknown) => {
+                  if (error instanceof HttpErrorResponse) {
+                    const message = this.extractHttpErrorMessage(error)
+                      ?? (error.status === 400 ? 'Missing required fields.' : null)
+                      ?? (error.status === 401 ? 'Current password is invalid' : null)
+                      ?? (error.status === 404 ? 'User not found' : null)
+                      ?? 'Unable to change password.';
+                    return throwError(() => new Error(message));
+                  }
+                  return throwError(() => error);
+                })
+            );
+    }
+
+    private extractHttpErrorMessage(error: HttpErrorResponse): string | null {
+      const payload = error.error;
+      if (typeof payload === 'string' && payload.trim().length > 0) {
+        return payload.trim();
+      }
+      if (payload && typeof payload === 'object') {
+        const record = payload as Record<string, unknown>;
+        const directMessage = record['message'];
+        if (typeof directMessage === 'string' && directMessage.trim().length > 0) {
+          return directMessage.trim();
+        }
+        const errorMessage = record['error'];
+        if (typeof errorMessage === 'string' && errorMessage.trim().length > 0) {
+          return errorMessage.trim();
+        }
+        const details = record['details'];
+        if (typeof details === 'string' && details.trim().length > 0) {
+          return details.trim();
+        }
+      }
+      return null;
     }
 
     private extractToken(...sources: Array<Record<string, unknown> | undefined>): unknown {

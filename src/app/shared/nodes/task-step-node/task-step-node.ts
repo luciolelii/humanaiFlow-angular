@@ -288,7 +288,7 @@ export class TaskStepNodeComponent {
   }
 
   isContainerNode(): boolean {
-    return this.data?.data?.nodeFamily === 'container';
+    return this.resolvedNodeFamily() === 'container';
   }
 
   hasViewableSubflow(): boolean {
@@ -429,14 +429,14 @@ export class TaskStepNodeComponent {
     event?.preventDefault();
     event?.stopPropagation();
     if (!field.expandable) return;
-    void this.openReadonlyTextDialog(field.label, field.value);
+    void this.openReadonlyTextDialog(field.label, this.resolvePreviewText(field.value));
   }
 
   openMainContentPreview(field: MainContentView, event?: Event) {
     event?.preventDefault();
     event?.stopPropagation();
     if (!field.expandable) return;
-    void this.openReadonlyTextDialog(field.label, field.rawValue);
+    void this.openReadonlyTextDialog(field.label, this.resolvePreviewText(field.rawValue));
   }
 
   private get blockConfiguration(): Record<string, any> | null {
@@ -540,9 +540,7 @@ export class TaskStepNodeComponent {
     const type = this.blockType;
     if (!type) return;
 
-    const nodeFamily = this.data?.data?.nodeFamily === 'container'
-      ? 'container'
-      : 'block';
+    const nodeFamily = this.resolvedNodeFamily();
     const cachedDescriptor = nodeFamily === 'container'
       ? this.containersService.peekContainerType(type)
       : this.blocksService.peekBlockType(type);
@@ -1035,8 +1033,27 @@ export class TaskStepNodeComponent {
   private nodeTypeCacheKey(): string | null {
     const type = this.blockType;
     if (!type) return null;
-    const family = this.isContainerNode() ? 'container' : 'block';
+    const family = this.resolvedNodeFamily();
     return `${family}:${type}`;
+  }
+
+  private resolvedNodeFamily(): 'block' | 'container' {
+    if (this.data?.data?.nodeFamily === 'container') {
+      return 'container';
+    }
+
+    const config = this.blockConfiguration;
+    const subFlow = config?.['subFlow'];
+    if (subFlow && typeof subFlow === 'object' && !Array.isArray(subFlow)) {
+      return 'container';
+    }
+
+    const type = this.blockType;
+    if (type && this.containersService.peekContainerType(type)) {
+      return 'container';
+    }
+
+    return 'block';
   }
 
   private getGlobalCache<T>(store: Map<string, Map<string, T>>, typeKey: string): Map<string, T> {
@@ -1087,6 +1104,7 @@ export class TaskStepNodeComponent {
   private async openReadonlyTextDialog(label: string, value: string) {
     await this.settingsDialog.open({
       title: label,
+      previewOnly: true,
       fields: [
         {
           key: 'value',
@@ -1099,6 +1117,29 @@ export class TaskStepNodeComponent {
       initial: {
         value
       }
+    });
+  }
+
+  private resolvePreviewText(value: string): string {
+    const source = String(value ?? '');
+    if (!source.includes('${{')) return source;
+
+    return source.replace(/\$\{\{\s*([^}]+?)\s*\}\}/g, (token, rawKey: string) => {
+      const key = String(rawKey ?? '').trim();
+      if (!key) return token;
+
+      const configInputs = this.blockConfiguration?.['__executionInputs'];
+      const inputs = configInputs && typeof configInputs === 'object' && !Array.isArray(configInputs)
+        ? configInputs as Record<string, unknown>
+        : null;
+      if (!inputs || !Object.prototype.hasOwnProperty.call(inputs, key)) {
+        return token;
+      }
+
+      const resolved = inputs[key];
+      if (resolved == null) return token;
+      if (typeof resolved === 'string') return resolved;
+      return valueToDisplayString(resolved);
     });
   }
 

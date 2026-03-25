@@ -431,11 +431,41 @@ export async function addBlockToEditor(
       }
     }
   };
+  const cloneNode = async () => {
+    if (resolvedRuntime?.readonly) return;
+
+    const currentNode = editor.getNode(node.id) as HFNode | undefined;
+    if (!currentNode?.data) return;
+
+    const sourceData = currentNode.data as Record<string, unknown>;
+    const sourcePosition = sourceData['position'] as { x: number; y: number } | undefined;
+    const nextPosition = sourcePosition
+      ? { x: sourcePosition.x + 48, y: sourcePosition.y + 48 }
+      : { x: 168, y: 148 };
+
+    const clonedNode = {
+      ...cloneValue(block),
+      ...cloneValue(sourceData),
+      id: globalThis.crypto?.randomUUID?.() ?? `${Date.now()}`,
+      position: nextPosition,
+      inputs: cloneValue((sourceData['inputs'] as FlowNode['inputs'] | undefined) ?? block.inputs ?? []),
+      outputs: cloneValue((sourceData['outputs'] as FlowNode['outputs'] | undefined) ?? block.outputs ?? []),
+      specificConfiguration: cloneValue((sourceData['specificConfiguration'] as FlowNode['specificConfiguration'] | undefined) ?? block.specificConfiguration ?? {}),
+      nodeFamily: sourceData['nodeFamily'] === 'container' ? 'container' : 'block',
+      __needsServerCreate: sourceData['nodeFamily'] === 'container' ? false : true,
+      __createdOnServer: false,
+      __isCreatingOnServer: false,
+      __updateBlockError: null
+    } as FlowNode & Record<string, unknown>;
+
+    await addBlockToEditor(editor, area, clonedNode, nextPosition, resolvedRuntime);
+  };
   node.data = {
     ...cloneValue(block),
     position: position ?? block.position,
     __readonly: resolvedRuntime?.readonly === true,
     deleteNode: removeNode,
+    cloneNode,
     replaceWithCreatedNode,
     assignSelectedBlocksToContainer,
     assignImportedSubflow,
