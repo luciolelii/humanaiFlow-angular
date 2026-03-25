@@ -1,6 +1,6 @@
 import { Injectable, signal } from "@angular/core";
 
-export type NodeSettingFieldType = "text" | "textarea" | "select" | "checkbox" | "display";
+export type NodeSettingFieldType = "text" | "password" | "textarea" | "select" | "checkbox" | "display";
 
 export type NodeSettingOption = {
   label: string;

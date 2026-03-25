@@ -27,6 +27,7 @@ export class NodeSettingsDialogHostComponent {
 
   draft: NodeSettingsValues = {};
   fields: NodeSettingField[] = [];
+  passwordVisibility: Record<string, boolean> = {};
 
   constructor() {
     effect(() => {
@@ -35,6 +36,7 @@ export class NodeSettingsDialogHostComponent {
       this.refreshVersion += 1;
       this.fields = state.fields;
       this.draft = this.buildDraft(state.fields, state.initial);
+      this.passwordVisibility = {};
       queueMicrotask(() => {
         const target = this.host.nativeElement.querySelector('[data-autofocus="true"]') as HTMLElement | null;
         target?.focus();
@@ -70,6 +72,19 @@ export class NodeSettingsDialogHostComponent {
     } catch {
       // Ignore clipboard errors in unsupported/denied contexts.
     }
+  }
+
+  isPasswordVisible(key: string): boolean {
+    return this.passwordVisibility[key] === true;
+  }
+
+  togglePasswordVisibility(key: string, event?: Event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+    this.passwordVisibility = {
+      ...this.passwordVisibility,
+      [key]: !this.isPasswordVisible(key)
+    };
   }
 
   private buildDraft(fields: NodeSettingField[], initial: NodeSettingsValues): NodeSettingsValues {

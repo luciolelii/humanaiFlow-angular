@@ -7,4 +7,10 @@ export type User = {
 export type UserRegistration = User & {
     password: string;
     fullname: string;
-}
+};
+
+export type ChangePasswordRequest = {
+    username: string;
+    oldPassword: string;
+    newPassword: string;
+};

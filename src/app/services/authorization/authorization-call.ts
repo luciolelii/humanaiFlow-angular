@@ -1,5 +1,5 @@
 import { AuthorizationCallServiceBase } from "./authorization-call.base";
-import { User, UserRegistration } from "@models/user";
+import { ChangePasswordRequest, User, UserRegistration } from "@models/user";
 import { catchError, map, Observable, throwError } from "rxjs";
 import { HttpClient, HttpErrorResponse } from "@angular/common/http";
 import { inject } from "@angular/core";
@@ -39,6 +39,10 @@ export class AuthorizationCallService extends AuthorizationCallServiceBase {
     }
     override register(userRegistration: UserRegistration): Observable<void> {
          return this.http.post<void>(`${environment.apiUrl}/auth/register`, userRegistration);
+    }
+
+    override changePassword(request: ChangePasswordRequest): Observable<void> {
+         return this.http.post<void>(`${environment.apiUrl}/auth/change-password`, request);
     }
 
     private extractToken(...sources: Array<Record<string, unknown> | undefined>): unknown {

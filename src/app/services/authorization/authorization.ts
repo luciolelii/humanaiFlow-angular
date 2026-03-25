@@ -1,5 +1,5 @@
 import { Injectable, signal } from '@angular/core';
-import { User, UserRegistration } from '@models/user';
+import { ChangePasswordRequest, User, UserRegistration } from '@models/user';
 import { AuthorizationCallServiceBase } from './authorization-call.base';
 import { environment } from '@environment';
 import { take, tap } from 'rxjs';
@@ -34,6 +34,12 @@ export class Authorization {
 
   signup(userRegistration: UserRegistration) {
     return this.authCall.register(userRegistration).pipe(
+      take(1)
+    );
+  }
+
+  changePassword(request: ChangePasswordRequest) {
+    return this.authCall.changePassword(request).pipe(
       take(1)
     );
   }

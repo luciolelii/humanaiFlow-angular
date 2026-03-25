@@ -65,3 +65,18 @@
   overflow: hidden;
   background: #ffffff;
 }
+
+.app-user-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  color: #334155;
+  padding: 6px 10px;
+}
+
+.app-user-trigger:hover {
+  background: rgba(255, 255, 255, 0.92);
+}

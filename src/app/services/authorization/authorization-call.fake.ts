@@ -1,6 +1,6 @@
 import { Observable } from "rxjs";
 import { AuthorizationCallServiceBase } from "./authorization-call.base";
-import { User, UserRegistration } from "@models/user";
+import { ChangePasswordRequest, User, UserRegistration } from "@models/user";
 
 export class AuthorizationCallFakeService extends AuthorizationCallServiceBase {
 
@@ -40,9 +40,20 @@ export class AuthorizationCallFakeService extends AuthorizationCallServiceBase {
         });
     }
 
-
-
-
-
-
+    changePassword(request: ChangePasswordRequest): Observable<void> {
+        return new Observable<void>((observer) => {
+            const user = this.users.find(u => u.username === request.username);
+            if (!user) {
+                observer.error(new Error('User not found'));
+                return;
+            }
+            if (user.password !== request.oldPassword) {
+                observer.error(new Error('Current password is invalid'));
+                return;
+            }
+            user.password = request.newPassword;
+            observer.next();
+            observer.complete();
+        });
+    }
 }

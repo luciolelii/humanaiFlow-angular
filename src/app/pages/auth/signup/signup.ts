@@ -10,6 +10,13 @@ import { UserRegistration } from '@models/user';
 import { Authorization } from '@services/authorization/authorization';
 import { FormUtility } from '@utilities/form-utility';
 
+function hasValidPasswordComplexity(value: string): boolean {
+  return /^\S+$/.test(value)
+    && /[a-z]/.test(value)
+    && /[A-Z]/.test(value)
+    && /\d/.test(value)
+    && /[^A-Za-z0-9]/.test(value);
+}
 
 @Component({
   selector: 'app-signup',
@@ -51,7 +58,18 @@ export class Signup extends FormUtility {
     maxLength(model.username, 20, { message: 'Username cannot exceed 20 characters' }),
     email(model.email, { message: 'Invalid email address' }),
     required(model.email, { message: 'Email is required' }),
-    minLength(model.password, 8, { message: 'Password must be at least 8 characters long' })
+    minLength(model.password, 8, { message: 'Password must be at least 8 characters long' }),
+    validate(model.password, ({ value }) => {
+      const password = value();
+      if (!password || hasValidPasswordComplexity(password)) {
+        return null;
+      }
+
+      return {
+        kind: 'passwordComplexity',
+        message: 'Password must include uppercase, lowercase, number and special character, with no spaces.'
+      };
+    }),
     required(model.fullname, { message: 'Full name is required'}),
     validate(model.confirmPassword, ({value, valueOf}) => {
       const confirmPassword = value()
