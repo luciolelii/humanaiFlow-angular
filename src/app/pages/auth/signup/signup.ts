@@ -21,6 +21,9 @@ function hasValidPasswordComplexity(value: string): boolean {
 
 declare global {
   interface Window {
+    __runtimeConfig?: {
+      turnstileSiteKey?: string;
+    };
     turnstile?: {
       render: (container: string | HTMLElement, options: Record<string, unknown>) => string;
       remove: (widgetId: string) => void;
@@ -50,7 +53,7 @@ export class Signup extends FormUtility implements AfterViewInit, OnDestroy {
   isRegistering = signal(false);
   captchaToken = signal<string | null>(null);
   captchaLoading = signal(false);
-  captchaEnabled = !!String(environment.turnstileSiteKey ?? '').trim();
+  captchaEnabled = environment.turnstileEnabled;
   private captchaWidgetId: string | null = null;
 
   constructor() {
@@ -158,7 +161,7 @@ export class Signup extends FormUtility implements AfterViewInit, OnDestroy {
   }
 
   private async mountCaptcha() {
-    const siteKey = String(environment.turnstileSiteKey ?? '').trim();
+    const siteKey = this.turnstileSiteKey();
     const container = this.captchaContainer()?.nativeElement;
     if (!siteKey || !container) return;
 
@@ -226,5 +229,9 @@ export class Signup extends FormUtility implements AfterViewInit, OnDestroy {
     if (this.captchaWidgetId && window.turnstile) {
       window.turnstile.reset(this.captchaWidgetId);
     }
+  }
+
+  private turnstileSiteKey(): string {
+    return String(window.__runtimeConfig?.turnstileSiteKey ?? '').trim();
   }
 }
