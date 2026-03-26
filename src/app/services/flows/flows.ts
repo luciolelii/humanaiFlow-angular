@@ -93,6 +93,42 @@ export class FlowsService {
     );
   }
 
+  updatePublished(flowId: string, value: boolean) {
+    return this.flowsCallService.updatePublished(flowId, value).pipe(
+      tap((updatedFlow) => {
+        this._flows.update((flows) => {
+          const index = flows.findIndex((current) => current.id === updatedFlow.id);
+          if (index < 0) return [updatedFlow, ...flows];
+          const next = [...flows];
+          next[index] = updatedFlow;
+          return next;
+        });
+      }),
+      catchError(err => {
+        console.error('Update published failed', err);
+        return throwError(() => err);
+      })
+    );
+  }
+
+  finalizeFlow(flowId: string) {
+    return this.flowsCallService.finalizeFlow(flowId).pipe(
+      tap((updatedFlow) => {
+        this._flows.update((flows) => {
+          const index = flows.findIndex((current) => current.id === updatedFlow.id);
+          if (index < 0) return [updatedFlow, ...flows];
+          const next = [...flows];
+          next[index] = updatedFlow;
+          return next;
+        });
+      }),
+      catchError(err => {
+        console.error('Finalize flow failed', err);
+        return throwError(() => err);
+      })
+    );
+  }
+
   cloneFlow(flow: Pick<Flow, 'name' | 'description' | 'data' | 'status'>): Observable<Flow> {
     return this.createFlow({
       name: `${flow.name} (cloned)`,

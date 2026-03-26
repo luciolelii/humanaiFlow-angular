@@ -4,8 +4,10 @@ import {
   AdminResetPasswordRequest,
   AdminUser,
   ChangePasswordRequest,
+  OperationsStatistics,
   User,
-  UserRegistration
+  UserRegistration,
+  UserStatistics
 } from "@models/user";
 import { Observable } from "rxjs";
 
@@ -26,5 +28,11 @@ export abstract class AuthorizationCallServiceBase {
     abstract changeAdminUserRole(username: string, request: AdminChangeRoleRequest): Observable<void>;
 
     abstract deleteAdminUser(username: string): Observable<void>;
+
+    abstract getOperationsStatistics(): Observable<OperationsStatistics>;
+
+    abstract listStatisticsUsers(): Observable<string[]>;
+
+    abstract getUserStatistics(username: string): Observable<UserStatistics>;
 
 }

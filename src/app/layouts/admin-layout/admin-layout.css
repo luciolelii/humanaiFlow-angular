@@ -53,6 +53,12 @@
   box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
 }
 
+.admin-shell__menu-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .admin-shell__sidebar-title {
   color: #0f172a;
   font-size: 12px;
@@ -65,6 +71,28 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.admin-shell__back-link {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  background: rgba(255, 255, 255, 0.78);
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.admin-shell__back-link:hover {
+  border-color: rgba(37, 99, 235, 0.28);
+  background: #fff;
+  color: #1d4ed8;
 }
 
 .admin-shell__nav-link {

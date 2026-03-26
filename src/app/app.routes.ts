@@ -8,6 +8,7 @@ import { AdminLayout } from '@layouts/admin-layout/admin-layout';
 import { FlowEditor } from '@layouts/flow-editor/flow-editor';
 import { TasksExecutor } from '@layouts/tasks-executor/tasks-executor';
 import { AdminCreateUserPage } from '@pages/admin/admin-create-user/admin-create-user';
+import { AdminStatsPage } from '@pages/admin/admin-stats/admin-stats';
 import { AdminUsersListPage } from '@pages/admin/admin-users-list/admin-users-list';
 
 export const routes: Routes = [
@@ -45,6 +46,10 @@ export const routes: Routes = [
           {
             path: 'create-user',
             component: AdminCreateUserPage
+          },
+          {
+            path: 'stats',
+            component: AdminStatsPage
           }
         ]
       }

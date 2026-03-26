@@ -4,8 +4,10 @@ import {
   AdminCreateUserRequest,
   AdminResetPasswordRequest,
   ChangePasswordRequest,
+  OperationsStatistics,
   User,
-  UserRegistration
+  UserRegistration,
+  UserStatistics
 } from '@models/user';
 import { AuthorizationCallServiceBase } from './authorization-call.base';
 import { environment } from '@environment';
@@ -81,6 +83,24 @@ export class Authorization {
 
   deleteAdminUser(username: string) {
     return this.authCall.deleteAdminUser(username).pipe(
+      take(1)
+    );
+  }
+
+  getOperationsStatistics() {
+    return this.authCall.getOperationsStatistics().pipe(
+      take(1)
+    );
+  }
+
+  listStatisticsUsers() {
+    return this.authCall.listStatisticsUsers().pipe(
+      take(1)
+    );
+  }
+
+  getUserStatistics(username: string) {
+    return this.authCall.getUserStatistics(username).pipe(
       take(1)
     );
   }

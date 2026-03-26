@@ -1,4 +1,4 @@
-import { Component, effect, inject, signal } from '@angular/core';
+import { AfterViewInit, Component, effect, ElementRef, inject, OnDestroy, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -6,6 +6,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { Field, form, minLength, email, required, validate, maxLength, disabled } from '@angular/forms/signals'
 import { Router, RouterLink } from '@angular/router';
+import { environment } from '@environment';
 import { UserRegistration } from '@models/user';
 import { Authorization } from '@services/authorization/authorization';
 import { FormUtility } from '@utilities/form-utility';
@@ -18,21 +19,39 @@ function hasValidPasswordComplexity(value: string): boolean {
     && /[^A-Za-z0-9]/.test(value);
 }
 
+declare global {
+  interface Window {
+    turnstile?: {
+      render: (container: string | HTMLElement, options: Record<string, unknown>) => string;
+      remove: (widgetId: string) => void;
+      reset: (widgetId: string) => void;
+    };
+  }
+}
+
+let turnstileScriptPromise: Promise<void> | null = null;
+
 @Component({
   selector: 'app-signup',
   imports: [FormsModule, RouterLink, Field, MatButtonModule, MatCardModule, MatFormFieldModule, MatInputModule],
   templateUrl: './signup.html',
   styleUrl: './signup.css',
 })
-export class Signup extends FormUtility {
+export class Signup extends FormUtility implements AfterViewInit, OnDestroy {
 
   private authService = inject(Authorization);
   private router = inject(Router);
+  private captchaContainer = viewChild<ElementRef<HTMLDivElement>>('captchaContainer');
   
   error = signal<string | null>(null);
   emailError = signal<string | null>(null);
   passwordError = signal<string | null>(null);
+  captchaError = signal<string | null>(null);
   isRegistering = signal(false);
+  captchaToken = signal<string | null>(null);
+  captchaLoading = signal(false);
+  captchaEnabled = !!String(environment.turnstileSiteKey ?? '').trim();
+  private captchaWidgetId: string | null = null;
 
   constructor() {
     super();
@@ -43,6 +62,18 @@ export class Signup extends FormUtility {
         }, 3000);
       }    
     });
+  }
+
+  async ngAfterViewInit() {
+    if (!this.captchaEnabled) return;
+    await this.mountCaptcha();
+  }
+
+  ngOnDestroy() {
+    if (this.captchaWidgetId && window.turnstile) {
+      window.turnstile.remove(this.captchaWidgetId);
+      this.captchaWidgetId = null;
+    }
   }
 
 
@@ -86,15 +117,23 @@ export class Signup extends FormUtility {
     disabled(model, this.isRegistering)
   });
 
-  onSubmit() {
+  async onSubmit() {
     this.isRegistering.set(true)
     this.error.set(null);
     this.emailError.set(null);
     this.passwordError.set(null);
+    this.captchaError.set(null);
     
-    const { username, email, password } = this.signupModel();
+    if (this.captchaEnabled && !this.captchaToken()) {
+      this.isRegistering.set(false);
+      this.captchaError.set('Please complete the captcha verification.');
+      return;
+    }
 
-    this.authService.signup({ username, email, password }).subscribe({
+    const { username, email, password } = this.signupModel();
+    const captchaToken = this.captchaToken();
+
+    this.authService.signup({ username, email, password, ...(captchaToken ? { captchaToken } : {}) }).subscribe({
         error: (err) => {
           this.isRegistering.set(false);
           const message = err instanceof Error ? err.message : 'Unable to register user.';
@@ -106,6 +145,9 @@ export class Signup extends FormUtility {
             this.passwordError.set('Password does not satisfy the required policy.');
             return;
           }
+          if (this.captchaEnabled) {
+            this.resetCaptcha();
+          }
           this.error.set(message);
         },
         complete: () => {
@@ -113,5 +155,76 @@ export class Signup extends FormUtility {
           this.router.navigate(['/login'], { state: { registered: this.signupModel().username } });
         }
       });
+  }
+
+  private async mountCaptcha() {
+    const siteKey = String(environment.turnstileSiteKey ?? '').trim();
+    const container = this.captchaContainer()?.nativeElement;
+    if (!siteKey || !container) return;
+
+    this.captchaLoading.set(true);
+    this.captchaError.set(null);
+
+    try {
+      await this.ensureTurnstileScript();
+      if (!window.turnstile) {
+        throw new Error('Turnstile is unavailable.');
+      }
+      this.captchaWidgetId = window.turnstile.render(container, {
+        sitekey: siteKey,
+        theme: 'light',
+        callback: (token: string) => {
+          this.captchaToken.set(token);
+          this.captchaError.set(null);
+        },
+        'expired-callback': () => {
+          this.captchaToken.set(null);
+        },
+        'error-callback': () => {
+          this.captchaToken.set(null);
+          this.captchaError.set('Captcha could not be verified. Please try again.');
+        }
+      });
+    } catch (error) {
+      this.captchaError.set(error instanceof Error ? error.message : 'Unable to load captcha.');
+    } finally {
+      this.captchaLoading.set(false);
+    }
+  }
+
+  private ensureTurnstileScript(): Promise<void> {
+    if (window.turnstile) {
+      return Promise.resolve();
+    }
+    if (turnstileScriptPromise) {
+      return turnstileScriptPromise;
+    }
+
+    turnstileScriptPromise = new Promise<void>((resolve, reject) => {
+      const existing = document.querySelector<HTMLScriptElement>('script[data-turnstile-script="true"]');
+      if (existing) {
+        existing.addEventListener('load', () => resolve(), { once: true });
+        existing.addEventListener('error', () => reject(new Error('Unable to load Turnstile script.')), { once: true });
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+      script.async = true;
+      script.defer = true;
+      script.dataset['turnstileScript'] = 'true';
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error('Unable to load Turnstile script.'));
+      document.head.appendChild(script);
+    });
+
+    return turnstileScriptPromise;
+  }
+
+  private resetCaptcha() {
+    this.captchaToken.set(null);
+    if (this.captchaWidgetId && window.turnstile) {
+      window.turnstile.reset(this.captchaWidgetId);
+    }
   }
 }

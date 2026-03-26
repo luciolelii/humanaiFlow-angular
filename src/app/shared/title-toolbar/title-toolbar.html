@@ -61,6 +61,25 @@
   </div>
 
   <div class="title-toolbar-actions" >
+    @if (flow() && isOwner()) {
+    <div class="title-toolbar-flags">
+      <mat-slide-toggle
+        [checked]="!!flow()!.published"
+        [disabled]="publishSaving()"
+        [matTooltip]="flow()!.finalized ? 'A finalized flow can still be published or unpublished.' : 'Controls whether the flow is visible to other users.'"
+        (change)="togglePublished($event.checked)">
+        Published
+      </mat-slide-toggle>
+
+      <mat-slide-toggle
+        [checked]="!!flow()!.finalized"
+        [disabled]="!!flow()!.finalized || finalizeSaving() || notSaved() || blockSyncInProgress()"
+        [matTooltip]="flow()!.finalized ? 'Finalization is irreversible.' : (notSaved() ? 'Save the flow before finalizing.' : 'Finalized flows cannot be edited anymore.')"
+        (change)="onFinalizedToggle($event.checked)">
+        Finalized
+      </mat-slide-toggle>
+    </div>
+    }
     <button
       type="button"
       mat-flat-button
@@ -76,7 +95,6 @@
 @if (flow()) {
 <div class="title-toolbar-meta">
   <span><span class="title-toolbar-meta-label">Author:</span> {{ flow()!.author }}</span>
-  <span><span class="title-toolbar-meta-label">Visibility:</span> {{ flow()!.visibility }}</span>
   <span><span class="title-toolbar-meta-label">Created:</span> {{ flow()!.createdAt | date:'dd/MM/yyyy HH:mm' }}</span>
   <span><span class="title-toolbar-meta-label">Updated:</span> {{ flow()!.updatedAt | date:'dd/MM/yyyy HH:mm' }}</span>
   @if (flow()!.description) {

@@ -31,12 +31,14 @@ export class FlowItem {
   openedFlowId = computed(() => this.editorState.currentFlow()?.id);
   canDelete = computed(() => {
     const username = this.authorization.loggedInUser()?.username ?? null;
-    return !!username && this.flow().author === username;
+    return !!username && this.flow().author === username && !this.flow().finalized;
   });
   deleteTooltip = computed(() =>
-    this.canDelete()
-      ? 'Delete flow'
-      : 'Only the owner can delete this flow'
+    this.flow().finalized
+      ? 'Finalized flows cannot be deleted'
+      : this.canDelete()
+        ? 'Delete flow'
+        : 'Only the owner can delete this flow'
   );
 
   async open() {

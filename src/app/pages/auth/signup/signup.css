@@ -71,6 +71,35 @@
   font-size: 14px;
 }
 
+.signup-captcha {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+
+.signup-captcha__widget {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  min-height: 66px;
+}
+
+.signup-captcha__state {
+  color: #64748b;
+  font-size: 13px;
+}
+
+.signup-captcha__error {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  background: #fef2f2;
+  color: #991b1b;
+  font-size: 13px;
+}
+
 @media (min-width: 1024px) {
   .signup-row {
     flex-direction: row;

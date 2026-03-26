@@ -21,6 +21,7 @@ export class EditorStateHolder {
     const flow = this.currentFlow();
     const currentUsername = this.authorization.loggedInUser()?.username ?? null;
     if (!flow) return false;
+    if (flow.finalized) return true;
     return flow.visibility === 'PUBLIC' && flow.author !== currentUsername;
   });
 
@@ -127,7 +128,7 @@ export class EditorStateHolder {
 
   save() {
     if (this.isCurrentFlowReadOnly()) {
-      return throwError(() => new Error('Read-only public flows cannot be saved by non-owners.'));
+      return throwError(() => new Error('Read-only flows cannot be saved.'));
     }
     const flow = this.currentFlow()!;
     const save$ = flow.id.startsWith(EditorStateHolder.ASSISTANT_DRAFT_PREFIX)

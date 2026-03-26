@@ -5,16 +5,19 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Router } from '@angular/router';
 import { BlocksService } from '@services/blocks/blocks';
+import { Authorization } from '@services/authorization/authorization';
+import { FlowsService } from '@services/flows/flows';
 import { TaskExecutionsService } from '@services/task-executions/task-executions';
 import { take } from 'rxjs';
 import { EditorStateHolder } from '@stores/flow-editor';
 
 @Component({
   selector: 'app-title-toolbar',
-  imports: [CommonModule, FormsModule, MatButtonModule, MatFormFieldModule, MatIconModule, MatInputModule, MatTooltipModule],
+  imports: [CommonModule, FormsModule, MatButtonModule, MatFormFieldModule, MatIconModule, MatInputModule, MatTooltipModule, MatSlideToggleModule],
   templateUrl: './title-toolbar.html',
   styleUrl: './title-toolbar.css',
 })
@@ -26,9 +29,16 @@ export class TitleToolbar {
   editorState: EditorStateHolder = inject(EditorStateHolder);
   private router = inject(Router);
   private blocksService = inject(BlocksService);
+  private flowsService = inject(FlowsService);
+  private authorization = inject(Authorization);
   private taskExecutionsService = inject(TaskExecutionsService);
   flow = computed(() => this.editorState.currentFlow());
   readOnly = this.editorState.isCurrentFlowReadOnly;
+  isOwner = computed(() => {
+    const flow = this.flow();
+    const username = this.authorization.loggedInUser()?.username ?? null;
+    return !!flow && !!username && flow.author === username;
+  });
   title = computed(() => {
     const flow = this.flow();
     return flow ? flow.name : 'No Flow Opened';
@@ -37,11 +47,15 @@ export class TitleToolbar {
   notSaved = computed(() => this.editorState.isDirty());
   blockSyncInProgress = this.blocksService.hasPendingServerSync;
   canSave = computed(() => !this.readOnly() && this.notSaved() && !this.blockSyncInProgress());
+  canTogglePublished = computed(() => !!this.flow() && this.isOwner());
+  canFinalize = computed(() => !!this.flow() && this.isOwner() && !this.flow()!.finalized);
   canExecute = computed(() => {
     const flow = this.flow();
     return !!flow && !this.notSaved() && !this.blockSyncInProgress() && flow.status === 'EXECUTABLE';
   });
   executeLoading = signal(false);
+  publishSaving = signal(false);
+  finalizeSaving = signal(false);
   snackbarMessage = signal<string | null>(null);
   snackbarType = signal<'success' | 'error'>('success');
   editingTitle = signal(false);
@@ -118,6 +132,49 @@ export class TitleToolbar {
         this.showSnackbar('Errore durante la creazione dell\'esecuzione', 'error');
       }
     });
+  }
+
+  togglePublished(nextValue: boolean) {
+    const flow = this.flow();
+    if (!flow || !this.canTogglePublished() || this.publishSaving()) return;
+
+    this.publishSaving.set(true);
+    this.flowsService.updatePublished(flow.id, nextValue).pipe(take(1)).subscribe({
+      next: (updatedFlow) => {
+        this.editorState.openDocument(updatedFlow, { skipDirtyCheck: true });
+        this.publishSaving.set(false);
+        this.showSnackbar(nextValue ? 'Flow published' : 'Flow unpublished', 'success');
+      },
+      error: (err) => {
+        this.publishSaving.set(false);
+        console.error('Update published failed', err);
+        this.showSnackbar(err instanceof Error ? err.message : 'Unable to update published flag', 'error');
+      }
+    });
+  }
+
+  finalizeFlow() {
+    const flow = this.flow();
+    if (!flow || !this.canFinalize() || this.finalizeSaving()) return;
+
+    this.finalizeSaving.set(true);
+    this.flowsService.finalizeFlow(flow.id).pipe(take(1)).subscribe({
+      next: (updatedFlow) => {
+        this.editorState.openDocument(updatedFlow, { skipDirtyCheck: true });
+        this.finalizeSaving.set(false);
+        this.showSnackbar('Flow finalized', 'success');
+      },
+      error: (err) => {
+        this.finalizeSaving.set(false);
+        console.error('Finalize flow failed', err);
+        this.showSnackbar(err instanceof Error ? err.message : 'Unable to finalize flow', 'error');
+      }
+    });
+  }
+
+  onFinalizedToggle(nextValue: boolean) {
+    if (!nextValue) return;
+    this.finalizeFlow();
   }
 
   private showSnackbar(message: string, type: 'success' | 'error') {

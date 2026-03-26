@@ -11,6 +11,7 @@ export type UserRegistration = {
     username: string;
     password: string;
     email: string;
+    captchaToken?: string;
 };
 
 export type ChangePasswordRequest = {
@@ -38,4 +39,32 @@ export type AdminResetPasswordRequest = {
 
 export type AdminChangeRoleRequest = {
     role: UserRole;
+};
+
+export type UserStatistics = {
+    username: string;
+    flowsCreated: number;
+    flowsPublished: number;
+    flowsFinalized: number;
+    executionsCreated: number;
+    executionsRunning: number;
+    executionsSucceeded: number;
+    executionsFailed: number;
+    simulationsStarted: number;
+    lastFlowUpdateAt: string | null;
+    lastExecutionAt: number | null;
+};
+
+export type OperationsStatistics = {
+    usersCount: number;
+    flowsCreated: number;
+    flowsPublished: number;
+    flowsFinalized: number;
+    executionsCreated: number;
+    executionsRunning: number;
+    executionsSucceeded: number;
+    executionsFailed: number;
+    simulationsStarted: number;
+    lastFlowUpdateAt: string | null;
+    lastExecutionAt: number | null;
 };

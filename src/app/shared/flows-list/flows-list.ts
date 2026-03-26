@@ -13,7 +13,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { OrderEvent, OrderField, Ordering } from "@shared/ordering/ordering";
 import { ListStateViewHolder, OrderViewState } from '@utilities/list-state-holder';
 
-type FlowFilter = FlowVisibility | 'all';
+type FlowFilter = FlowVisibility | 'FINALIZED' | 'all';
 
 @Component({
   selector: 'app-flows-list',
@@ -85,6 +85,7 @@ export class FlowsList extends ListStateViewHolder<Flow> {
     if (!flows) return [];
     const filteredFlows = flows.filter(f => f.name.toLowerCase().includes(this.searchTerm().toLowerCase()));
     if (this.filter() === 'all') return filteredFlows;
+    if (this.filter() === 'FINALIZED') return filteredFlows.filter(f => !!f.finalized);
     return filteredFlows.filter(f => f.visibility === this.filter());
   });
 

@@ -63,6 +63,18 @@
           </span>
         </div>
 
+        @if (captchaEnabled) {
+        <div class="signup-captcha">
+          @if (captchaLoading()) {
+          <div class="signup-captcha__state">Loading captcha...</div>
+          }
+          <div #captchaContainer class="signup-captcha__widget"></div>
+          @if (captchaError()) {
+          <div class="signup-captcha__error">{{ captchaError() }}</div>
+          }
+        </div>
+        }
+
         @if(error()) {
         <div class="signup-error" role="alert">
           <span class="font-bold">Error</span> {{error()}}

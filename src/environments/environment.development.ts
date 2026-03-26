@@ -11,6 +11,7 @@ export const environment = {
     apiUrl: 'http://localhost:8080',
     assistantEnabled: false,
     tourModeAlwaysOn: true,
+    turnstileSiteKey: '',
     authorizationCallService: AuthorizationCallFakeService, // Assign the appropriate service here
     assistantCallService: AssistantCallServiceFake,
     flowsCallService: FlowsCallServiceFake,

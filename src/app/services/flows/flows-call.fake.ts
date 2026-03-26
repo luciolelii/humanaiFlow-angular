@@ -6,12 +6,26 @@ import { inject } from "@angular/core";
 import { flowFromApi } from "./flow-mapper";
 
 export class FlowsCallServiceFake extends FlowsCallServiceBase {
-  override getFlowById(flowId: string): Observable<Flow> {
+  private ownerUsername(): string {
+    return this.authorizationService.loggedInUser()?.username ?? '';
+  }
+
+  private requireFlow(flowId: string): Flow {
     const flow = this.data[flowId];
     if (!flow) {
       throw new Error(`Flow with id ${flowId} not found`);
     }
-    return of(flow);
+    return flow;
+  }
+
+  private requireOwner(flow: Flow) {
+    if (flow.author !== this.ownerUsername()) {
+      throw new Error('Only the owner can change flow flags.');
+    }
+  }
+
+  override getFlowById(flowId: string): Observable<Flow> {
+    return of(this.requireFlow(flowId));
   }
 
   authorizationService = inject(Authorization);
@@ -27,6 +41,9 @@ export class FlowsCallServiceFake extends FlowsCallServiceBase {
   }
 
   override updateFlow(flow: Flow) {
+    if (flow.finalized) {
+      throw new Error('Flow is finalized');
+    }
     this.data[flow.id] = flow;
     return of(flow);
   }
@@ -58,8 +75,40 @@ export class FlowsCallServiceFake extends FlowsCallServiceBase {
   }
 
   override deleteFlow(flowId: string): Observable<void> {
+    const flow = this.requireFlow(flowId);
+    if (flow.finalized) {
+      throw new Error('Flow is finalized');
+    }
     delete this.data[flowId];
     return of(void 0);
+  }
+
+  override updatePublished(flowId: string, value: boolean): Observable<Flow> {
+    const flow = this.requireFlow(flowId);
+    this.requireOwner(flow);
+    const updated = {
+      ...flow,
+      published: value,
+      visibility: value ? 'PUBLIC' : 'PRIVATE',
+      updatedAt: new Date()
+    } satisfies Flow;
+    this.data[flowId] = updated;
+    return of(updated);
+  }
+
+  override finalizeFlow(flowId: string): Observable<Flow> {
+    const flow = this.requireFlow(flowId);
+    this.requireOwner(flow);
+    if (flow.finalized) {
+      return of(flow);
+    }
+    const updated = {
+      ...flow,
+      finalized: true,
+      updatedAt: new Date()
+    } satisfies Flow;
+    this.data[flowId] = updated;
+    return of(updated);
   }
 }
 const testDataFlow ={

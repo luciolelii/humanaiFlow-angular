@@ -9,25 +9,46 @@
 
   <div class="admin-shell__body">
     <aside class="admin-shell__sidebar">
-      <div class="admin-shell__sidebar-title">Auth</div>
-      <nav class="admin-shell__nav">
-        <a
-          routerLink="/admin/users"
-          routerLinkActive="admin-shell__nav-link--active"
-          [routerLinkActiveOptions]="{ exact: true }"
-          class="admin-shell__nav-link">
-          <mat-icon fontIcon="group"></mat-icon>
-          <span>Users</span>
-        </a>
-        <a
-          routerLink="/admin/create-user"
-          routerLinkActive="admin-shell__nav-link--active"
-          [routerLinkActiveOptions]="{ exact: true }"
-          class="admin-shell__nav-link">
-          <mat-icon fontIcon="person_add"></mat-icon>
-          <span>Create user</span>
-        </a>
-      </nav>
+      <a routerLink="/editor" class="admin-shell__back-link">
+        <mat-icon fontIcon="arrow_back"></mat-icon>
+        <span>Back to editor</span>
+      </a>
+
+      <div class="admin-shell__menu-group">
+        <div class="admin-shell__sidebar-title">Auth</div>
+        <nav class="admin-shell__nav">
+          <a
+            routerLink="/admin/users"
+            routerLinkActive="admin-shell__nav-link--active"
+            [routerLinkActiveOptions]="{ exact: true }"
+            class="admin-shell__nav-link">
+            <mat-icon fontIcon="group"></mat-icon>
+            <span>Users</span>
+          </a>
+          <a
+            routerLink="/admin/create-user"
+            routerLinkActive="admin-shell__nav-link--active"
+            [routerLinkActiveOptions]="{ exact: true }"
+            class="admin-shell__nav-link">
+            <mat-icon fontIcon="person_add"></mat-icon>
+            <span>Create user</span>
+          </a>
+        </nav>
+      </div>
+
+      <div class="admin-shell__menu-group">
+        <div class="admin-shell__sidebar-title">Stats</div>
+        <nav class="admin-shell__nav">
+          <a
+            routerLink="/admin/stats"
+            routerLinkActive="admin-shell__nav-link--active"
+            [routerLinkActiveOptions]="{ exact: true }"
+            class="admin-shell__nav-link">
+            <mat-icon fontIcon="query_stats"></mat-icon>
+            <span>Operations</span>
+          </a>
+        </nav>
+      </div>
     </aside>
 
     <section class="admin-shell__content">

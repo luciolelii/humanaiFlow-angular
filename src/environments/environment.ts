@@ -11,6 +11,7 @@ export const environment = {
         production: true,
         assistantEnabled: false,
         tourModeAlwaysOn: false,
+        turnstileSiteKey: '',
         authorizationCallService: AuthorizationCallService,
         assistantCallService: AssistantCallService,
         flowsCallService: FlowsCallService,

@@ -6,8 +6,10 @@ import {
   AdminResetPasswordRequest,
   AdminUser,
   ChangePasswordRequest,
+  OperationsStatistics,
   User,
   UserRegistration,
+  UserStatistics,
   UserRole
 } from "@models/user";
 
@@ -162,5 +164,60 @@ export class AuthorizationCallFakeService extends AuthorizationCallServiceBase {
             observer.next();
             observer.complete();
         });
+    }
+
+    getOperationsStatistics(): Observable<OperationsStatistics> {
+        return new Observable<OperationsStatistics>((observer) => {
+            observer.next({
+                usersCount: this.users.length,
+                flowsCreated: 7,
+                flowsPublished: 3,
+                flowsFinalized: 0,
+                executionsCreated: 0,
+                executionsRunning: 0,
+                executionsSucceeded: 0,
+                executionsFailed: 0,
+                simulationsStarted: 0,
+                lastFlowUpdateAt: '2026-03-26T12:18:06.100822',
+                lastExecutionAt: null
+            });
+            observer.complete();
+        });
+    }
+
+    listStatisticsUsers(): Observable<string[]> {
+        return new Observable<string[]>((observer) => {
+            observer.next(this.users.map((user) => user.username));
+            observer.complete();
+        });
+    }
+
+    getUserStatistics(username: string): Observable<UserStatistics> {
+        return new Observable<UserStatistics>((observer) => {
+            const user = this.users.find((candidate) => candidate.username === username);
+            if (!user) {
+                observer.error(new Error('User not found'));
+                return;
+            }
+            observer.next(this.buildStatistics(username));
+            observer.complete();
+        });
+    }
+
+    private buildStatistics(username: string): UserStatistics {
+        const base = username.length;
+        return {
+            username,
+            flowsCreated: base + 2,
+            flowsPublished: Math.max(0, base - 2),
+            flowsFinalized: Math.max(0, base - 4),
+            executionsCreated: base * 3,
+            executionsRunning: base % 3,
+            executionsSucceeded: base * 2,
+            executionsFailed: base % 5,
+            simulationsStarted: Math.max(0, base - 5),
+            lastFlowUpdateAt: '2026-03-26T10:15:30',
+            lastExecutionAt: 1774520966139
+        };
     }
 }

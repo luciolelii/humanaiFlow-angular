@@ -15,4 +15,8 @@ export abstract class FlowsCallServiceBase {
 
     abstract deleteFlow(flowId: string) : Observable<void>;
 
+    abstract updatePublished(flowId: string, value: boolean) : Observable<Flow>;
+
+    abstract finalizeFlow(flowId: string) : Observable<Flow>;
+
 }

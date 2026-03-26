@@ -1,0 +1,91 @@
+<div class="admin-stats-page">
+  <div class="admin-stats-page__header">
+    <div>
+      <div class="admin-stats-page__eyebrow">Admin</div>
+      <h2 class="admin-stats-page__title">User Statistics</h2>
+      <p class="admin-stats-page__subtitle">Inspect aggregated usage metrics for any user account.</p>
+    </div>
+  </div>
+
+  <mat-card class="admin-stats-card">
+    <div class="admin-stats-card__title">Users</div>
+
+    @if (pageError()) {
+    <div class="admin-stats-card__error">{{ pageError() }}</div>
+    } @else {
+    <div class="admin-stats-lookup">
+      <mat-form-field appearance="outline" class="admin-stats-lookup__field">
+        <mat-label>Search user</mat-label>
+        <input matInput [ngModel]="userSearch()" (ngModelChange)="userSearch.set($event)" [disabled]="loadingUsers()" placeholder="Filter by username or email" />
+      </mat-form-field>
+
+      @if (selectedUsername()) {
+      <button type="button" mat-stroked-button (click)="clearSelectedUser()">Show all</button>
+      }
+
+      <button type="button" mat-flat-button [disabled]="loadingOverview()" (click)="loadOperationsStats()">
+        @if (loadingOverview()) {
+        Loading...
+        } @else {
+        Refresh overview
+        }
+      </button>
+    </div>
+
+    <div class="admin-stats-users">
+      @for (user of filteredUsers(); track user) {
+      <button
+        type="button"
+        class="admin-stats-user-chip"
+        [class.admin-stats-user-chip--active]="selectedUsername() === user"
+        (click)="selectUser(user)">
+        <span class="admin-stats-user-chip__username">{{ user }}</span>
+      </button>
+      }
+    </div>
+    }
+  </mat-card>
+
+  @if (statsError()) {
+  <div class="admin-stats-card__error">{{ statsError() }}</div>
+  }
+
+  @if (currentStats(); as currentStats) {
+  <div class="admin-stats-grid">
+    <mat-card class="admin-stats-metric">
+      <div class="admin-stats-metric__label">{{ selectedUsername() ? 'User flows' : 'Flows' }}</div>
+      <div class="admin-stats-metric__value">{{ currentStats.flowsCreated }}</div>
+      <div class="admin-stats-metric__meta">Published {{ currentStats.flowsPublished }} · Finalized {{ currentStats.flowsFinalized }}</div>
+    </mat-card>
+
+    <mat-card class="admin-stats-metric">
+      <div class="admin-stats-metric__label">{{ selectedUsername() ? 'User executions' : 'Executions' }}</div>
+      <div class="admin-stats-metric__value">{{ currentStats.executionsCreated }}</div>
+      <div class="admin-stats-metric__meta">Running {{ currentStats.executionsRunning }} · Succeeded {{ currentStats.executionsSucceeded }} · Failed {{ currentStats.executionsFailed }}</div>
+    </mat-card>
+
+    <mat-card class="admin-stats-metric">
+      <div class="admin-stats-metric__label">Simulations</div>
+      <div class="admin-stats-metric__value">{{ currentStats.simulationsStarted }}</div>
+      <div class="admin-stats-metric__meta">Started in simulation mode</div>
+    </mat-card>
+  </div>
+
+  <mat-card class="admin-stats-card">
+    <div class="admin-stats-card__title">
+      @if (selectedUsername()) {
+      Details for {{ selectedUsername() }}
+      } @else {
+      Operations overview
+      }
+    </div>
+    <div class="admin-stats-details">
+      @if (!selectedUsername() && operationsStats(); as overviewStats) {
+      <div><span class="admin-stats-details__label">Users count:</span> {{ overviewStats.usersCount }}</div>
+      }
+      <div><span class="admin-stats-details__label">Last flow update:</span> {{ currentStats.lastFlowUpdateAt ? (currentStats.lastFlowUpdateAt | date:'dd/MM/yyyy HH:mm') : 'N/A' }}</div>
+      <div><span class="admin-stats-details__label">Last execution:</span> {{ currentStats.lastExecutionAt ? (currentStats.lastExecutionAt | date:'dd/MM/yyyy HH:mm') : 'N/A' }}</div>
+    </div>
+  </mat-card>
+  }
+</div>
