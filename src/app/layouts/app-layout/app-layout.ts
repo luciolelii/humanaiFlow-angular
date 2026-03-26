@@ -42,6 +42,14 @@ export class AppLayout {
     });
   }
   
+  isAdmin() {
+    return this.loggedUser()?.role === 'ADMIN';
+  }
+
+  isAdminRoute() {
+    return this.router.url.startsWith('/admin');
+  }
+
 logout() {
     this.authService.logout();
     this.router.navigate(['/login']);

@@ -6,19 +6,13 @@
 
     <div class="signup-card-body">
       <form (ngSubmit)="onSubmit()" class="signup-form">
-        <mat-form-field appearance="outline" class="signup-field">
-          <mat-label>Full Name</mat-label>
-          <input matInput id="fullname" type="text" [field]="signupForm.fullname" placeholder="Paolo Rossi" />
-          @if (isInvalid(signupForm.fullname())) {
-          <mat-error>{{ signupForm.fullname().errors()[0].message }}</mat-error>
-          }
-        </mat-form-field>
-
         <div class="signup-row">
           <mat-form-field appearance="outline" class="signup-field">
             <mat-label>Email</mat-label>
             <input matInput id="email" type="email" [field]="signupForm.email" placeholder="email@example.com" />
-            @if (isInvalid(signupForm.email())) {
+            @if (emailError()) {
+            <mat-error>{{ emailError() }}</mat-error>
+            } @else if (isInvalid(signupForm.email())) {
             <mat-error>{{ signupForm.email().errors()[0].message }}</mat-error>
             }
           </mat-form-field>
@@ -41,7 +35,9 @@
               [disabled]="signupModel().password.length === 0">
               {{ password.type === 'password' ? 'Show' : 'Hide' }}
             </button>
-            @if (isInvalid(signupForm.password())) {
+            @if (passwordError()) {
+            <mat-error>{{ passwordError() }}</mat-error>
+            } @else if (isInvalid(signupForm.password())) {
             <mat-error>{{ signupForm.password().errors()[0].message }}</mat-error>
             }
           </mat-form-field>
@@ -63,7 +59,7 @@
         <div class="signup-links">
           <span>
             Already have an account?
-            <a routerLink="/sign-in" class="signup-link">Sign In</a>
+            <a routerLink="/login" class="signup-link">Sign In</a>
           </span>
         </div>
 

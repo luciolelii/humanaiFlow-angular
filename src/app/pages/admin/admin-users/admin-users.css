@@ -1,0 +1,187 @@
+.admin-users-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  height: 100%;
+  padding: 8px 4px 16px;
+  overflow: auto;
+  background: linear-gradient(180deg, #f8fafc 0%, #eef6ff 100%);
+}
+
+.admin-users-page__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.admin-users-page__eyebrow {
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-users-page__title {
+  margin: 4px 0 0;
+  color: #0f172a;
+  font-size: 28px;
+  font-weight: 800;
+}
+
+.admin-users-page__subtitle {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.admin-users-page__success,
+.admin-users-card__error,
+.admin-users-row__error {
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.admin-users-page__success {
+  border: 1px solid #86efac;
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.admin-users-card {
+  border-radius: 22px;
+  padding: 20px;
+}
+
+.admin-users-card__title {
+  margin-bottom: 14px;
+  color: #0f172a;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.admin-users-card__error,
+.admin-users-row__error {
+  border: 1px solid #fecaca;
+  background: #fff1f2;
+  color: #b91c1c;
+}
+
+.admin-users-create {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.admin-users-create__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.admin-users-create__password {
+  width: 100%;
+}
+
+.admin-users-checklist {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+}
+
+.admin-users-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #b91c1c;
+  font-size: 12px;
+}
+
+.admin-users-check--ok {
+  color: #15803d;
+}
+
+.admin-users-create__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.admin-users-state {
+  color: #64748b;
+  font-size: 14px;
+  padding: 12px 4px;
+}
+
+.admin-users-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.admin-users-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.2fr) minmax(220px, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  background: #f8fbff;
+  padding: 16px;
+}
+
+.admin-users-row__identity {
+  min-width: 0;
+}
+
+.admin-users-row__username {
+  color: #0f172a;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.admin-users-row__email {
+  color: #64748b;
+  font-size: 13px;
+  margin-top: 4px;
+  word-break: break-word;
+}
+
+.admin-users-row__role {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-users-row__role-field {
+  min-width: 150px;
+}
+
+.admin-users-row__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.admin-users-row__error {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 1100px) {
+  .admin-users-create__grid,
+  .admin-users-row {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-users-checklist {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-users-row__actions {
+    justify-content: flex-start;
+  }
+}

@@ -1,0 +1,80 @@
+<div class="admin-create-user-page">
+  <div class="admin-create-user-page__header">
+    <div>
+      <div class="admin-create-user-page__eyebrow">Admin</div>
+      <h2 class="admin-create-user-page__title">Create User</h2>
+      <p class="admin-create-user-page__subtitle">Provision a new account with email, role and password policy enforcement.</p>
+    </div>
+  </div>
+
+  @if (successMessage()) {
+  <div class="admin-create-user-page__success">{{ successMessage() }}</div>
+  }
+
+  <mat-card class="admin-create-user-card">
+    <div class="admin-create-user-card__title">New user</div>
+
+    <form class="admin-create-user-form" (ngSubmit)="onCreateUser()">
+      <div class="admin-create-user-form__grid">
+        <mat-form-field appearance="outline">
+          <mat-label>Username</mat-label>
+          <input matInput [field]="createForm.username" placeholder="manageduser" />
+          @if (isInvalid(createForm.username())) {
+          <mat-error>{{ createForm.username().errors()[0].message }}</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Email</mat-label>
+          <input matInput [field]="createForm.email" placeholder="manageduser@example.com" />
+          @if (createEmailError()) {
+          <mat-error>{{ createEmailError() }}</mat-error>
+          } @else if (isInvalid(createForm.email())) {
+          <mat-error>{{ createForm.email().errors()[0].message }}</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Role</mat-label>
+          <mat-select [ngModel]="createModel().role" (ngModelChange)="setCreateRole($event)" [ngModelOptions]="{ standalone: true }">
+            <mat-option value="USER">USER</mat-option>
+            <mat-option value="ADMIN">ADMIN</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+
+      <mat-form-field appearance="outline" class="admin-create-user-form__password">
+        <mat-label>Password</mat-label>
+        <input matInput type="password" [field]="createForm.password" placeholder="Managedpass1!" />
+        @if (createPasswordError()) {
+        <mat-error>{{ createPasswordError() }}</mat-error>
+        } @else if (isInvalid(createForm.password())) {
+        <mat-error>{{ createForm.password().errors()[0].message }}</mat-error>
+        }
+      </mat-form-field>
+
+      <div class="admin-create-user-checklist">
+        @for (check of createPasswordChecks(); track check.label) {
+        <div class="admin-create-user-check" [class.admin-create-user-check--ok]="check.satisfied">
+          <mat-icon [fontIcon]="check.satisfied ? 'check_circle' : 'radio_button_unchecked'"></mat-icon>
+          <span>{{ check.label }}</span>
+        </div>
+        }
+      </div>
+
+      @if (createError()) {
+      <div class="admin-create-user-card__error">{{ createError() }}</div>
+      }
+
+      <div class="admin-create-user-form__actions">
+        <button type="submit" mat-flat-button [disabled]="createForm().invalid() || createSaving()">
+          @if (createSaving()) {
+          Creating...
+          } @else {
+          Create user
+          }
+        </button>
+      </div>
+    </form>
+  </mat-card>
+</div>

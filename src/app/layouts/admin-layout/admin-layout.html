@@ -1,0 +1,37 @@
+<div class="admin-shell">
+  <div class="admin-shell__header">
+    <div>
+      <div class="admin-shell__eyebrow">Administration</div>
+      <h1 class="admin-shell__title">Admin Console</h1>
+      <p class="admin-shell__subtitle">Manage users and admin-only operations from a dedicated workspace.</p>
+    </div>
+  </div>
+
+  <div class="admin-shell__body">
+    <aside class="admin-shell__sidebar">
+      <div class="admin-shell__sidebar-title">Auth</div>
+      <nav class="admin-shell__nav">
+        <a
+          routerLink="/admin/users"
+          routerLinkActive="admin-shell__nav-link--active"
+          [routerLinkActiveOptions]="{ exact: true }"
+          class="admin-shell__nav-link">
+          <mat-icon fontIcon="group"></mat-icon>
+          <span>Users</span>
+        </a>
+        <a
+          routerLink="/admin/create-user"
+          routerLinkActive="admin-shell__nav-link--active"
+          [routerLinkActiveOptions]="{ exact: true }"
+          class="admin-shell__nav-link">
+          <mat-icon fontIcon="person_add"></mat-icon>
+          <span>Create user</span>
+        </a>
+      </nav>
+    </aside>
+
+    <section class="admin-shell__content">
+      <router-outlet></router-outlet>
+    </section>
+  </div>
+</div>

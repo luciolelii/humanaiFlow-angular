@@ -1,0 +1,74 @@
+<div class="admin-users-list-page">
+  <div class="admin-users-list-page__header">
+    <div>
+      <div class="admin-users-list-page__eyebrow">Admin</div>
+      <h2 class="admin-users-list-page__title">Users</h2>
+      <p class="admin-users-list-page__subtitle">Review existing users, change roles, reset passwords and remove accounts.</p>
+    </div>
+    <button type="button" mat-stroked-button (click)="loadUsers()">
+      <mat-icon fontIcon="refresh"></mat-icon>
+      Refresh
+    </button>
+  </div>
+
+  @if (successMessage()) {
+  <div class="admin-users-list-page__success">{{ successMessage() }}</div>
+  }
+
+  <mat-card class="admin-users-list-card">
+    <div class="admin-users-list-card__title">Users</div>
+
+    @if (loading()) {
+    <div class="admin-users-list-state">Loading users...</div>
+    } @else if (pageError()) {
+    <div class="admin-users-list-card__error">{{ pageError() }}</div>
+    } @else if (!users().length) {
+    <div class="admin-users-list-state">No users found.</div>
+    } @else {
+    <div class="admin-users-list">
+      @for (user of users(); track user.username) {
+      <div class="admin-users-list-row">
+        <div class="admin-users-list-row__identity">
+          <div class="admin-users-list-row__username">{{ user.username }}</div>
+          <div class="admin-users-list-row__email">{{ user.email || 'No email' }}</div>
+        </div>
+
+        <div class="admin-users-list-row__role">
+          <mat-form-field appearance="outline" class="admin-users-list-row__role-field">
+            <mat-label>Role</mat-label>
+            <mat-select [ngModel]="roleDraft(user.username)" (ngModelChange)="setRoleDraft(user.username, $event)" [ngModelOptions]="{ standalone: true }">
+              <mat-option value="USER">USER</mat-option>
+              <mat-option value="ADMIN">ADMIN</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <button type="button" mat-stroked-button [disabled]="roleSavingByUser()[user.username] || roleDraft(user.username) === user.role" (click)="saveRole(user)">
+            Save role
+          </button>
+        </div>
+
+        <div class="admin-users-list-row__actions">
+          <button type="button" mat-stroked-button (click)="openResetPasswordDialog(user)">Reset password</button>
+          <button type="button" mat-stroked-button color="warn" [disabled]="deleteBusyByUser()[user.username]" (click)="deleteUser(user)">
+            Delete
+          </button>
+        </div>
+
+        @if (roleErrorByUser()[user.username]) {
+        <div class="admin-users-list-row__error">{{ roleErrorByUser()[user.username] }}</div>
+        }
+      </div>
+      }
+    </div>
+    }
+  </mat-card>
+
+  @if (resetPasswordDialogUser(); as user) {
+  <app-admin-reset-password-dialog
+    [username]="user.username"
+    [saving]="resetPasswordSaving()"
+    [submitError]="resetPasswordError()"
+    (closed)="closeResetPasswordDialog()"
+    (submitted)="submitResetPassword($event)">
+  </app-admin-reset-password-dialog>
+  }
+</div>

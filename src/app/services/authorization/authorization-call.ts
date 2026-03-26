@@ -1,5 +1,14 @@
 import { AuthorizationCallServiceBase } from "./authorization-call.base";
-import { ChangePasswordRequest, User, UserRegistration } from "@models/user";
+import {
+  AdminChangeRoleRequest,
+  AdminCreateUserRequest,
+  AdminResetPasswordRequest,
+  AdminUser,
+  ChangePasswordRequest,
+  User,
+  UserRegistration,
+  UserRole
+} from "@models/user";
 import { catchError, map, Observable, throwError } from "rxjs";
 import { HttpClient, HttpErrorResponse } from "@angular/common/http";
 import { inject } from "@angular/core";
@@ -22,7 +31,8 @@ export class AuthorizationCallService extends AuthorizationCallServiceBase {
 
                     return {
                         username: String(userSource["username"] ?? username),
-                        email: String(userSource["email"] ?? ''),
+                        email: typeof userSource["email"] === "string" ? String(userSource["email"]) : null,
+                        role: this.normalizeRole(userSource["role"]),
                         token: typeof token === "string" && token.length > 0 ? token : undefined
                     } satisfies User;
                 }),
@@ -38,7 +48,12 @@ export class AuthorizationCallService extends AuthorizationCallServiceBase {
             );
     }
     override register(userRegistration: UserRegistration): Observable<void> {
-         return this.http.post<void>(`${environment.apiUrl}/auth/register`, userRegistration);
+         return this.http.post<void>(`${environment.apiUrl}/auth/register`, userRegistration)
+           .pipe(
+             catchError((error: unknown) => this.toHttpError(error, {
+               400: 'Unable to register user.'
+             }))
+           );
     }
 
     override changePassword(request: ChangePasswordRequest): Observable<void> {
@@ -58,6 +73,65 @@ export class AuthorizationCallService extends AuthorizationCallServiceBase {
                   return throwError(() => error);
                 })
             );
+    }
+
+    override listAdminUsers(): Observable<AdminUser[]> {
+      return this.http
+        .get<unknown[]>(`${environment.apiUrl}/auth/admin/users`)
+        .pipe(
+          map((raw) => Array.isArray(raw) ? raw.map((item) => this.adminUserFromApi(item)) : []),
+          catchError((error: unknown) => this.toHttpError(error, {
+            403: 'Admin access required.'
+          }))
+        );
+    }
+
+    override createAdminUser(request: AdminCreateUserRequest): Observable<void> {
+      return this.http
+        .post<void>(`${environment.apiUrl}/auth/admin/users`, request)
+        .pipe(
+          catchError((error: unknown) => this.toHttpError(error, {
+            400: 'Unable to create user.',
+            403: 'Admin access required.'
+          }))
+        );
+    }
+
+    override changeAdminUserPassword(username: string, request: AdminResetPasswordRequest): Observable<void> {
+      return this.http
+        .put<void>(`${environment.apiUrl}/auth/admin/users/${encodeURIComponent(username)}/password`, request)
+        .pipe(
+          catchError((error: unknown) => this.toHttpError(error, {
+            400: 'Unable to update password.',
+            403: 'Admin access required.',
+            404: `User ${username} not found`
+          }))
+        );
+    }
+
+    override changeAdminUserRole(username: string, request: AdminChangeRoleRequest): Observable<void> {
+      return this.http
+        .put<void>(`${environment.apiUrl}/auth/admin/users/${encodeURIComponent(username)}/role`, request)
+        .pipe(
+          catchError((error: unknown) => this.toHttpError(error, {
+            400: 'Unable to update role.',
+            403: 'Admin access required.',
+            404: `User ${username} not found`,
+            409: 'LAST_ADMIN'
+          }))
+        );
+    }
+
+    override deleteAdminUser(username: string): Observable<void> {
+      return this.http
+        .delete<void>(`${environment.apiUrl}/auth/admin/users/${encodeURIComponent(username)}`)
+        .pipe(
+          catchError((error: unknown) => this.toHttpError(error, {
+            403: 'Admin access required.',
+            404: `User ${username} not found`,
+            409: 'LAST_ADMIN'
+          }))
+        );
     }
 
     private extractHttpErrorMessage(error: HttpErrorResponse): string | null {
@@ -95,5 +169,28 @@ export class AuthorizationCallService extends AuthorizationCallServiceBase {
         }
       }
       return undefined;
+    }
+
+    private normalizeRole(value: unknown): UserRole {
+      return String(value ?? '').toUpperCase() === 'ADMIN' ? 'ADMIN' : 'USER';
+    }
+
+    private adminUserFromApi(raw: unknown): AdminUser {
+      const value = (raw ?? {}) as Record<string, unknown>;
+      return {
+        username: String(value['username'] ?? ''),
+        email: typeof value['email'] === 'string' ? value['email'] : null,
+        role: this.normalizeRole(value['role'])
+      };
+    }
+
+    private toHttpError(error: unknown, fallbackByStatus: Record<number, string>): Observable<never> {
+      if (error instanceof HttpErrorResponse) {
+        const message = this.extractHttpErrorMessage(error)
+          ?? fallbackByStatus[error.status]
+          ?? 'Request failed.';
+        return throwError(() => new Error(message));
+      }
+      return throwError(() => error);
     }
 }

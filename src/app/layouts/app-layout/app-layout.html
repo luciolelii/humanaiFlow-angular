@@ -25,6 +25,12 @@
       <mat-icon fontIcon="password"></mat-icon>
       <span>Change password</span>
     </button>
+    @if (isAdmin()) {
+    <button mat-menu-item type="button" routerLink="/admin/users">
+      <mat-icon fontIcon="admin_panel_settings"></mat-icon>
+      <span>Admin users</span>
+    </button>
+    }
   </mat-menu>
 
   @if (changePasswordSuccess()) {
@@ -44,7 +50,8 @@
   </app-change-password-dialog>
   }
 
-  <div class="app-shell">
+  <div class="app-shell" [class.app-shell--admin]="isAdminRoute()">
+    @if (!isAdminRoute()) {
     <div class="app-tabbar-wrap">
       <nav mat-tab-nav-bar [tabPanel]="tabPanel" class="app-tabbar">
         <a
@@ -72,6 +79,7 @@
       </nav>
       <mat-tab-nav-panel #tabPanel></mat-tab-nav-panel>
     </div>
+    }
 
     <main class="main-content app-main-content">
       <router-outlet></router-outlet>

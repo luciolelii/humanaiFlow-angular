@@ -30,6 +30,8 @@ export class Signup extends FormUtility {
   private router = inject(Router);
   
   error = signal<string | null>(null);
+  emailError = signal<string | null>(null);
+  passwordError = signal<string | null>(null);
   isRegistering = signal(false);
 
   constructor() {
@@ -48,8 +50,7 @@ export class Signup extends FormUtility {
     username: '',
     email: '',
     password: '',
-    confirmPassword: '',
-    fullname: ''
+    confirmPassword: ''
   });
 
   signupForm = form(this.signupModel, (model) => {
@@ -70,7 +71,7 @@ export class Signup extends FormUtility {
         message: 'Password must include uppercase, lowercase, number and special character, with no spaces.'
       };
     }),
-    required(model.fullname, { message: 'Full name is required'}),
+    required(model.password, { message: 'Password is required' }),
     validate(model.confirmPassword, ({value, valueOf}) => {
       const confirmPassword = value()
       const password = valueOf(model.password)
@@ -87,12 +88,25 @@ export class Signup extends FormUtility {
 
   onSubmit() {
     this.isRegistering.set(true)
-    console.log(this.signupModel());
+    this.error.set(null);
+    this.emailError.set(null);
+    this.passwordError.set(null);
     
-    this.authService.signup(this.signupModel()).subscribe({
+    const { username, email, password } = this.signupModel();
+
+    this.authService.signup({ username, email, password }).subscribe({
         error: (err) => {
           this.isRegistering.set(false);
-          this.error.set(err.message);
+          const message = err instanceof Error ? err.message : 'Unable to register user.';
+          if (message === 'INVALID_EMAIL') {
+            this.emailError.set('Invalid email address');
+            return;
+          }
+          if (message === 'INVALID_PASSWORD') {
+            this.passwordError.set('Password does not satisfy the required policy.');
+            return;
+          }
+          this.error.set(message);
         },
         complete: () => {
           this.isRegistering.set(false);

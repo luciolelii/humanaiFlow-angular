@@ -1,0 +1,112 @@
+.admin-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.admin-shell__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 6px 4px 10px;
+}
+
+.admin-shell__eyebrow {
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-shell__title {
+  margin: 4px 0 0;
+  color: #0f172a;
+  font-size: 26px;
+  font-weight: 800;
+}
+
+.admin-shell__subtitle {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.admin-shell__body {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 18px;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.admin-shell__sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 14px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 22px;
+  background: linear-gradient(180deg, #f8fbff 0%, #eef5ff 100%);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
+}
+
+.admin-shell__sidebar-title {
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-shell__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.admin-shell__nav-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  color: #334155;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background-color 120ms ease, color 120ms ease, transform 120ms ease;
+}
+
+.admin-shell__nav-link:hover {
+  background: rgba(37, 99, 235, 0.08);
+  color: #1d4ed8;
+}
+
+.admin-shell__nav-link--active {
+  background: #2563eb;
+  color: #fff;
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.2);
+}
+
+.admin-shell__content {
+  min-height: 0;
+  overflow: auto;
+}
+
+@media (max-width: 900px) {
+  .admin-shell__body {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-shell__sidebar {
+    padding: 14px;
+  }
+
+  .admin-shell__nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}

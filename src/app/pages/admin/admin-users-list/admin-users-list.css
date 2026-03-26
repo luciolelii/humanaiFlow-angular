@@ -1,0 +1,142 @@
+.admin-users-list-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 100%;
+  padding: 8px 4px 16px;
+  background: linear-gradient(180deg, #f8fafc 0%, #eef6ff 100%);
+}
+
+.admin-users-list-page__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.admin-users-list-page__eyebrow {
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-users-list-page__title {
+  margin: 4px 0 0;
+  color: #0f172a;
+  font-size: 28px;
+  font-weight: 800;
+}
+
+.admin-users-list-page__subtitle {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.admin-users-list-page__success,
+.admin-users-list-card__error,
+.admin-users-list-row__error {
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.admin-users-list-page__success {
+  border: 1px solid #86efac;
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.admin-users-list-card {
+  border-radius: 22px;
+  padding: 20px;
+}
+
+.admin-users-list-card__title {
+  margin-bottom: 14px;
+  color: #0f172a;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.admin-users-list-card__error,
+.admin-users-list-row__error {
+  border: 1px solid #fecaca;
+  background: #fff1f2;
+  color: #b91c1c;
+}
+
+.admin-users-list-state {
+  color: #64748b;
+  font-size: 14px;
+  padding: 12px 4px;
+}
+
+.admin-users-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.admin-users-list-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.2fr) minmax(220px, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  background: #f8fbff;
+  padding: 16px;
+}
+
+.admin-users-list-row__identity {
+  min-width: 0;
+}
+
+.admin-users-list-row__username {
+  color: #0f172a;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.admin-users-list-row__email {
+  color: #64748b;
+  font-size: 13px;
+  margin-top: 4px;
+  word-break: break-word;
+}
+
+.admin-users-list-row__role {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-users-list-row__role-field {
+  min-width: 150px;
+}
+
+.admin-users-list-row__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.admin-users-list-row__error {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 1100px) {
+  .admin-users-list-row {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-users-list-row__actions {
+    justify-content: flex-start;
+  }
+}

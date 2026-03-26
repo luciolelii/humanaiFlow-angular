@@ -1,5 +1,12 @@
 import { Injectable, signal } from '@angular/core';
-import { ChangePasswordRequest, User, UserRegistration } from '@models/user';
+import {
+  AdminChangeRoleRequest,
+  AdminCreateUserRequest,
+  AdminResetPasswordRequest,
+  ChangePasswordRequest,
+  User,
+  UserRegistration
+} from '@models/user';
 import { AuthorizationCallServiceBase } from './authorization-call.base';
 import { environment } from '@environment';
 import { take, tap } from 'rxjs';
@@ -21,8 +28,12 @@ export class Authorization {
     return this.authCall.login(username, password).pipe(
       take(1),
       tap(res => {
-        this.user.set(res);
-        localStorage.setItem(Authorization.USER_STORAGE_KEY, JSON.stringify(res));
+        const normalizedUser = this.normalizeUser(res);
+        if (normalizedUser) {
+          console.log('[auth] logged user role:', normalizedUser.role);
+        }
+        this.user.set(normalizedUser);
+        localStorage.setItem(Authorization.USER_STORAGE_KEY, JSON.stringify(normalizedUser));
         if (res.token) {
           localStorage.setItem(Authorization.TOKEN_STORAGE_KEY, res.token);
         } else {
@@ -44,6 +55,36 @@ export class Authorization {
     );
   }
 
+  listAdminUsers() {
+    return this.authCall.listAdminUsers().pipe(
+      take(1)
+    );
+  }
+
+  createAdminUser(request: AdminCreateUserRequest) {
+    return this.authCall.createAdminUser(request).pipe(
+      take(1)
+    );
+  }
+
+  changeAdminUserPassword(username: string, request: AdminResetPasswordRequest) {
+    return this.authCall.changeAdminUserPassword(username, request).pipe(
+      take(1)
+    );
+  }
+
+  changeAdminUserRole(username: string, request: AdminChangeRoleRequest) {
+    return this.authCall.changeAdminUserRole(username, request).pipe(
+      take(1)
+    );
+  }
+
+  deleteAdminUser(username: string) {
+    return this.authCall.deleteAdminUser(username).pipe(
+      take(1)
+    );
+  }
+
   logout() {
     localStorage.removeItem(Authorization.USER_STORAGE_KEY);
     localStorage.removeItem(Authorization.TOKEN_STORAGE_KEY);
@@ -56,8 +97,27 @@ export class Authorization {
 
   isLoggedIn(): boolean {
     const storedUser = localStorage.getItem(Authorization.USER_STORAGE_KEY);
-    this.user.set(storedUser != null ? JSON.parse(storedUser) : null);
+    const normalizedUser = storedUser != null ? this.normalizeUser(JSON.parse(storedUser) as User) : null;
+    if (normalizedUser) {
+      console.log('[auth] restored user role:', normalizedUser.role);
+    }
+    this.user.set(normalizedUser);
     return storedUser != null;
+  }
+
+  isAdmin(): boolean {
+    const currentUser = this.loggedInUser() ?? (this.isLoggedIn() ? this.loggedInUser() : null);
+    return currentUser?.role === 'ADMIN';
+  }
+
+  private normalizeUser(user: User | null): User | null {
+    if (!user) return null;
+    return {
+      username: String(user.username ?? ''),
+      email: typeof user.email === 'string' ? user.email : null,
+      role: user.role === 'ADMIN' ? 'ADMIN' : 'USER',
+      token: user.token
+    };
   }
 
 }
