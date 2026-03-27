@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, HostBinding, inject, Input } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { BlockType, currentFlowPortValueKind, flowValueKindLabel, FlowData, FlowPort, FlowValueKind, normalizeFlowPortValueKinds } from '@models/flow';
+import { BlockType, currentFlowPortValueKind, flowValueKindLabel, FlowData, FlowPort, FlowValueKind, FLOW_DEPENDANT_PORT_KEY, FLOW_DEPENDENCY_PORT_KEY, normalizeFlowPortValueKinds } from '@models/flow';
 import { ClassicPreset } from 'rete';
 import { ReteModule } from 'rete-angular-plugin/21';
 import {
@@ -131,6 +131,11 @@ type RichContentView = {
   parts: { text: string; isDynamicInput: boolean }[];
 };
 
+type RenderedSocketPort = {
+  key: string;
+  socket: ClassicPreset.Socket;
+};
+
 @Component({
   selector: 'app-generic-node',
   imports: [CommonModule, FormsModule, ReteModule, MatTooltipModule],
@@ -156,6 +161,10 @@ export class GenericNodeComponent {
     return this.data.selected || this.editorState.isBlockSelected(this.blockId);
   }
 
+  @HostBinding('class.validation-highlighted') get validationHighlighted() {
+    return this.editorState.isValidationNodeHighlighted(this.blockId);
+  }
+
   @HostBinding('attr.data-block-id') get hostBlockId() {
     return this.blockId;
   }
@@ -166,6 +175,8 @@ export class GenericNodeComponent {
 
   outputs: { key: string; socket: ClassicPreset.Socket }[] = [];
   inputs: { key: string; socket: ClassicPreset.Socket }[] = [];
+  dependantOutput: RenderedSocketPort | null = null;
+  dependencyInput: RenderedSocketPort | null = null;
   parameterFields: EditableFieldView[] = [];
   parameterFieldGroups: EditableFieldGroupView[] = [];
   richContentFields: RichContentView[] = [];
@@ -207,11 +218,21 @@ export class GenericNodeComponent {
     this.arrayFields = [];
 
     Object.entries(this.data.outputs).forEach(([key, output]) => {
-      this.outputs.push({ key, socket: (output as any).socket });
+      const entry = { key, socket: (output as any).socket };
+      if (key === FLOW_DEPENDANT_PORT_KEY) {
+        this.dependantOutput = entry;
+        return;
+      }
+      this.outputs.push(entry);
     });
 
     Object.entries(this.data.inputs).forEach(([key, input]) => {
-      this.inputs.push({ key, socket: (input as any).socket });
+      const entry = { key, socket: (input as any).socket };
+      if (key === FLOW_DEPENDENCY_PORT_KEY) {
+        this.dependencyInput = entry;
+        return;
+      }
+      this.inputs.push(entry);
     });
 
     const config = this.ensureBlockConfiguration();
@@ -431,6 +452,10 @@ export class GenericNodeComponent {
     if (normalized === 'true') return 'llm-pill-output-true';
     if (normalized === 'false') return 'llm-pill-output-false';
     return null;
+  }
+
+  hasExecutionDependencyPorts(): boolean {
+    return !!this.dependencyInput || !!this.dependantOutput;
   }
 
   inputDisplayLabel(inputKey: string): string {

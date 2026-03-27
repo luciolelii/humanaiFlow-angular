@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, HostBinding, Input, inject } from '@angular/core';
 import { ClassicPreset } from 'rete';
 import { ReteModule } from 'rete-angular-plugin/21';
-import { BlockInteractionContract, BlockType, FlowBlock, FlowContainer, FlowData, FlowPort } from '@models/flow';
+import { BlockInteractionContract, BlockType, FlowBlock, FlowContainer, FlowData, FlowPort, FLOW_DEPENDANT_PORT_KEY, FLOW_DEPENDENCY_PORT_KEY } from '@models/flow';
 import { BlocksService } from '@services/blocks/blocks';
 import { ContainersService } from '@services/containers/containers';
 import { NodeSettingsDialogService } from '@services/dialogs/node-settings-dialog';
@@ -113,6 +113,8 @@ export class TaskStepNodeComponent {
 
   outputs: { key: string; socket: ClassicPreset.Socket }[] = [];
   inputs: { key: string; socket: ClassicPreset.Socket }[] = [];
+  dependantOutput: { key: string; socket: ClassicPreset.Socket } | null = null;
+  dependencyInput: { key: string; socket: ClassicPreset.Socket } | null = null;
   parameterFields: DisplayField[] = [];
   parameterFieldGroups: DisplayFieldGroup[] = [];
   arrayFields: ArrayFieldView[] = [];
@@ -134,11 +136,21 @@ export class TaskStepNodeComponent {
     this.arrayFields = [];
 
     Object.entries(this.data.outputs).forEach(([key, output]) => {
-      this.outputs.push({ key, socket: (output as any).socket });
+      const entry = { key, socket: (output as any).socket };
+      if (key === FLOW_DEPENDANT_PORT_KEY) {
+        this.dependantOutput = entry;
+        return;
+      }
+      this.outputs.push(entry);
     });
 
     Object.entries(this.data.inputs).forEach(([key, input]) => {
-      this.inputs.push({ key, socket: (input as any).socket });
+      const entry = { key, socket: (input as any).socket };
+      if (key === FLOW_DEPENDENCY_PORT_KEY) {
+        this.dependencyInput = entry;
+        return;
+      }
+      this.inputs.push(entry);
     });
 
     this.rebuildDisplayState();
@@ -293,7 +305,24 @@ export class TaskStepNodeComponent {
 
   hasViewableSubflow(): boolean {
     const subFlow = this.subFlow();
-    return !!subFlow && ((subFlow.blocks?.length ?? 0) > 0 || (subFlow.containers?.length ?? 0) > 0 || (subFlow.connections?.length ?? 0) > 0);
+    return !!subFlow && (
+      (subFlow.blocks?.length ?? 0) > 0 ||
+      (subFlow.containers?.length ?? 0) > 0 ||
+      (subFlow.connections?.length ?? 0) > 0 ||
+      (subFlow.dependencies?.length ?? 0) > 0
+    );
+  }
+
+  hasExecutionDependencyPorts(): boolean {
+    return this.hasConnectedDependencyInput() || this.hasConnectedDependantOutput();
+  }
+
+  hasConnectedDependencyInput(): boolean {
+    return !!this.dependencyInput && this.blockConfiguration?.['__hasDependencyInputConnection'] === true;
+  }
+
+  hasConnectedDependantOutput(): boolean {
+    return !!this.dependantOutput && this.blockConfiguration?.['__hasDependantOutputConnection'] === true;
   }
 
   formatDynamicInputToken(token: string): string {
@@ -819,9 +848,12 @@ export class TaskStepNodeComponent {
     const connections = Array.isArray(candidate['connections'])
       ? candidate['connections'].filter((item): item is FlowData['connections'][number] => !!item && typeof item === 'object')
       : [];
+    const dependencies = Array.isArray(candidate['dependencies'])
+      ? candidate['dependencies'].filter((item): item is FlowData['dependencies'][number] => !!item && typeof item === 'object')
+      : [];
 
-    if (!blocks.length && !containers.length && !connections.length) return null;
-    return { blocks, containers, connections };
+    if (!blocks.length && !containers.length && !connections.length && !dependencies.length) return null;
+    return { blocks, containers, connections, dependencies };
   }
 
   private normalizeSubFlowBlocks(raw: unknown): FlowBlock[] {

@@ -22,13 +22,13 @@
     <div class="flows-list-ordering">
         <app-ordering [orderFields]="orderFields" [orderView]="orderView" (orderChanged)="onOrderChanged($event)" ></app-ordering>
     </div>
-    @if (filteredFlows().length === 0) {
+    @if (orderedFlows().length === 0) {
     <div class="flows-list-empty">
         No flows found
     </div>
     } @else {
     <mat-list class="flows-list-items">
-        @for (flow of filteredFlows(); track flow.id) {
+        @for (flow of orderedFlows(); track flow.id) {
         <mat-list-item class="flows-list-list-item">
           <app-flow-item [(detailOpenedId)]="detailOpenedId" [flow]="flow"></app-flow-item>
         </mat-list-item>

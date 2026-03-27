@@ -11,6 +11,9 @@ import {
   areFlowValueKindsCompatible,
   FlowBlock,
   FlowData,
+  FLOW_DEPENDANT_PORT_KEY,
+  FLOW_DEPENDENCY_PORT_KEY,
+  FLOW_DEPENDENCY_SOCKET_TYPE,
   FlowNode,
   normalizeFlowPortValueKinds
 } from "@models/flow";
@@ -21,6 +24,7 @@ import { ContainerNodeComponent } from "@shared/nodes/container-node/container-n
 import { GenericNodeComponent } from "@shared/nodes/generic-node/generic-node";
 import { TaskStepNodeComponent } from "@shared/nodes/task-step-node/task-step-node";
 import { CustomSocket } from "@shared/custom-socket/custom-socket";
+import { CustomConnectionComponent } from "@shared/custom-connection/custom-connection";
 import { firstValueFrom } from "rxjs";
 
 type AreaExtra = AngularArea2D<HFSchemes>;
@@ -32,6 +36,8 @@ export type ReteEditorInstance = {
   editor: NodeEditor<HFSchemes>;
   area: AreaPlugin<HFSchemes, AreaExtra>;
 };
+
+type GraphConnectionKind = "data" | "dependency";
 
 type ReteRuntimeContext = {
   blocksService: BlocksService;
@@ -71,6 +77,9 @@ export async function createEditor(
           const nodeFamily = context?.payload?.data?.nodeFamily;
           return nodeFamily === "container" ? ContainerNodeComponent : GenericNodeComponent;  
         },
+        connection() {
+          return CustomConnectionComponent;
+        },
         socket(context: any) {
           // rete-angular passes only `payload` to the socket component.
           // Build a per-render payload copy to avoid mutating shared socket objects.
@@ -87,6 +96,12 @@ export async function createEditor(
   );
   editor.addPipe((context) => {
     if (context.type !== "connectioncreate") return context;
+
+    const connectionKind = getGraphConnectionKind(context.data.sourceOutput, context.data.targetInput);
+    if (connectionKind === "dependency") {
+      if (context.data.source === context.data.target) return;
+      return context;
+    }
 
     const sourceNode = editor.getNode(context.data.source) as HFNode | undefined;
     const targetNode = editor.getNode(context.data.target) as HFNode | undefined;
@@ -150,18 +165,24 @@ export function exportGraph(editor: NodeEditor<HFSchemes>) {
     };
   });
 
-  const connections = editor.getConnections().map((c) => ({
+  const allConnections = editor.getConnections().map((c) => ({
     id: String(c.id),
     sourceId: nodeIdToBlockId.get(c.source) ?? c.source,
     sourceName: c.sourceOutput,
     targetId: nodeIdToBlockId.get(c.target) ?? c.target,
-    targetName: c.targetInput
+    targetName: c.targetInput,
+    kind: getGraphConnectionKind(c.sourceOutput, c.targetInput)
   }));
 
   return {
     blocks: nodes.filter((node): node is FlowBlock => node.nodeFamily === 'block'),
     containers: nodes.filter((node) => node.nodeFamily === 'container'),
-    connections
+    connections: allConnections
+      .filter((connection) => connection.kind === 'data')
+      .map(({ kind, ...connection }) => connection),
+    dependencies: allConnections
+      .filter((connection) => connection.kind === 'dependency')
+      .map(({ sourceId, targetId }) => ({ sourceId, targetId }))
   };
 }
 
@@ -255,8 +276,9 @@ export async function addBlockToEditor(
         }
       }
 
-      const nextConfiguration = {
-        ...cloneValue(currentLiveNode.data.specificConfiguration ?? {}),
+      const currentConfiguration = cloneValue(currentLiveNode.data.specificConfiguration ?? {}) as Record<string, unknown>;
+      const nextConfiguration: Record<string, unknown> = {
+        name: String(currentConfiguration['name'] ?? currentLiveNode.data['name'] ?? 'Container'),
         subFlow: candidateSubFlow
       };
       const nextPosition = cloneValue(currentLiveNode.data['position'] ?? null);
@@ -361,6 +383,11 @@ export async function addBlockToEditor(
       connections: cloneValue(
         currentFlow.connections.filter((connection) =>
           selectedIds.has(connection.sourceId) && selectedIds.has(connection.targetId)
+        )
+      ),
+      dependencies: cloneValue(
+        (currentFlow.dependencies ?? []).filter((dependency) =>
+          selectedIds.has(dependency.sourceId) && selectedIds.has(dependency.targetId)
         )
       )
     };
@@ -475,6 +502,9 @@ export async function addBlockToEditor(
     __containerAssigning: false
   };
 
+  node.addOutput(FLOW_DEPENDANT_PORT_KEY, new ClassicPreset.Output(getSocket(editor, FLOW_DEPENDENCY_SOCKET_TYPE)));
+  node.addInput(FLOW_DEPENDENCY_PORT_KEY, new ClassicPreset.Input(getSocket(editor, FLOW_DEPENDENCY_SOCKET_TYPE), undefined, true));
+
   for (const output of block.outputs ?? []) {
     node.addOutput(output.name, new ClassicPreset.Output(getSocket(editor, output.type ?? "ANY")));
   }
@@ -527,6 +557,17 @@ async function loadFlowData(
       new ClassicPreset.Connection(sourceNode, c.sourceName, targetNode, c.targetName)
     );
   }
+
+  for (const dependency of flowData.dependencies ?? []) {
+    if (!nodeMapping.has(dependency.sourceId) || !nodeMapping.has(dependency.targetId)) continue;
+
+    const sourceNode = editor.getNode(nodeMapping.get(dependency.sourceId)) as any;
+    const targetNode = editor.getNode(nodeMapping.get(dependency.targetId)) as any;
+
+    await editor.addConnection(
+      new ClassicPreset.Connection(sourceNode, FLOW_DEPENDANT_PORT_KEY, targetNode, FLOW_DEPENDENCY_PORT_KEY)
+    );
+  }
 }
 
 function getSocket(editor: NodeEditor<HFSchemes>, type: string) {
@@ -535,7 +576,9 @@ function getSocket(editor: NodeEditor<HFSchemes>, type: string) {
   }
   const map = editorSockets.get(editor)!;
   if (!map.has(type)) {
-    map.set(type, new ClassicPreset.Socket(type));
+    const socket = new ClassicPreset.Socket(type) as ClassicPreset.Socket & { __hfKind?: GraphConnectionKind };
+    socket.__hfKind = type === FLOW_DEPENDENCY_SOCKET_TYPE ? 'dependency' : 'data';
+    map.set(type, socket);
   }
   return map.get(type)!;
 }
@@ -569,4 +612,10 @@ function cloneValue<T>(value: T): T {
     }
   }
   return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function getGraphConnectionKind(sourceOutput: string, targetInput: string): GraphConnectionKind {
+  return sourceOutput === FLOW_DEPENDANT_PORT_KEY && targetInput === FLOW_DEPENDENCY_PORT_KEY
+    ? 'dependency'
+    : 'data';
 }

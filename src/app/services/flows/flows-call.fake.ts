@@ -1,4 +1,4 @@
-import { Flow } from "@models/flow";
+import { Flow, FlowValidationError } from "@models/flow";
 import { FlowsCallServiceBase } from "./flows-call.base";
 import { Observable, of } from "rxjs";
 import { Authorization } from "@services/authorization/authorization";
@@ -31,8 +31,8 @@ export class FlowsCallServiceFake extends FlowsCallServiceBase {
   authorizationService = inject(Authorization);
 
   private data: Record<string, Flow> = {
-    '1': { id: '1', name: 'A Flow', data: { blocks: [], containers: [], connections: [] }, visibility: 'PUBLIC', author: 'Alice', createdAt: new Date("December 17, 2023 03:24:00"), status: 'EXECUTABLE', updatedAt: new Date("January 7, 2026 12:24:00") },
-    '2': { id: '2', name: 'Test Flow', data: { blocks: [], containers: [], connections: [] }, visibility: 'PRIVATE', author: 'Bob', createdAt: new Date("April 25, 2025 12:24:00"), status: 'DRAFT', updatedAt: new Date("April 27, 2025 18:42:00") },
+    '1': { id: '1', name: 'A Flow', data: { blocks: [], containers: [], connections: [], dependencies: [] }, visibility: 'PUBLIC', author: 'Alice', createdAt: new Date("December 17, 2023 03:24:00"), status: 'EXECUTABLE', updatedAt: new Date("January 7, 2026 12:24:00") },
+    '2': { id: '2', name: 'Test Flow', data: { blocks: [], containers: [], connections: [], dependencies: [] }, visibility: 'PRIVATE', author: 'Bob', createdAt: new Date("April 25, 2025 12:24:00"), status: 'DRAFT', updatedAt: new Date("April 27, 2025 18:42:00") },
     'testFlow': flowFromApi(testDataFlow)
   }
 
@@ -69,7 +69,7 @@ export class FlowsCallServiceFake extends FlowsCallServiceBase {
     return this.createFlow({
       name: name || 'New Flow',
       description: undefined,
-      data: { blocks: [], containers: [], connections: [] },
+      data: { blocks: [], containers: [], connections: [], dependencies: [] },
       status: 'DRAFT'
     });
   }
@@ -109,6 +109,10 @@ export class FlowsCallServiceFake extends FlowsCallServiceBase {
     } satisfies Flow;
     this.data[flowId] = updated;
     return of(updated);
+  }
+
+  override getFlowValidation(flowId: string): Observable<FlowValidationError[]> {
+    return of(this.requireFlow(flowId).validationErrors ?? []);
   }
 }
 const testDataFlow ={

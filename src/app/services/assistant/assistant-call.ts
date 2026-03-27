@@ -161,7 +161,8 @@ function mapAssistantDraftPayload(raw: unknown): AssistantDraftPayload | null {
     flow: {
       blocks: Array.isArray(flow['blocks']) ? (flow['blocks'] as any[]) : [],
       containers: Array.isArray(flow['containers']) ? (flow['containers'] as any[]) : [],
-      connections: Array.isArray(flow['connections']) ? (flow['connections'] as any[]) : []
+      connections: Array.isArray(flow['connections']) ? (flow['connections'] as any[]) : [],
+      dependencies: Array.isArray(flow['dependencies']) ? (flow['dependencies'] as any[]) : []
     }
   };
 }

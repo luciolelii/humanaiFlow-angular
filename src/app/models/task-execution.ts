@@ -1,9 +1,9 @@
-import { FlowBlockConnection, FlowNode, FlowPort, LLMDescriptor } from './flow';
+import { FlowBlockConnection, FlowNode, FlowNodeDependency, FlowPort, LLMDescriptor } from './flow';
 
 export type TaskExecutionStatus = 'CREATED' | 'READY' | 'RUNNING' | 'WAITING' | 'SUSPENDED' | 'SUCCESS' | 'ERROR' | 'CANCELLED';
 export type TaskExecutionStatusGroup = 'INIT' | 'RUNNING' | 'PAUSED' | 'FINAL';
 
-export type StepStatus = 'WAITING_FOR_INPUT' | 'FAILED' | 'COMPLETED' | 'RUNNING' | string;
+export type StepStatus = 'WAITING_FOR_INPUT' | 'WAITING_FOR_DEPENDENCY' | 'FAILED' | 'COMPLETED' | 'RUNNING' | string;
 
 export type ExecutionEventLogEntry = {
   id: string;
@@ -26,6 +26,7 @@ export type TaskExecution = {
   simulationAvailable?: boolean;
   interactionSimulationDescriptor?: LLMDescriptor;
   stepConnections?: FlowBlockConnection[];
+  stepDependencies?: FlowNodeDependency[];
   requiredAuthorizations?: Record<string, TaskExecutionAuthorizationRequirement>;
   providedAuthorizations?: Record<string, unknown>;
   missingAuthorizationKeys?: string[];
@@ -101,7 +102,12 @@ export function normalizeExecutionStatus(status: string | null | undefined): Tas
   if (normalized === 'CREATED') return 'CREATED';
   if (normalized === 'READY') return 'READY';
   if (normalized === 'RUNNING') return 'RUNNING';
-  if (normalized === 'WAITING' || normalized === 'WAITING_FOR_INPUT' || normalized === 'WAITING_FOR_INTERACTION') {
+  if (
+    normalized === 'WAITING' ||
+    normalized === 'WAITING_FOR_INPUT' ||
+    normalized === 'WAITING_FOR_INTERACTION' ||
+    normalized === 'WAITING_FOR_DEPENDENCY'
+  ) {
     return 'WAITING';
   }
   if (normalized === 'SUSPENDED') return 'SUSPENDED';

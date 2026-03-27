@@ -122,18 +122,40 @@
             (click)="addTextItem(executionInput)">
             Add item
           </button>
+
+          <div class="flex justify-end">
+            <button
+              type="button"
+              mat-flat-button
+              [disabled]="!canSubmitTextInput(executionInput)"
+              (click)="submitTextInput(executionInput, $event)">
+              Save
+            </button>
+          </div>
         </div>
         } @else {
-        <mat-form-field appearance="outline" class="w-full">
-          <mat-label>{{ executionInput.subtitle }}</mat-label>
-          <textarea
-            matInput
-            rows="4"
-            [readonly]="readOnly()"
-            [ngModel]="executionInput.value"
-            (ngModelChange)="onTextInputChange(executionInput, $event)">
-          </textarea>
-        </mat-form-field>
+        <div class="space-y-3">
+          <mat-form-field appearance="outline" class="w-full">
+            <mat-label>{{ executionInput.subtitle }}</mat-label>
+            <textarea
+              matInput
+              rows="4"
+              [readonly]="readOnly()"
+              [ngModel]="executionInput.value"
+              (ngModelChange)="onTextInputChange(executionInput, $event)">
+            </textarea>
+          </mat-form-field>
+
+          <div class="flex justify-end">
+            <button
+              type="button"
+              mat-flat-button
+              [disabled]="!canSubmitTextInput(executionInput)"
+              (click)="submitTextInput(executionInput, $event)">
+              Save
+            </button>
+          </div>
+        </div>
         }
       }
 

@@ -1,0 +1,45 @@
+<aside class="validation-shell">
+  <div class="validation-scroll">
+    <header class="validation-header">
+      <div>
+        <p class="validation-eyebrow">Flow Validation</p>
+        <h2 class="validation-title">Errors</h2>
+      </div>
+    </header>
+
+    @if (validationRequiresSave()) {
+    <section class="validation-card validation-stale">
+      <mat-icon fontIcon="schedule" aria-hidden="true"></mat-icon>
+      <p>Validation will be recomputed after save.</p>
+    </section>
+    }
+
+    @if (hasErrors()) {
+    <section class="validation-card validation-actions">
+      <button type="button" mat-stroked-button (click)="highlightAll()">Highlight all</button>
+      <button type="button" mat-stroked-button (click)="clearHighlight()">Clear highlight</button>
+    </section>
+
+    <section class="validation-list">
+      @for (error of errors(); track trackByError($index, error)) {
+      <article class="validation-item">
+        <div class="validation-item-head">
+          <span class="validation-code">{{ error.code || 'VALIDATION_ERROR' }}</span>
+          @if ((error.relatedNodeIds?.length ?? 0) > 0) {
+          <button type="button" class="validation-focus" mat-stroked-button (click)="focusError(error)">
+            Highlight
+          </button>
+          }
+        </div>
+        <p class="validation-message">{{ error.message }}</p>
+      </article>
+      }
+    </section>
+    } @else {
+    <section class="validation-card validation-empty">
+      <mat-icon fontIcon="task_alt" aria-hidden="true"></mat-icon>
+      <p>No validation errors for the current flow.</p>
+    </section>
+    }
+  </div>
+</aside>

@@ -15,12 +15,14 @@ export type Flow = {
     updatedAt: Date;
     published?: boolean;
     finalized?: boolean;
+    validationErrors?: FlowValidationError[];
 };
 
 export type FlowData = {
   blocks: FlowBlock[];
   containers: FlowContainer[];
   connections: FlowBlockConnection[];
+  dependencies: FlowNodeDependency[];
 };
 
 export type FlowSubflowValidationError = {
@@ -106,6 +108,41 @@ export type FlowBlockConnection = {
   targetId: string;
   targetName: string;
 };
+
+export type FlowNodeDependency = {
+  sourceId: string;
+  targetId: string;
+};
+
+export type FlowValidationError = {
+  code?: string | null;
+  entity?: string | null;
+  id?: string | null;
+  field?: string | null;
+  message: string;
+  relatedNodeIds?: string[];
+};
+
+export const FLOW_DEPENDANT_PORT_KEY = '__dependant';
+export const FLOW_DEPENDENCY_PORT_KEY = '__dependency';
+export const FLOW_DEPENDENCY_SOCKET_TYPE = '__FLOW_DEPENDENCY__';
+
+export function normalizeFlowValidationErrors(raw: unknown): FlowValidationError[] {
+  if (!Array.isArray(raw)) return [];
+
+  return raw
+    .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object' && !Array.isArray(item))
+    .map((item) => ({
+      code: typeof item['code'] === 'string' ? item['code'] : null,
+      entity: typeof item['entity'] === 'string' ? item['entity'] : null,
+      id: typeof item['id'] === 'string' ? item['id'] : null,
+      field: typeof item['field'] === 'string' ? item['field'] : null,
+      message: String(item['message'] ?? item['error'] ?? 'Validation error'),
+      relatedNodeIds: Array.isArray(item['relatedNodeIds'])
+        ? item['relatedNodeIds'].map((value) => String(value)).filter((value) => value.length > 0)
+        : []
+    }));
+}
 
 export type FlowBlockConfiguration =
   | LLMBlockConfiguration

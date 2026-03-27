@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, HostBinding, Input, inject } from '@angular/core';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { currentFlowPortValueKind, flowValueKindLabel, FlowBlock, FlowContainer, FlowData } from '@models/flow';
+import { currentFlowPortValueKind, flowValueKindLabel, FlowBlock, FlowContainer, FlowData, FLOW_DEPENDANT_PORT_KEY, FLOW_DEPENDENCY_PORT_KEY } from '@models/flow';
 import { NodeSettingField, NodeSettingOption, NodeSettingsDialogService } from '@services/dialogs/node-settings-dialog';
 import { ContainersService } from '@services/containers/containers';
 import { FieldRetriever } from '@services/retriever/field-retriever';
@@ -95,6 +95,10 @@ export class ContainerNodeComponent {
     return this.data.selected || this.editorState.isBlockSelected(this.blockId);
   }
 
+  @HostBinding('class.validation-highlighted') get validationHighlighted() {
+    return this.editorState.isValidationNodeHighlighted(this.blockId);
+  }
+
   @HostBinding('attr.data-block-id') get hostBlockId() {
     return this.blockId;
   }
@@ -124,17 +128,39 @@ export class ContainerNodeComponent {
   }
 
   get inputs() {
-    return Object.entries(this.data?.inputs ?? {}).map(([key, input]) => ({
+    return Object.entries(this.data?.inputs ?? {})
+      .filter(([key]) => key !== FLOW_DEPENDENCY_PORT_KEY)
+      .map(([key, input]) => ({
       key,
       socket: (input as any).socket as ClassicPreset.Socket
-    }));
+      }));
   }
 
   get outputs() {
-    return Object.entries(this.data?.outputs ?? {}).map(([key, output]) => ({
+    return Object.entries(this.data?.outputs ?? {})
+      .filter(([key]) => key !== FLOW_DEPENDANT_PORT_KEY)
+      .map(([key, output]) => ({
       key,
       socket: (output as any).socket as ClassicPreset.Socket
-    }));
+      }));
+  }
+
+  get dependencyInput() {
+    const input = this.data?.inputs?.[FLOW_DEPENDENCY_PORT_KEY];
+    return input
+      ? { key: FLOW_DEPENDENCY_PORT_KEY, socket: (input as any).socket as ClassicPreset.Socket }
+      : null;
+  }
+
+  get dependantOutput() {
+    const output = this.data?.outputs?.[FLOW_DEPENDANT_PORT_KEY];
+    return output
+      ? { key: FLOW_DEPENDANT_PORT_KEY, socket: (output as any).socket as ClassicPreset.Socket }
+      : null;
+  }
+
+  get hasExecutionDependencyPorts() {
+    return !!this.dependencyInput || !!this.dependantOutput;
   }
 
   get selectedCount() {
@@ -150,15 +176,19 @@ export class ContainerNodeComponent {
     const connections = Array.isArray(candidate['connections'])
       ? candidate['connections'].filter((item): item is FlowData['connections'][number] => !!item && typeof item === 'object')
       : [];
+    const dependencies = Array.isArray(candidate['dependencies'])
+      ? candidate['dependencies'].filter((item): item is FlowData['dependencies'][number] => !!item && typeof item === 'object')
+      : [];
 
-    if (!blocks.length && !containers.length && !connections.length) {
+    if (!blocks.length && !containers.length && !connections.length && !dependencies.length) {
       return null;
     }
 
     return {
       blocks,
       containers,
-      connections
+      connections,
+      dependencies
     };
   }
 
@@ -916,7 +946,8 @@ export class ContainerNodeComponent {
           }
           : container
       ),
-      connections: flow.data.connections
+      connections: flow.data.connections,
+      dependencies: flow.data.dependencies ?? []
     };
 
     this.editorState.updateData(nextFlow);

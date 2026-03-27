@@ -1,10 +1,11 @@
-import { Component, ElementRef, Injector, input, OnChanges, OnDestroy, output, signal, SimpleChanges, ViewChild } from '@angular/core';
+import { Component, effect, ElementRef, HostListener, Injector, input, OnChanges, OnDestroy, output, signal, SimpleChanges, untracked, ViewChild } from '@angular/core';
 import { BlockType, FlowData, FlowNode } from '@models/flow';
 import { Drag } from 'rete-area-plugin';
 import { BlocksService } from '@services/blocks/blocks';
 import { ContainersService } from '@services/containers/containers';
 import { BLOCK_TYPE_DRAG_MIME } from '@shared/blocks-list/block-drag';
 import { CONTAINER_SUBFLOW_DRAG_MIME } from '@shared/nodes/container-node/container-node-drag';
+import { GraphSelectionService } from '@services/graph-selection/graph-selection';
 import { EditorStateHolder } from '@stores/flow-editor';
 import { addBlockToEditor, createEditor, exportGraph, ReteEditorInstance } from '@utilities/rete-editor';
 import { firstValueFrom } from 'rxjs';
@@ -25,8 +26,18 @@ export class ReteEditor implements OnChanges, OnDestroy {
     private injector: Injector,
     private flowState: EditorStateHolder,
     private blocksService: BlocksService,
-    private containersService: ContainersService
-  ) {}
+    private containersService: ContainersService,
+    private graphSelection: GraphSelectionService
+  ) {
+    effect(() => {
+      this.graphSelection.deleteConnectionRequestTick();
+      const connectionId = untracked(() => this.graphSelection.selectedConnectionId());
+      const rete = untracked(() => this.rete);
+      const isReadonly = untracked(() => this.readonly());
+      if (!connectionId || !rete || isReadonly) return;
+      void this.deleteSelectedConnection(connectionId);
+    });
+  }
 
   @ViewChild("editor") container!: ElementRef;
   @ViewChild("shell") shell!: ElementRef<HTMLElement>;
@@ -72,6 +83,7 @@ export class ReteEditor implements OnChanges, OnDestroy {
   ngOnDestroy(): void {
     this.rete?.area.destroy();
     this.rete = undefined;
+    this.graphSelection.clearConnectionSelection();
     this.flowState.stopDraggingSelectedBlocks();
   }
 
@@ -135,6 +147,7 @@ export class ReteEditor implements OnChanges, OnDestroy {
 
   onShellPointerDown(event: PointerEvent) {
     if (this.readonly()) return;
+    this.graphSelection.clearConnectionSelection();
     if (event.button !== 0) return;
     if (!this.canStartSelection(event.target)) return;
 
@@ -220,6 +233,46 @@ export class ReteEditor implements OnChanges, OnDestroy {
     this.flowState.stopDraggingSelectedBlocks();
   }
 
+  onShellClick(event: MouseEvent) {
+    const target = event.target as Element | null;
+    if (!target) {
+      this.graphSelection.clearConnectionSelection();
+      return;
+    }
+
+    if (
+      target.closest('[data-testid="connection"]') ||
+      target.closest('.connection-delete') ||
+      target.closest('[data-testid="node"]') ||
+      target.closest('.rete-editor-toolbar') ||
+      target.closest('.rete-editor-selection-badge')
+    ) {
+      return;
+    }
+
+    this.graphSelection.clearConnectionSelection();
+  }
+
+  @HostListener('window:pointerdown', ['$event'])
+  onWindowPointerDown(event: PointerEvent) {
+    const target = event.target as Element | null;
+    if (!target) return;
+    if (target.closest('[data-testid="connection"]') || target.closest('.connection-delete')) return;
+    this.graphSelection.clearConnectionSelection();
+  }
+
+  @HostListener('window:keydown', ['$event'])
+  onWindowKeydown(event: KeyboardEvent) {
+    if (this.readonly()) return;
+    if (event.key !== 'Delete' && event.key !== 'Backspace') return;
+
+    const connectionId = this.graphSelection.selectedConnectionId();
+    if (!connectionId || !this.rete) return;
+
+    event.preventDefault();
+    void this.deleteSelectedConnection(connectionId);
+  }
+
   private async reloadEditor() {
     const host = this.container?.nativeElement as HTMLElement | undefined;
     if (!host) return;
@@ -232,6 +285,7 @@ export class ReteEditor implements OnChanges, OnDestroy {
     this.selectionStart = null;
     this.selectionBox.set(null);
     this.flowState.clearBlockSelection();
+    this.graphSelection.clearConnectionSelection();
     this.suppressDirtyEvents = true;
     this.rete?.area.destroy();
     this.rete = undefined;
@@ -274,6 +328,22 @@ export class ReteEditor implements OnChanges, OnDestroy {
         this.suppressDirtyEvents = false;
       }
     });
+  }
+
+  private async deleteSelectedConnection(connectionId: string) {
+    if (!this.rete) return;
+
+    const currentConnection = this.rete.editor.getConnections().find((connection) => String(connection.id) === connectionId);
+    if (!currentConnection) {
+      this.graphSelection.clearConnectionSelection();
+      return;
+    }
+
+    await this.rete.editor.removeConnection(currentConnection.id);
+    const updatedData = exportGraph(this.rete.editor);
+    this.flowState.updateData(updatedData, { structural: true });
+    this.flowChanged.emit(updatedData);
+    this.graphSelection.clearConnectionSelection();
   }
 
   private async syncReadonlyFlowData() {
@@ -342,7 +412,17 @@ export class ReteEditor implements OnChanges, OnDestroy {
       .sort();
 
     if (currentConnections.length !== nextConnections.length) return false;
-    return currentConnections.every((connection, index) => connection === nextConnections[index]);
+    if (!currentConnections.every((connection, index) => connection === nextConnections[index])) return false;
+
+    const currentDependencies = [...(currentFlowData.dependencies ?? [])]
+      .map((dependency) => `${dependency.sourceId}->${dependency.targetId}`)
+      .sort();
+    const nextDependencies = [...(nextFlowData.dependencies ?? [])]
+      .map((dependency) => `${dependency.sourceId}->${dependency.targetId}`)
+      .sort();
+
+    if (currentDependencies.length !== nextDependencies.length) return false;
+    return currentDependencies.every((dependency, index) => dependency === nextDependencies[index]);
   }
 
   private async patchReadonlyNodes(rete: ReteEditorInstance, nextFlowData: FlowData) {
@@ -434,7 +514,7 @@ export class ReteEditor implements OnChanges, OnDestroy {
     if (this.flowState.currentFlow()?.id !== loadedFlowId) return;
 
     const updatedData = exportGraph(rete.editor);
-    this.flowState.updateData(updatedData);
+    this.flowState.updateData(updatedData, { structural: context?.type !== 'nodetranslated' });
     this.flowChanged.emit(updatedData);
   }
 

@@ -129,6 +129,15 @@ export class FlowsService {
     );
   }
 
+  getFlowValidation(flowId: string) {
+    return this.flowsCallService.getFlowValidation(flowId).pipe(
+      catchError(err => {
+        console.error('Retrieve flow validation failed', err);
+        return throwError(() => err);
+      })
+    );
+  }
+
   cloneFlow(flow: Pick<Flow, 'name' | 'description' | 'data' | 'status'>): Observable<Flow> {
     return this.createFlow({
       name: `${flow.name} (cloned)`,
@@ -150,7 +159,8 @@ export class FlowsService {
       data: {
         blocks: [],
         containers: [],
-        connections: []
+        connections: [],
+        dependencies: []
       },
       status: 'DRAFT'
     }).pipe(

@@ -63,7 +63,8 @@ export class ContainersCallServiceFake extends ContainersCallServiceBase {
         subFlow: {
           blocks: [],
           containers: [],
-          connections: []
+          connections: [],
+          dependencies: []
         }
       },
       typeName: descriptor?.type ?? containerType,

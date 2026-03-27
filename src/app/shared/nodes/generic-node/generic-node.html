@@ -158,6 +158,54 @@
     </div>
   </div>
 
+  @if (hasExecutionDependencyPorts()) {
+  <div class="llm-body llm-body-dependency">
+    <div class="llm-column">
+      <div class="llm-column-title">Dependency</div>
+      @if (dependencyInput; as dependencyInput) {
+      <div class="llm-row llm-row-input">
+        <div
+          refComponent
+          class="llm-socket"
+          [data]="{
+            type: 'socket',
+            side: 'input',
+            key: dependencyInput.key,
+            nodeId: data.id,
+            __readonly: isReadonly,
+            payload: dependencyInput.socket
+          }"
+          [emit]="emit">
+        </div>
+        <span class="llm-pill llm-pill-input llm-pill-dependency-input">Depends on</span>
+      </div>
+      }
+    </div>
+
+    <div class="llm-column">
+      <div class="llm-column-title llm-column-title-right">Dependant</div>
+      @if (dependantOutput; as dependantOutput) {
+      <div class="llm-row llm-row-output">
+        <span class="llm-pill llm-pill-output llm-pill-dependency-output">Prerequisite of</span>
+        <div
+          refComponent
+          class="llm-socket llm-socket-right"
+          [data]="{
+            type: 'socket',
+            side: 'output',
+            key: dependantOutput.key,
+            nodeId: data.id,
+            __readonly: isReadonly,
+            payload: dependantOutput.socket
+          }"
+          [emit]="emit">
+        </div>
+      </div>
+      }
+    </div>
+  </div>
+  }
+
   <div class="llm-params llm-params-shell">
     @if (!schemaReady) {
     <div class="llm-skeleton-overlay" aria-hidden="true">

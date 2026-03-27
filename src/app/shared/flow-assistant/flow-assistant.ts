@@ -44,17 +44,50 @@ export class FlowAssistant implements OnInit, OnDestroy {
   readonly selectedModel = signal('');
   readonly modelPickerOpen = signal(false);
   readonly quickPromptsOpen = signal(true);
+  readonly editorHasOpenFlow = computed(() => !!this.currentFlow());
+  readonly sessionHasDraft = computed(() => !!this.currentDraft());
+  readonly canOfferCreate = computed(() => !this.editorHasOpenFlow() && !this.sessionHasDraft());
+  readonly canOfferFix = computed(() => !this.canOfferCreate() && (this.sessionState()?.lastValidationErrors?.length ?? 0) > 0);
+  readonly assistantModeLabel = computed(() => this.canOfferCreate() ? 'Create with assistant' : 'Refine with assistant');
+  readonly assistantModeDescription = computed(() => {
+    if (this.canOfferCreate()) {
+      return 'No flow is open, so the assistant is in create mode and can draft a new workflow.';
+    }
+    if (this.canOfferFix()) {
+      return 'A flow is already attached, so use the assistant to refine, fix, or explain it.';
+    }
+    return 'A flow is already open or attached to this session, so create mode is not offered here.';
+  });
+  readonly promptPlaceholder = computed(() =>
+    this.canOfferCreate()
+      ? 'Ask the assistant to create a new workflow'
+      : 'Ask the assistant to refine, fix, or explain the current workflow'
+  );
+  readonly starterPrompts = computed(() => {
+    if (this.canOfferCreate()) {
+      return [
+        'Create a flow that classifies incoming tickets and sends urgent ones to a human',
+        'Create a flow that downloads a file, indexes it, and then queries it',
+        'Create a recruiter workflow that reviews a CV and produces a final assessment'
+      ];
+    }
 
-  readonly initialSystemMessage: AssistantChatMessage = {
-    id: 'assistant-system-welcome',
-    role: 'system',
-    content: 'Select a model, then ask me to create, refine, fix, or explain a workflow.'
-  };
+    const prompts = [
+      'Modify the current flow to add a review step after the LLM block',
+      'Explain this flow and describe what each branch does'
+    ];
+
+    if (this.canOfferFix()) {
+      prompts.unshift('Fix the problems in this flow');
+    }
+
+    return prompts;
+  });
 
   readonly displayedMessages = computed(() => {
     const baseMessages = this.sessionState()?.messages?.length
       ? this.sessionState()!.messages
-      : [this.initialSystemMessage];
+      : [this.systemWelcomeMessage()];
     return [...baseMessages, ...this.localMessages()];
   });
   readonly assistantBusy = computed(() => {
@@ -101,12 +134,6 @@ export class FlowAssistant implements OnInit, OnDestroy {
   });
   readonly currentFlow = this.editorState.currentFlow;
   readonly currentDraft = computed(() => this.sessionState()?.currentDraftFlow ?? null);
-  readonly starterPrompts = [
-    'Create a flow that classifies incoming tickets and sends urgent ones to a human',
-    'Modify the current flow to add a review step after the LLM block',
-    'Fix the problems in this flow',
-    'Explain why this flow is not valid'
-  ];
 
   ngOnInit(): void {
     this.bootstrapAssistant();
@@ -279,7 +306,7 @@ export class FlowAssistant implements OnInit, OnDestroy {
       ? session
       : {
         ...session,
-        messages: [this.initialSystemMessage]
+        messages: [this.systemWelcomeMessage()]
       };
 
     this.sessionState.set(normalizedSession);
@@ -336,6 +363,16 @@ export class FlowAssistant implements OnInit, OnDestroy {
         content
       }
     ]);
+  }
+
+  private systemWelcomeMessage(): AssistantChatMessage {
+    return {
+      id: 'assistant-system-welcome',
+      role: 'system',
+      content: this.canOfferCreate()
+        ? 'Select a model, then ask me to create a new workflow.'
+        : 'Select a model, then ask me to refine, fix, or explain the current workflow.'
+    };
   }
 
   private stopPolling() {

@@ -89,19 +89,27 @@ export class FlowsList extends ListStateViewHolder<Flow> {
     return filteredFlows.filter(f => f.visibility === this.filter());
   });
 
-
-  onOrderChanged(event: OrderEvent) {
-    const { orderBy, orderDir } = event;
-    this.view.order = { orderBy, orderDir };
-    const flows = this.filteredFlows();
+  orderedFlows = computed(() => {
+    const flows = [...this.filteredFlows()];
+    const { orderBy, orderDir } = this.view.order;
     if (!orderBy) return flows;
+
     return flows.sort((a, b) => {
       const aValue = (a as any)[orderBy];
       const bValue = (b as any)[orderBy];
+      if (aValue == null && bValue == null) return 0;
+      if (aValue == null) return orderDir === 'asc' ? -1 : 1;
+      if (bValue == null) return orderDir === 'asc' ? 1 : -1;
       if (aValue < bValue) return orderDir === 'asc' ? -1 : 1;
       if (aValue > bValue) return orderDir === 'asc' ? 1 : -1;
       return 0;
     });
+  });
+
+
+  onOrderChanged(event: OrderEvent) {
+    const { orderBy, orderDir } = event;
+    this.view.order = { orderBy, orderDir };
   }
 
 }

@@ -12,6 +12,7 @@ import { BlocksService } from '@services/blocks/blocks';
 import { FlowsService } from '@services/flows/flows';
 import { EditorStateHolder } from '@stores/flow-editor';
 import { FlowAssistant } from '@shared/flow-assistant/flow-assistant';
+import { FlowValidationPanel } from '@shared/flow-validation-panel/flow-validation-panel';
 import { TitleToolbar } from "@shared/title-toolbar/title-toolbar";
 import { ReteEditor } from "@shared/rete-editor/rete-editor";
 import { firstValueFrom } from 'rxjs';
@@ -26,7 +27,7 @@ type TourStep = {
 
 @Component({
   selector: 'app-flow-editor',
-  imports: [CommonModule, EditorSidebar, TitleToolbar, ReteEditor, FlowAssistant, MatButtonModule, MatCardModule, MatIconModule],
+  imports: [CommonModule, EditorSidebar, TitleToolbar, ReteEditor, FlowAssistant, FlowValidationPanel, MatButtonModule, MatCardModule, MatIconModule],
   templateUrl: './flow-editor.html',
   styleUrl: './flow-editor.css',
 })
@@ -44,8 +45,11 @@ export class FlowEditor {
 
   assistantEnabled = environment.assistantEnabled;
   assistantOpen = signal(true);
+  activeRightPanel = signal<'assistant' | 'errors'>('assistant');
   flow = this.editorState.currentFlow; 
   readonly = this.editorState.isCurrentFlowReadOnly;
+  validationErrors = this.editorState.flowValidationErrors;
+  validationErrorCount = computed(() => this.validationErrors().length);
   tourActive = signal(false);
   tourStepIndex = signal(0);
   tourSpotlightStyle = signal<Record<string, string>>({});
@@ -121,12 +125,31 @@ export class FlowEditor {
       this.activeTourStep();
       setTimeout(() => this.syncTourLayout());
     });
+
+    effect(() => {
+      if (this.validationErrorCount() > 0) {
+        this.activeRightPanel.set('errors');
+      }
+    });
+
+    effect(() => {
+      if (this.activeRightPanel() === 'errors' && this.validationErrorCount() === 0) {
+        this.activeRightPanel.set('assistant');
+      }
+    });
   }
 
   toggleAssistant() {
     this.assistantOpen.update((value) => !value);
     if (this.tourActive()) {
       setTimeout(() => this.syncTourLayout());
+    }
+  }
+
+  setRightPanel(panel: 'assistant' | 'errors') {
+    this.activeRightPanel.set(panel);
+    if (!this.assistantOpen()) {
+      this.assistantOpen.set(true);
     }
   }
 
@@ -265,7 +288,8 @@ export class FlowEditor {
           targetId: right.id,
           targetName: targetInput
         }
-      ]
+      ],
+      dependencies: []
     };
   }
 

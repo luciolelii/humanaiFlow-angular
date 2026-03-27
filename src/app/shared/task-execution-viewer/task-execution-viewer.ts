@@ -11,6 +11,7 @@ import {
   FlowData,
   LLMDescriptor,
   FlowNode,
+  FlowNodeDependency,
   normalizeFlowPortValueKinds
 } from '@models/flow';
 import {
@@ -62,7 +63,6 @@ type ExecutionLogEntryView = ExecutionEventLogEntry & {
   styleUrl: './task-execution-viewer.css',
 })
 export class TaskExecutionViewerComponent implements OnDestroy {
-  private static readonly TEXT_INPUT_DEBOUNCE_MS = 1200;
   private static readonly EVENTS_POLL_INTERVAL_MS = 5000;
   private static readonly OUTPUT_PREVIEW_LIMIT = 80;
   private taskExecutionsService = inject(TaskExecutionsService);
@@ -70,7 +70,6 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   private settingsDialog = inject(NodeSettingsDialogService);
   private fieldRetriever = inject(FieldRetriever);
   private containersService = inject(ContainersService);
-  private readonly textInputDebounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private lastExecutionId: string | null = null;
   private lastExecutionStatus: string | null = null;
   private static readonly SIMULATOR_PROVIDER_RETRIEVER_URL = '/retriever/LLM/providers';
@@ -270,6 +269,8 @@ export class TaskExecutionViewerComponent implements OnDestroy {
           __connectedInputs: this.getConnectedInputs(step),
           __executionOutputs: this.getExecutionOutputValues(step, contextResults),
           __connectedOutputs: this.getConnectedOutputs(step),
+          __hasDependencyInputConnection: this.hasIncomingDependency(step.id),
+          __hasDependantOutputConnection: this.hasOutgoingDependency(step.id),
           __executionErrors: this.getExecutionErrors(step.id, contextErrors),
           __executionWarnings: this.getExecutionWarnings(step.id, contextWarnings),
           __stepResultData: step.result ?? null,
@@ -289,7 +290,8 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     }
 
     const connections = this.getExecutionConnections(steps);
-    return { blocks, containers, connections };
+    const dependencies = this.getExecutionDependencies();
+    return { blocks, containers, connections, dependencies };
   });
 
   readonly formattedDuration = computed(() => {
@@ -534,18 +536,19 @@ export class TaskExecutionViewerComponent implements OnDestroy {
 
   onTextInputChange(input: EditableExecutionInput, value: string | string[]) {
     if (this.inputsReadOnly()) return;
+    this.pendingTextInputs.update((current) => ({ ...current, [input.key]: value }));
+    this.savingErrors.update((current) => {
+      const next = { ...current };
+      delete next[input.key];
+      return next;
+    });
+  }
+
+  submitTextInput(input: EditableExecutionInput) {
+    if (this.inputsReadOnly()) return;
     const executionId = this.execution()?.id;
     if (!executionId) return;
-
-    this.pendingTextInputs.update((current) => ({ ...current, [input.key]: value }));
-
-    const timerKey = `${executionId}:${input.key}`;
-    this.clearDebounceTimer(timerKey);
-    const timer = setTimeout(() => {
-      this.textInputDebounceTimers.delete(timerKey);
-      this.sendPreparedTextInput(input, executionId);
-    }, TaskExecutionViewerComponent.TEXT_INPUT_DEBOUNCE_MS);
-    this.textInputDebounceTimers.set(timerKey, timer);
+    this.sendPreparedTextInput(input, executionId);
   }
 
   onFileInputChange(input: EditableExecutionInput, files: File[]) {
@@ -620,10 +623,6 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   }
 
   ngOnDestroy() {
-    for (const timer of this.textInputDebounceTimers.values()) {
-      clearTimeout(timer);
-    }
-    this.textInputDebounceTimers.clear();
   }
 
   private setAuthorizationSaving(key: string, saving: boolean) {
@@ -862,13 +861,6 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     };
   }
 
-  private clearDebounceTimer(timerKey: string) {
-    const timer = this.textInputDebounceTimers.get(timerKey);
-    if (!timer) return;
-    clearTimeout(timer);
-    this.textInputDebounceTimers.delete(timerKey);
-  }
-
   private formatDuration(startTime: number, endTime: number): string {
     const diffMs = Math.max(0, endTime - startTime);
     const totalSeconds = Math.floor(diffMs / 1000);
@@ -953,6 +945,21 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     }
 
     return this.inferConnections(steps);
+  }
+
+  private getExecutionDependencies(): FlowNodeDependency[] {
+    return (this.execution()?.stepDependencies ?? []).map((dependency) => ({
+      sourceId: String(dependency.sourceId),
+      targetId: String(dependency.targetId)
+    }));
+  }
+
+  private hasIncomingDependency(stepId: string): boolean {
+    return (this.execution()?.stepDependencies ?? []).some((dependency) => String(dependency.targetId) === stepId);
+  }
+
+  private hasOutgoingDependency(stepId: string): boolean {
+    return (this.execution()?.stepDependencies ?? []).some((dependency) => String(dependency.sourceId) === stepId);
   }
 
   private pickBestConnectionCandidate(

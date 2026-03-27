@@ -1,19 +1,23 @@
 import { computed, inject, Injectable, signal } from '@angular/core';
-import { Flow, FlowData } from '@models/flow';
+import { Flow, FlowData, FlowValidationError, normalizeFlowValidationErrors } from '@models/flow';
 import { Authorization } from '@services/authorization/authorization';
 import { ConfirmDialogService } from '@services/dialogs/confirm-dialog';
 import { FlowsService } from '@services/flows/flows';
-import { tap, throwError } from 'rxjs';
+import { catchError, of, switchMap, take, tap, throwError } from 'rxjs';
 
 @Injectable({ providedIn: 'root' })
 export class EditorStateHolder {
   static readonly ASSISTANT_DRAFT_PREFIX = 'assistant-draft:';
+  private lastValidationFetchKey: string | null = null;
 
   /** Stato */
   readonly currentFlow = signal<Flow | null>(null);
   readonly isDirty = signal(false);
   readonly selectedBlockIds = signal<string[]>([]);
   readonly draggingSelectedBlockIds = signal<string[]>([]);
+  readonly flowValidationErrors = signal<FlowValidationError[]>([]);
+  readonly highlightedValidationNodeIds = signal<string[]>([]);
+  readonly validationRequiresSave = signal(false);
 
   /** Derived state */
   readonly hasFlow = computed(() => !!this.currentFlow());
@@ -44,6 +48,9 @@ export class EditorStateHolder {
 
     this.currentFlow.set(doc);
     this.isDirty.set(false);
+    this.validationRequiresSave.set(false);
+    this.applyFlowValidationErrors(doc.validationErrors ?? []);
+    this.ensureValidationForFlow(doc);
     this.clearBlockSelection();
     return true;
   }
@@ -62,6 +69,9 @@ export class EditorStateHolder {
   closeDocument() {
     this.currentFlow.set(null);
     this.isDirty.set(false);
+    this.validationRequiresSave.set(false);
+    this.applyFlowValidationErrors([]);
+    this.lastValidationFetchKey = null;
     this.clearBlockSelection();
   }
 
@@ -69,10 +79,13 @@ export class EditorStateHolder {
     if (this.isCurrentFlowReadOnly()) return;
     this.currentFlow.set(flow);
     this.isDirty.set(options?.markDirty === true);
+    this.validationRequiresSave.set(options?.markDirty === true);
+    this.applyFlowValidationErrors(flow.validationErrors ?? []);
+    this.ensureValidationForFlow(flow);
     this.clearBlockSelection();
   }
 
-  updateData(data: FlowData) {
+  updateData(data: FlowData, options?: { structural?: boolean }) {
     if (this.isCurrentFlowReadOnly()) return;
     const current = this.currentFlow();
     if (!current) return;
@@ -81,6 +94,9 @@ export class EditorStateHolder {
     const nextFlow = { ...current, data };
     this.currentFlow.set(nextFlow);
     this.markDirty();
+    if (options?.structural !== false) {
+      this.validationRequiresSave.set(true);
+    }
   }
 
   replaceDataWithoutDirty(data: FlowData) {
@@ -141,14 +157,96 @@ export class EditorStateHolder {
       : this.flowsService.updateFlow(flow);
 
     return save$.pipe(
-      tap((savedFlow) => {
-        this.currentFlow.set(savedFlow);
-        this.markSaved();
+      switchMap((savedFlow) => {
+        const validation$ = savedFlow.status !== 'EXECUTABLE'
+          ? this.flowsService.getFlowValidation(savedFlow.id)
+          : of([]);
+
+        return validation$.pipe(
+          tap((validationErrors) => {
+            const nextFlow = {
+              ...savedFlow,
+              validationErrors
+            };
+            this.currentFlow.set(nextFlow);
+            this.lastValidationFetchKey = this.validationFetchKey(nextFlow);
+            this.applyFlowValidationErrors(validationErrors);
+            this.markSaved();
+            this.validationRequiresSave.set(false);
+          }),
+          switchMap(() => of({
+            ...savedFlow,
+            validationErrors: this.flowValidationErrors()
+          }))
+        );
+      }),
+      catchError((error) => {
+        this.applyFlowValidationErrors(this.extractValidationErrors(error));
+        return throwError(() => error);
       })
     )
   }
 
+  setHighlightedValidationNodes(nodeIds: string[]) {
+    const unique = Array.from(new Set((nodeIds ?? []).filter((id) => typeof id === 'string' && id.length > 0)));
+    this.highlightedValidationNodeIds.set(unique);
+  }
+
+  isValidationNodeHighlighted(blockId: string | null | undefined): boolean {
+    if (!blockId) return false;
+    return this.highlightedValidationNodeIds().includes(blockId);
+  }
+
   private areFlowDataEqual(left: FlowData, right: FlowData): boolean {
     return JSON.stringify(left) === JSON.stringify(right);
+  }
+
+  private applyFlowValidationErrors(errors: FlowValidationError[]) {
+    const normalized = Array.isArray(errors) ? errors : [];
+    this.flowValidationErrors.set(normalized);
+    this.highlightedValidationNodeIds.set(Array.from(new Set(
+      normalized.flatMap((error) => Array.isArray(error.relatedNodeIds) ? error.relatedNodeIds : [])
+    )));
+  }
+
+  private extractValidationErrors(error: unknown): FlowValidationError[] {
+    const candidate = (error as any)?.error?.errors
+      ?? (error as any)?.errors
+      ?? (error as any)?.error?.validationErrors
+      ?? (error as any)?.validationErrors
+      ?? [];
+
+    return normalizeFlowValidationErrors(candidate);
+  }
+
+  private ensureValidationForFlow(flow: Flow | null) {
+    if (!flow) return;
+    if (flow.status === 'EXECUTABLE') {
+      this.lastValidationFetchKey = this.validationFetchKey(flow);
+      return;
+    }
+
+    const fetchKey = this.validationFetchKey(flow);
+    if (this.lastValidationFetchKey === fetchKey) return;
+    this.lastValidationFetchKey = fetchKey;
+
+    this.flowsService.getFlowValidation(flow.id).pipe(take(1)).subscribe({
+      next: (validationErrors) => {
+        const current = this.currentFlow();
+        if (!current || current.id !== flow.id) return;
+        this.currentFlow.set({
+          ...current,
+          validationErrors
+        });
+        this.applyFlowValidationErrors(validationErrors);
+      },
+      error: (error) => {
+        console.error('Retrieve flow validation failed', error);
+      }
+    });
+  }
+
+  private validationFetchKey(flow: Flow): string {
+    return `${flow.id}:${flow.status}:${flow.updatedAt?.toISOString?.() ?? ''}`;
   }
 }

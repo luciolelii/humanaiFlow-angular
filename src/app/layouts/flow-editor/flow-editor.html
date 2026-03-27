@@ -34,24 +34,42 @@
 
     @if (assistantEnabled && !readonly()) {
     <section class="flow-editor-assistant" data-tour="editor-assistant" [class.flow-editor-assistant-collapsed]="!assistantOpen()">
+      <div class="flow-editor-side-rail">
+        <button
+          type="button"
+          class="flow-editor-side-rail-button"
+          [class.flow-editor-side-rail-button-active]="activeRightPanel() === 'assistant' && assistantOpen()"
+          matTooltip="Assistant"
+          (click)="setRightPanel('assistant')">
+          <mat-icon fontIcon="auto_awesome"></mat-icon>
+        </button>
+        <button
+          type="button"
+          class="flow-editor-side-rail-button"
+          [class.flow-editor-side-rail-button-active]="activeRightPanel() === 'errors' && assistantOpen()"
+          [disabled]="!flow() || validationErrorCount() === 0"
+          matTooltip="Validation errors"
+          (click)="setRightPanel('errors')">
+          <mat-icon fontIcon="error"></mat-icon>
+          @if (validationErrorCount() > 0) {
+          <span class="flow-editor-side-rail-badge">{{ validationErrorCount() }}</span>
+          }
+        </button>
+      </div>
+      @if (assistantOpen()) {
       <button
         type="button"
         class="flow-editor-assistant-toggle"
         mat-stroked-button
         (click)="toggleAssistant()"
-        [attr.aria-label]="assistantOpen() ? 'Collapse assistant' : 'Expand assistant'">
-        <mat-icon [fontIcon]="assistantOpen() ? 'right_panel_close' : 'auto_awesome'"></mat-icon>
-        <span>{{ assistantOpen() ? 'Hide' : 'AI' }}</span>
+        aria-label="Collapse assistant">
+        <mat-icon fontIcon="keyboard_arrow_right"></mat-icon>
       </button>
-
-      @if (assistantOpen()) {
-      <app-flow-assistant></app-flow-assistant>
-      } @else {
-      <div class="flow-editor-assistant-rail">
-        <mat-icon class="flow-editor-assistant-rail-icon" fontIcon="auto_awesome" aria-hidden="true"></mat-icon>
-        <div class="flow-editor-assistant-rail-text">AI</div>
-        <mat-icon class="flow-editor-assistant-rail-wand" fontIcon="magic_button" aria-hidden="true"></mat-icon>
-      </div>
+        @if (activeRightPanel() === 'assistant') {
+        <app-flow-assistant></app-flow-assistant>
+        } @else {
+        <app-flow-validation-panel></app-flow-validation-panel>
+        }
       }
     </section>
     }

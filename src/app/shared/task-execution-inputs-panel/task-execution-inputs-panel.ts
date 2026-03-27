@@ -33,6 +33,7 @@ export class TaskExecutionInputsPanelComponent {
   readonly readOnly = input<boolean>(false);
 
   readonly textInputChange = output<{ input: EditableExecutionInput; value: string | string[] }>();
+  readonly textInputSubmit = output<EditableExecutionInput>();
   readonly fileInputChange = output<{ input: EditableExecutionInput; files: File[] }>();
   readonly authorizationValueChange = output<{ requirement: TaskExecutionAuthorizationRequirement; value: string }>();
   readonly authorizationSubmit = output<TaskExecutionAuthorizationRequirement>();
@@ -57,6 +58,13 @@ export class TaskExecutionInputsPanelComponent {
   onTextInputChange(input: EditableExecutionInput, value: string | string[]) {
     if (this.readOnly()) return;
     this.textInputChange.emit({ input, value });
+  }
+
+  submitTextInput(input: EditableExecutionInput, event?: Event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+    if (this.readOnly() || this.isInputSaving(input.key)) return;
+    this.textInputSubmit.emit(input);
   }
 
   onFileInputChange(input: EditableExecutionInput, event: Event) {
@@ -90,6 +98,10 @@ export class TaskExecutionInputsPanelComponent {
 
   isInputSaving(key: string): boolean {
     return this.savingInputs()[key] === true;
+  }
+
+  canSubmitTextInput(input: EditableExecutionInput): boolean {
+    return !this.readOnly() && !this.isInputSaving(input.key);
   }
 
   inputSavingError(key: string): string | null {

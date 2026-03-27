@@ -8,6 +8,7 @@ export class CustomSocket {
   @Input() emit!: any;
   @Input() rendered!: any;
   private side: "input" | "output" = "input";
+  private kind: "data" | "dependency" = "data";
 
   @HostBinding("title") get title() {
     return this.data.name;
@@ -28,6 +29,11 @@ export class CustomSocket {
 
   @HostBinding("style.background")
   get bg() {
+    if (this.kind === "dependency") {
+      return this.side === "input"
+        ? "linear-gradient(145deg, #fbbf24 0%, #d97706 100%)"
+        : "linear-gradient(145deg, #60a5fa 0%, #2563eb 100%)";
+    }
     return this.side === "input"
       ? "linear-gradient(145deg, #4ade80 0%, #16a34a 100%)"
       : "linear-gradient(145deg, #fb7185 0%, #dc2626 100%)";
@@ -35,6 +41,10 @@ export class CustomSocket {
 
   @HostBinding("style.boxShadow")
   get sh() {
+    if (this.kind === "dependency") {
+      const c = this.side === "input" ? "rgba(217,119,6,0.45)" : "rgba(37,99,235,0.45)";
+      return `0 2px 6px ${c}, 0 0 0 1px ${c}`;
+    }
     const c = this.side === "input" ? "rgba(22,163,74,0.45)" : "rgba(220,38,38,0.45)";
     return `0 2px 6px ${c}, 0 0 0 1px ${c}`;
   }
@@ -44,8 +54,13 @@ export class CustomSocket {
     return side === "output" ? "output" : "input";
   }
 
+  private resolveSocketKind(): "data" | "dependency" {
+    return this.data?.__hfKind === "dependency" ? "dependency" : "data";
+  }
+
   ngOnChanges(): void {
     this.side = this.resolveSocketSide();
+    this.kind = this.resolveSocketKind();
     requestAnimationFrame(() => this.rendered());
   }
 }

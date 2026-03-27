@@ -101,13 +101,17 @@ export class TitleToolbar {
     this.editorState.save().pipe(
       take(1)
     ).subscribe({
-      next: () => {
+      next: (savedFlow) => {
         console.log('Flow saved');
-        this.showSnackbar('Flow saved', 'success');
+        if ((savedFlow.validationErrors?.length ?? 0) > 0 && savedFlow.status === 'DRAFT') {
+          this.showSnackbar('Flow saved as draft with validation errors', 'error');
+        } else {
+          this.showSnackbar('Flow saved', 'success');
+        }
       },
       error: err => {
         console.error('Save failed', err);
-        this.showSnackbar('Errore durante il salvataggio', 'error');
+        this.showSnackbar(err instanceof Error ? err.message : 'Errore durante il salvataggio', 'error');
       }
     });
   }

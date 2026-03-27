@@ -1,4 +1,4 @@
-import { Flow, FlowBlock, FlowContainer, FlowData, FlowStatus, FlowVisibility } from '@models/flow';
+import { Flow, FlowBlock, FlowContainer, FlowData, FlowStatus, FlowVisibility, normalizeFlowValidationErrors } from '@models/flow';
 
 function parseDate(value: unknown, fallback: Date): Date {
   if (typeof value !== 'string' || !value) return fallback;
@@ -30,10 +30,12 @@ export function flowFromApi(raw: unknown): Flow {
     visibility,
     published,
     finalized: typeof value['finalized'] === 'boolean' ? value['finalized'] : undefined,
+    validationErrors: normalizeFlowValidationErrors(value['validationErrors'] ?? value['errors']),
     data: {
       blocks: normalizeNodes(data.blocks, 'block') as FlowBlock[],
       containers: normalizeNodes(data.containers, 'container') as FlowContainer[],
-      connections: Array.isArray(data.connections) ? data.connections : []
+      connections: Array.isArray(data.connections) ? data.connections : [],
+      dependencies: Array.isArray(data.dependencies) ? data.dependencies : []
     }
   };
 }
@@ -46,7 +48,8 @@ export function toFlowCreateRequest(name: string, description?: string, flow?: F
     flow: flow ?? {
       blocks: [],
       containers: [],
-      connections: []
+      connections: [],
+      dependencies: []
     }
   };
 }

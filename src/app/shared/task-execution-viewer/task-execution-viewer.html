@@ -151,6 +151,7 @@
             (authorizationValueChange)="onAuthorizationValueChange($event.requirement, $event.value)"
             (authorizationSubmit)="submitAuthorization($event)"
             (textInputChange)="onTextInputChange($event.input, $event.value)"
+            (textInputSubmit)="submitTextInput($event)"
             (fileInputChange)="onFileInputChange($event.input, $event.files)">
           </app-task-execution-inputs-panel>
           } @else if (activeAsideTab() === 'logs') {

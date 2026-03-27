@@ -1,4 +1,4 @@
-import { Flow } from "@models/flow";
+import { Flow, FlowValidationError } from "@models/flow";
 import { Observable } from "rxjs";
 
 export abstract class FlowsCallServiceBase {
@@ -18,5 +18,7 @@ export abstract class FlowsCallServiceBase {
     abstract updatePublished(flowId: string, value: boolean) : Observable<Flow>;
 
     abstract finalizeFlow(flowId: string) : Observable<Flow>;
+
+    abstract getFlowValidation(flowId: string) : Observable<FlowValidationError[]>;
 
 }

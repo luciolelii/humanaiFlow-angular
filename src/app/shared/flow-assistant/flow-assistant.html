@@ -3,9 +3,29 @@
     <header class="assistant-header">
       <div>
         <p class="assistant-eyebrow">Workflow Copilot</p>
-        <h2 class="assistant-title">Assistant</h2>
+        <h2 class="assistant-title">{{ assistantModeLabel() }}</h2>
       </div>
     </header>
+
+    <section class="assistant-card assistant-model-card">
+      <div class="assistant-section-head">
+        <div>
+          <p class="assistant-copy">
+            {{ assistantModeDescription() }}
+          </p>
+          <p class="assistant-label">Mode</p>
+        </div>
+      </div>
+      <p class="assistant-meta">
+        @if (canOfferCreate()) {
+        Create mode
+        } @else if (canOfferFix()) {
+        Refine / Fix / Explain mode
+        } @else {
+        Refine / Explain mode
+        }
+      </p>
+    </section>
 
     @if (activePhaseLabel()) {
     <div class="assistant-intent-row">
@@ -38,7 +58,11 @@
       <div class="assistant-section-head">
         <div>
           <p class="assistant-copy">
-            Create, refine, fix, and explain flows in chat. The backend remains the source of truth.
+            @if (canOfferCreate()) {
+            Create a new flow draft in chat. Once a flow exists, the same session is treated as attached to that flow.
+            } @else {
+            Refine, fix, or explain the flow already open in the editor. Create mode is not offered while a flow is attached.
+            }
           </p>
           <p class="assistant-label">Model</p>
         </div>
@@ -88,7 +112,7 @@
       </div>
       @if (quickPromptsOpen()) {
       <div class="assistant-chip-grid">
-        @for (starter of starterPrompts; track starter) {
+        @for (starter of starterPrompts(); track starter) {
         <button type="button" mat-stroked-button class="assistant-chip" (click)="useStarter(starter)">
           {{ starter }}
         </button>
@@ -142,7 +166,7 @@
         [disabled]="!selectedModel() || assistantBusy()"
         name="assistantPrompt"
         rows="4"
-        placeholder="Ask the assistant to create or refine a workflow"></textarea>
+        [placeholder]="promptPlaceholder()"></textarea>
     </mat-form-field>
 
     <button

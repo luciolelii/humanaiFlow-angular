@@ -21,6 +21,11 @@
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.24), 0 12px 28px rgba(15, 23, 42, 0.16);
 }
 
+:host.validation-highlighted .llm-node {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.18), 0 14px 28px rgba(127, 29, 29, 0.18);
+}
+
 .llm-delete-overlay {
   position: absolute;
   inset: 0;
@@ -556,6 +561,18 @@
   color: #9f1239;
   background: #fff1f2;
   border-color: #fecdd3;
+}
+
+.llm-pill-dependency-input {
+  color: #92400e;
+  background: #fff7ed;
+  border-color: #fed7aa;
+}
+
+.llm-pill-dependency-output {
+  color: #1d4ed8;
+  background: #eff6ff;
+  border-color: #bfdbfe;
 }
 
 .llm-pill-kind-select {

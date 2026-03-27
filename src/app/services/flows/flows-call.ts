@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { environment } from '@environment';
-import { Flow } from '@models/flow';
+import { Flow, normalizeFlowValidationErrors } from '@models/flow';
 import { map, Observable } from 'rxjs';
 import { flowFromApi, toFlowCreateRequest } from './flow-mapper';
 import { FlowsCallServiceBase } from './flows-call.base';
@@ -32,7 +32,8 @@ export class FlowsCallService extends FlowsCallServiceBase {
       data: {
         blocks: [],
         containers: [],
-        connections: []
+        connections: [],
+        dependencies: []
       },
       status: 'DRAFT'
     });
@@ -71,5 +72,12 @@ export class FlowsCallService extends FlowsCallServiceBase {
     return this.http
       .put<unknown>(`${environment.apiUrl}/flows/${encodedId}/finalized`, { value: true })
       .pipe(map((raw) => flowFromApi(raw)));
+  }
+
+  override getFlowValidation(flowId: string) {
+    const encodedId = encodeURIComponent(flowId);
+    return this.http
+      .get<unknown>(`${environment.apiUrl}/flows/${encodedId}/validation`)
+      .pipe(map((raw) => normalizeFlowValidationErrors((raw as any)?.errors ?? raw)));
   }
 }

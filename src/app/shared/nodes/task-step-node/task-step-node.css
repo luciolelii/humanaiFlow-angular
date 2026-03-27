@@ -407,6 +407,18 @@
   border-color: #fecdd3;
 }
 
+.llm-pill-dependency-input {
+  color: #92400e;
+  background: #fff7ed;
+  border-color: #fed7aa;
+}
+
+.llm-pill-dependency-output {
+  color: #1d4ed8;
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
 .llm-input-value-wrap {
   position: relative;
   display: flex;

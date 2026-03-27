@@ -100,6 +100,58 @@
     </div>
   </div>
 
+  @if (hasExecutionDependencyPorts) {
+  <div class="container-node__ports">
+    <div class="container-node__port-column">
+      <div class="container-node__port-title">Dependency</div>
+      @if (dependencyInput; as dependencyInput) {
+      <div class="container-node__port-row">
+        <div
+          refComponent
+          class="container-node__socket"
+          [data]="{
+            type: 'socket',
+            side: 'input',
+            key: dependencyInput.key,
+            nodeId: data.id,
+            __readonly: isReadonly,
+            payload: dependencyInput.socket
+          }"
+          [emit]="emit">
+        </div>
+        <span class="container-node__port-label container-node__port-label--input container-node__port-label--dependency-input">
+          <span class="container-node__port-name">Depends on</span>
+        </span>
+      </div>
+      }
+    </div>
+
+    <div class="container-node__port-column container-node__port-column--right">
+      <div class="container-node__port-title">Dependant</div>
+      @if (dependantOutput; as dependantOutput) {
+      <div class="container-node__port-row container-node__port-row--right">
+        <span class="container-node__port-label container-node__port-label--output container-node__port-label--dependency-output">
+          <span class="container-node__port-name">Prerequisite of</span>
+        </span>
+        <div
+          refComponent
+          class="container-node__socket container-node__socket--right"
+          [data]="{
+            type: 'socket',
+            side: 'output',
+            key: dependantOutput.key,
+            nodeId: data.id,
+            __readonly: isReadonly,
+            payload: dependantOutput.socket
+          }"
+          [emit]="emit">
+        </div>
+      </div>
+      }
+    </div>
+  </div>
+  }
+
   @if (hasParameterFields() || hasMainContent()) {
   <div class="container-node__params container-node__params-shell">
     @if (!schemaReady) {

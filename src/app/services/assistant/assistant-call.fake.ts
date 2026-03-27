@@ -322,7 +322,8 @@ function buildTicketFlow(model: string): FlowData {
         targetId: 'assistant-output',
         targetName: 'input'
       }
-    ]
+    ],
+    dependencies: []
   };
 }
 
