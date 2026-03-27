@@ -44,6 +44,7 @@ type ExecutionOutputEntry = {
   value: string;
   preview: string;
   isLong: boolean;
+  itemLabel: string | null;
 };
 
 type ExecutionOutputGroup = {
@@ -310,18 +311,24 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     const resultMap = this.execution()?.context.result ?? {};
 
     return Object.entries(resultMap)
-      .map(([key, rawValue]) => {
-        const value = this.stringifyOutputValue(rawValue);
-        const isLong = value.length > TaskExecutionViewerComponent.OUTPUT_PREVIEW_LIMIT;
+      .flatMap(([key, rawValue]) => {
         const label = this.formatExecutionOutputLabel(key, steps);
-        return {
-          key,
-          nodeTitle: label.nodeTitle,
-          outputName: label.outputName,
-          value,
-          preview: isLong ? `${value.slice(0, TaskExecutionViewerComponent.OUTPUT_PREVIEW_LIMIT)}...` : value,
-          isLong
-        };
+        const values = Array.isArray(rawValue) ? rawValue : [rawValue];
+
+        return values.map((item, index) => {
+          const value = this.stringifyOutputValue(item);
+          const isLong = value.length > TaskExecutionViewerComponent.OUTPUT_PREVIEW_LIMIT;
+          const isArrayItem = Array.isArray(rawValue);
+          return {
+            key: isArrayItem ? `${key}:${index}` : key,
+            nodeTitle: label.nodeTitle,
+            outputName: label.outputName,
+            value,
+            preview: isLong ? `${value.slice(0, TaskExecutionViewerComponent.OUTPUT_PREVIEW_LIMIT)}...` : value,
+            isLong,
+            itemLabel: isArrayItem ? `Item ${index + 1}` : null
+          };
+        });
       })
       .sort((a, b) => a.nodeTitle.localeCompare(b.nodeTitle) || a.outputName.localeCompare(b.outputName));
   });

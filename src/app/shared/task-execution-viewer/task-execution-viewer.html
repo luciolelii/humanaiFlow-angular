@@ -201,7 +201,12 @@
                   @for (output of group.outputs; track output.key) {
                   <div class="execution-output-item">
                     <div class="execution-output-item-head">
-                      <div class="execution-output-item-name">{{ output.outputName }}</div>
+                      <div>
+                        <div class="execution-output-item-name">{{ output.outputName }}</div>
+                        @if (output.itemLabel) {
+                        <div class="text-[11px] text-slate-500">{{ output.itemLabel }}</div>
+                        }
+                      </div>
                       @if (output.isLong) {
                       <button
                         type="button"
