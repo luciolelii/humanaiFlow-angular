@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, HostBinding, Input, inject } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { currentFlowPortValueKind, flowValueKindLabel, FlowBlock, FlowContainer, FlowData, FLOW_DEPENDANT_PORT_KEY, FLOW_DEPENDENCY_PORT_KEY } from '@models/flow';
 import { NodeSettingField, NodeSettingOption, NodeSettingsDialogService } from '@services/dialogs/node-settings-dialog';
@@ -62,7 +63,7 @@ type StructuredRetrieverConfig = {
 
 @Component({
   selector: 'app-container-node',
-  imports: [CommonModule, ReteModule, MatTooltipModule],
+  imports: [CommonModule, FormsModule, ReteModule, MatTooltipModule],
   templateUrl: './container-node.html',
   styleUrl: './container-node.css',
   host: {
@@ -86,6 +87,8 @@ export class ContainerNodeComponent {
   parameterFields: ContainerFieldView[] = [];
   richContentFields: RichContentView[] = [];
   schemaReady = false;
+  nameEditorOpen = false;
+  draftName = '';
 
   @Input() data!: any;
   @Input() emit!: (data: any) => void;
@@ -223,17 +226,22 @@ export class ContainerNodeComponent {
 
     return requiredFields
       .filter((field, index, fields) => fields.findIndex((candidate) => candidate.path === field.path) === index)
-      .filter((field) => field.path !== 'name' && field.path !== 'subFlow')
+      .filter((field) => field.path !== 'name')
+      .filter((field) => field.path !== 'subFlow')
+      .filter((field) => !field.path.startsWith('subFlow.'))
       .filter((field) => this.isFieldEnabled(field.path))
       .filter((field) => this.isMissingValue(getValueByPath(config, field.path)))
       .map((field) => field.label)
       .concat(
         this.schemaRequirements.requiredObjects
-          .filter((field) => field.path !== 'name' && field.path !== 'subFlow')
+          .filter((field) => field.path !== 'name')
+          .filter((field) => field.path !== 'subFlow')
+          .filter((field) => !field.path.startsWith('subFlow.'))
           .filter((field) => this.isFieldEnabled(field.path))
           .filter((field) => this.isMissingValue(getValueByPath(config, field.path)))
           .map((field) => field.label)
       )
+      .concat(this.subFlow ? [] : ['Subflow'])
       .filter((field, index, fields) => fields.indexOf(field) === index);
   }
 
@@ -351,6 +359,49 @@ export class ContainerNodeComponent {
     } finally {
       this.importLoading = false;
     }
+  }
+
+  openNameEditor(event?: Event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+    if (this.isReadonly) return;
+    this.draftName = this.name;
+    this.nameEditorOpen = true;
+  }
+
+  cancelNameEditor(event?: Event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+    this.nameEditorOpen = false;
+    this.draftName = this.name;
+  }
+
+  onDraftNameChange(value: string) {
+    this.draftName = value;
+  }
+
+  saveNameEditor(event?: Event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+    if (this.isReadonly) return;
+
+    const nextName = this.draftName.trim().slice(0, 20);
+    if (!nextName || nextName === this.name) {
+      this.cancelNameEditor();
+      return;
+    }
+
+    const nextConfiguration = this.cloneConfiguration();
+    nextConfiguration['name'] = nextName;
+    this.data.data = {
+      ...this.data.data,
+      name: nextName,
+      specificConfiguration: nextConfiguration
+    };
+    this.updateCurrentFlowData(nextConfiguration);
+    this.refreshParameterFields();
+    this.refreshView();
+    this.nameEditorOpen = false;
   }
 
   async openParameterEditor(path: string, event?: Event) {
@@ -660,6 +711,7 @@ export class ContainerNodeComponent {
       .filter((field) => field.parts.length > 0);
 
     this.parameterFields = this.containerFieldDefinitions
+      .filter((field) => !this.isContainerTypeField(field.path))
       .filter((field) => this.isFieldVisible(field.path))
       .filter((field) => !richContentPaths.has(field.path))
       .map((field) => ({
@@ -689,7 +741,7 @@ export class ContainerNodeComponent {
         const childResolved = resolveSchemaRef(childSchema as Record<string, any>, schema);
         if (shouldSkipSchemaField(key, childResolved)) continue;
         const path = pathPrefix ? `${pathPrefix}.${key}` : key;
-        if (path === 'name' || path === 'subFlow') continue;
+        if (path === 'name' || path === 'subFlow' || this.isContainerTypeField(path)) continue;
 
         const hasChildren = !!childResolved?.properties || childResolved?.type === 'object';
         if (hasChildren) {
@@ -720,8 +772,19 @@ export class ContainerNodeComponent {
 
   private richContentPaths(): string[] {
     return this.containerFieldDefinitions
+      .filter((field) => !this.isContainerTypeField(field.path))
       .filter((field) => field.widget === 'textarea')
       .map((field) => field.path);
+  }
+
+  private isContainerTypeField(path: string): boolean {
+    return [
+      'type',
+      'typeName',
+      'containerType',
+      'configurationType',
+      'configurationClass'
+    ].some((key) => path === key || path.endsWith(`.${key}`));
   }
 
   private toRichContentParts(path: string): { text: string; isDynamicInput: boolean }[] {

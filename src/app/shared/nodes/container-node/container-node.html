@@ -8,7 +8,14 @@
     </div>
     <div class="container-node__titles">
       <div class="container-node__eyebrow">{{ containerLabel }}</div>
-      <div class="container-node__name">{{ name }}</div>
+      <div class="container-node__name-row">
+        <div class="container-node__name">{{ name }}</div>
+        @if (!isReadonly) {
+        <button type="button" class="container-node__name-edit" title="Edit name" (pointerdown)="$event.stopPropagation()" (click)="openNameEditor($event)">
+          <i class="bi bi-pencil-square"></i>
+        </button>
+        }
+      </div>
     </div>
     <div class="container-node__header-actions">
       @if (missingRequiredParams.length) {
@@ -41,6 +48,28 @@
       }
     </div>
   </div>
+
+  @if (nameEditorOpen) {
+  <div class="llm-modal-backdrop" (pointerdown)="$event.stopPropagation()" (click)="cancelNameEditor($event)">
+    <div class="llm-modal" (pointerdown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
+      <div class="llm-modal-title">Edit Name</div>
+      <div class="llm-modal-field">
+        <label>Name</label>
+        <input
+          type="text"
+          maxlength="20"
+          [ngModel]="draftName"
+          (ngModelChange)="onDraftNameChange($event)"
+          (keydown.enter)="saveNameEditor($event)"
+          (pointerdown)="$event.stopPropagation()" />
+      </div>
+      <div class="llm-modal-actions">
+        <button type="button" class="llm-btn llm-btn-ghost" (pointerdown)="$event.stopPropagation()" (click)="cancelNameEditor($event)">Cancel</button>
+        <button type="button" class="llm-btn llm-btn-primary" [disabled]="!draftName.trim()" (pointerdown)="$event.stopPropagation()" (click)="saveNameEditor($event)">Save</button>
+      </div>
+    </div>
+  </div>
+  }
 
   <div class="container-node__ports">
     <div class="container-node__port-column">

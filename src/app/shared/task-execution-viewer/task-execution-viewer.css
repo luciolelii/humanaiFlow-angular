@@ -186,10 +186,13 @@
 }
 
 .execution-log-icon {
-  width: 18px;
-  height: 18px;
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
   font-size: 18px;
   color: #475569;
+  line-height: 20px;
+  overflow: visible;
   margin-top: 1px;
 }
 

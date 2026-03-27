@@ -9,7 +9,7 @@ import { TaskExecutionsCallService } from "@services/task-executions/task-execut
 export const environment = {
         apiUrl: '/api',
         production: true,
-        assistantEnabled: false,
+        assistantEnabled: true,
         tourModeAlwaysOn: false,
         turnstileEnabled: true,
         authorizationCallService: AuthorizationCallService,

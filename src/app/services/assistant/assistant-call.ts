@@ -224,13 +224,6 @@ function mapIntent(raw: unknown): AssistantIntent | null {
 function resolveAssistantUrl(url: string): string {
   if (!url) return url;
   if (/^https?:\/\//i.test(url)) return url;
-
   const apiBase = environment.apiUrl;
-  if (/^https?:\/\//i.test(apiBase)) {
-    return new URL(url, `${apiBase.replace(/\/+$/, '')}/`).toString();
-  }
-
-  const normalizedBase = apiBase.startsWith('/') ? apiBase : `/${apiBase}`;
-  const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  return new URL(url, `${origin}${normalizedBase.replace(/\/+$/, '')}/`).toString();
+  return `${apiBase}${url.startsWith('/') ? url : `/${url}`}`;
 }

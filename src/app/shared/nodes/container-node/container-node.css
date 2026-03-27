@@ -153,6 +153,26 @@
   text-overflow: ellipsis;
 }
 
+.container-node__name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.container-node__name-edit {
+  border: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  color: #f8fafc;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
 .container-node__delete {
   border: 0;
   width: 30px;
@@ -337,12 +357,18 @@
   background: #fff7ed;
   color: #92400e;
   border-color: #fed7aa;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
 }
 
 .container-node__port-label--dependency-output {
   background: #eff6ff;
   color: #1d4ed8;
   border-color: #bfdbfe;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
 }
 
 .container-node__port-context {

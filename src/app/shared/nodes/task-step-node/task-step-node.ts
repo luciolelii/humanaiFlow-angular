@@ -890,7 +890,20 @@ export class TaskStepNodeComponent {
   }
 
   private shouldHideConfigPath(path: string): boolean {
-    return this.isContainerNode() && (path === 'subFlow' || path.startsWith('subFlow.'));
+    const isContainerTypePath = [
+      'type',
+      'typeName',
+      'containerType',
+      'configurationType',
+      'configurationClass'
+    ].some((key) => path === key || path.endsWith(`.${key}`));
+
+    return this.isContainerNode()
+      && (
+        isContainerTypePath
+        || path === 'subFlow'
+        || path.startsWith('subFlow.')
+      );
   }
 
   private toArrayFieldItems(definition: ArrayFieldDefinition, value: unknown): ArrayFieldItemView[] {
