@@ -1,4 +1,4 @@
-<div class="flex flex-col flex-1 h-full">
+<div class="tasks-executor-shell flex flex-col flex-1 h-full">
   <div class="flex flex-row flex-1 overflow-hidden gap-2">
     <app-tasks-executions-list
       class="w-[360px] shrink-0"
@@ -8,7 +8,16 @@
       (executionDeleteRequested)="removeExecution($event)">
     </app-tasks-executions-list>
 
-    <mat-card class="flex w-full flex-col overflow-hidden !rounded-md !bg-gray-100">
+    <mat-card class="tasks-executor-viewer flex w-full flex-col overflow-hidden !rounded-md !bg-gray-100">
+      @if (showExecutionCreationLoader()) {
+      <div class="tasks-executor-loader">
+        <div class="tasks-executor-loader-card">
+          <span class="tasks-executor-spinner" aria-hidden="true"></span>
+          <div class="tasks-executor-loader-title">Creating execution...</div>
+          <div class="tasks-executor-loader-text">The task view is ready. Waiting for the new execution to appear.</div>
+        </div>
+      </div>
+      }
       <app-task-execution-viewer [execution]="selectedExecution()"></app-task-execution-viewer>
     </mat-card>
   </div>

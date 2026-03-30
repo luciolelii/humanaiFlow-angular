@@ -24,6 +24,7 @@ export class ContainersList extends ListStateViewHolder<BlockType> {
   private containersService = inject(ContainersService);
 
   loading: WritableSignal<boolean> = signal(true);
+  readonly serviceLoading = this.containersService.catalogLoading;
   containerTypes?: Signal<BlockType[]>;
 
   constructor() {
@@ -66,6 +67,8 @@ export class ContainersList extends ListStateViewHolder<BlockType> {
       container.type.toLowerCase().includes(term) || container.description.toLowerCase().includes(term)
     );
   });
+
+  readonly showLoading = computed(() => this.loading() || this.serviceLoading());
 
   onDragStart(event: DragEvent, container: BlockType) {
     if (!event.dataTransfer) return;

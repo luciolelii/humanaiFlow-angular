@@ -12,6 +12,7 @@ export class BlocksService {
 
   toInit: boolean = true;
   private loadingPromise: Promise<void> | null = null;
+  private readonly _catalogLoading = signal(false);
   private readonly emptyBlockCache = new Map<string, FlowBlock>();
   private readonly pendingEmptyBlockRequests = new Map<string, Observable<FlowBlock>>();
   private readonly pendingServerSyncCount = signal(0);
@@ -19,6 +20,7 @@ export class BlocksService {
   private _blockTypes = signal<BlockType[]>([]);
   readonly hasPendingServerSync = computed(() => this.pendingServerSyncCount() > 0);
   readonly blockTypes = this._blockTypes.asReadonly();
+  readonly catalogLoading = this._catalogLoading.asReadonly();
 
   hasLoadedBlockTypes() {
     return this._blockTypes().length > 0 || !this.toInit;
@@ -39,6 +41,9 @@ export class BlocksService {
     }
 
     this.loadingPromise = firstValueFrom(this.blocksCallService.retrieveAllBlocksTypes())
+      .finally(() => {
+        this._catalogLoading.set(false);
+      })
       .then((blockTypes) => {
         this._blockTypes.set(blockTypes);
         this.clearEmptyBlockCache();
@@ -51,6 +56,8 @@ export class BlocksService {
         this.loadingPromise = null;
       });
 
+    this._catalogLoading.set(true);
+
     return this.loadingPromise;
   }
 
@@ -58,7 +65,11 @@ export class BlocksService {
     const current = this._blockTypes().find((blockType) => blockType.type === typeName);
     if (current) return current;
 
-    const blockTypes = await firstValueFrom(this.blocksCallService.retrieveAllBlocksTypes());
+    this._catalogLoading.set(true);
+    const blockTypes = await firstValueFrom(this.blocksCallService.retrieveAllBlocksTypes())
+      .finally(() => {
+        this._catalogLoading.set(false);
+      });
     this._blockTypes.set(blockTypes);
     this.clearEmptyBlockCache();
     return blockTypes.find((blockType) => blockType.type === typeName);

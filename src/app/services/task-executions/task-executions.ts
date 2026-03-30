@@ -15,8 +15,10 @@ export class TaskExecutionsService {
   private refreshInFlight = false;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private _taskExecutions = signal<TaskExecution[]>([]);
+  private _pendingExecutionCreation = signal(false);
 
   taskExecutions = this._taskExecutions.asReadonly();
+  pendingExecutionCreation = this._pendingExecutionCreation.asReadonly();
 
   init() {
     if (this.initialized) return;
@@ -48,7 +50,9 @@ export class TaskExecutionsService {
   }
 
   createExecution(flowId: string) {
+    this._pendingExecutionCreation.set(true);
     return this.taskExecutionsCallService.createTaskExecution(flowId).pipe(
+      finalize(() => this._pendingExecutionCreation.set(false)),
       tap(() => this.refresh()),
       catchError((err) => {
         console.error('Create execution failed', err);

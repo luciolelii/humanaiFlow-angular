@@ -2,3 +2,64 @@
   display: block;
   height: 100%;
 }
+
+.tasks-executor-shell {
+  min-height: 0;
+}
+
+.tasks-executor-viewer {
+  position: relative;
+}
+
+.tasks-executor-loader {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(243, 244, 246, 0.82);
+  backdrop-filter: blur(2px);
+}
+
+.tasks-executor-loader-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  max-width: 360px;
+  padding: 24px 28px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 20px 44px rgba(15, 23, 42, 0.12);
+  text-align: center;
+}
+
+.tasks-executor-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid rgba(15, 23, 42, 0.12);
+  border-top-color: #2563eb;
+  border-radius: 999px;
+  animation: tasks-executor-spin 0.75s linear infinite;
+}
+
+.tasks-executor-loader-title {
+  color: #0f172a;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.tasks-executor-loader-text {
+  color: #475569;
+  font-size: 0.92rem;
+  line-height: 1.4;
+}
+
+@keyframes tasks-executor-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

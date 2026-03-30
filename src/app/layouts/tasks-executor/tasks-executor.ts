@@ -32,6 +32,7 @@ export class TasksExecutor {
   );
 
   readonly executionDetails = this.taskExecutionsService.taskExecutions;
+  readonly pendingExecutionCreation = this.taskExecutionsService.pendingExecutionCreation;
 
   readonly executions = computed<TaskExecutionListItem[]>(() =>
     this.executionDetails().map((execution) => ({
@@ -55,6 +56,10 @@ export class TasksExecutor {
     if (!selectedId) return details[0];
     return details.find((execution) => execution.id === selectedId) ?? null;
   });
+
+  readonly showExecutionCreationLoader = computed(() =>
+    this.pendingExecutionCreation() && !this.requestedExecutionId()
+  );
 
   constructor() {
     void this.blocksService.getAllBlocksTypes().catch((err) => {

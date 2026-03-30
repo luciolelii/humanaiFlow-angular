@@ -10,6 +10,14 @@
     </div>
   </div>
   }
+  @if (isSchemaLoading && !isCreatingOnServer()) {
+  <div class="llm-loading-overlay">
+    <div class="llm-loading-chip">
+      <span class="llm-spinner" aria-hidden="true"></span>
+      <span>Loading block...</span>
+    </div>
+  </div>
+  }
   @if (deleteConfirmOpen) {
   <div class="llm-delete-overlay"></div>
   }
@@ -252,6 +260,15 @@
                 (click)="openParameterEditor(field.path, $event)">
                 <i class="bi bi-pen"></i>
               </button>
+              } @else if (field.expandable) {
+              <button
+                type="button"
+                class="llm-param-view-btn"
+                aria-label="View full value"
+                (pointerdown)="$event.stopPropagation()"
+                (click)="openFieldPreview(field, $event)">
+                <i class="bi bi-eye"></i>
+              </button>
               }
             </div>
             <span class="llm-param-value" [class.llm-param-value-clamped]="field.expandable">{{ field.type === 'boolean' ? (field.booleanValue ? 'Enabled' : 'Disabled') : field.value }}</span>
@@ -291,6 +308,15 @@
             (click)="openParameterEditor(field.path, $event)">
             <i class="bi bi-pen"></i>
           </button>
+          } @else if (field.expandable) {
+          <button
+            type="button"
+            class="llm-param-view-btn"
+            aria-label="View full value"
+            (pointerdown)="$event.stopPropagation()"
+            (click)="openFieldPreview(field, $event)">
+            <i class="bi bi-eye"></i>
+          </button>
           }
         </div>
         <span class="llm-param-value" [class.llm-param-value-clamped]="field.expandable">{{ field.type === 'boolean' ? (field.booleanValue ? 'Enabled' : 'Disabled') : field.value }}</span>
@@ -307,6 +333,15 @@
         @if (!isReadonly) {
         <button type="button" class="llm-edit-btn" [attr.title]="'Edit ' + contentField.label.toLowerCase()" (pointerdown)="$event.stopPropagation()" (click)="openMainContentEditor(contentField.path, $event)">
           <i class="bi bi-pen"></i>
+        </button>
+        } @else if (contentField.expandable) {
+        <button
+          type="button"
+          class="llm-param-view-btn"
+          aria-label="View full value"
+          (pointerdown)="$event.stopPropagation()"
+          (click)="openMainContentPreview(contentField, $event)">
+          <i class="bi bi-eye"></i>
         </button>
         }
       </div>

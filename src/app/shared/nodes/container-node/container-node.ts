@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectorRef, Component, HostBinding, Input, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, HostBinding, HostListener, Input, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { currentFlowPortValueKind, flowValueKindLabel, FlowBlock, FlowContainer, FlowData, FLOW_DEPENDANT_PORT_KEY, FLOW_DEPENDENCY_PORT_KEY } from '@models/flow';
@@ -87,8 +87,13 @@ export class ContainerNodeComponent {
   parameterFields: ContainerFieldView[] = [];
   richContentFields: RichContentView[] = [];
   schemaReady = false;
+  private schemaLoading = false;
   nameEditorOpen = false;
   draftName = '';
+
+  get isSchemaLoading() {
+    return this.schemaLoading;
+  }
 
   @Input() data!: any;
   @Input() emit!: (data: any) => void;
@@ -111,6 +116,12 @@ export class ContainerNodeComponent {
   }
 
   ngOnInit() {
+    void this.loadSchemaContext();
+  }
+
+  @HostListener('click')
+  onNodeClick() {
+    if (!this.shouldRetrySchemaLoad()) return;
     void this.loadSchemaContext();
   }
 
@@ -535,6 +546,20 @@ export class ContainerNodeComponent {
     this.subflowPreview.open(this.subFlow, `${this.name} subflow`);
   }
 
+  async openFieldPreview(field: ContainerFieldView, event?: Event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+    if (!field.expandable) return;
+    await this.openReadonlyTextDialog(field.label, field.value);
+  }
+
+  async openMainContentPreview(field: RichContentView, event?: Event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+    if (!field.expandable) return;
+    await this.openReadonlyTextDialog(field.label, field.rawValue);
+  }
+
   private get configuration(): Record<string, unknown> | null {
     const value = this.data?.data?.specificConfiguration;
     return value && typeof value === 'object' ? value as Record<string, unknown> : null;
@@ -551,6 +576,25 @@ export class ContainerNodeComponent {
 
   private canAcceptSelectionDrop() {
     return !this.isAssigning && !this.replaceConfirmOpen && this.selectedCount > 0;
+  }
+
+  private async openReadonlyTextDialog(label: string, value: string) {
+    await this.settingsDialog.open({
+      title: label,
+      previewOnly: true,
+      fields: [
+        {
+          key: 'value',
+          label,
+          type: 'textarea',
+          readonly: true,
+          rows: 18
+        }
+      ],
+      initial: {
+        value
+      }
+    });
   }
 
   private assignSelectionToContainer(payload: string[]) {
@@ -664,6 +708,9 @@ export class ContainerNodeComponent {
   }
 
   private async loadSchemaContext() {
+    if (this.schemaLoading) return;
+    this.schemaLoading = true;
+    this.schemaReady = false;
     try {
       const containerType = this.containersService.peekContainerType(this.typeName) ?? await this.containersService.getContainerType(this.typeName);
       this.containerSchema = (containerType?.schema ?? null) as Record<string, any> | null;
@@ -671,6 +718,7 @@ export class ContainerNodeComponent {
       this.containerFieldDefinitions = this.buildContainerFieldDefinitions(this.containerSchema);
       this.refreshParameterFields();
     } finally {
+      this.schemaLoading = false;
       this.schemaReady = true;
       queueMicrotask(() => {
         try {
@@ -680,6 +728,11 @@ export class ContainerNodeComponent {
         }
       });
     }
+  }
+
+  private shouldRetrySchemaLoad(): boolean {
+    if (this.schemaLoading) return false;
+    return !this.containerSchema || this.containerFieldDefinitions.length === 0;
   }
 
   private isMissingValue(value: unknown): boolean {

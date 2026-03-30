@@ -12,6 +12,7 @@ export class ContainersService {
 
   toInit = true;
   private loadingPromise: Promise<void> | null = null;
+  private readonly _catalogLoading = signal(false);
   private readonly emptyContainerCache = new Map<string, FlowNode>();
   private readonly pendingEmptyContainerRequests = new Map<string, Observable<FlowNode>>();
   private readonly pendingServerSyncCount = signal(0);
@@ -19,6 +20,7 @@ export class ContainersService {
   private _containerTypes = signal<BlockType[]>([]);
   readonly hasPendingServerSync = computed(() => this.pendingServerSyncCount() > 0);
   readonly containerTypes = this._containerTypes.asReadonly();
+  readonly catalogLoading = this._catalogLoading.asReadonly();
 
   hasLoadedContainerTypes() {
     return this._containerTypes().length > 0 || !this.toInit;
@@ -39,6 +41,9 @@ export class ContainersService {
     }
 
     this.loadingPromise = firstValueFrom(this.containersCallService.retrieveAllContainerTypes())
+      .finally(() => {
+        this._catalogLoading.set(false);
+      })
       .then((containerTypes) => {
         this._containerTypes.set(containerTypes);
         this.clearEmptyContainerCache();
@@ -51,6 +56,8 @@ export class ContainersService {
         this.loadingPromise = null;
       });
 
+    this._catalogLoading.set(true);
+
     return this.loadingPromise;
   }
 
@@ -58,7 +65,11 @@ export class ContainersService {
     const current = this._containerTypes().find((containerType) => containerType.type === typeName);
     if (current) return current;
 
-    const containerTypes = await firstValueFrom(this.containersCallService.retrieveAllContainerTypes());
+    this._catalogLoading.set(true);
+    const containerTypes = await firstValueFrom(this.containersCallService.retrieveAllContainerTypes())
+      .finally(() => {
+        this._catalogLoading.set(false);
+      });
     this._containerTypes.set(containerTypes);
     this.clearEmptyContainerCache();
     return containerTypes.find((containerType) => containerType.type === typeName);

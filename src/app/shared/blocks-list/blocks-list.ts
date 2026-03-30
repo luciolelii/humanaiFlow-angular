@@ -25,6 +25,7 @@ export class BlocksList extends ListStateViewHolder<BlockType> {
   private blocksService = inject(BlocksService);
 
   loading: WritableSignal<boolean> = signal(true);
+  readonly serviceLoading = this.blocksService.catalogLoading;
 
   /*
   get orderView() {
@@ -74,6 +75,8 @@ export class BlocksList extends ListStateViewHolder<BlockType> {
       b.type.toLowerCase().includes(term) || b.description.toLowerCase().includes(term)
     );
   });
+
+  readonly showLoading = computed(() => this.loading() || this.serviceLoading());
 
   onDragStart(event: DragEvent, block: BlockType) {
     if (!event.dataTransfer) return;

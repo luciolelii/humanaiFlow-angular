@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectorRef, Component, HostBinding, inject, Input } from '@angular/core';
+import { ChangeDetectorRef, Component, HostBinding, HostListener, inject, Input } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { BlockType, currentFlowPortValueKind, flowValueKindLabel, FlowData, FlowPort, FlowValueKind, FLOW_DEPENDANT_PORT_KEY, FLOW_DEPENDENCY_PORT_KEY, normalizeFlowPortValueKinds } from '@models/flow';
@@ -199,6 +199,11 @@ export class GenericNodeComponent {
   localEditorBindableInputName: string | null = null;
   deleteConfirmOpen = false;
   schemaReady = false;
+  private schemaLoading = false;
+
+  get isSchemaLoading() {
+    return this.schemaLoading;
+  }
 
   missingRequiredParams: string[] = [];
   private blockSchema: Record<string, any> | null = null;
@@ -241,6 +246,12 @@ export class GenericNodeComponent {
 
     this.refreshValidationState();
     this.refreshParameterFields();
+    void this.loadSchemaContext();
+  }
+
+  @HostListener('click')
+  onNodeClick() {
+    if (!this.shouldRetrySchemaLoad()) return;
     void this.loadSchemaContext();
   }
 
@@ -578,12 +589,15 @@ export class GenericNodeComponent {
   }
 
   private async loadSchemaContext() {
+    if (this.schemaLoading) return;
     const type = this.blockType;
     if (!type) {
       this.schemaReady = true;
       return;
     }
 
+    this.schemaLoading = true;
+    this.schemaReady = false;
     try {
       const blockType = this.blocksService.peekBlockType(type) ?? await this.blocksService.getBlockType(type);
       this.blockDescriptor = blockType ?? null;
@@ -598,8 +612,15 @@ export class GenericNodeComponent {
       this.refreshValidationState();
       this.maybeCreateBlockOnServer();
     } finally {
+      this.schemaLoading = false;
       this.schemaReady = true;
     }
+  }
+
+  private shouldRetrySchemaLoad(): boolean {
+    if (this.schemaLoading) return false;
+    if (!this.blockType) return false;
+    return !this.blockSchema || (!this.editableFieldDefinitions.length && !this.arrayFieldDefinitions.length);
   }
 
   private async openTextareaEditor(
@@ -1093,6 +1114,20 @@ export class GenericNodeComponent {
     }
   }
 
+  async openFieldPreview(field: EditableFieldView, event?: Event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+    if (!field.expandable) return;
+    await this.openReadonlyTextDialog(field.label, field.value);
+  }
+
+  async openMainContentPreview(field: RichContentView, event?: Event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+    if (!field.expandable) return;
+    await this.openReadonlyTextDialog(field.label, field.rawValue);
+  }
+
   private resolveSelectableOptions(definition: EditableFieldDefinition): NodeSettingOption[] {
     if (definition.nodeOptionsSource) {
       return this.resolveNodeOptions(definition.nodeOptionsSource);
@@ -1120,6 +1155,25 @@ export class GenericNodeComponent {
 
   private isLongTextValue(value: string): boolean {
     return String(value ?? '').trim().length > 80;
+  }
+
+  private async openReadonlyTextDialog(label: string, value: string) {
+    await this.settingsDialog.open({
+      title: label,
+      previewOnly: true,
+      fields: [
+        {
+          key: 'value',
+          label,
+          type: 'textarea',
+          readonly: true,
+          rows: 18
+        }
+      ],
+      initial: {
+        value
+      }
+    });
   }
 
   private refreshParameterFields() {

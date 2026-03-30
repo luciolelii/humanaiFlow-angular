@@ -1,4 +1,12 @@
 <div class="container-node" [class.container-node-assigning]="isAssigning" [class.container-node-delete-pending]="deleteConfirmOpen">
+  @if (isSchemaLoading && !isAssigning) {
+  <div class="llm-loading-overlay">
+    <div class="llm-loading-chip">
+      <span class="container-node__spinner" aria-hidden="true"></span>
+      <span>Loading container...</span>
+    </div>
+  </div>
+  }
   @if (deleteConfirmOpen) {
   <div class="container-node__delete-overlay"></div>
   }
@@ -222,6 +230,15 @@
           (click)="openParameterEditor(field.path, $event)">
           <i class="bi bi-pen"></i>
         </button>
+        } @else if (field.expandable) {
+        <button
+          type="button"
+          class="llm-param-view-btn"
+          aria-label="View full value"
+          (pointerdown)="$event.stopPropagation()"
+          (click)="openFieldPreview(field, $event)">
+          <i class="bi bi-eye"></i>
+        </button>
         }
       </div>
       <span class="container-node__param-value" [class.container-node__param-value--clamped]="field.expandable">{{ field.type === 'boolean' ? (field.booleanValue ? 'Enabled' : 'Disabled') : field.value }}</span>
@@ -231,6 +248,16 @@
     <div class="container-node__param-chip container-node__param-chip--wide">
       <div class="container-node__param-head">
         <span class="container-node__param-key">{{ contentField.label }}</span>
+        @if (contentField.expandable && isReadonly) {
+        <button
+          type="button"
+          class="llm-param-view-btn"
+          aria-label="View full value"
+          (pointerdown)="$event.stopPropagation()"
+          (click)="openMainContentPreview(contentField, $event)">
+          <i class="bi bi-eye"></i>
+        </button>
+        }
       </div>
       <div class="container-node__param-value" [class.container-node__param-value--clamped]="contentField.expandable">
         @for (part of contentField.parts; track $index) {

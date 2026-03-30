@@ -45,8 +45,9 @@ export class FlowAssistant implements OnInit, OnDestroy {
   readonly modelPickerOpen = signal(false);
   readonly quickPromptsOpen = signal(true);
   readonly editorHasOpenFlow = computed(() => !!this.currentFlow());
+  readonly editorHasNonEmptyFlow = computed(() => this.hasMeaningfulFlow(this.currentFlow()));
   readonly sessionHasDraft = computed(() => !!this.currentDraft());
-  readonly canOfferCreate = computed(() => !this.editorHasOpenFlow() && !this.sessionHasDraft());
+  readonly canOfferCreate = computed(() => !this.editorHasNonEmptyFlow() && !this.sessionHasDraft());
   readonly canOfferFix = computed(() => !this.canOfferCreate() && (this.sessionState()?.lastValidationErrors?.length ?? 0) > 0);
   readonly assistantModeLabel = computed(() => this.canOfferCreate() ? 'Create with assistant' : 'Refine with assistant');
   readonly assistantModeDescription = computed(() => {
@@ -419,5 +420,14 @@ export class FlowAssistant implements OnInit, OnDestroy {
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
     const normalizedBase = apiBase.startsWith('/') ? apiBase : `/${apiBase}`;
     return new URL(url, `${origin}${normalizedBase.replace(/\/+$/, '')}/`).toString();
+  }
+
+  private hasMeaningfulFlow(flow: Flow | null): boolean {
+    if (!flow) return false;
+    const data = flow.data;
+    return (data.blocks?.length ?? 0) > 0
+      || (data.containers?.length ?? 0) > 0
+      || (data.connections?.length ?? 0) > 0
+      || (data.dependencies?.length ?? 0) > 0;
   }
 }

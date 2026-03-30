@@ -117,7 +117,7 @@ export class HumanInteractionDialogHostComponent {
   confirmInput(event?: Event) {
     event?.preventDefault();
     event?.stopPropagation();
-    this.closeWith({ mode: 'complete', value: this.state()?.currentInput ?? '' });
+    this.dialog.submit({ mode: 'complete', value: this.state()?.currentInput ?? '' });
   }
 
   sendEditedOutput(event?: Event) {
@@ -125,7 +125,7 @@ export class HumanInteractionDialogHostComponent {
     event?.stopPropagation();
     const value = this.draftValue.trim();
     if (!value) return;
-    this.closeWith({ mode: 'complete', value: this.draftValue });
+    this.dialog.submit({ mode: 'complete', value: this.draftValue });
   }
 
   sendChatMessage(event?: Event) {
@@ -164,9 +164,5 @@ export class HumanInteractionDialogHostComponent {
       deduplicated.push({ ...message, content: message.content });
     }
     return deduplicated;
-  }
-
-  private closeWith(value: HumanInteractionDialogResult) {
-    this.dialog.close(value);
   }
 }

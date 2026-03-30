@@ -121,6 +121,7 @@ export class TitleToolbar {
     if (!flow || !this.canExecute() || this.executeLoading()) return;
 
     this.executeLoading.set(true);
+    void this.router.navigate(['/tasks']);
     this.taskExecutionsService.createExecution(flow.id).pipe(
       take(1)
     ).subscribe({
