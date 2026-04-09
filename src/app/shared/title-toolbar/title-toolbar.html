@@ -101,6 +101,132 @@
   <span class="title-toolbar-description"><span class="title-toolbar-meta-label">Description:</span> {{ flow()!.description }}</span>
   }
 </div>
+
+<div class="title-toolbar-global-inputs">
+  <div class="title-toolbar-global-inputs-header">
+    <div>
+      <button type="button" class="title-toolbar-global-inputs-toggle" (click)="toggleGlobalInputs()">
+        <mat-icon [fontIcon]="globalInputsOpen() ? 'expand_less' : 'expand_more'"></mat-icon>
+        <span class="title-toolbar-global-inputs-title">Global Inputs</span>
+        <span class="title-toolbar-global-count">{{ globalInputs().length }}</span>
+      </button>
+      <div class="title-toolbar-global-inputs-help">
+        Use shared flow-level inputs for values reused by multiple nodes. Reference them as template <code>{{ globalTemplateReference('name') }}</code> or SpEL <code>{{ globalSpelReference('name') }}</code>.
+      </div>
+    </div>
+    @if (!readOnly()) {
+    <button type="button" mat-icon-button matTooltip="Add global input" (click)="addGlobalInput()">
+      <mat-icon fontIcon="add"></mat-icon>
+    </button>
+    }
+  </div>
+
+  @if (globalInputsOpen()) {
+  @if (!globalInputs().length) {
+  <div class="title-toolbar-global-inputs-empty">No global inputs defined.</div>
+  } @else {
+    @for (globalInput of globalInputs(); track $index) {
+    <div class="title-toolbar-global-input-row">
+      <mat-form-field appearance="outline">
+        <mat-label>Name</mat-label>
+        <input
+          matInput
+          [readonly]="readOnly()"
+          [ngModel]="globalInput.name"
+          (ngModelChange)="updateGlobalInput($index, { name: $event })"
+          placeholder="sharedTopic" />
+      </mat-form-field>
+
+      <label class="title-toolbar-global-select">
+        <span>Type</span>
+        <select
+          [disabled]="readOnly()"
+          [ngModel]="globalInput.type"
+          (ngModelChange)="updateGlobalInput($index, { type: $event })">
+          <option value="TEXT">TEXT</option>
+          <option value="FILE">FILE</option>
+        </select>
+      </label>
+
+      <label class="title-toolbar-global-checkbox">
+        <input
+          type="checkbox"
+          [disabled]="readOnly()"
+          [ngModel]="globalInput.multiple"
+          (ngModelChange)="updateGlobalInput($index, { multiple: $event })" />
+        <span>Multiple</span>
+      </label>
+
+      @if (!readOnly()) {
+      <button
+        type="button"
+        mat-icon-button
+        class="title-toolbar-global-delete"
+        matTooltip="Delete global input"
+        (click)="removeGlobalInput($index)">
+        <mat-icon fontIcon="delete"></mat-icon>
+      </button>
+      }
+    </div>
+    @if (globalInputValidationErrors()[$index]; as errorMessage) {
+    <div class="title-toolbar-global-error">{{ errorMessage }}</div>
+    }
+    <div class="title-toolbar-global-syntax">
+      Available references: <code>{{ globalTemplateReference(globalInput.name) }}</code> and <code>{{ globalSpelReference(globalInput.name) }}</code>
+    </div>
+    }
+  }
+  }
+</div>
+}
+
+@if (creatingGlobalInput()) {
+<div class="title-toolbar-global-modal-backdrop" (click)="cancelNewGlobalInput()"></div>
+<div class="title-toolbar-global-modal" role="dialog" aria-modal="true" aria-labelledby="global-input-modal-title">
+  <div class="title-toolbar-global-modal-title" id="global-input-modal-title">Add Global Input</div>
+
+  <mat-form-field appearance="outline" class="title-toolbar-global-modal-field">
+    <mat-label>Name</mat-label>
+    <input
+      matInput
+      [ngModel]="draftGlobalInput().name"
+      (ngModelChange)="updateDraftGlobalInput({ name: $event })"
+      placeholder="sharedTopic" />
+  </mat-form-field>
+
+  <label class="title-toolbar-global-select title-toolbar-global-modal-select">
+    <span>Type</span>
+    <select
+      [ngModel]="draftGlobalInput().type"
+      (ngModelChange)="updateDraftGlobalInput({ type: $event })">
+      <option value="TEXT">TEXT</option>
+      <option value="FILE">FILE</option>
+    </select>
+  </label>
+
+  <label class="title-toolbar-global-checkbox title-toolbar-global-modal-checkbox">
+    <input
+      type="checkbox"
+      [ngModel]="draftGlobalInput().multiple"
+      (ngModelChange)="updateDraftGlobalInput({ multiple: $event })" />
+    <span>Multiple</span>
+  </label>
+
+  @if (!draftGlobalInput().name.trim()) {
+  <div class="title-toolbar-global-error">Name is required</div>
+  } @else if (!canSaveDraftGlobalInput()) {
+  <div class="title-toolbar-global-error">Name must be unique</div>
+  }
+
+  <div class="title-toolbar-global-modal-help">
+    References: <code>{{ globalTemplateReference(draftGlobalInput().name) }}</code> and <code>{{ globalSpelReference(draftGlobalInput().name) }}</code>
+  </div>
+
+  <div class="title-toolbar-global-modal-actions">
+    <button type="button" mat-stroked-button (click)="cancelNewGlobalInput()">Cancel</button>
+    <button type="button" mat-flat-button [disabled]="!canSaveDraftGlobalInput()" (click)="saveNewGlobalInput()">Save</button>
+  </div>
+</div>
 }
 
 @if (snackbarMessage()) {

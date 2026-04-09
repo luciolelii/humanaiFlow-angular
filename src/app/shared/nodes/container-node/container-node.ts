@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectorRef, Component, HostBinding, HostListener, Input, inject } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, HostBinding, HostListener, Input, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { currentFlowPortValueKind, flowValueKindLabel, FlowBlock, FlowContainer, FlowData, FLOW_DEPENDANT_PORT_KEY, FLOW_DEPENDENCY_PORT_KEY } from '@models/flow';
@@ -68,7 +68,8 @@ type StructuredRetrieverConfig = {
   styleUrl: './container-node.css',
   host: {
     'data-testid': 'node'
-  }
+  },
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class ContainerNodeComponent {
   private editorState = inject(EditorStateHolder);
@@ -1063,7 +1064,8 @@ export class ContainerNodeComponent {
           : container
       ),
       connections: flow.data.connections,
-      dependencies: flow.data.dependencies ?? []
+      dependencies: flow.data.dependencies ?? [],
+      globalInputs: flow.data.globalInputs ?? []
     };
 
     this.editorState.updateData(nextFlow);

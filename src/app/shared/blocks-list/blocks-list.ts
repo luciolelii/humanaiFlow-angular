@@ -1,4 +1,4 @@
-import { Component, computed, inject, model, signal, Signal, WritableSignal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, model, signal, Signal, WritableSignal } from '@angular/core';
 import { BlockType } from '@models/flow';
 import { BlocksService } from '@services/blocks/blocks';
 import { ListStateViewHolder, OrderViewState } from '@utilities/list-state-holder';
@@ -17,6 +17,7 @@ import { BLOCK_TYPE_DRAG_MIME } from './block-drag';
   imports: [FormsModule, MatCardModule, MatChipsModule, MatFormFieldModule, MatIconModule, MatInputModule, MatProgressSpinnerModule, MatTooltipModule],
   templateUrl: './blocks-list.html',
   styleUrl: './blocks-list.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class BlocksList extends ListStateViewHolder<BlockType> {
 

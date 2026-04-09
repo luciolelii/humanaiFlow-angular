@@ -35,4 +35,6 @@ export abstract class AuthorizationCallServiceBase {
 
     abstract getUserStatistics(username: string): Observable<UserStatistics>;
 
+    abstract logout(): Observable<void>;
+
 }

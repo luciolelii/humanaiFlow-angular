@@ -1,4 +1,4 @@
-import { Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { ReteEditor } from '@shared/rete-editor/rete-editor';
@@ -8,7 +8,8 @@ import { SubflowPreviewDialogService } from '@services/dialogs/subflow-preview-d
   selector: 'app-subflow-preview-dialog-host',
   imports: [CommonModule, MatButtonModule, ReteEditor],
   templateUrl: './subflow-preview-dialog.html',
-  styleUrl: './subflow-preview-dialog.css'
+  styleUrl: './subflow-preview-dialog.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class SubflowPreviewDialogHostComponent {
   private dialog = inject(SubflowPreviewDialogService);

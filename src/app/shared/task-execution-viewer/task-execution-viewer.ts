@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, effect, ElementRef, inject, input, OnDestroy, signal, ViewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, ElementRef, inject, input, OnDestroy, signal, ViewChild } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -62,6 +62,7 @@ type ExecutionLogEntryView = ExecutionEventLogEntry & {
   imports: [CommonModule, ReteEditor, TaskExecutionInputsPanelComponent, MatButtonModule, MatIconModule, MatTooltipModule],
   templateUrl: './task-execution-viewer.html',
   styleUrl: './task-execution-viewer.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class TaskExecutionViewerComponent implements OnDestroy {
   private static readonly EVENTS_POLL_INTERVAL_MS = 5000;
@@ -292,7 +293,13 @@ export class TaskExecutionViewerComponent implements OnDestroy {
 
     const connections = this.getExecutionConnections(steps);
     const dependencies = this.getExecutionDependencies();
-    return { blocks, containers, connections, dependencies };
+    return {
+      blocks,
+      containers,
+      connections,
+      dependencies,
+      globalInputs: []
+    };
   });
 
   readonly formattedDuration = computed(() => {
@@ -387,6 +394,18 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     const status = String(execution.context.status ?? '').toUpperCase();
     if (status !== 'CREATED' && status !== 'READY') return false;
 
+    const globalInputs = execution.context.globalInputs ?? {};
+    const globalInputDescriptors = execution.context.globalInputDescriptors ?? {};
+    for (const [descriptorKey, descriptor] of Object.entries(globalInputDescriptors)) {
+      const inputName = String(descriptor?.name ?? descriptorKey).trim();
+      if (!inputName) return false;
+
+      const value = Object.prototype.hasOwnProperty.call(globalInputs, inputName)
+        ? globalInputs[inputName]
+        : descriptor?.value;
+      if (!this.isInputSet(value, Boolean(descriptor?.multiple))) return false;
+    }
+
     for (const step of Object.values(execution.context.steps ?? {})) {
       for (const input of step.inputs ?? []) {
         if (input.registered) continue;
@@ -429,6 +448,31 @@ export class TaskExecutionViewerComponent implements OnDestroy {
 
     const entries: EditableExecutionInput[] = [];
     const contextInputs = execution.context.inputs ?? {};
+    const contextGlobalInputs = execution.context.globalInputs ?? {};
+    const globalInputDescriptors = execution.context.globalInputDescriptors ?? {};
+
+    for (const [descriptorKey, descriptor] of Object.entries(globalInputDescriptors)) {
+      const inputName = String(descriptor?.name ?? descriptorKey).trim();
+      if (!inputName) continue;
+
+      const key = `global:${inputName}`;
+      const rawValue = Object.prototype.hasOwnProperty.call(contextGlobalInputs, inputName)
+        ? contextGlobalInputs[inputName]
+        : descriptor?.value;
+      const pendingValue = this.pendingTextInputs()[key];
+
+      entries.push({
+        key,
+        scope: 'global',
+        nodeId: null,
+        inputName,
+        title: 'Flow',
+        subtitle: inputName,
+        type: String(descriptor?.kind ?? 'TEXT').toUpperCase(),
+        multiple: Boolean(descriptor?.multiple),
+        value: pendingValue ?? this.normalizeEditableInputValue(rawValue, Boolean(descriptor?.multiple))
+      });
+    }
 
     for (const step of Object.values(execution.context.steps ?? {})) {
       for (const input of step.inputs ?? []) {
@@ -445,6 +489,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
 
         entries.push({
           key,
+          scope: 'node',
           nodeId: step.id,
           inputName,
           title: this.stepTitle(step),
@@ -564,9 +609,17 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     if (!executionId || !files.length) return;
 
     this.setInputSaving(input.key, true);
-    const request$ = input.multiple
-      ? this.taskExecutionsService.prepareFileArrayInput(executionId, input.nodeId, input.inputName, files)
-      : this.taskExecutionsService.prepareFileInput(executionId, input.nodeId, input.inputName, files[0]);
+    const request$ = input.scope === 'global'
+      ? (
+        input.multiple
+          ? this.taskExecutionsService.prepareGlobalFileArrayInput(executionId, input.inputName, files)
+          : this.taskExecutionsService.prepareGlobalFileInput(executionId, input.inputName, files[0])
+      )
+      : (
+        input.multiple
+          ? this.taskExecutionsService.prepareFileArrayInput(executionId, input.nodeId!, input.inputName, files)
+          : this.taskExecutionsService.prepareFileInput(executionId, input.nodeId!, input.inputName, files[0])
+      );
 
     request$.subscribe({
       next: () => this.clearInputSaving(input.key),
@@ -662,20 +715,37 @@ export class TaskExecutionViewerComponent implements OnDestroy {
 
     const value = this.pendingTextInputs()[input.key] ?? this.normalizeEditableInputValue(input.value, input.multiple);
     this.setInputSaving(input.key, true);
-    const request$ = input.multiple
-      ? this.taskExecutionsService.prepareStringArrayInput(
-        executionId,
-        input.nodeId,
-        input.inputName,
-        (Array.isArray(value) ? value : [String(value)])
-          .map((item) => item.trim())
-          .filter((item) => item.length > 0)
+    const normalizedValues = (Array.isArray(value) ? value : [String(value)])
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
+    const request$ = input.scope === 'global'
+      ? (
+        input.multiple
+          ? this.taskExecutionsService.prepareGlobalStringArrayInput(
+            executionId,
+            input.inputName,
+            normalizedValues
+          )
+          : this.taskExecutionsService.prepareGlobalStringInput(
+            executionId,
+            input.inputName,
+            String(Array.isArray(value) ? value[0] ?? '' : value)
+          )
       )
-      : this.taskExecutionsService.prepareStringInput(
-        executionId,
-        input.nodeId,
-        input.inputName,
-        String(Array.isArray(value) ? value[0] ?? '' : value)
+      : (
+        input.multiple
+          ? this.taskExecutionsService.prepareStringArrayInput(
+            executionId,
+            input.nodeId!,
+            input.inputName,
+            normalizedValues
+          )
+          : this.taskExecutionsService.prepareStringInput(
+            executionId,
+            input.nodeId!,
+            input.inputName,
+            String(Array.isArray(value) ? value[0] ?? '' : value)
+          )
       );
 
     request$.subscribe({

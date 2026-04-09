@@ -1,4 +1,4 @@
-import { Observable } from "rxjs";
+import { Observable, of } from "rxjs";
 import { AuthorizationCallServiceBase } from "./authorization-call.base";
 import {
   AdminChangeRoleRequest,
@@ -35,8 +35,7 @@ export class AuthorizationCallFakeService extends AuthorizationCallServiceBase {
             observer.next({
                 username: user.username,
                 email: user.email,
-                role: user.role,
-                token: 'fake-jwt-token'
+                role: user.role
             });
             observer.complete();
         });
@@ -219,5 +218,9 @@ export class AuthorizationCallFakeService extends AuthorizationCallServiceBase {
             lastFlowUpdateAt: '2026-03-26T10:15:30',
             lastExecutionAt: 1774520966139
         };
+    }
+
+    logout(): Observable<void> {
+        return of(undefined);
     }
 }

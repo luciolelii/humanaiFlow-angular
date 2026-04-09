@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, model, signal, Signal, WritableSignal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, model, signal, Signal, WritableSignal } from '@angular/core';
 import { Flow, FlowVisibility } from '@models/flow';
 import { FlowsService } from '@services/flows/flows';
 import { FlowItem } from './flow-item/flow-item';
@@ -10,7 +10,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatListModule } from '@angular/material/list';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { OrderEvent, OrderField, Ordering } from "@shared/ordering/ordering";
+import { OrderEvent, OrderField, Ordering, orderDirType } from "@shared/ordering/ordering";
 import { ListStateViewHolder, OrderViewState } from '@utilities/list-state-holder';
 
 type FlowFilter = FlowVisibility | 'FINALIZED' | 'all';
@@ -20,6 +20,7 @@ type FlowFilter = FlowVisibility | 'FINALIZED' | 'all';
   imports: [FlowItem, FormsModule, Ordering, MatButtonToggleModule, MatCardModule, MatFormFieldModule, MatIconModule, MatInputModule, MatListModule, MatProgressSpinnerModule],
   templateUrl: './flows-list.html',
   styleUrl: './flows-list.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class FlowsList extends ListStateViewHolder<Flow> {
   filter = signal<FlowFilter>('all');
@@ -29,6 +30,9 @@ export class FlowsList extends ListStateViewHolder<Flow> {
     { field: 'updatedAt', label: 'Last Update Date' },
     { field: 'createdAt', label: 'Creation Date' }
   ];
+
+  readonly orderBy = signal<string | null>('name');
+  readonly orderDir = signal<orderDirType>('asc');
 
   searchTerm = model<string>('');
 
@@ -55,6 +59,9 @@ export class FlowsList extends ListStateViewHolder<Flow> {
 
   ngOnInit() {
     const existingState = this.view;
+    this.orderBy.set(existingState.order.orderBy);
+    this.orderDir.set(existingState.order.orderDir);
+
     if (existingState.list) {
       this.flows = existingState.list;
       this.loading.set(false);
@@ -91,12 +98,13 @@ export class FlowsList extends ListStateViewHolder<Flow> {
 
   orderedFlows = computed(() => {
     const flows = [...this.filteredFlows()];
-    const { orderBy, orderDir } = this.view.order;
+    const orderBy = this.orderBy();
+    const orderDir = this.orderDir();
     if (!orderBy) return flows;
 
     return flows.sort((a, b) => {
-      const aValue = (a as any)[orderBy];
-      const bValue = (b as any)[orderBy];
+      const aValue = this.toComparableValue((a as any)[orderBy]);
+      const bValue = this.toComparableValue((b as any)[orderBy]);
       if (aValue == null && bValue == null) return 0;
       if (aValue == null) return orderDir === 'asc' ? -1 : 1;
       if (bValue == null) return orderDir === 'asc' ? 1 : -1;
@@ -109,7 +117,17 @@ export class FlowsList extends ListStateViewHolder<Flow> {
 
   onOrderChanged(event: OrderEvent) {
     const { orderBy, orderDir } = event;
+    this.orderBy.set(orderBy);
+    this.orderDir.set(orderDir);
     this.view.order = { orderBy, orderDir };
+  }
+
+  private toComparableValue(value: unknown): string | number | null {
+    if (value == null) return null;
+    if (value instanceof Date) return value.getTime();
+    if (typeof value === 'string') return value.toLowerCase();
+    if (typeof value === 'number') return value;
+    return String(value).toLowerCase();
   }
 
 }

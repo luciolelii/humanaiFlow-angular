@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, ElementRef, inject, signal, ViewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, ElementRef, inject, signal, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -8,6 +8,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Router } from '@angular/router';
+import { FlowGlobalInput } from '@models/flow';
 import { BlocksService } from '@services/blocks/blocks';
 import { Authorization } from '@services/authorization/authorization';
 import { FlowsService } from '@services/flows/flows';
@@ -20,6 +21,7 @@ import { EditorStateHolder } from '@stores/flow-editor';
   imports: [CommonModule, FormsModule, MatButtonModule, MatFormFieldModule, MatIconModule, MatInputModule, MatTooltipModule, MatSlideToggleModule],
   templateUrl: './title-toolbar.html',
   styleUrl: './title-toolbar.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class TitleToolbar {
   private snackTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -46,7 +48,33 @@ export class TitleToolbar {
 
   notSaved = computed(() => this.editorState.isDirty());
   blockSyncInProgress = this.blocksService.hasPendingServerSync;
-  canSave = computed(() => !this.readOnly() && this.notSaved() && !this.blockSyncInProgress());
+  canSave = computed(() =>
+    !this.readOnly() &&
+    this.notSaved() &&
+    !this.blockSyncInProgress() &&
+    !this.hasGlobalInputValidationIssues()
+  );
+  globalInputs = computed(() => this.flow()?.data.globalInputs ?? []);
+  hasGlobalInputValidationIssues = computed(() =>
+    this.globalInputValidationErrors().some((message) => !!message)
+  );
+  globalInputValidationErrors = computed(() => {
+    const inputs = this.globalInputs();
+    const nameCounts = new Map<string, number>();
+
+    for (const input of inputs) {
+      const normalized = String(input.name ?? '').trim().toLowerCase();
+      if (!normalized) continue;
+      nameCounts.set(normalized, (nameCounts.get(normalized) ?? 0) + 1);
+    }
+
+    return inputs.map((input) => {
+      const name = String(input.name ?? '').trim();
+      if (!name) return 'Name is required';
+      if ((nameCounts.get(name.toLowerCase()) ?? 0) > 1) return 'Name must be unique';
+      return null;
+    });
+  });
   canTogglePublished = computed(() => !!this.flow() && this.isOwner());
   canFinalize = computed(() => !!this.flow() && this.isOwner() && !this.flow()!.finalized);
   canExecute = computed(() => {
@@ -60,6 +88,9 @@ export class TitleToolbar {
   snackbarType = signal<'success' | 'error'>('success');
   editingTitle = signal(false);
   draftTitle = signal('');
+  globalInputsOpen = signal(false);
+  creatingGlobalInput = signal(false);
+  draftGlobalInput = signal<FlowGlobalInput>({ name: '', type: 'TEXT', multiple: false });
 
   startEditingTitle() {
     const flow = this.flow();
@@ -94,6 +125,96 @@ export class TitleToolbar {
     this.editorState.updateFlowTitle(trimmed );
     this.draftTitle.set(trimmed);
     this.editingTitle.set(false);
+  }
+
+  addGlobalInput() {
+    if (this.readOnly()) return;
+    this.draftGlobalInput.set({ name: '', type: 'TEXT', multiple: false });
+    this.creatingGlobalInput.set(true);
+  }
+
+  saveNewGlobalInput() {
+    const flow = this.flow();
+    if (!flow || this.readOnly()) return;
+
+    const draft = this.draftGlobalInput();
+    const name = draft.name.trim();
+    if (!name) return;
+
+    const alreadyExists = (flow.data.globalInputs ?? []).some((input) => input.name.trim().toLowerCase() === name.toLowerCase());
+    if (alreadyExists) return;
+
+    this.editorState.updateData({
+      ...flow.data,
+      globalInputs: [
+        ...(flow.data.globalInputs ?? []),
+        { ...draft, name }
+      ]
+    });
+    this.creatingGlobalInput.set(false);
+    this.globalInputsOpen.set(true);
+  }
+
+  cancelNewGlobalInput() {
+    this.creatingGlobalInput.set(false);
+  }
+
+  updateDraftGlobalInput(patch: Partial<FlowGlobalInput>) {
+    this.draftGlobalInput.update((current) => ({
+      ...current,
+      ...patch
+    }));
+  }
+
+  updateGlobalInput(index: number, patch: Partial<FlowGlobalInput>) {
+    const flow = this.flow();
+    if (!flow || this.readOnly()) return;
+
+    const globalInputs = [...(flow.data.globalInputs ?? [])];
+    if (!globalInputs[index]) return;
+    globalInputs[index] = {
+      ...globalInputs[index],
+      ...patch
+    };
+
+    this.editorState.updateData({
+      ...flow.data,
+      globalInputs
+    });
+  }
+
+  removeGlobalInput(index: number) {
+    const flow = this.flow();
+    if (!flow || this.readOnly()) return;
+
+    const globalInputs = [...(flow.data.globalInputs ?? [])];
+    globalInputs.splice(index, 1);
+    this.editorState.updateData({
+      ...flow.data,
+      globalInputs
+    });
+  }
+
+  globalTemplateReference(name: string): string {
+    const resolved = name.trim() || 'name';
+    return `\${{global.${resolved}}}`;
+  }
+
+  globalSpelReference(name: string): string {
+    const resolved = name.trim() || 'name';
+    return `#global.${resolved}`;
+  }
+
+  toggleGlobalInputs() {
+    this.globalInputsOpen.update((open) => !open);
+  }
+
+  canSaveDraftGlobalInput(): boolean {
+    const flow = this.flow();
+    const draft = this.draftGlobalInput();
+    const name = draft.name.trim();
+    if (!flow || !name) return false;
+    return !(flow.data.globalInputs ?? []).some((input) => input.name.trim().toLowerCase() === name.toLowerCase());
   }
 
   save() {

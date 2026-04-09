@@ -1,4 +1,4 @@
-import { Component, computed, effect, ElementRef, inject, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, ElementRef, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -12,7 +12,8 @@ import {
   selector: 'app-human-interaction-dialog-host',
   standalone: true,
   imports: [FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule],
-  templateUrl: './human-interaction-dialog.html'
+  templateUrl: './human-interaction-dialog.html',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class HumanInteractionDialogHostComponent {
   private dialog = inject(HumanInteractionDialogService);

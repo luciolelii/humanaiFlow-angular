@@ -11,7 +11,7 @@ import {
   UserStatistics,
   UserRole
 } from "@models/user";
-import { catchError, map, Observable, throwError } from "rxjs";
+import { catchError, map, Observable, of, throwError } from "rxjs";
 import { HttpClient, HttpErrorResponse } from "@angular/common/http";
 import { inject } from "@angular/core";
 import { environment } from "@environment";
@@ -29,13 +29,11 @@ export class AuthorizationCallService extends AuthorizationCallServiceBase {
                       (payload["user"] as Record<string, unknown> | undefined)
                       ?? (payload["profile"] as Record<string, unknown> | undefined)
                       ?? payload;
-                    const token = this.extractToken(payload, userSource);
 
                     return {
                         username: String(userSource["username"] ?? username),
                         email: typeof userSource["email"] === "string" ? String(userSource["email"]) : null,
-                        role: this.normalizeRole(userSource["role"]),
-                        token: typeof token === "string" && token.length > 0 ? token : undefined
+                        role: this.normalizeRole(userSource["role"])
                     } satisfies User;
                 }),
                 catchError((error: unknown) => {
@@ -198,20 +196,6 @@ export class AuthorizationCallService extends AuthorizationCallServiceBase {
       return null;
     }
 
-    private extractToken(...sources: Array<Record<string, unknown> | undefined>): unknown {
-      const tokenKeys = ['token', 'accessToken', 'access_token', 'jwt', 'id_token'];
-      for (const source of sources) {
-        if (!source) continue;
-        for (const key of tokenKeys) {
-          const value = source[key];
-          if (typeof value === 'string' && value.length > 0) {
-            return value;
-          }
-        }
-      }
-      return undefined;
-    }
-
     private normalizeRole(value: unknown): UserRole {
       return String(value ?? '').toUpperCase() === 'ADMIN' ? 'ADMIN' : 'USER';
     }
@@ -257,6 +241,15 @@ export class AuthorizationCallService extends AuthorizationCallServiceBase {
         lastFlowUpdateAt: typeof value['lastFlowUpdateAt'] === 'string' ? value['lastFlowUpdateAt'] : null,
         lastExecutionAt: typeof value['lastExecutionAt'] === 'number' ? value['lastExecutionAt'] : null
       };
+    }
+
+    override logout(): Observable<void> {
+      return this.http
+        .post<void>(`${environment.apiUrl}/auth/logout`, {})
+        .pipe(
+          map(() => undefined),
+          catchError(() => of(undefined))
+        );
     }
 
     private toHttpError(error: unknown, fallbackByStatus: Record<number, string>): Observable<never> {

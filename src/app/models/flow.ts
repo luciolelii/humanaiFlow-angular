@@ -23,6 +23,13 @@ export type FlowData = {
   containers: FlowContainer[];
   connections: FlowBlockConnection[];
   dependencies: FlowNodeDependency[];
+  globalInputs?: FlowGlobalInput[];
+};
+
+export type FlowGlobalInput = {
+  name: string;
+  type: string;
+  multiple: boolean;
 };
 
 export type FlowSubflowValidationError = {

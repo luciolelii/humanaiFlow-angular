@@ -1,7 +1,8 @@
-import { Component, HostBinding, Input } from "@angular/core";
+import { ChangeDetectionStrategy, Component, HostBinding, Input } from "@angular/core";
 
 @Component({
   template: ``,
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class CustomSocket {
   @Input() data!: any;

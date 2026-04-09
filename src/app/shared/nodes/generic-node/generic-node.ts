@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectorRef, Component, HostBinding, HostListener, inject, Input } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, HostBinding, HostListener, inject, Input } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { BlockType, currentFlowPortValueKind, flowValueKindLabel, FlowData, FlowPort, FlowValueKind, FLOW_DEPENDANT_PORT_KEY, FLOW_DEPENDENCY_PORT_KEY, normalizeFlowPortValueKinds } from '@models/flow';
@@ -143,7 +143,8 @@ type RenderedSocketPort = {
   styleUrl: './generic-node.css',
   host: {
     'data-testid': 'node'
-  }
+  },
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class GenericNodeComponent {
 

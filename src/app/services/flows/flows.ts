@@ -160,7 +160,8 @@ export class FlowsService {
         blocks: [],
         containers: [],
         connections: [],
-        dependencies: []
+        dependencies: [],
+        globalInputs: []
       },
       status: 'DRAFT'
     }).pipe(

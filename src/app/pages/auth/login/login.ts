@@ -1,4 +1,4 @@
-import { Component, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -16,6 +16,7 @@ import { Field, form, required } from '@angular/forms/signals';
   imports: [FormsModule, RouterLink, Field, MatButtonModule, MatCardModule, MatFormFieldModule, MatIconModule, MatInputModule],
   templateUrl: './login.html',
   styleUrls: ['./login.css'],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class Login extends FormUtility {
 

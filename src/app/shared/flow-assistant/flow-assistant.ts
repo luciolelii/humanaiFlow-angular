@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, OnDestroy, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -24,7 +24,8 @@ import { finalize, take } from 'rxjs';
   selector: 'app-flow-assistant',
   imports: [CommonModule, FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule],
   templateUrl: './flow-assistant.html',
-  styleUrl: './flow-assistant.css'
+  styleUrl: './flow-assistant.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class FlowAssistant implements OnInit, OnDestroy {
   private readonly assistant = inject(AssistantService);

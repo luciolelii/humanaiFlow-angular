@@ -4,7 +4,6 @@ export type User = {
     username: string;
     email: string | null;
     role: UserRole;
-    token?: string;
 };
 
 export type UserRegistration = {

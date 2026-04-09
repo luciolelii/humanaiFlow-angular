@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { MatCardModule } from '@angular/material/card';
 import { normalizeExecutionStatus, TaskExecution } from '@models/task-execution';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -18,6 +18,7 @@ import { TaskExecutionsService } from '@services/task-executions/task-executions
   imports: [TasksExecutionsListComponent, TaskExecutionViewerComponent, MatCardModule],
   templateUrl: './tasks-executor.html',
   styleUrl: './tasks-executor.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class TasksExecutor {
   private taskExecutionsService = inject(TaskExecutionsService);

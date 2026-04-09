@@ -33,7 +33,8 @@ export class FlowsCallService extends FlowsCallServiceBase {
         blocks: [],
         containers: [],
         connections: [],
-        dependencies: []
+        dependencies: [],
+        globalInputs: []
       },
       status: 'DRAFT'
     });

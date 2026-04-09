@@ -1,4 +1,4 @@
-import { afterNextRender, Component, inject, signal } from '@angular/core';
+import { afterNextRender, ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
@@ -16,6 +16,7 @@ import { ChangePasswordDialogComponent } from '@shared/change-password-dialog/ch
   imports: [RouterOutlet, RouterLink, RouterLinkActive, ChangePasswordDialogComponent, MatButtonModule, MatIconModule, MatMenuModule, MatTabsModule, MatToolbarModule],
   templateUrl: './app-layout.html',
   styleUrl: './app-layout.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class AppLayout {
 
@@ -51,8 +52,9 @@ export class AppLayout {
   }
 
 logout() {
-    this.authService.logout();
-    this.router.navigate(['/login']);
+    this.authService.logout().subscribe(() => {
+      this.router.navigate(['/login']);
+    });
   }
 
   openChangePasswordDialog() {

@@ -70,10 +70,70 @@
   @if (!editableInputs().length && !authorizationRequirements().length) {
   <div class="text-xs text-slate-500">No manual inputs required.</div>
   } @else {
-    @if (editableInputs().length) {
+    @if (globalExecutionInputs().length) {
+    <div>
+      <div class="text-xs font-semibold uppercase tracking-wide text-slate-600">Globals</div>
+      <div class="mt-1 text-[11px] text-slate-500">Provide the shared flow-level inputs once before execution starts.</div>
+    </div>
+    @for (executionInput of globalExecutionInputs(); track executionInput.key) {
+    <div class="rounded-md border border-violet-200 bg-violet-50/60 p-2">
+      <div class="mb-3 flex min-h-[52px] flex-col items-center justify-center rounded-[10px] border border-violet-200 bg-gradient-to-b from-violet-50 to-violet-100 px-3 py-2 text-center text-violet-700">
+        <div class="text-[14px] font-extrabold leading-tight">{{ executionInput.title }}</div>
+        <div class="mt-1 text-[11px] font-semibold uppercase tracking-[0.04em] text-violet-600">{{ executionInput.subtitle }}</div>
+      </div>
+      <div class="mb-2 text-[10px] text-slate-500">Type: {{ inputTypeLabel(executionInput) }}</div>
+
+      @if (isFileInput(executionInput)) {
+      <input
+        type="file"
+        class="block w-full text-sm text-slate-700"
+        [attr.multiple]="isMultipleInput(executionInput) ? '' : null"
+        [disabled]="readOnly()"
+        (change)="onFileInputChange(executionInput, $event)" />
+      } @else {
+        @if (isMultipleInput(executionInput)) {
+        <div class="space-y-3">
+          @for (textValue of textValues(executionInput); track $index) {
+          <div class="flex items-start gap-2">
+            <mat-form-field appearance="outline" class="flex-1">
+              <mat-label>{{ executionInput.subtitle }} {{ $index + 1 }}</mat-label>
+              <textarea matInput rows="3" [readonly]="readOnly()" [ngModel]="textValue" (ngModelChange)="updateTextItem(executionInput, $index, $event)"></textarea>
+            </mat-form-field>
+            <button type="button" mat-stroked-button class="shrink-0" [disabled]="readOnly() || textValues(executionInput).length <= 1" (click)="removeTextItem(executionInput, $index)">Remove</button>
+          </div>
+          }
+          <button type="button" mat-stroked-button [disabled]="readOnly()" (click)="addTextItem(executionInput)">Add item</button>
+          <div class="flex justify-end">
+            <button type="button" mat-flat-button [disabled]="!canSubmitTextInput(executionInput)" (click)="submitTextInput(executionInput, $event)">Save</button>
+          </div>
+        </div>
+        } @else {
+        <div class="space-y-3">
+          <mat-form-field appearance="outline" class="w-full">
+            <mat-label>{{ executionInput.subtitle }}</mat-label>
+            <textarea matInput rows="4" [readonly]="readOnly()" [ngModel]="executionInput.value" (ngModelChange)="onTextInputChange(executionInput, $event)"></textarea>
+          </mat-form-field>
+          <div class="flex justify-end">
+            <button type="button" mat-flat-button [disabled]="!canSubmitTextInput(executionInput)" (click)="submitTextInput(executionInput, $event)">Save</button>
+          </div>
+        </div>
+        }
+      }
+
+      @if (isInputSaving(executionInput.key)) {
+      <div class="mt-2 text-[11px] text-blue-600">Saving...</div>
+      }
+      @if (inputSavingError(executionInput.key); as errorMessage) {
+      <div class="mt-2 text-[11px] text-red-600">{{ errorMessage }}</div>
+      }
+    </div>
+    }
+    }
+
+    @if (nodeExecutionInputs().length) {
     <div class="text-xs font-semibold uppercase tracking-wide text-slate-600">Manual Inputs</div>
     }
-    @for (executionInput of editableInputs(); track executionInput.key) {
+    @for (executionInput of nodeExecutionInputs(); track executionInput.key) {
     <div class="rounded-md border border-slate-200 bg-slate-50 p-2">
       <div class="mb-3 flex min-h-[52px] flex-col items-center justify-center rounded-[10px] border border-blue-200 bg-gradient-to-b from-blue-50 to-blue-100 px-3 py-2 text-center text-blue-700">
         <div class="text-[14px] font-extrabold leading-tight">{{ executionInput.title }}</div>

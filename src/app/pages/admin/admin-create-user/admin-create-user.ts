@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, effect, inject, signal } from '@angular/core';
 import { Field, form, minLength, required, validate } from '@angular/forms/signals';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -35,7 +35,8 @@ function hasValidPasswordComplexity(value: string): boolean {
     MatSelectModule
   ],
   templateUrl: './admin-create-user.html',
-  styleUrl: './admin-create-user.css'
+  styleUrl: './admin-create-user.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class AdminCreateUserPage extends FormUtility {
   private authorization = inject(Authorization);

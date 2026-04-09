@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, effect, ElementRef, inject, OnDestroy, signal, viewChild } from '@angular/core';
+import { AfterViewInit, ChangeDetectionStrategy, Component, effect, ElementRef, inject, OnDestroy, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -39,6 +39,7 @@ let turnstileScriptPromise: Promise<void> | null = null;
   imports: [FormsModule, RouterLink, Field, MatButtonModule, MatCardModule, MatFormFieldModule, MatInputModule],
   templateUrl: './signup.html',
   styleUrl: './signup.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class Signup extends FormUtility implements AfterViewInit, OnDestroy {
 

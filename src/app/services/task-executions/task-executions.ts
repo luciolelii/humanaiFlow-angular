@@ -165,6 +165,46 @@ export class TaskExecutionsService {
     );
   }
 
+  prepareGlobalStringInput(executionId: string, inputName: string, value: string) {
+    return this.taskExecutionsCallService.prepareGlobalStringInput(executionId, inputName, value).pipe(
+      tap(() => this.refresh()),
+      catchError((err) => {
+        console.error('Prepare global string input failed', err);
+        return throwError(() => err);
+      })
+    );
+  }
+
+  prepareGlobalStringArrayInput(executionId: string, inputName: string, values: string[]) {
+    return this.taskExecutionsCallService.prepareGlobalStringArrayInput(executionId, inputName, values).pipe(
+      tap(() => this.refresh()),
+      catchError((err) => {
+        console.error('Prepare global string array input failed', err);
+        return throwError(() => err);
+      })
+    );
+  }
+
+  prepareGlobalFileInput(executionId: string, inputName: string, file: File) {
+    return this.taskExecutionsCallService.prepareGlobalFileInput(executionId, inputName, file).pipe(
+      tap(() => this.refresh()),
+      catchError((err) => {
+        console.error('Prepare global file input failed', err);
+        return throwError(() => err);
+      })
+    );
+  }
+
+  prepareGlobalFileArrayInput(executionId: string, inputName: string, files: File[]) {
+    return this.taskExecutionsCallService.prepareGlobalFileArrayInput(executionId, inputName, files).pipe(
+      tap(() => this.refresh()),
+      catchError((err) => {
+        console.error('Prepare global file array input failed', err);
+        return throwError(() => err);
+      })
+    );
+  }
+
   submitInteractionText(executionId: string, nodeId: string, fieldName: string, value: string) {
     const execution = this._taskExecutions().find((item) => item.id === executionId);
     if (execution?.interactionSimulationEnabled === true) {

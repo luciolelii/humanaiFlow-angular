@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Field, form, minLength, required, validate } from '@angular/forms/signals';
 import { MatButtonModule } from '@angular/material/button';
@@ -41,7 +41,8 @@ function hasValidPasswordComplexity(value: string): boolean {
     AdminResetPasswordDialogComponent
   ],
   templateUrl: './admin-users.html',
-  styleUrl: './admin-users.css'
+  styleUrl: './admin-users.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class AdminUsersPage extends FormUtility {
   private authorization = inject(Authorization);

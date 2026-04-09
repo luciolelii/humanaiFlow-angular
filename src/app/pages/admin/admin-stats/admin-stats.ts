@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -21,7 +21,8 @@ import { Authorization } from '@services/authorization/authorization';
     MatInputModule
   ],
   templateUrl: './admin-stats.html',
-  styleUrl: './admin-stats.css'
+  styleUrl: './admin-stats.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class AdminStatsPage {
   private authorization = inject(Authorization);

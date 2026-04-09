@@ -1,4 +1,4 @@
-import { Component, effect, ElementRef, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, effect, ElementRef, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -17,7 +17,8 @@ import {
   selector: 'app-node-settings-dialog-host',
   standalone: true,
   imports: [FormsModule, MatButtonModule, MatCheckboxModule, MatFormFieldModule, MatIconModule, MatInputModule, MatSelectModule, MatTooltipModule],
-  templateUrl: './node-settings-dialog.html'
+  templateUrl: './node-settings-dialog.html',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class NodeSettingsDialogHostComponent {
   private dialog = inject(NodeSettingsDialogService);

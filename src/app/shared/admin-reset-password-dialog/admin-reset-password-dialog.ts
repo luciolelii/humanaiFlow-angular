@@ -1,4 +1,4 @@
-import { Component, computed, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Field, form, minLength, required, validate } from '@angular/forms/signals';
 import { MatButtonModule } from '@angular/material/button';
@@ -19,7 +19,8 @@ function hasValidPasswordComplexity(value: string): boolean {
   selector: 'app-admin-reset-password-dialog',
   imports: [FormsModule, Field, MatButtonModule, MatFormFieldModule, MatIconModule, MatInputModule],
   templateUrl: './admin-reset-password-dialog.html',
-  styleUrl: './admin-reset-password-dialog.css'
+  styleUrl: './admin-reset-password-dialog.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class AdminResetPasswordDialogComponent extends FormUtility {
   readonly username = input.required<string>();

@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, HostListener, ViewChild, computed, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, HostListener, ViewChild, computed, effect, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
@@ -30,6 +30,7 @@ type TourStep = {
   imports: [CommonModule, EditorSidebar, TitleToolbar, ReteEditor, FlowAssistant, FlowValidationPanel, MatButtonModule, MatCardModule, MatIconModule],
   templateUrl: './flow-editor.html',
   styleUrl: './flow-editor.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class FlowEditor {
   private static readonly SIDEBAR_OPEN_DELAY_MS = 320;
@@ -289,7 +290,8 @@ export class FlowEditor {
           targetName: targetInput
         }
       ],
-      dependencies: []
+      dependencies: [],
+      globalInputs: []
     };
   }
 

@@ -35,6 +35,26 @@ export abstract class TaskExecutionsCallServiceBase {
     inputName: string,
     files: File[]
   ): Observable<TaskExecution>;
+  abstract prepareGlobalStringInput(
+    executionId: string,
+    inputName: string,
+    value: string
+  ): Observable<TaskExecution>;
+  abstract prepareGlobalStringArrayInput(
+    executionId: string,
+    inputName: string,
+    values: string[]
+  ): Observable<TaskExecution>;
+  abstract prepareGlobalFileInput(
+    executionId: string,
+    inputName: string,
+    file: File
+  ): Observable<TaskExecution>;
+  abstract prepareGlobalFileArrayInput(
+    executionId: string,
+    inputName: string,
+    files: File[]
+  ): Observable<TaskExecution>;
   abstract submitInteractionText(
     executionId: string,
     nodeId: string,

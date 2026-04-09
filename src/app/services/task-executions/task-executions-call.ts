@@ -3,14 +3,16 @@ import { inject } from '@angular/core';
 import { environment } from '@environment';
 import { LLMDescriptor } from '@models/flow';
 import { ExecutionEventLogEntry, TaskExecution } from '@models/task-execution';
-import { Observable } from 'rxjs';
+import { map, Observable } from 'rxjs';
 import { TaskExecutionsCallServiceBase } from './task-executions-call.base';
 
 export class TaskExecutionsCallService extends TaskExecutionsCallServiceBase {
   private readonly http = inject(HttpClient);
 
   override retrieveAllTaskExecutions(): Observable<TaskExecution[]> {
-    return this.http.get<TaskExecution[]>(`${environment.apiUrl}/executions`);
+    return this.http.get<unknown[]>(`${environment.apiUrl}/executions`).pipe(
+      map((raw) => Array.isArray(raw) ? raw.map((item) => this.mapExecution(item)) : [])
+    );
   }
 
   override retrieveExecutionEvents(executionId: string): Observable<ExecutionEventLogEntry[]> {
@@ -18,7 +20,9 @@ export class TaskExecutionsCallService extends TaskExecutionsCallServiceBase {
   }
 
   override createTaskExecution(flowId: string): Observable<TaskExecution> {
-    return this.http.post<TaskExecution>(`${environment.apiUrl}/executions`, flowId);
+    return this.http.post<unknown>(`${environment.apiUrl}/executions`, flowId).pipe(
+      map((raw) => this.mapExecution(raw))
+    );
   }
 
   override deleteTaskExecution(executionId: string): Observable<void> {
@@ -26,19 +30,27 @@ export class TaskExecutionsCallService extends TaskExecutionsCallServiceBase {
   }
 
   override startTaskExecution(executionId: string): Observable<TaskExecution> {
-    return this.http.put<TaskExecution>(`${environment.apiUrl}/executions/${encodeURIComponent(executionId)}/start`, null);
+    return this.http.put<unknown>(`${environment.apiUrl}/executions/${encodeURIComponent(executionId)}/start`, null).pipe(
+      map((raw) => this.mapExecution(raw))
+    );
   }
 
   override simulateTaskExecution(executionId: string, simulator: LLMDescriptor): Observable<TaskExecution> {
-    return this.http.put<TaskExecution>(`${environment.apiUrl}/executions/${encodeURIComponent(executionId)}/simulate`, { simulator });
+    return this.http.put<unknown>(`${environment.apiUrl}/executions/${encodeURIComponent(executionId)}/simulate`, { simulator }).pipe(
+      map((raw) => this.mapExecution(raw))
+    );
   }
 
   override cancelTaskExecution(executionId: string): Observable<TaskExecution> {
-    return this.http.put<TaskExecution>(`${environment.apiUrl}/executions/${encodeURIComponent(executionId)}/cancel`, null);
+    return this.http.put<unknown>(`${environment.apiUrl}/executions/${encodeURIComponent(executionId)}/cancel`, null).pipe(
+      map((raw) => this.mapExecution(raw))
+    );
   }
 
   override resumeTaskExecution(executionId: string): Observable<TaskExecution> {
-    return this.http.put<TaskExecution>(`${environment.apiUrl}/executions/${encodeURIComponent(executionId)}/resume`, null);
+    return this.http.put<unknown>(`${environment.apiUrl}/executions/${encodeURIComponent(executionId)}/resume`, null).pipe(
+      map((raw) => this.mapExecution(raw))
+    );
   }
 
   override prepareStringInput(
@@ -48,9 +60,9 @@ export class TaskExecutionsCallService extends TaskExecutionsCallServiceBase {
     value: string
   ): Observable<TaskExecution> {
     const url = `${environment.apiUrl}/executions/${encodeURIComponent(executionId)}/node/${encodeURIComponent(nodeId)}/input/${encodeURIComponent(inputName)}/text`;
-    return this.http.put<TaskExecution>(url, value, {
+    return this.http.put<unknown>(url, value, {
       headers: { 'Content-Type': 'text/plain' }
-    });
+    }).pipe(map((raw) => this.mapExecution(raw)));
   }
 
   override prepareStringArrayInput(
@@ -60,7 +72,7 @@ export class TaskExecutionsCallService extends TaskExecutionsCallServiceBase {
     values: string[]
   ): Observable<TaskExecution> {
     const url = `${environment.apiUrl}/executions/${encodeURIComponent(executionId)}/node/${encodeURIComponent(nodeId)}/input/${encodeURIComponent(inputName)}/texts`;
-    return this.http.put<TaskExecution>(url, values);
+    return this.http.put<unknown>(url, values).pipe(map((raw) => this.mapExecution(raw)));
   }
 
   override prepareFileInput(
@@ -72,7 +84,7 @@ export class TaskExecutionsCallService extends TaskExecutionsCallServiceBase {
     const url = `${environment.apiUrl}/executions/${encodeURIComponent(executionId)}/node/${encodeURIComponent(nodeId)}/input/${encodeURIComponent(inputName)}/file`;
     const formData = new FormData();
     formData.append('file', file);
-    return this.http.put<TaskExecution>(url, formData);
+    return this.http.put<unknown>(url, formData).pipe(map((raw) => this.mapExecution(raw)));
   }
 
   override prepareFileArrayInput(
@@ -86,7 +98,54 @@ export class TaskExecutionsCallService extends TaskExecutionsCallServiceBase {
     for (const file of files) {
       formData.append('files', file);
     }
-    return this.http.put<TaskExecution>(url, formData);
+    return this.http.put<unknown>(url, formData).pipe(map((raw) => this.mapExecution(raw)));
+  }
+
+  override prepareGlobalStringInput(
+    executionId: string,
+    inputName: string,
+    value: string
+  ): Observable<TaskExecution> {
+    const url = `${environment.apiUrl}/executions/${encodeURIComponent(executionId)}/globals/${encodeURIComponent(inputName)}`;
+    return this.http.put<unknown>(url, JSON.stringify(value), {
+      headers: { 'Content-Type': 'application/json' }
+    }).pipe(map((raw) => this.mapExecution(raw)));
+  }
+
+  override prepareGlobalStringArrayInput(
+    executionId: string,
+    inputName: string,
+    values: string[]
+  ): Observable<TaskExecution> {
+    const url = `${environment.apiUrl}/executions/${encodeURIComponent(executionId)}/globals`;
+    return this.http.put<unknown>(url, {
+      [inputName]: values
+    }).pipe(map((raw) => this.mapExecution(raw)));
+  }
+
+  override prepareGlobalFileInput(
+    executionId: string,
+    inputName: string,
+    file: File
+  ): Observable<TaskExecution> {
+    const url = `${environment.apiUrl}/executions/${encodeURIComponent(executionId)}/globals/${encodeURIComponent(inputName)}`;
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.put<unknown>(url, formData).pipe(map((raw) => this.mapExecution(raw)));
+  }
+
+  override prepareGlobalFileArrayInput(
+    executionId: string,
+    inputName: string,
+    files: File[]
+  ): Observable<TaskExecution> {
+    const url = `${environment.apiUrl}/executions/${encodeURIComponent(executionId)}/globals`;
+    const formData = new FormData();
+    formData.append('key', inputName);
+    for (const file of files) {
+      formData.append(inputName, file);
+    }
+    return this.http.put<unknown>(url, formData).pipe(map((raw) => this.mapExecution(raw)));
   }
 
   override submitInteractionText(
@@ -96,9 +155,9 @@ export class TaskExecutionsCallService extends TaskExecutionsCallServiceBase {
     value: string
   ): Observable<TaskExecution> {
     const url = `${environment.apiUrl}/executions/${encodeURIComponent(executionId)}/node/${encodeURIComponent(nodeId)}/interaction/${encodeURIComponent(fieldName)}/text`;
-    return this.http.put<TaskExecution>(url, value, {
+    return this.http.put<unknown>(url, value, {
       headers: { 'Content-Type': 'text/plain' }
-    });
+    }).pipe(map((raw) => this.mapExecution(raw)));
   }
 
   override provideAuthorization(
@@ -107,6 +166,55 @@ export class TaskExecutionsCallService extends TaskExecutionsCallServiceBase {
     value: string
   ): Observable<TaskExecution> {
     const url = `${environment.apiUrl}/executions/${encodeURIComponent(executionId)}/authorizations`;
-    return this.http.put<TaskExecution>(url, { key, value });
+    return this.http.put<unknown>(url, { key, value }).pipe(map((raw) => this.mapExecution(raw)));
+  }
+
+  private mapExecution(raw: unknown): TaskExecution {
+    const execution = (raw ?? {}) as TaskExecution & Record<string, any>;
+    const context = (execution.context ?? {}) as Record<string, any>;
+    const globalInputs = this.normalizeGlobalInputValues(
+      context['globalInputs']
+      ?? execution['globalInputs']
+    );
+    const globalInputDescriptors = this.normalizeGlobalInputDescriptors(
+      context['globalInputDescriptors']
+      ?? execution['globalInputDescriptors']
+    );
+
+    return {
+      ...execution,
+      context: {
+        ...(context as TaskExecution['context']),
+        globalInputs,
+        globalInputDescriptors
+      } as TaskExecution['context']
+    };
+  }
+
+  private normalizeGlobalInputValues(raw: unknown): Record<string, unknown> {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+    return { ...(raw as Record<string, unknown>) };
+  }
+
+  private normalizeGlobalInputDescriptors(raw: unknown): NonNullable<TaskExecution['context']['globalInputDescriptors']> {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+
+    return Object.entries(raw as Record<string, unknown>)
+      .reduce<NonNullable<TaskExecution['context']['globalInputDescriptors']>>((acc, [key, value]) => {
+        if (!value || typeof value !== 'object' || Array.isArray(value)) return acc;
+        const record = value as Record<string, unknown>;
+        const name = String(record['name'] ?? key).trim();
+        if (!name) return acc;
+
+        acc[key] = {
+          name,
+          kind: String(record['kind'] ?? record['type'] ?? 'TEXT').toUpperCase(),
+          value: record['value'] ?? null,
+          description: typeof record['description'] === 'string' ? record['description'] : null,
+          cleanupPolicy: typeof record['cleanupPolicy'] === 'string' ? record['cleanupPolicy'] : null,
+          multiple: Boolean(record['multiple'])
+        };
+        return acc;
+      }, {});
   }
 }

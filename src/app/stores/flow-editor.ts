@@ -49,7 +49,7 @@ export class EditorStateHolder {
     this.currentFlow.set(doc);
     this.isDirty.set(false);
     this.validationRequiresSave.set(false);
-    this.applyFlowValidationErrors(doc.validationErrors ?? []);
+    this.applyFlowValidationErrors(doc.validationErrors ?? [], doc);
     this.ensureValidationForFlow(doc);
     this.clearBlockSelection();
     return true;
@@ -70,7 +70,7 @@ export class EditorStateHolder {
     this.currentFlow.set(null);
     this.isDirty.set(false);
     this.validationRequiresSave.set(false);
-    this.applyFlowValidationErrors([]);
+    this.applyFlowValidationErrors([], null);
     this.lastValidationFetchKey = null;
     this.clearBlockSelection();
   }
@@ -80,7 +80,7 @@ export class EditorStateHolder {
     this.currentFlow.set(flow);
     this.isDirty.set(options?.markDirty === true);
     this.validationRequiresSave.set(options?.markDirty === true);
-    this.applyFlowValidationErrors(flow.validationErrors ?? []);
+    this.applyFlowValidationErrors(flow.validationErrors ?? [], flow);
     this.ensureValidationForFlow(flow);
     this.clearBlockSelection();
   }
@@ -94,6 +94,7 @@ export class EditorStateHolder {
     const nextFlow = { ...current, data };
     this.currentFlow.set(nextFlow);
     this.markDirty();
+    this.applyFlowValidationErrors(current.validationErrors ?? [], nextFlow);
     if (options?.structural !== false) {
       this.validationRequiresSave.set(true);
     }
@@ -170,7 +171,7 @@ export class EditorStateHolder {
             };
             this.currentFlow.set(nextFlow);
             this.lastValidationFetchKey = this.validationFetchKey(nextFlow);
-            this.applyFlowValidationErrors(validationErrors);
+            this.applyFlowValidationErrors(validationErrors, nextFlow);
             this.markSaved();
             this.validationRequiresSave.set(false);
           }),
@@ -181,7 +182,7 @@ export class EditorStateHolder {
         );
       }),
       catchError((error) => {
-        this.applyFlowValidationErrors(this.extractValidationErrors(error));
+        this.applyFlowValidationErrors(this.extractValidationErrors(error), this.currentFlow());
         return throwError(() => error);
       })
     )
@@ -201,11 +202,13 @@ export class EditorStateHolder {
     return JSON.stringify(left) === JSON.stringify(right);
   }
 
-  private applyFlowValidationErrors(errors: FlowValidationError[]) {
+  private applyFlowValidationErrors(errors: FlowValidationError[], flow?: Flow | null) {
     const normalized = Array.isArray(errors) ? errors : [];
-    this.flowValidationErrors.set(normalized);
+    const derived = flow ? this.deriveGlobalInputReferenceErrors(flow) : [];
+    const merged = [...normalized, ...derived];
+    this.flowValidationErrors.set(merged);
     this.highlightedValidationNodeIds.set(Array.from(new Set(
-      normalized.flatMap((error) => Array.isArray(error.relatedNodeIds) ? error.relatedNodeIds : [])
+      merged.flatMap((error) => Array.isArray(error.relatedNodeIds) ? error.relatedNodeIds : [])
     )));
   }
 
@@ -223,6 +226,7 @@ export class EditorStateHolder {
     if (!flow) return;
     if (flow.status === 'EXECUTABLE') {
       this.lastValidationFetchKey = this.validationFetchKey(flow);
+      this.applyFlowValidationErrors(flow.validationErrors ?? [], flow);
       return;
     }
 
@@ -238,7 +242,10 @@ export class EditorStateHolder {
           ...current,
           validationErrors
         });
-        this.applyFlowValidationErrors(validationErrors);
+        this.applyFlowValidationErrors(validationErrors, {
+          ...current,
+          validationErrors
+        });
       },
       error: (error) => {
         console.error('Retrieve flow validation failed', error);
@@ -249,4 +256,75 @@ export class EditorStateHolder {
   private validationFetchKey(flow: Flow): string {
     return `${flow.id}:${flow.status}:${flow.updatedAt?.toISOString?.() ?? ''}`;
   }
+
+  private deriveGlobalInputReferenceErrors(flow: Flow): FlowValidationError[] {
+    const definedGlobals = new Set(
+      (flow.data.globalInputs ?? [])
+        .map((input) => String(input.name ?? '').trim())
+        .filter((name) => name.length > 0)
+    );
+    const occurrences = new Map<string, Set<string>>();
+
+    const collectFromValue = (value: unknown, ownerNodeId: string) => {
+      if (typeof value === 'string') {
+        const names = extractReferencedGlobalNames(value);
+        for (const name of names) {
+          if (definedGlobals.has(name)) continue;
+          if (!occurrences.has(name)) {
+            occurrences.set(name, new Set<string>());
+          }
+          occurrences.get(name)!.add(ownerNodeId);
+        }
+        return;
+      }
+
+      if (Array.isArray(value)) {
+        for (const item of value) collectFromValue(item, ownerNodeId);
+        return;
+      }
+
+      if (value && typeof value === 'object') {
+        for (const item of Object.values(value as Record<string, unknown>)) {
+          collectFromValue(item, ownerNodeId);
+        }
+      }
+    };
+
+    const scanNodeConfiguration = (nodeId: string, configuration: unknown) => {
+      if (!configuration || typeof configuration !== 'object') return;
+      collectFromValue(configuration, nodeId);
+    };
+
+    for (const block of flow.data.blocks ?? []) {
+      scanNodeConfiguration(block.id, block.specificConfiguration);
+    }
+    for (const container of flow.data.containers ?? []) {
+      scanNodeConfiguration(container.id, container.specificConfiguration);
+    }
+
+    return Array.from(occurrences.entries()).map(([name, nodeIds]) => ({
+      code: 'GLOBAL_INPUT_NOT_DEFINED',
+      entity: 'flow',
+      field: 'globalInputs',
+      id: flow.id,
+      message: `Global input "${name}" is referenced but not defined. The flow can be saved, but it will remain DRAFT / not executable.`,
+      relatedNodeIds: Array.from(nodeIds)
+    }));
+  }
+}
+
+function extractReferencedGlobalNames(content: string): string[] {
+  const names = new Set<string>();
+  const templateRegex = /\$\{\{\s*global\.([A-Za-z0-9_]+)\s*\}\}/g;
+  const spelRegex = /#global\.([A-Za-z0-9_]+)/g;
+
+  let match: RegExpExecArray | null;
+  while ((match = templateRegex.exec(content)) !== null) {
+    names.add(match[1]);
+  }
+  while ((match = spelRegex.exec(content)) !== null) {
+    names.add(match[1]);
+  }
+
+  return Array.from(names);
 }

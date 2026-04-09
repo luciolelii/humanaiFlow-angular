@@ -1,4 +1,4 @@
-import { Flow, FlowBlock, FlowContainer, FlowData, FlowStatus, FlowVisibility, normalizeFlowValidationErrors } from '@models/flow';
+import { Flow, FlowBlock, FlowContainer, FlowData, FlowGlobalInput, FlowStatus, FlowVisibility, normalizeFlowValidationErrors } from '@models/flow';
 
 function parseDate(value: unknown, fallback: Date): Date {
   if (typeof value !== 'string' || !value) return fallback;
@@ -35,7 +35,8 @@ export function flowFromApi(raw: unknown): Flow {
       blocks: normalizeNodes(data.blocks, 'block') as FlowBlock[],
       containers: normalizeNodes(data.containers, 'container') as FlowContainer[],
       connections: Array.isArray(data.connections) ? data.connections : [],
-      dependencies: Array.isArray(data.dependencies) ? data.dependencies : []
+      dependencies: Array.isArray(data.dependencies) ? data.dependencies : [],
+      globalInputs: normalizeGlobalInputs(data.globalInputs)
     }
   };
 }
@@ -49,9 +50,22 @@ export function toFlowCreateRequest(name: string, description?: string, flow?: F
       blocks: [],
       containers: [],
       connections: [],
-      dependencies: []
+      dependencies: [],
+      globalInputs: []
     }
   };
+}
+
+function normalizeGlobalInputs(raw: unknown): FlowGlobalInput[] {
+  if (!Array.isArray(raw)) return [];
+
+  return raw
+    .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object' && !Array.isArray(item))
+    .map((item) => ({
+      name: String(item['name'] ?? '').trim(),
+      type: String(item['type'] ?? 'TEXT').toUpperCase() || 'TEXT',
+      multiple: Boolean(item['multiple'])
+    }));
 }
 
 function normalizeNodes(raw: unknown, nodeFamily: 'block' | 'container'): Array<FlowBlock | FlowContainer> {

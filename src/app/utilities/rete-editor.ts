@@ -11,6 +11,7 @@ import {
   areFlowValueKindsCompatible,
   FlowBlock,
   FlowData,
+  FlowGlobalInput,
   FLOW_DEPENDANT_PORT_KEY,
   FLOW_DEPENDENCY_PORT_KEY,
   FLOW_DEPENDENCY_SOCKET_TYPE,
@@ -44,6 +45,7 @@ type ReteRuntimeContext = {
   containersService: ContainersService;
   flowState: EditorStateHolder;
   readonly: boolean;
+  globalInputs: FlowGlobalInput[];
 };
 
 export async function createEditor(
@@ -65,7 +67,8 @@ export async function createEditor(
     blocksService: injector.get(BlocksService),
     containersService: injector.get(ContainersService),
     flowState: injector.get(EditorStateHolder),
-    readonly
+    readonly,
+    globalInputs: cloneValue(flowData.globalInputs ?? [])
   };
   editorRuntime.set(editor, runtime);
 
@@ -144,6 +147,7 @@ export async function createEditor(
 }
 
 export function exportGraph(editor: NodeEditor<HFSchemes>) {
+  const runtime = editorRuntime.get(editor);
   const nodeIdToBlockId = new Map<string, string>();
   const nodes: FlowNode[] = editor.getNodes().map((node) => {
     const blockData = node.data;
@@ -182,8 +186,15 @@ export function exportGraph(editor: NodeEditor<HFSchemes>) {
       .map(({ kind, ...connection }) => connection),
     dependencies: allConnections
       .filter((connection) => connection.kind === 'dependency')
-      .map(({ sourceId, targetId }) => ({ sourceId, targetId }))
+      .map(({ sourceId, targetId }) => ({ sourceId, targetId })),
+    globalInputs: cloneValue(runtime?.globalInputs ?? [])
   };
+}
+
+export function setEditorGlobalInputs(editor: NodeEditor<HFSchemes>, globalInputs: FlowGlobalInput[]) {
+  const runtime = editorRuntime.get(editor);
+  if (!runtime) return;
+  runtime.globalInputs = cloneValue(globalInputs ?? []);
 }
 
 export async function addBlockToEditor(

@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { ConfirmDialogService } from '@services/dialogs/confirm-dialog';
 
@@ -7,6 +7,7 @@ import { ConfirmDialogService } from '@services/dialogs/confirm-dialog';
   standalone: true,
   imports: [MatButtonModule],
   templateUrl: './confirm-dialog.html',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class ConfirmDialogHostComponent {
 

@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -8,7 +8,8 @@ import { TaskExecutionAuthorizationRequirement } from '@models/task-execution';
 
 export type EditableExecutionInput = {
   key: string;
-  nodeId: string;
+  scope: 'global' | 'node';
+  nodeId: string | null;
   inputName: string;
   title: string;
   subtitle: string;
@@ -20,7 +21,8 @@ export type EditableExecutionInput = {
 @Component({
   selector: 'app-task-execution-inputs-panel',
   imports: [CommonModule, FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule],
-  templateUrl: './task-execution-inputs-panel.html'
+  templateUrl: './task-execution-inputs-panel.html',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class TaskExecutionInputsPanelComponent {
   readonly editableInputs = input<EditableExecutionInput[]>([]);
@@ -37,6 +39,8 @@ export class TaskExecutionInputsPanelComponent {
   readonly fileInputChange = output<{ input: EditableExecutionInput; files: File[] }>();
   readonly authorizationValueChange = output<{ requirement: TaskExecutionAuthorizationRequirement; value: string }>();
   readonly authorizationSubmit = output<TaskExecutionAuthorizationRequirement>();
+  readonly globalExecutionInputs = computed(() => this.editableInputs().filter((input) => input.scope === 'global'));
+  readonly nodeExecutionInputs = computed(() => this.editableInputs().filter((input) => input.scope === 'node'));
 
   private readonly authorizationVisibility = new Map<string, boolean>();
 

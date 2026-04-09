@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, input, model, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, model, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
@@ -30,6 +30,7 @@ export type TaskExecutionListItem = {
   imports: [CommonModule, FormsModule, Ordering, MatButtonModule, MatButtonToggleModule, MatCardModule, MatFormFieldModule, MatIconModule, MatInputModule, MatListModule, MatTooltipModule],
   templateUrl: './tasks-executions-list.html',
   styleUrl: './tasks-executions-list.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class TasksExecutionsListComponent {
   readonly executions = input<TaskExecutionListItem[]>([]);

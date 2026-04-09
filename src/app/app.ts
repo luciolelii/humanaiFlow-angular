@@ -1,4 +1,4 @@
-import { Component, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { ConfirmDialogHostComponent } from '@shared/confirm-dialog/confirm-dialog';
 import { HumanInteractionDialogHostComponent } from '@shared/human-interaction-dialog/human-interaction-dialog';
@@ -9,7 +9,8 @@ import { SubflowPreviewDialogHostComponent } from '@shared/subflow-preview-dialo
   selector: 'app-root',
   imports: [RouterOutlet, ConfirmDialogHostComponent, HumanInteractionDialogHostComponent, NodeSettingsDialogHostComponent, SubflowPreviewDialogHostComponent],
   templateUrl: './app.html',
-  styleUrl: './app.css'
+  styleUrl: './app.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class App {
   protected readonly title = signal('HumAInFlow');

@@ -1,4 +1,4 @@
-import { Component, effect, ElementRef, HostListener, Injector, input, OnChanges, OnDestroy, output, signal, SimpleChanges, untracked, ViewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, effect, ElementRef, HostListener, Injector, input, OnChanges, OnDestroy, output, signal, SimpleChanges, untracked, ViewChild } from '@angular/core';
 import { BlockType, FlowData, FlowNode } from '@models/flow';
 import { Drag } from 'rete-area-plugin';
 import { BlocksService } from '@services/blocks/blocks';
@@ -7,7 +7,7 @@ import { BLOCK_TYPE_DRAG_MIME } from '@shared/blocks-list/block-drag';
 import { CONTAINER_SUBFLOW_DRAG_MIME } from '@shared/nodes/container-node/container-node-drag';
 import { GraphSelectionService } from '@services/graph-selection/graph-selection';
 import { EditorStateHolder } from '@stores/flow-editor';
-import { addBlockToEditor, createEditor, exportGraph, ReteEditorInstance } from '@utilities/rete-editor';
+import { addBlockToEditor, createEditor, exportGraph, ReteEditorInstance, setEditorGlobalInputs } from '@utilities/rete-editor';
 import { firstValueFrom } from 'rxjs';
 
 @Component({
@@ -15,6 +15,7 @@ import { firstValueFrom } from 'rxjs';
   imports: [],
   templateUrl: './rete-editor.html',
   styleUrl: './rete-editor.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class ReteEditor implements OnChanges, OnDestroy {
   readonly flowData = input.required<FlowData>();
@@ -74,6 +75,9 @@ export class ReteEditor implements OnChanges, OnDestroy {
     if (changes['flowId']) {
       void this.reloadEditor();
       return;
+    }
+    if (changes['flowData'] && this.rete) {
+      setEditorGlobalInputs(this.rete.editor, this.flowData().globalInputs ?? []);
     }
     if (this.readonly() && changes['flowData']) {
       void this.syncReadonlyFlowData();
@@ -301,6 +305,7 @@ export class ReteEditor implements OnChanges, OnDestroy {
     }
 
     this.rete = rete;
+    setEditorGlobalInputs(rete.editor, this.flowData().globalInputs ?? []);
     this.syncAreaDragMode();
     const loadedFlowId = this.flowId();
     const normalizedData = exportGraph(rete.editor);
@@ -355,6 +360,7 @@ export class ReteEditor implements OnChanges, OnDestroy {
     }
 
     const nextFlowData = this.flowData();
+    setEditorGlobalInputs(rete.editor, nextFlowData.globalInputs ?? []);
     if (!this.canPatchReadonlyFlowData(rete, nextFlowData)) {
       await this.reloadEditor();
       return;
@@ -422,7 +428,17 @@ export class ReteEditor implements OnChanges, OnDestroy {
       .sort();
 
     if (currentDependencies.length !== nextDependencies.length) return false;
-    return currentDependencies.every((dependency, index) => dependency === nextDependencies[index]);
+    if (!currentDependencies.every((dependency, index) => dependency === nextDependencies[index])) return false;
+
+    const currentGlobalInputs = [...(currentFlowData.globalInputs ?? [])]
+      .map((input) => `${input.name}:${String(input.type ?? '').toUpperCase()}:${input.multiple ? 'multi' : 'single'}`)
+      .sort();
+    const nextGlobalInputs = [...(nextFlowData.globalInputs ?? [])]
+      .map((input) => `${input.name}:${String(input.type ?? '').toUpperCase()}:${input.multiple ? 'multi' : 'single'}`)
+      .sort();
+
+    if (currentGlobalInputs.length !== nextGlobalInputs.length) return false;
+    return currentGlobalInputs.every((input, index) => input === nextGlobalInputs[index]);
   }
 
   private async patchReadonlyNodes(rete: ReteEditorInstance, nextFlowData: FlowData) {
@@ -513,6 +529,7 @@ export class ReteEditor implements OnChanges, OnDestroy {
     this.syncNodePositionFromContext(rete, context);
     if (this.flowState.currentFlow()?.id !== loadedFlowId) return;
 
+    setEditorGlobalInputs(rete.editor, this.flowData().globalInputs ?? []);
     const updatedData = exportGraph(rete.editor);
     this.flowState.updateData(updatedData, { structural: context?.type !== 'nodetranslated' });
     this.flowChanged.emit(updatedData);

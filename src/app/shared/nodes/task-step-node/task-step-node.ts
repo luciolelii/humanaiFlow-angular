@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectorRef, Component, HostBinding, Input, inject } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, HostBinding, Input, inject } from '@angular/core';
 import { ClassicPreset } from 'rete';
 import { ReteModule } from 'rete-angular-plugin/21';
 import { BlockInteractionContract, BlockType, FlowBlock, FlowContainer, FlowData, FlowPort, FLOW_DEPENDANT_PORT_KEY, FLOW_DEPENDENCY_PORT_KEY } from '@models/flow';
@@ -86,7 +86,8 @@ type FieldUiMeta = {
   styleUrl: './task-step-node.css',
   host: {
     'data-testid': 'task-step-node'
-  }
+  },
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class TaskStepNodeComponent {
   private static readonly globalFieldSchemaCache = new Map<string, Map<string, Record<string, any> | null>>();

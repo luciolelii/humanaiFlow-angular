@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { FlowValidationError } from '@models/flow';
@@ -10,7 +10,8 @@ import { EditorStateHolder } from '@stores/flow-editor';
   standalone: true,
   imports: [CommonModule, MatButtonModule, MatIconModule],
   templateUrl: './flow-validation-panel.html',
-  styleUrl: './flow-validation-panel.css'
+  styleUrl: './flow-validation-panel.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class FlowValidationPanel {
   private readonly editorState = inject(EditorStateHolder);

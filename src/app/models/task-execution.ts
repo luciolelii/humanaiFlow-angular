@@ -30,6 +30,7 @@ export type TaskExecution = {
   requiredAuthorizations?: Record<string, TaskExecutionAuthorizationRequirement>;
   providedAuthorizations?: Record<string, unknown>;
   missingAuthorizationKeys?: string[];
+  missingGlobalInputKeys?: string[];
 };
 
 export type TaskExecutionAuthorizationRequirement = {
@@ -42,6 +43,8 @@ export type TaskExecutionAuthorizationRequirement = {
 
 export type TaskExecutionContext = {
   inputs: Record<string, unknown>;
+  globalInputs?: Record<string, unknown>;
+  globalInputDescriptors?: Record<string, TaskExecutionGlobalInputDescriptor>;
   result: Record<string, unknown>;
   partialResult?: Record<string, unknown>;
   startTime?: number | null;
@@ -51,6 +54,15 @@ export type TaskExecutionContext = {
   steps: Record<string, TaskExecutionStep>;
   status: TaskExecutionStatus;
   waitingSteps: string[];
+};
+
+export type TaskExecutionGlobalInputDescriptor = {
+  name: string;
+  kind: string;
+  value: unknown;
+  description?: string | null;
+  cleanupPolicy?: string | null;
+  multiple?: boolean;
 };
 
 export type TaskExecutionStep = {

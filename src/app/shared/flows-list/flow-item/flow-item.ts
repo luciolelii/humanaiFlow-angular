@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, input, model } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, model } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
@@ -15,6 +15,7 @@ import { EditorStateHolder } from '@stores/flow-editor';
   imports: [CommonModule, MatButtonModule, MatCardModule, MatIconModule, MatTooltipModule],
   templateUrl: './flow-item.html',
   styleUrl: './flow-item.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class FlowItem {
 

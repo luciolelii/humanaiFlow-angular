@@ -610,6 +610,50 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
     return of(execution);
   }
 
+  override prepareGlobalStringInput(
+    executionId: string,
+    inputName: string,
+    value: string
+  ): Observable<TaskExecution> {
+    const execution = this.findExecution(executionId);
+    execution.context.inputs[`global:${inputName}`] = value;
+    execution.context.status = execution.context.waitingSteps.length ? 'WAITING' : execution.context.status;
+    return of(execution);
+  }
+
+  override prepareGlobalStringArrayInput(
+    executionId: string,
+    inputName: string,
+    values: string[]
+  ): Observable<TaskExecution> {
+    const execution = this.findExecution(executionId);
+    execution.context.inputs[`global:${inputName}`] = values;
+    execution.context.status = execution.context.waitingSteps.length ? 'WAITING' : execution.context.status;
+    return of(execution);
+  }
+
+  override prepareGlobalFileInput(
+    executionId: string,
+    inputName: string,
+    file: File
+  ): Observable<TaskExecution> {
+    const execution = this.findExecution(executionId);
+    execution.context.inputs[`global:${inputName}`] = file?.name ?? '';
+    execution.context.status = execution.context.waitingSteps.length ? 'WAITING' : execution.context.status;
+    return of(execution);
+  }
+
+  override prepareGlobalFileArrayInput(
+    executionId: string,
+    inputName: string,
+    files: File[]
+  ): Observable<TaskExecution> {
+    const execution = this.findExecution(executionId);
+    execution.context.inputs[`global:${inputName}`] = files.map((file) => file?.name ?? '');
+    execution.context.status = execution.context.waitingSteps.length ? 'WAITING' : execution.context.status;
+    return of(execution);
+  }
+
   override submitInteractionText(
     executionId: string,
     nodeId: string,

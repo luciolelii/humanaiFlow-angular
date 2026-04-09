@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { GroupHolder } from '@shared/group-holder/group-holder';
 import { FlowsList } from '@shared/flows-list/flows-list';
 import { BlocksList } from '@shared/blocks-list/blocks-list';
@@ -18,7 +18,8 @@ type OpenedId = 'flows' | 'blocks' | 'containers';
   imports: [GroupHolder, FlowsList, BlocksList, ContainersList, CommonModule],
   templateUrl: './editor-sidebar.html',
   styleUrl: './editor-sidebar.css',
-  providers:[ListState]
+  providers:[ListState],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class EditorSidebar {
 

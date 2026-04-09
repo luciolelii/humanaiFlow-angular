@@ -1,4 +1,4 @@
-import { Component, effect, Input, input, model, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, effect, Input, input, model, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
@@ -15,6 +15,7 @@ export type OrderField = { field: string; label?: string };
   imports: [FormsModule, MatFormFieldModule, MatIconModule, MatSelectModule],
   templateUrl: './ordering.html',
   styleUrl: './ordering.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class Ordering {
 
