@@ -4,12 +4,6 @@ import { Signup } from '@pages/auth/signup/signup';
 import { AppLayout } from '@layouts/app-layout/app-layout';
 import { authGuard } from '@guards/auth-guard';
 import { adminGuard } from '@guards/admin-guard';
-import { AdminLayout } from '@layouts/admin-layout/admin-layout';
-import { FlowEditor } from '@layouts/flow-editor/flow-editor';
-import { TasksExecutor } from '@layouts/tasks-executor/tasks-executor';
-import { AdminCreateUserPage } from '@pages/admin/admin-create-user/admin-create-user';
-import { AdminStatsPage } from '@pages/admin/admin-stats/admin-stats';
-import { AdminUsersListPage } from '@pages/admin/admin-users-list/admin-users-list';
 
 export const routes: Routes = [
  {
@@ -23,15 +17,15 @@ export const routes: Routes = [
       },
       {
         path: 'editor',
-        component: FlowEditor
+        loadComponent: () => import('@layouts/flow-editor/flow-editor').then(m => m.FlowEditor)
       },
       { 
         path: 'tasks',
-        component: TasksExecutor
+        loadComponent: () => import('@layouts/tasks-executor/tasks-executor').then(m => m.TasksExecutor)
       },
       {
         path: 'admin',
-        component: AdminLayout,
+        loadComponent: () => import('@layouts/admin-layout/admin-layout').then(m => m.AdminLayout),
         canActivate: [adminGuard],
         children: [
           {
@@ -41,15 +35,15 @@ export const routes: Routes = [
           },
           {
             path: 'users',
-            component: AdminUsersListPage
+            loadComponent: () => import('@pages/admin/admin-users-list/admin-users-list').then(m => m.AdminUsersListPage)
           },
           {
             path: 'create-user',
-            component: AdminCreateUserPage
+            loadComponent: () => import('@pages/admin/admin-create-user/admin-create-user').then(m => m.AdminCreateUserPage)
           },
           {
             path: 'stats',
-            component: AdminStatsPage
+            loadComponent: () => import('@pages/admin/admin-stats/admin-stats').then(m => m.AdminStatsPage)
           }
         ]
       }

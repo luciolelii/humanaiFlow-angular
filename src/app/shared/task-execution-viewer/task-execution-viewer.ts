@@ -36,26 +36,30 @@ import { FieldRetriever } from '@services/retriever/field-retriever';
 import { TaskExecutionsService } from '@services/task-executions/task-executions';
 import { ContainersService } from '@services/containers/containers';
 import { firstValueFrom } from 'rxjs';
-
-type ExecutionOutputEntry = {
-  key: string;
-  nodeTitle: string;
-  outputName: string;
-  value: string;
-  preview: string;
-  isLong: boolean;
-  itemLabel: string | null;
-};
-
-type ExecutionOutputGroup = {
-  nodeTitle: string;
-  outputs: ExecutionOutputEntry[];
-};
-
-type ExecutionLogEntryView = ExecutionEventLogEntry & {
-  messageText: string;
-  levelText: string;
-};
+import {
+  ExecutionOutputEntry,
+  ExecutionOutputGroup,
+  ExecutionLogEntryView,
+  stepTitle,
+  stepNodeId,
+  stringifyOutputValue,
+  formatDuration,
+  fallbackExecutionLogMessage,
+  logLevelClass as _logLevelClass,
+  logTypeIcon as _logTypeIcon,
+  formatExecutionOutputLabel,
+  buildExecutionOutputs,
+  buildExecutionOutputGroups,
+  buildVisibleExecutionLogs,
+  isInputSet,
+  normalizeEditableInputValue,
+  getExecutionInputValues,
+  getExecutionOutputValues,
+  getConnectedInputs,
+  getConnectedOutputs,
+  getExecutionErrors,
+  getExecutionWarnings,
+} from './execution-viewer.utils';
 
 @Component({
   selector: 'app-task-execution-viewer',
@@ -66,7 +70,6 @@ type ExecutionLogEntryView = ExecutionEventLogEntry & {
 })
 export class TaskExecutionViewerComponent implements OnDestroy {
   private static readonly EVENTS_POLL_INTERVAL_MS = 5000;
-  private static readonly OUTPUT_PREVIEW_LIMIT = 80;
   private taskExecutionsService = inject(TaskExecutionsService);
   private humanInteractionDialog = inject(HumanInteractionDialogService);
   private settingsDialog = inject(NodeSettingsDialogService);
@@ -267,14 +270,14 @@ export class TaskExecutionViewerComponent implements OnDestroy {
           __stepStatus: step.status,
           __executionStatusGroup: executionStatusGroup,
           __isWaitingStep: waitingSteps.includes(step.id),
-          __executionInputs: this.getExecutionInputValues(step, contextInputs),
-          __connectedInputs: this.getConnectedInputs(step),
-          __executionOutputs: this.getExecutionOutputValues(step, contextResults),
-          __connectedOutputs: this.getConnectedOutputs(step),
+          __executionInputs: getExecutionInputValues(step, contextInputs),
+          __connectedInputs: getConnectedInputs(step),
+          __executionOutputs: getExecutionOutputValues(step, contextResults),
+          __connectedOutputs: getConnectedOutputs(step),
           __hasDependencyInputConnection: this.hasIncomingDependency(step.id),
           __hasDependantOutputConnection: this.hasOutgoingDependency(step.id),
-          __executionErrors: this.getExecutionErrors(step.id, contextErrors),
-          __executionWarnings: this.getExecutionWarnings(step.id, contextWarnings),
+          __executionErrors: getExecutionErrors(step.id, contextErrors),
+          __executionWarnings: getExecutionWarnings(step.id, contextWarnings),
           __stepResultData: step.result ?? null,
           __executionPartialResult: this.execution()?.context.partialResult ?? null
         },
@@ -305,7 +308,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   readonly formattedDuration = computed(() => {
     const context = this.execution()?.context;
     if (!context?.startTime || !context?.endTime) return '-';
-    return this.formatDuration(context.startTime, context.endTime);
+    return formatDuration(context.startTime, context.endTime);
   });
 
   readonly executionOutputTabEnabled = computed(() => {
@@ -313,50 +316,13 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     return status === 'SUCCESS' || status === 'COMPLETED';
   });
 
-  readonly executionOutputs = computed<ExecutionOutputEntry[]>(() => {
-    const steps = this.execution()?.context.steps ?? {};
-    const resultMap = this.execution()?.context.result ?? {};
+  readonly executionOutputs = computed<ExecutionOutputEntry[]>(() =>
+    buildExecutionOutputs(this.execution())
+  );
 
-    return Object.entries(resultMap)
-      .flatMap(([key, rawValue]) => {
-        const label = this.formatExecutionOutputLabel(key, steps);
-        const values = Array.isArray(rawValue) ? rawValue : [rawValue];
-
-        return values.map((item, index) => {
-          const value = this.stringifyOutputValue(item);
-          const isLong = value.length > TaskExecutionViewerComponent.OUTPUT_PREVIEW_LIMIT;
-          const isArrayItem = Array.isArray(rawValue);
-          return {
-            key: isArrayItem ? `${key}:${index}` : key,
-            nodeTitle: label.nodeTitle,
-            outputName: label.outputName,
-            value,
-            preview: isLong ? `${value.slice(0, TaskExecutionViewerComponent.OUTPUT_PREVIEW_LIMIT)}...` : value,
-            isLong,
-            itemLabel: isArrayItem ? `Item ${index + 1}` : null
-          };
-        });
-      })
-      .sort((a, b) => a.nodeTitle.localeCompare(b.nodeTitle) || a.outputName.localeCompare(b.outputName));
-  });
-
-  readonly executionOutputGroups = computed<ExecutionOutputGroup[]>(() => {
-    const groups = new Map<string, ExecutionOutputEntry[]>();
-
-    for (const output of this.executionOutputs()) {
-      if (!groups.has(output.nodeTitle)) {
-        groups.set(output.nodeTitle, []);
-      }
-      groups.get(output.nodeTitle)!.push(output);
-    }
-
-    return Array.from(groups.entries())
-      .map(([nodeTitle, outputs]) => ({
-        nodeTitle,
-        outputs
-      }))
-      .sort((a, b) => a.nodeTitle.localeCompare(b.nodeTitle));
-  });
+  readonly executionOutputGroups = computed<ExecutionOutputGroup[]>(() =>
+    buildExecutionOutputGroups(this.executionOutputs())
+  );
 
   readonly inputsReadOnly = computed(() => {
     const status = this.execution()?.context.status;
@@ -364,13 +330,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   });
 
   readonly visibleExecutionLogs = computed<ExecutionLogEntryView[]>(() =>
-    [...this.executionLogs()]
-      .sort((a, b) => a.timestamp - b.timestamp)
-      .map((entry) => ({
-        ...entry,
-        messageText: String(entry.message ?? '').trim() || this.fallbackExecutionLogMessage(entry),
-        levelText: String(entry.level ?? 'INFO').toUpperCase()
-      }))
+    buildVisibleExecutionLogs(this.executionLogs())
   );
 
   readonly canCancelExecution = computed(() => {
@@ -403,7 +363,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
       const value = Object.prototype.hasOwnProperty.call(globalInputs, inputName)
         ? globalInputs[inputName]
         : descriptor?.value;
-      if (!this.isInputSet(value, Boolean(descriptor?.multiple))) return false;
+      if (!isInputSet(value, Boolean(descriptor?.multiple))) return false;
     }
 
     for (const step of Object.values(execution.context.steps ?? {})) {
@@ -418,7 +378,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
           ? execution.context.inputs[key]
           : input.value;
 
-        if (!this.isInputSet(value, Boolean(input.descriptor?.multiple))) return false;
+        if (!isInputSet(value, Boolean(input.descriptor?.multiple))) return false;
       }
     }
 
@@ -470,7 +430,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
         subtitle: inputName,
         type: String(descriptor?.kind ?? 'TEXT').toUpperCase(),
         multiple: Boolean(descriptor?.multiple),
-        value: pendingValue ?? this.normalizeEditableInputValue(rawValue, Boolean(descriptor?.multiple))
+        value: pendingValue ?? normalizeEditableInputValue(rawValue, Boolean(descriptor?.multiple))
       });
     }
 
@@ -492,11 +452,11 @@ export class TaskExecutionViewerComponent implements OnDestroy {
           scope: 'node',
           nodeId: step.id,
           inputName,
-          title: this.stepTitle(step),
+          title: stepTitle(step),
           subtitle: inputName,
           type: String(input.descriptor?.type ?? 'TEXT').toUpperCase(),
           multiple: Boolean(input.descriptor?.multiple),
-          value: pendingValue ?? this.normalizeEditableInputValue(rawValue, Boolean(input.descriptor?.multiple))
+          value: pendingValue ?? normalizeEditableInputValue(rawValue, Boolean(input.descriptor?.multiple))
         });
       }
     }
@@ -713,7 +673,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   private sendPreparedTextInput(input: EditableExecutionInput, executionId: string) {
     if (this.inputsReadOnly() || this.execution()?.id !== executionId) return;
 
-    const value = this.pendingTextInputs()[input.key] ?? this.normalizeEditableInputValue(input.value, input.multiple);
+    const value = this.pendingTextInputs()[input.key] ?? normalizeEditableInputValue(input.value, input.multiple);
     this.setInputSaving(input.key, true);
     const normalizedValues = (Array.isArray(value) ? value : [String(value)])
       .map((item) => item.trim())
@@ -881,86 +841,12 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     }));
   }
 
-  private stringifyOutputValue(value: unknown): string {
-    if (value == null) return '';
-    if (typeof value === 'string') return value;
-
-    try {
-      return JSON.stringify(value, null, 2);
-    } catch {
-      return String(value);
-    }
-  }
-
-  private fallbackExecutionLogMessage(entry: ExecutionEventLogEntry): string {
-    const type = String(entry.type ?? '').trim();
-    if (type) {
-      return type.replaceAll('_', ' ').toLowerCase().replace(/^\w/, (letter) => letter.toUpperCase());
-    }
-    return 'Execution event';
-  }
-
   logLevelClass(level: string | null | undefined): string {
-    const normalized = String(level ?? '').toUpperCase();
-    if (normalized === 'ERROR') return 'execution-log-level-error';
-    if (normalized === 'WARN' || normalized === 'WARNING') return 'execution-log-level-warn';
-    return 'execution-log-level-info';
+    return _logLevelClass(level);
   }
 
   logTypeIcon(type: string | null | undefined): string {
-    const normalized = String(type ?? '').toUpperCase();
-    if (normalized.includes('FAILED') || normalized.includes('ERROR')) return 'error';
-    if (normalized.includes('WAITING') || normalized.includes('PAUSED')) return 'pause_circle';
-    if (normalized.includes('COMPLETED') || normalized.includes('SUCCESS')) return 'check_circle';
-    if (normalized.includes('HTTP')) return 'language';
-    if (normalized.includes('LLM')) return 'smart_toy';
-    if (normalized.includes('MCP_SESSION')) return 'hub';
-    return 'schedule';
-  }
-
-  private formatExecutionOutputLabel(
-    key: string,
-    steps: Record<string, TaskExecutionStep>
-  ): { nodeTitle: string; outputName: string } {
-    const separatorIndex = key.indexOf(':');
-    if (separatorIndex < 0) {
-      return { nodeTitle: 'Execution output', outputName: key };
-    }
-
-    const nodeId = key.slice(0, separatorIndex);
-    const outputName = key.slice(separatorIndex + 1);
-    const step = steps[nodeId];
-    const nodeName = this.stepTitle(step).trim();
-
-    return {
-      nodeTitle: nodeName || key,
-      outputName: outputName || 'Execution output'
-    };
-  }
-
-  private formatDuration(startTime: number, endTime: number): string {
-    const diffMs = Math.max(0, endTime - startTime);
-    const totalSeconds = Math.floor(diffMs / 1000);
-    const totalMinutes = Math.floor(totalSeconds / 60);
-    const totalHours = Math.floor(totalMinutes / 60);
-    const totalDays = Math.floor(totalHours / 24);
-
-    if (totalSeconds < 60) {
-      return `${totalSeconds} sec`;
-    }
-
-    if (totalMinutes < 60) {
-      const seconds = totalSeconds % 60;
-      return seconds > 0 ? `${totalMinutes} min ${seconds} sec` : `${totalMinutes} min`;
-    }
-
-    if (totalHours < 24) {
-      const minutes = totalMinutes % 60;
-      return minutes > 0 ? `${totalHours} h ${minutes} min` : `${totalHours} h`;
-    }
-
-    const hours = totalHours % 24;
-    return hours > 0 ? `${totalDays} gg ${hours} h` : `${totalDays} gg`;
+    return _logTypeIcon(type);
   }
 
   private inferConnections(steps: TaskExecutionStep[]) {
@@ -998,9 +884,9 @@ export class TaskExecutionViewerComponent implements OnDestroy {
 
         connections.push({
           id,
-          sourceId: this.stepNodeId(source.sourceStep),
+          sourceId: stepNodeId(source.sourceStep),
           sourceName: source.sourceOutputName,
-          targetId: this.stepNodeId(targetStep),
+          targetId: stepNodeId(targetStep),
           targetName: input.descriptor.name
         });
       }
@@ -1054,30 +940,6 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     return [...candidates].sort((left, right) => left.sourceIndex - right.sourceIndex)[0];
   }
 
-  private getExecutionInputValues(
-    step: TaskExecutionStep,
-    contextInputs: Record<string, unknown>
-  ): Record<string, unknown> {
-    const result: Record<string, unknown> = {};
-
-    for (const input of step.inputs ?? []) {
-      const inputName = input.descriptor?.name;
-      if (!inputName) continue;
-
-      const key = `${step.id}:${inputName}`;
-      if (Object.prototype.hasOwnProperty.call(contextInputs, key)) {
-        result[inputName] = contextInputs[key];
-        continue;
-      }
-
-      if (input.set || input.registered || input.value != null) {
-        result[inputName] = input.value;
-      }
-    }
-
-    return result;
-  }
-
   private toDialogHistory(rawHistory: unknown): HumanInteractionChatMessage[] {
     if (!Array.isArray(rawHistory)) return [];
 
@@ -1117,99 +979,4 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     };
   }
 
-  private getConnectedInputs(step: TaskExecutionStep): string[] {
-    return (step.inputs ?? [])
-      .filter((input) => input.registered)
-      .map((input) => input.descriptor?.name)
-      .filter((name): name is string => typeof name === 'string' && name.length > 0);
-  }
-
-  private getExecutionOutputValues(
-    step: TaskExecutionStep,
-    contextResults: Record<string, unknown>
-  ): Record<string, unknown> {
-    const result: Record<string, unknown> = {};
-
-    for (const output of step.outputs ?? []) {
-      const outputName = output.descriptor?.name;
-      if (!outputName) continue;
-
-      const key = `${step.id}:${outputName}`;
-      if (Object.prototype.hasOwnProperty.call(contextResults, key)) {
-        result[outputName] = contextResults[key];
-      }
-    }
-
-    return result;
-  }
-
-  private getConnectedOutputs(step: TaskExecutionStep): string[] {
-    return (step.outputs ?? [])
-      .filter((output) => output.connected)
-      .map((output) => output.descriptor?.name)
-      .filter((name): name is string => typeof name === 'string' && name.length > 0);
-  }
-
-  private getExecutionErrors(
-    stepId: string,
-    contextErrors: Record<string, unknown>
-  ): string[] {
-    const raw = contextErrors[stepId];
-    if (typeof raw === 'string' && raw.trim().length > 0) return [raw];
-    if (Array.isArray(raw)) {
-      return raw.filter((value): value is string => typeof value === 'string' && value.trim().length > 0);
-    }
-    return [];
-  }
-
-  private getExecutionWarnings(
-    stepId: string,
-    contextWarnings: Record<string, string>
-  ): string[] {
-    const raw = contextWarnings[stepId];
-    return raw && raw.trim().length > 0 ? [raw] : [];
-  }
-
-  private isInputSet(value: unknown, multiple = false): boolean {
-    if (multiple) {
-      if (!Array.isArray(value)) return false;
-      return value.some((item) => typeof item === 'string' ? item.trim().length > 0 : item != null);
-    }
-    if (value == null) return false;
-    if (typeof value === 'string') return value.trim().length > 0;
-    return true;
-  }
-
-  private normalizeEditableInputValue(value: unknown, multiple: boolean): string | string[] {
-    if (multiple) {
-      if (Array.isArray(value)) {
-        return value.map((item) => this.stringifyEditableInputItem(item));
-      }
-      if (value == null) {
-        return [''];
-      }
-      return [this.stringifyEditableInputItem(value)];
-    }
-
-    if (value == null) return '';
-    return this.stringifyEditableInputItem(value);
-  }
-
-  private stringifyEditableInputItem(value: unknown): string {
-    if (value == null) return '';
-    if (typeof value === 'string') return value;
-    try {
-      return JSON.stringify(value);
-    } catch {
-      return String(value);
-    }
-  }
-
-  private stepTitle(step: TaskExecutionStep | null | undefined): string {
-    return getTaskExecutionStepNode(step)?.name?.trim() || step?.id || 'Step';
-  }
-
-  private stepNodeId(step: TaskExecutionStep | null | undefined): string {
-    return getTaskExecutionStepNode(step)?.id || step?.id || '';
-  }
 }

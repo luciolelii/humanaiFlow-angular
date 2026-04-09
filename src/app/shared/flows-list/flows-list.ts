@@ -2,7 +2,6 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, model, si
 import { Flow, FlowVisibility } from '@models/flow';
 import { FlowsService } from '@services/flows/flows';
 import { FlowItem } from './flow-item/flow-item';
-import { FormsModule } from '@angular/forms';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -17,7 +16,7 @@ type FlowFilter = FlowVisibility | 'FINALIZED' | 'all';
 
 @Component({
   selector: 'app-flows-list',
-  imports: [FlowItem, FormsModule, Ordering, MatButtonToggleModule, MatCardModule, MatFormFieldModule, MatIconModule, MatInputModule, MatListModule, MatProgressSpinnerModule],
+  imports: [FlowItem, Ordering, MatButtonToggleModule, MatCardModule, MatFormFieldModule, MatIconModule, MatInputModule, MatListModule, MatProgressSpinnerModule],
   templateUrl: './flows-list.html',
   styleUrl: './flows-list.css',
   changeDetection: ChangeDetectionStrategy.OnPush

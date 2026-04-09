@@ -39,7 +39,6 @@
     "bootstrap-icons": "^1.13.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "lucide-angular": "^0.561.0",
     "rete": "^2.0.6",
     "rete-angular-plugin": "^2.6.0",
     "rete-area-plugin": "^2.1.5",

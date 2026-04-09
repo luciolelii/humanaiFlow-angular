@@ -7,7 +7,15 @@ export type HFNodeData = FlowNode & {
   assignSelectedBlocksToContainer?: (blockIds?: string[]) => Promise<void>;
   assignImportedSubflow?: (subFlow: FlowData, validationUrl?: string | null) => Promise<void>;
   clearContainerSubflow?: () => Promise<void>;
-  [key: string]: unknown;
+  cloneNode?: () => Promise<void>;
+  __readonly?: boolean;
+  __needsServerCreate?: boolean;
+  __createdOnServer?: boolean;
+  __isCreatingOnServer?: boolean;
+  __updateBlockError?: string | null;
+  __containerValidationErrors?: unknown[];
+  __containerAssignmentError?: string | null;
+  __containerAssigning?: boolean;
 };
 
 export type HFNode = ClassicPreset.Node & {

@@ -24,7 +24,11 @@ export class FlowsService {
   async getAllFlows() {
     if (this.toInit) {
       this.toInit = false;
-      await this.refresh();
+      try {
+        await this.refresh();
+      } catch {
+        this.toInit = true;
+      }
     }
 
     return this.flows;
@@ -40,6 +44,7 @@ export class FlowsService {
         this._flows.set(flows);
       })
       .catch((err) => {
+        this.loadingPromise = null;
         console.error('Retrieve flows failed', err);
         throw err;
       })

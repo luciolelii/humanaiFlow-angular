@@ -5,23 +5,35 @@
 @import 'tailwindcss';
 
 @theme {
+  /* ────────────────────────────────────────────────────────────────
+   * Design Tokens
+   * ────────────────────────────────────────────────────────────────
+   * Primary palette: blue scale (Tailwind Blue)
+   *   50–950 shades used for buttons, links, focus rings, and accents.
+   *   600 = default action colour  |  700 = hover  |  300 = focus ring (dark)
+   *
+   * Fonts: Inter as the single sans-serif family for body & headings.
+   *
+   * Dark mode: toggled via .dark class on <html> or <body>.
+   * ──────────────────────────────────────────────────────────────── */
+
   /* Dark mode */
   --dark-mode-selector: .dark;
 
-  /* Estensioni */
+  /* Primary colour scale (blue) — used by .button, .link, focus rings */
   --color-primary-50: #eff6ff;
   --color-primary-100: #dbeafe;
   --color-primary-200: #bfdbfe;
   --color-primary-300: #93c5fd;
   --color-primary-400: #60a5fa;
   --color-primary-500: #3b82f6;
-  --color-primary-600: #2563eb;
-  --color-primary-700: #1d4ed8;
+  --color-primary-600: #2563eb;   /* default action */
+  --color-primary-700: #1d4ed8;   /* hover */
   --color-primary-800: #1e40af;
   --color-primary-900: #1e3a8a;
   --color-primary-950: #172554;
 
-  /* Font families */
+  /* Font families — single stack for body & UI */
   --font-body: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue',
     Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
     'Noto Color Emoji';
@@ -31,13 +43,33 @@
     'Noto Color Emoji';
 }
 
+/* ── Semantic surface colours (hard-coded) ──────────────────────
+ *  #0f172a  slate-900   — body text, modal text
+ *  #1e293b  slate-800   — param text
+ *  #475569  slate-600   — labels, ghost button text
+ *  #64748b  slate-500   — param keys, muted text
+ *  #cbd5e1  slate-300   — borders, toggle track
+ *  #dbe2ea             — card borders (custom)
+ *  #dbe7f5             — array block border (custom)
+ *  #2563eb  blue-600    — primary action (buttons, toggles)
+ *  #1d4ed8  blue-700    — param view hover
+ *  #1e40af  blue-800    — subflow label
+ *  #dc2626  red-600     — error alert bg
+ *  #b91c1c  red-700     — array remove button
+ *  #eab308  yellow-500  — warning alert bg
+ * ─────────────────────────────────────────────────────────────── */
+
 body {
   @apply bg-gray-50 dark:bg-gray-900;
   color: #0f172a;
   font-family: var(--font-body);
 }
 
-.mat-mdc-form-field {
+/* ── Global Material overrides ────────────────────────────────── */
+
+/* Default form fields to full width — uses :where() for zero specificity
+   so any component-level rule can override without !important. */
+:where(.mat-mdc-form-field) {
   width: 100%;
 }
 
@@ -63,6 +95,8 @@ body {
   text-rendering: optimizeLegibility;
   font-feature-settings: 'liga';
 }
+
+/* ── Utility classes ──────────────────────────────────────────── */
 
 .container-centered {
   @apply flex flex-col items-center justify-center px-6 py-8 mx-auto md:h-screen lg:py-0;
@@ -93,6 +127,8 @@ body {
 .button:disabled {
   @apply bg-primary-500 opacity-40;
 }
+
+/* ── LLM / Node shared styles (used by generic-node, container-node, task-step-node) ── */
 
 .llm-modal-backdrop {
   position: fixed;

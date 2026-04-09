@@ -1,4 +1,4 @@
-import { Injectable, signal } from '@angular/core';
+import { DestroyRef, inject, Injectable, signal } from '@angular/core';
 import { environment } from '@environment';
 import { LLMDescriptor } from '@models/flow';
 import { ExecutionEventLogEntry, getExecutionStatusGroup, TaskExecution } from '@models/task-execution';
@@ -10,6 +10,7 @@ import { TaskExecutionsCallServiceBase } from './task-executions-call.base';
 })
 export class TaskExecutionsService {
   private static readonly POLL_INTERVAL_MS = 5000;
+  private destroyRef = inject(DestroyRef);
   taskExecutionsCallService: TaskExecutionsCallServiceBase = new environment.taskExecutionsCallService();
   private initialized = false;
   private refreshInFlight = false;
@@ -23,6 +24,7 @@ export class TaskExecutionsService {
   init() {
     if (this.initialized) return;
     this.initialized = true;
+    this.destroyRef.onDestroy(() => this.stopPolling());
     this.refresh();
   }
 

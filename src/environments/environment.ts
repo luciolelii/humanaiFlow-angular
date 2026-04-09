@@ -7,11 +7,11 @@ import { FieldRetrieverCallService } from "@services/retriever/field-retriever-c
 import { TaskExecutionsCallService } from "@services/task-executions/task-executions-call";
 
 export const environment = {
-        apiUrl: '/api',
+        apiUrl: window.__runtimeConfig?.apiUrl || '/api',
         production: true,
-        assistantEnabled: true,
-        tourModeAlwaysOn: false,
-        turnstileEnabled: true,
+        assistantEnabled: window.__runtimeConfig?.assistantEnabled ?? true,
+        tourModeAlwaysOn: window.__runtimeConfig?.tourModeAlwaysOn ?? false,
+        turnstileEnabled: window.__runtimeConfig?.turnstileEnabled ?? true,
         authorizationCallService: AuthorizationCallService,
         assistantCallService: AssistantCallService,
         flowsCallService: FlowsCallService,

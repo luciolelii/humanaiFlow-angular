@@ -2,7 +2,6 @@ import { ChangeDetectionStrategy, Component, computed, inject, model, signal, Si
 import { BlockType } from '@models/flow';
 import { BlocksService } from '@services/blocks/blocks';
 import { ListStateViewHolder, OrderViewState } from '@utilities/list-state-holder';
-import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -14,7 +13,7 @@ import { BLOCK_TYPE_DRAG_MIME } from './block-drag';
 
 @Component({
   selector: 'app-blocks-list',
-  imports: [FormsModule, MatCardModule, MatChipsModule, MatFormFieldModule, MatIconModule, MatInputModule, MatProgressSpinnerModule, MatTooltipModule],
+  imports: [MatCardModule, MatChipsModule, MatFormFieldModule, MatIconModule, MatInputModule, MatProgressSpinnerModule, MatTooltipModule],
   templateUrl: './blocks-list.html',
   styleUrl: './blocks-list.css',
   changeDetection: ChangeDetectionStrategy.OnPush

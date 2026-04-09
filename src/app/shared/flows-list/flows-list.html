@@ -8,7 +8,7 @@
         <mat-form-field appearance="outline">
             <mat-label>Search flows</mat-label>
             <mat-icon matPrefix fontIcon="search"></mat-icon>
-            <input matInput placeholder="Search flows..." [(ngModel)]="searchTerm" />
+            <input matInput placeholder="Search flows..." #searchInput [value]="searchTerm()" (input)="searchTerm.set(searchInput.value)" />
         </mat-form-field>
     </div>
     
