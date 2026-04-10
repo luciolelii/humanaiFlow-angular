@@ -3,37 +3,36 @@
 {
   "compileOnSave": false,
   "compilerOptions": {
-    "baseUrl": "./src",
     "paths": {
       "@pages/*": [
-        "app/pages/*"
+        "./src/app/pages/*"
       ],
       "@layouts/*": [
-        "app/layouts/*"
+        "./src/app/layouts/*"
       ],
       "@services/*": [
-        "app/services/*"
+        "./src/app/services/*"
       ],
       "@environment": [
-        "environments/environment"
+        "./src/environments/environment"
       ],
       "@models/*": [
-        "app/models/*"
+        "./src/app/models/*"
       ],
       "@utilities/*": [
-        "app/utilities/*"
+        "./src/app/utilities/*"
       ],
       "@guards/*": [
-        "app/guards/*"
+        "./src/app/guards/*"
       ],
       "@shared/*": [
-        "app/shared/*"
+        "./src/app/shared/*"
       ],
       "@assets/*": [
-        "/assets/*"
+        "./public/assets/*"
       ],
       "@stores/*": [
-        "app/stores/*"
+        "./src/app/stores/*"
       ]
     },
     "strict": true,
