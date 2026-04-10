@@ -23,13 +23,15 @@ export class ContainersService {
   readonly catalogLoading = this._catalogLoading.asReadonly();
 
   hasLoadedContainerTypes() {
-    return this._containerTypes().length > 0 || !this.toInit;
+    return this._containerTypes().length > 0 || (!this.toInit && !this.loadingPromise);
   }
 
   async getAllContainerTypes() {
     if (this.toInit) {
       this.toInit = false;
       await this.refresh();
+    } else if (this.loadingPromise) {
+      await this.loadingPromise;
     }
 
     return this._containerTypes.asReadonly();
@@ -64,6 +66,11 @@ export class ContainersService {
   async getContainerType(typeName: BlockTypeName) {
     const current = this._containerTypes().find((containerType) => containerType.type === typeName);
     if (current) return current;
+
+    if (this.loadingPromise) {
+      await this.loadingPromise;
+      return this._containerTypes().find((containerType) => containerType.type === typeName);
+    }
 
     this._catalogLoading.set(true);
     const containerTypes = await firstValueFrom(this.containersCallService.retrieveAllContainerTypes())

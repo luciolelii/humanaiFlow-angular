@@ -614,6 +614,13 @@ export class GenericNodeComponent {
     } finally {
       this.schemaLoading = false;
       this.schemaReady = true;
+      queueMicrotask(() => {
+        try {
+          this.cdr.detectChanges();
+        } catch {
+          // Node may have been removed while schema was loading.
+        }
+      });
     }
   }
 

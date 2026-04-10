@@ -23,13 +23,15 @@ export class BlocksService {
   readonly catalogLoading = this._catalogLoading.asReadonly();
 
   hasLoadedBlockTypes() {
-    return this._blockTypes().length > 0 || !this.toInit;
+    return this._blockTypes().length > 0 || (!this.toInit && !this.loadingPromise);
   }
 
   async getAllBlocksTypes() {
     if (this.toInit) {
       this.toInit = false;
       await this.refresh();
+    } else if (this.loadingPromise) {
+      await this.loadingPromise;
     }
 
     return this._blockTypes.asReadonly();
@@ -64,6 +66,11 @@ export class BlocksService {
   async getBlockType(typeName: BlockTypeName) {
     const current = this._blockTypes().find((blockType) => blockType.type === typeName);
     if (current) return current;
+
+    if (this.loadingPromise) {
+      await this.loadingPromise;
+      return this._blockTypes().find((blockType) => blockType.type === typeName);
+    }
 
     this._catalogLoading.set(true);
     const blockTypes = await firstValueFrom(this.blocksCallService.retrieveAllBlocksTypes())
