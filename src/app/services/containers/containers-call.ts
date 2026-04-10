@@ -225,11 +225,46 @@ export class ContainersCallService extends ContainersCallServiceBase {
 
   private buildContainerConfigurationPayload(containerType: string, configuration: Record<string, unknown>) {
     const { typeName: _ignoreTypeName, ...sanitized } = configuration;
+    const configurationType = this.resolveConfigurationType(containerType, sanitized);
     return {
       ...sanitized,
+      type: configurationType,
       name: typeof sanitized["name"] === "string" && sanitized["name"].length > 0
         ? sanitized["name"]
         : containerType
     };
+  }
+
+  private resolveConfigurationType(containerType: string, configuration: Record<string, unknown>) {
+    const explicitType = this.toNullableString(configuration["type"]);
+    if (explicitType) return explicitType;
+
+    const descriptor = this.containerTypesCache
+      ?.find((candidate) => candidate.type === containerType);
+    const schemaType = this.resolveConfigurationTypeFromSchema(descriptor?.schema);
+    if (schemaType) return schemaType;
+
+    return descriptor?.configurationType ?? "GenericContainerConfiguration";
+  }
+
+  private resolveConfigurationTypeFromSchema(schema: Record<string, unknown> | null | undefined) {
+    if (!schema || typeof schema !== "object" || Array.isArray(schema)) return null;
+
+    const properties = schema["properties"];
+    if (!properties || typeof properties !== "object" || Array.isArray(properties)) return null;
+
+    const typeProperty = (properties as Record<string, unknown>)["type"];
+    if (!typeProperty || typeof typeProperty !== "object" || Array.isArray(typeProperty)) return null;
+
+    const typeSchema = typeProperty as Record<string, unknown>;
+    const defaultValue = this.toNullableString(typeSchema["default"]);
+    if (defaultValue) return defaultValue;
+
+    const enumValues = Array.isArray(typeSchema["enum"])
+      ? typeSchema["enum"].filter((value): value is string => typeof value === "string" && value.length > 0)
+      : [];
+    if (enumValues.length === 1) return enumValues[0];
+
+    return null;
   }
 }

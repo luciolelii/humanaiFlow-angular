@@ -74,8 +74,10 @@ export class ContainersCallServiceFake extends ContainersCallServiceBase {
 
   override createContainer(containerId: string, configuration: any): Observable<FlowContainer> {
     const typeName = String(configuration?.typeName ?? configuration?.type ?? 'GenericContainer');
+    const configurationType = this.resolveConfigurationType(typeName, configuration);
     const specificConfiguration = {
       ...configuration,
+      type: configurationType,
       name: typeof configuration?.name === 'string' && configuration.name.length > 0
         ? configuration.name
         : 'Container'
@@ -127,5 +129,40 @@ export class ContainersCallServiceFake extends ContainersCallServiceBase {
       openInputs: [],
       openOutputs: []
     });
+  }
+
+  private resolveConfigurationType(containerType: string, configuration: Record<string, unknown>) {
+    const explicitType = configuration['type'];
+    if (typeof explicitType === 'string' && explicitType.length > 0) {
+      return explicitType;
+    }
+
+    const descriptor = this.containerTypes.find((candidate) => candidate.type === containerType);
+    const schemaType = this.resolveConfigurationTypeFromSchema(descriptor?.schema);
+    if (schemaType) return schemaType;
+
+    return descriptor?.configurationType ?? 'GenericContainerConfiguration';
+  }
+
+  private resolveConfigurationTypeFromSchema(schema: Record<string, unknown> | null | undefined) {
+    if (!schema || typeof schema !== 'object' || Array.isArray(schema)) return null;
+
+    const properties = schema['properties'];
+    if (!properties || typeof properties !== 'object' || Array.isArray(properties)) return null;
+
+    const typeProperty = (properties as Record<string, unknown>)['type'];
+    if (!typeProperty || typeof typeProperty !== 'object' || Array.isArray(typeProperty)) return null;
+
+    const typeSchema = typeProperty as Record<string, unknown>;
+    if (typeof typeSchema['default'] === 'string' && typeSchema['default'].length > 0) {
+      return typeSchema['default'];
+    }
+
+    const enumValues = Array.isArray(typeSchema['enum'])
+      ? typeSchema['enum'].filter((value): value is string => typeof value === 'string' && value.length > 0)
+      : [];
+    if (enumValues.length === 1) return enumValues[0];
+
+    return null;
   }
 }

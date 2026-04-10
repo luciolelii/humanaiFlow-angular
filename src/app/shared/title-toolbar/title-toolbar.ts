@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, ElementRef, inject, signal, ViewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, ElementRef, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -26,7 +26,7 @@ import { EditorStateHolder } from '@stores/flow-editor';
 export class TitleToolbar {
   private snackTimeout: ReturnType<typeof setTimeout> | null = null;
 
-  @ViewChild('titleInput') myInputRef!: ElementRef;
+  readonly titleInputRef = viewChild<ElementRef>('titleInput');
 
   editorState: EditorStateHolder = inject(EditorStateHolder);
   private router = inject(Router);
@@ -98,8 +98,8 @@ export class TitleToolbar {
     this.draftTitle.set(flow.name);
     this.editingTitle.set(true);
     queueMicrotask(() => {
-      this.myInputRef?.nativeElement?.focus();
-      this.myInputRef?.nativeElement?.select();
+      this.titleInputRef()?.nativeElement?.focus();
+      this.titleInputRef()?.nativeElement?.select();
     });
   }
 
@@ -117,7 +117,8 @@ export class TitleToolbar {
     }
     if (trimmed.length < 4) {
       this.draftTitle.set(this.title());
-      this.myInputRef.nativeElement.value = this.title();
+      const inputEl = this.titleInputRef()?.nativeElement;
+      if (inputEl) inputEl.value = this.title();
       this.editingTitle.set(false);
       return;
     }

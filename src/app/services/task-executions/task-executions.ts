@@ -2,7 +2,7 @@ import { DestroyRef, inject, Injectable, signal } from '@angular/core';
 import { environment } from '@environment';
 import { LLMDescriptor } from '@models/flow';
 import { ExecutionEventLogEntry, getExecutionStatusGroup, TaskExecution } from '@models/task-execution';
-import { catchError, finalize, tap, throwError } from 'rxjs';
+import { catchError, finalize, Observable, tap, throwError } from 'rxjs';
 import { TaskExecutionsCallServiceBase } from './task-executions-call.base';
 
 @Injectable({
@@ -43,11 +43,10 @@ export class TaskExecutionsService {
   }
 
   retrieveExecutionEvents(executionId: string) {
-    return this.taskExecutionsCallService.retrieveExecutionEvents(executionId).pipe(
-      catchError((err) => {
-        console.error('Retrieve execution events failed', err);
-        return throwError(() => err);
-      })
+    return this.withRefreshAndErrorHandling(
+      this.taskExecutionsCallService.retrieveExecutionEvents(executionId),
+      'Retrieve execution events failed',
+      false
     );
   }
 
@@ -64,22 +63,16 @@ export class TaskExecutionsService {
   }
 
   deleteExecution(executionId: string) {
-    return this.taskExecutionsCallService.deleteTaskExecution(executionId).pipe(
-      tap(() => this.refresh()),
-      catchError((err) => {
-        console.error('Delete execution failed', err);
-        return throwError(() => err);
-      })
+    return this.withRefreshAndErrorHandling(
+      this.taskExecutionsCallService.deleteTaskExecution(executionId),
+      'Delete execution failed'
     );
   }
 
   startExecution(executionId: string) {
-    return this.taskExecutionsCallService.startTaskExecution(executionId).pipe(
-      tap(() => this.refresh()),
-      catchError((err) => {
-        console.error('Start execution failed', err);
-        return throwError(() => err);
-      })
+    return this.withRefreshAndErrorHandling(
+      this.taskExecutionsCallService.startTaskExecution(executionId),
+      'Start execution failed'
     );
   }
 
@@ -92,22 +85,16 @@ export class TaskExecutionsService {
       return throwError(() => new Error('A simulator descriptor is required to start simulation.'));
     }
 
-    return this.taskExecutionsCallService.simulateTaskExecution(executionId, simulator).pipe(
-      tap(() => this.refresh()),
-      catchError((err) => {
-        console.error('Simulate execution failed', err);
-        return throwError(() => err);
-      })
+    return this.withRefreshAndErrorHandling(
+      this.taskExecutionsCallService.simulateTaskExecution(executionId, simulator),
+      'Simulate execution failed'
     );
   }
 
   cancelExecution(executionId: string) {
-    return this.taskExecutionsCallService.cancelTaskExecution(executionId).pipe(
-      tap(() => this.refresh()),
-      catchError((err) => {
-        console.error('Cancel execution failed', err);
-        return throwError(() => err);
-      })
+    return this.withRefreshAndErrorHandling(
+      this.taskExecutionsCallService.cancelTaskExecution(executionId),
+      'Cancel execution failed'
     );
   }
 
@@ -118,92 +105,65 @@ export class TaskExecutionsService {
       return throwError(() => new Error('Resume is only supported for suspended executions.'));
     }
 
-    return this.taskExecutionsCallService.resumeTaskExecution(executionId).pipe(
-      tap(() => this.refresh()),
-      catchError((err) => {
-        console.error('Resume execution failed', err);
-        return throwError(() => err);
-      })
+    return this.withRefreshAndErrorHandling(
+      this.taskExecutionsCallService.resumeTaskExecution(executionId),
+      'Resume execution failed'
     );
   }
 
   prepareStringInput(executionId: string, nodeId: string, inputName: string, value: string) {
-    return this.taskExecutionsCallService.prepareStringInput(executionId, nodeId, inputName, value).pipe(
-      tap(() => this.refresh()),
-      catchError((err) => {
-        console.error('Prepare string input failed', err);
-        return throwError(() => err);
-      })
+    return this.withRefreshAndErrorHandling(
+      this.taskExecutionsCallService.prepareStringInput(executionId, nodeId, inputName, value),
+      'Prepare string input failed'
     );
   }
 
   prepareStringArrayInput(executionId: string, nodeId: string, inputName: string, values: string[]) {
-    return this.taskExecutionsCallService.prepareStringArrayInput(executionId, nodeId, inputName, values).pipe(
-      tap(() => this.refresh()),
-      catchError((err) => {
-        console.error('Prepare string array input failed', err);
-        return throwError(() => err);
-      })
+    return this.withRefreshAndErrorHandling(
+      this.taskExecutionsCallService.prepareStringArrayInput(executionId, nodeId, inputName, values),
+      'Prepare string array input failed'
     );
   }
 
   prepareFileInput(executionId: string, nodeId: string, inputName: string, file: File) {
-    return this.taskExecutionsCallService.prepareFileInput(executionId, nodeId, inputName, file).pipe(
-      tap(() => this.refresh()),
-      catchError((err) => {
-        console.error('Prepare file input failed', err);
-        return throwError(() => err);
-      })
+    return this.withRefreshAndErrorHandling(
+      this.taskExecutionsCallService.prepareFileInput(executionId, nodeId, inputName, file),
+      'Prepare file input failed'
     );
   }
 
   prepareFileArrayInput(executionId: string, nodeId: string, inputName: string, files: File[]) {
-    return this.taskExecutionsCallService.prepareFileArrayInput(executionId, nodeId, inputName, files).pipe(
-      tap(() => this.refresh()),
-      catchError((err) => {
-        console.error('Prepare file array input failed', err);
-        return throwError(() => err);
-      })
+    return this.withRefreshAndErrorHandling(
+      this.taskExecutionsCallService.prepareFileArrayInput(executionId, nodeId, inputName, files),
+      'Prepare file array input failed'
     );
   }
 
   prepareGlobalStringInput(executionId: string, inputName: string, value: string) {
-    return this.taskExecutionsCallService.prepareGlobalStringInput(executionId, inputName, value).pipe(
-      tap(() => this.refresh()),
-      catchError((err) => {
-        console.error('Prepare global string input failed', err);
-        return throwError(() => err);
-      })
+    return this.withRefreshAndErrorHandling(
+      this.taskExecutionsCallService.prepareGlobalStringInput(executionId, inputName, value),
+      'Prepare global string input failed'
     );
   }
 
   prepareGlobalStringArrayInput(executionId: string, inputName: string, values: string[]) {
-    return this.taskExecutionsCallService.prepareGlobalStringArrayInput(executionId, inputName, values).pipe(
-      tap(() => this.refresh()),
-      catchError((err) => {
-        console.error('Prepare global string array input failed', err);
-        return throwError(() => err);
-      })
+    return this.withRefreshAndErrorHandling(
+      this.taskExecutionsCallService.prepareGlobalStringArrayInput(executionId, inputName, values),
+      'Prepare global string array input failed'
     );
   }
 
   prepareGlobalFileInput(executionId: string, inputName: string, file: File) {
-    return this.taskExecutionsCallService.prepareGlobalFileInput(executionId, inputName, file).pipe(
-      tap(() => this.refresh()),
-      catchError((err) => {
-        console.error('Prepare global file input failed', err);
-        return throwError(() => err);
-      })
+    return this.withRefreshAndErrorHandling(
+      this.taskExecutionsCallService.prepareGlobalFileInput(executionId, inputName, file),
+      'Prepare global file input failed'
     );
   }
 
   prepareGlobalFileArrayInput(executionId: string, inputName: string, files: File[]) {
-    return this.taskExecutionsCallService.prepareGlobalFileArrayInput(executionId, inputName, files).pipe(
-      tap(() => this.refresh()),
-      catchError((err) => {
-        console.error('Prepare global file array input failed', err);
-        return throwError(() => err);
-      })
+    return this.withRefreshAndErrorHandling(
+      this.taskExecutionsCallService.prepareGlobalFileArrayInput(executionId, inputName, files),
+      'Prepare global file array input failed'
     );
   }
 
@@ -213,22 +173,16 @@ export class TaskExecutionsService {
       return throwError(() => new Error('Manual interaction is disabled for simulated executions.'));
     }
 
-    return this.taskExecutionsCallService.submitInteractionText(executionId, nodeId, fieldName, value).pipe(
-      tap(() => this.refresh()),
-      catchError((err) => {
-        console.error('Submit interaction text failed', err);
-        return throwError(() => err);
-      })
+    return this.withRefreshAndErrorHandling(
+      this.taskExecutionsCallService.submitInteractionText(executionId, nodeId, fieldName, value),
+      'Submit interaction text failed'
     );
   }
 
   provideAuthorization(executionId: string, key: string, value: string) {
-    return this.taskExecutionsCallService.provideAuthorization(executionId, key, value).pipe(
-      tap(() => this.refresh()),
-      catchError((err) => {
-        console.error('Provide authorization failed', err);
-        return throwError(() => err);
-      })
+    return this.withRefreshAndErrorHandling(
+      this.taskExecutionsCallService.provideAuthorization(executionId, key, value),
+      'Provide authorization failed'
     );
   }
 
@@ -256,5 +210,17 @@ export class TaskExecutionsService {
     if (!this.pollTimer) return;
     clearInterval(this.pollTimer);
     this.pollTimer = null;
+  }
+
+  private withRefreshAndErrorHandling<T>(source: Observable<T>, errorMessage: string, refresh = true): Observable<T> {
+    const piped = refresh
+      ? source.pipe(tap(() => this.refresh()))
+      : source;
+    return piped.pipe(
+      catchError((err) => {
+        console.error(errorMessage, err);
+        return throwError(() => err);
+      })
+    );
   }
 }

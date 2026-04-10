@@ -17,14 +17,7 @@ import { Authorization } from '@services/authorization/authorization';
 import { ConfirmDialogService } from '@services/dialogs/confirm-dialog';
 import { AdminResetPasswordDialogComponent } from '@shared/admin-reset-password-dialog/admin-reset-password-dialog';
 import { FormUtility } from '@utilities/form-utility';
-
-function hasValidPasswordComplexity(value: string): boolean {
-  return /^\S+$/.test(value)
-    && /[a-z]/.test(value)
-    && /[A-Z]/.test(value)
-    && /\d/.test(value)
-    && /[^A-Za-z0-9]/.test(value);
-}
+import { hasValidPasswordComplexity, evaluatePasswordChecks, initialPasswordChecks } from '@utilities/password-validation';
 
 @Component({
   selector: 'app-admin-users',
@@ -95,28 +88,14 @@ export class AdminUsersPage extends FormUtility {
     });
   });
 
-  readonly createPasswordChecks = signal([
-    { label: 'At least 8 characters', satisfied: false },
-    { label: 'At least one lowercase letter', satisfied: false },
-    { label: 'At least one uppercase letter', satisfied: false },
-    { label: 'At least one number', satisfied: false },
-    { label: 'At least one special character', satisfied: false },
-    { label: 'No spaces', satisfied: true }
-  ]);
+  readonly createPasswordChecks = signal(initialPasswordChecks());
 
   constructor() {
     super();
 
     effect(() => {
       const password = this.createModel().password;
-      this.createPasswordChecks.set([
-        { label: 'At least 8 characters', satisfied: password.length >= 8 },
-        { label: 'At least one lowercase letter', satisfied: /[a-z]/.test(password) },
-        { label: 'At least one uppercase letter', satisfied: /[A-Z]/.test(password) },
-        { label: 'At least one number', satisfied: /\d/.test(password) },
-        { label: 'At least one special character', satisfied: /[^A-Za-z0-9]/.test(password) },
-        { label: 'No spaces', satisfied: /^\S*$/.test(password) }
-      ]);
+      this.createPasswordChecks.set(evaluatePasswordChecks(password));
     });
   }
 

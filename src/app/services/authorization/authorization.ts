@@ -11,7 +11,7 @@ import {
 } from '@models/user';
 import { AuthorizationCallServiceBase } from './authorization-call.base';
 import { environment } from '@environment';
-import { Observable, take, tap } from 'rxjs';
+import { Observable, catchError, take, tap, throwError } from 'rxjs';
 
 @Injectable({
   providedIn: 'root',
@@ -31,9 +31,17 @@ export class Authorization {
       tap(res => {
         const normalizedUser = this.normalizeUser(res);
         this.user.set(normalizedUser);
-        if (typeof localStorage !== 'undefined') {
-          localStorage.setItem(Authorization.USER_STORAGE_KEY, JSON.stringify(normalizedUser));
+        try {
+          if (typeof localStorage !== 'undefined') {
+            localStorage.setItem(Authorization.USER_STORAGE_KEY, JSON.stringify(normalizedUser));
+          }
+        } catch {
+          // Ignore storage errors (e.g. quota exceeded, private browsing).
         }
+      }),
+      catchError((err) => {
+        console.error('Login failed', err);
+        return throwError(() => err);
       })
     );
   }
@@ -102,8 +110,12 @@ export class Authorization {
     return this.authCall.logout().pipe(
       take(1),
       tap(() => {
-        if (typeof localStorage !== 'undefined') {
-          localStorage.removeItem(Authorization.USER_STORAGE_KEY);
+        try {
+          if (typeof localStorage !== 'undefined') {
+            localStorage.removeItem(Authorization.USER_STORAGE_KEY);
+          }
+        } catch {
+          // Ignore storage errors.
         }
         this.user.set(null);
       })

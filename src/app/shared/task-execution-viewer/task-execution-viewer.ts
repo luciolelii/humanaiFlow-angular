@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, effect, ElementRef, inject, input, OnDestroy, signal, ViewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, ElementRef, inject, input, OnDestroy, signal, viewChild } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -96,7 +96,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   readonly executionLogs = signal<ExecutionEventLogEntry[]>([]);
   readonly logsLoading = signal(false);
   readonly logsError = signal<string | null>(null);
-  @ViewChild('logsScrollViewport') private logsScrollViewport?: ElementRef<HTMLDivElement>;
+  private readonly logsScrollViewport = viewChild<ElementRef<HTMLDivElement>>('logsScrollViewport');
 
   constructor() {
     effect(() => {
@@ -821,7 +821,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   }
 
   private scrollLogsToBottom() {
-    const element = this.logsScrollViewport?.nativeElement;
+    const element = this.logsScrollViewport()?.nativeElement;
     if (!element || this.activeAsideTab() !== 'logs') return;
     element.scrollTop = element.scrollHeight;
   }

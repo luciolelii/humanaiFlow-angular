@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, effect, Input, input, model, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, effect, input, model, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
@@ -19,7 +19,7 @@ export type OrderField = { field: string; label?: string };
 })
 export class Ordering {
 
-  @Input({required : true}) orderView!: OrderViewState;
+  readonly orderView = input.required<OrderViewState>();
 
   constructor() {
     effect(() => {
@@ -34,9 +34,10 @@ export class Ordering {
   orderBy = model<string | null>(null);
 
   ngOnInit() {
-    if (this.orderView.orderBy) {
-      this.orderBy.set(this.orderView.orderBy);
-      this.orderDir.set(this.orderView.orderDir);
+    const view = this.orderView();
+    if (view.orderBy) {
+      this.orderBy.set(view.orderBy);
+      this.orderDir.set(view.orderDir);
     }
   }
 

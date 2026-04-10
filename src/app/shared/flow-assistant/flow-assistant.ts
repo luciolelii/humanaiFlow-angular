@@ -18,7 +18,7 @@ import { Flow } from '@models/flow';
 import { AssistantService } from '@services/assistant/assistant';
 import { Authorization } from '@services/authorization/authorization';
 import { EditorStateHolder } from '@stores/flow-editor';
-import { finalize, take } from 'rxjs';
+import { finalize, interval, Subscription, switchMap, take } from 'rxjs';
 
 @Component({
   selector: 'app-flow-assistant',
@@ -31,7 +31,7 @@ export class FlowAssistant implements OnInit, OnDestroy {
   private readonly assistant = inject(AssistantService);
   private readonly editorState = inject(EditorStateHolder);
   private readonly authorization = inject(Authorization);
-  private pollTick: ReturnType<typeof setInterval> | null = null;
+  private pollSubscription: Subscription | null = null;
 
   readonly assistantConfig = signal<AssistantConfig | null>(null);
   readonly sessionState = signal<AssistantSessionState | null>(null);
@@ -264,24 +264,22 @@ export class FlowAssistant implements OnInit, OnDestroy {
 
   private startPolling(callId: string, sessionId: string) {
     this.stopPolling();
-    this.pollTick = setInterval(() => {
-      this.assistant.getCall(callId).pipe(
-        take(1)
-      ).subscribe({
-        next: (callState) => {
-          this.currentCall.set(callState);
-          if (callState.status === 'COMPLETED' || callState.status === 'FAILED') {
-            this.stopPolling();
-            void this.reloadSession(sessionId, callState.status === 'FAILED' ? callState.errorMessage : undefined);
-          }
-        },
-        error: (err) => {
-          console.error('Assistant call polling failed', err);
+    this.pollSubscription = interval(500).pipe(
+      switchMap(() => this.assistant.getCall(callId))
+    ).subscribe({
+      next: (callState) => {
+        this.currentCall.set(callState);
+        if (callState.status === 'COMPLETED' || callState.status === 'FAILED') {
           this.stopPolling();
-          this.pushLocalAssistantMessage('Polling the assistant call failed.');
+          void this.reloadSession(sessionId, callState.status === 'FAILED' ? callState.errorMessage : undefined);
         }
-      });
-    }, 500);
+      },
+      error: (err) => {
+        console.error('Assistant call polling failed', err);
+        this.stopPolling();
+        this.pushLocalAssistantMessage('Polling the assistant call failed.');
+      }
+    });
   }
 
   private async reloadSession(sessionId: string, failureMessage?: string) {
@@ -378,10 +376,8 @@ export class FlowAssistant implements OnInit, OnDestroy {
   }
 
   private stopPolling() {
-    if (this.pollTick) {
-      clearInterval(this.pollTick);
-      this.pollTick = null;
-    }
+    this.pollSubscription?.unsubscribe();
+    this.pollSubscription = null;
   }
 
   private phaseText(phase: AssistantCallPhase): string {

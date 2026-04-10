@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, effect, ElementRef, HostListener, Injector, input, OnChanges, OnDestroy, output, signal, SimpleChanges, untracked, ViewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, effect, ElementRef, HostListener, Injector, input, OnChanges, OnDestroy, output, signal, SimpleChanges, untracked, viewChild } from '@angular/core';
 import { BlockType, FlowData, FlowNode } from '@models/flow';
 import { Drag } from 'rete-area-plugin';
 import { BlocksService } from '@services/blocks/blocks';
@@ -40,8 +40,8 @@ export class ReteEditor implements OnChanges, OnDestroy {
     });
   }
 
-  @ViewChild("editor") container!: ElementRef;
-  @ViewChild("shell") shell!: ElementRef<HTMLElement>;
+  readonly container = viewChild.required<ElementRef>('editor');
+  readonly shell = viewChild.required<ElementRef<HTMLElement>>('shell');
 
   private rete?: ReteEditorInstance;
   private viewReady = false;
@@ -158,7 +158,7 @@ export class ReteEditor implements OnChanges, OnDestroy {
     this.selectionPointerId = event.pointerId;
     this.selectionStart = { x: event.clientX, y: event.clientY };
     this.selectionBox.set({ left: 0, top: 0, width: 0, height: 0 });
-    this.shell.nativeElement.setPointerCapture(event.pointerId);
+    this.shell().nativeElement.setPointerCapture(event.pointerId);
   }
 
   setEditorMode(mode: 'standard' | 'select', event?: Event) {
@@ -189,7 +189,7 @@ export class ReteEditor implements OnChanges, OnDestroy {
   onShellPointerMove(event: PointerEvent) {
     if (this.selectionPointerId !== event.pointerId || !this.selectionStart) return;
 
-    const shellRect = this.shell.nativeElement.getBoundingClientRect();
+    const shellRect = this.shell().nativeElement.getBoundingClientRect();
     const left = Math.min(this.selectionStart.x, event.clientX) - shellRect.left;
     const top = Math.min(this.selectionStart.y, event.clientY) - shellRect.top;
     const width = Math.abs(event.clientX - this.selectionStart.x);
@@ -201,7 +201,7 @@ export class ReteEditor implements OnChanges, OnDestroy {
   onShellPointerUp(event: PointerEvent) {
     if (this.selectionPointerId !== event.pointerId || !this.selectionStart) return;
 
-    const shell = this.shell.nativeElement;
+    const shell = this.shell().nativeElement;
     if (shell.hasPointerCapture(event.pointerId)) {
       shell.releasePointerCapture(event.pointerId);
     }
@@ -278,7 +278,7 @@ export class ReteEditor implements OnChanges, OnDestroy {
   }
 
   private async reloadEditor() {
-    const host = this.container?.nativeElement as HTMLElement | undefined;
+    const host = this.container()?.nativeElement as HTMLElement | undefined;
     if (!host) return;
 
     await this.ensureNodeTypesLoaded();
@@ -495,7 +495,7 @@ export class ReteEditor implements OnChanges, OnDestroy {
   }
 
   private getDropPosition(event: DragEvent) {
-    const host = this.container.nativeElement as HTMLElement;
+    const host = this.container().nativeElement as HTMLElement;
     const rect = host.getBoundingClientRect();
     const transform = this.rete!.area.area.transform;
 
@@ -555,7 +555,7 @@ export class ReteEditor implements OnChanges, OnDestroy {
     const selection = this.selectionBox();
     if (!selection) return [];
 
-    const shellRect = this.shell.nativeElement.getBoundingClientRect();
+    const shellRect = this.shell().nativeElement.getBoundingClientRect();
     const selectionRect = {
       left: shellRect.left + selection.left,
       top: shellRect.top + selection.top,
@@ -564,7 +564,7 @@ export class ReteEditor implements OnChanges, OnDestroy {
     };
 
     return Array.from(
-      this.shell.nativeElement.querySelectorAll<HTMLElement>('[data-testid="node"][data-block-id]')
+      this.shell().nativeElement.querySelectorAll<HTMLElement>('[data-testid="node"][data-block-id]')
     )
       .filter((element) => this.isRectIntersecting(selectionRect, element.getBoundingClientRect()))
       .map((element) => element.dataset['blockId'] ?? '')
@@ -585,7 +585,7 @@ export class ReteEditor implements OnChanges, OnDestroy {
 
   private async applyZoom(multiplier: number) {
     const area = this.rete?.area?.area;
-    const host = this.container?.nativeElement as HTMLElement | undefined;
+    const host = this.container()?.nativeElement as HTMLElement | undefined;
     if (!area || !host) return;
 
     const currentZoom = area.transform.k || 1;
