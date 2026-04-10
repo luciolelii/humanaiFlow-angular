@@ -13,7 +13,7 @@ import { EditorStateHolder } from '@stores/flow-editor';
 import { CONTAINER_SUBFLOW_DRAG_MIME } from './container-node-drag';
 import { firstValueFrom } from 'rxjs';
 import { extractSchemaRequirements, SchemaRequirements } from '../schema-requirements';
-import { evaluateUiConditionRule, getValueByPath, parentPath, pathToLabel, readEffectiveUiVisibleConditionRule, readUiConditionRule, resolveSchemaPath, resolveSchemaRef, schemaFieldLabel, shouldSkipSchemaField, splitTemplatedTextParts, valueToDisplayString } from '../node-utility';
+import { evaluateUiConditionRule, getValueByPath, parentPath, pathToLabel, readEffectiveUiVisibleConditionRule, readUiConditionRule, resolveNodeIcon, resolveSchemaPath, resolveSchemaRef, schemaFieldLabel, shouldSkipSchemaField, splitTemplatedTextParts, valueToDisplayString } from '../node-utility';
 
 type ContainerFieldType = 'string' | 'number' | 'integer' | 'boolean' | 'unknown';
 
@@ -140,6 +140,16 @@ export class ContainerNodeComponent {
 
   get containerLabel() {
     return pathToLabel(this.typeName.replace(/Container$/, ' Container'));
+  }
+
+  nodeIcon(): { type: 'class' | 'img'; value: string } {
+    const icon = resolveNodeIcon(this.containerSchema, false);
+    if (icon.type === 'class' && icon.value === 'bi bi-person-check-fill') {
+      return { type: 'class', value: 'bi bi-box-seam' };
+    }
+    return icon.type === 'img' && icon.value === 'llm_node.png'
+      ? { type: 'class', value: 'bi bi-box-seam' }
+      : icon;
   }
 
   get inputs() {

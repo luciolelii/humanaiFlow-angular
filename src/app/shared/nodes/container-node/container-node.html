@@ -12,7 +12,11 @@
   }
   <div class="container-node__header" [class.cursor-move]="!isReadonly">
     <div class="container-node__icon">
-      <i class="bi bi-box-seam"></i>
+      @if (nodeIcon().type === 'class') {
+      <i [class]="nodeIcon().value"></i>
+      } @else {
+      <img [src]="nodeIcon().value" alt="Container" class="container-node__icon-image" />
+      }
     </div>
     <div class="container-node__titles">
       <div class="container-node__eyebrow">{{ containerLabel }}</div>

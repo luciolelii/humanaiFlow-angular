@@ -20,13 +20,19 @@ import {
   type UiConditionRule,
   evaluateUiConditionRule,
   flattenPrimitiveValues,
+  formatNodeTitle,
+  getOutputPillClass,
+  getOutputsTitle,
   getValueByPath,
+  isConditionalByPorts,
+  isHumanInteractiveNode,
   parentPath,
   pathToLabel,
   readUiConditionRule,
   readEffectiveUiVisibleConditionRule,
   readUiLabel,
   readUiGroup,
+  resolveNodeIcon,
   resolveSchemaRef,
   resolveSchemaPath,
   schemaFieldDescription,
@@ -436,34 +442,27 @@ export class GenericNodeComponent {
   }
 
   isHumanNode(): boolean {
-    return !!this.blockDescriptor?.interactionContract;
+    return isHumanInteractiveNode(this.blockDescriptor?.interactionContract);
   }
 
   isConditionalNode(): boolean {
-    const outputNames = this.resolvePorts('output').map((port) => port.name.trim().toLowerCase());
-    return outputNames.includes('true') && outputNames.includes('false');
+    return isConditionalByPorts(this.resolvePorts('output'));
   }
 
   nodeTitle(): string {
-    const type = this.blockType;
-    if (!type) return 'Node';
-    return type
-      .replace(/Block$/, '')
-      .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-      .trim();
+    return formatNodeTitle(this.blockType);
   }
 
   outputsTitle(): string {
-    return this.isConditionalNode() ? 'On Condition' : 'Outputs';
+    return getOutputsTitle(this.isConditionalNode());
   }
 
   outputPillClass(outputKey: string): string | null {
-    if (!this.isConditionalNode()) return null;
+    return getOutputPillClass(outputKey, this.isConditionalNode(), this.blockDescriptor?.schema);
+  }
 
-    const normalized = outputKey.trim().toLowerCase();
-    if (normalized === 'true') return 'llm-pill-output-true';
-    if (normalized === 'false') return 'llm-pill-output-false';
-    return null;
+  nodeIcon(): { type: 'class' | 'img'; value: string } {
+    return resolveNodeIcon(this.blockDescriptor?.schema, this.isHumanNode());
   }
 
   hasExecutionDependencyPorts(): boolean {

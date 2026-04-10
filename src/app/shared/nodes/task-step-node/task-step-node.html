@@ -47,10 +47,10 @@
 
   <div class="llm-header">
     <div class="llm-icon">
-      @if (isHumanNode()) {
-      <i class="bi bi-person-check-fill"></i>
+      @if (nodeIcon().type === 'class') {
+      <i [class]="nodeIcon().value"></i>
       } @else {
-      <img src="llm_node.png" alt="LLM" class="llm-icon-image" />
+      <img [src]="nodeIcon().value" alt="Node" class="llm-icon-image" />
       }
     </div>
     <div class="llm-header-content">

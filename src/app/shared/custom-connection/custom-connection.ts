@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject, Input } from '@angular/core';
+import { Component, inject, Input } from '@angular/core';
 import { ClassicPreset } from 'rete';
 import { FLOW_DEPENDANT_PORT_KEY, FLOW_DEPENDENCY_PORT_KEY } from '@models/flow';
 import { GraphSelectionService } from '@services/graph-selection/graph-selection';
@@ -79,8 +79,7 @@ import { GraphSelectionService } from '@services/graph-selection/graph-selection
       overflow: visible;
       pointer-events: auto;
     }
-  `],
-  changeDetection: ChangeDetectionStrategy.OnPush
+  `]
 })
 export class CustomConnectionComponent {
   private readonly graphSelection = inject(GraphSelectionService);

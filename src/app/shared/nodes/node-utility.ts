@@ -270,6 +270,59 @@ function isMeaningfullyPresent(value: unknown): boolean {
   return true;
 }
 
+export function isHumanInteractiveNode(interactionContract: unknown): boolean {
+  return !!interactionContract;
+}
+
+export function isConditionalByPorts(ports: { name: string }[]): boolean {
+  const names = ports.map((p) => p.name.trim().toLowerCase());
+  return names.includes('true') && names.includes('false');
+}
+
+export function formatNodeTitle(blockType: string | null | undefined, fallback = 'Node'): string {
+  if (!blockType) return fallback;
+  return blockType
+    .replace(/Block$/, '')
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .trim();
+}
+
+export function getOutputsTitle(isConditional: boolean): string {
+  return isConditional ? 'On Condition' : 'Outputs';
+}
+
+export function getOutputPillClass(
+  outputKey: string,
+  isConditional: boolean,
+  schema?: Record<string, unknown> | null
+): string | null {
+  const outputStyles = schema?.['x-ui-output-styles'];
+  if (outputStyles && typeof outputStyles === 'object' && !Array.isArray(outputStyles)) {
+    const styleMap = outputStyles as Record<string, unknown>;
+    const style = styleMap[outputKey];
+    if (typeof style === 'string' && style.trim().length > 0) return style.trim();
+  }
+
+  if (!isConditional) return null;
+  const normalized = outputKey.trim().toLowerCase();
+  if (normalized === 'true') return 'llm-pill-output-true';
+  if (normalized === 'false') return 'llm-pill-output-false';
+  return null;
+}
+
+export function resolveNodeIcon(schema: Record<string, unknown> | null | undefined, hasInteractionContract: boolean): { type: 'class'; value: string } | { type: 'img'; value: string } {
+  const icon = schema?.['x-ui-icon'];
+  if (typeof icon === 'string' && icon.trim().length > 0) {
+    const trimmed = icon.trim();
+    if (trimmed.endsWith('.png') || trimmed.endsWith('.svg') || trimmed.endsWith('.jpg') || trimmed.endsWith('.webp')) {
+      return { type: 'img', value: trimmed };
+    }
+    return { type: 'class', value: trimmed };
+  }
+  if (hasInteractionContract) return { type: 'class', value: 'bi bi-person-check-fill' };
+  return { type: 'img', value: 'llm_node.png' };
+}
+
 export function splitTemplatedTextParts(text: string | null): TemplatedTextPart[] {
   if (!text) return [];
 
