@@ -1,3 +1,4 @@
+import { AdminCallService } from "@services/admin/admin-call";
 import { AssistantCallService } from "@services/assistant/assistant-call";
 import { AuthorizationCallService } from "@services/authorization/authorization-call";
 import { BlocksCallService } from "@services/blocks/blocks-call";
@@ -13,6 +14,7 @@ export const environment = {
         tourModeAlwaysOn: window.__runtimeConfig?.tourModeAlwaysOn ?? false,
         turnstileEnabled: window.__runtimeConfig?.turnstileEnabled ?? true,
         authorizationCallService: AuthorizationCallService,
+        adminCallService: AdminCallService,
         assistantCallService: AssistantCallService,
         flowsCallService: FlowsCallService,
         blocksCallService: BlocksCallService,

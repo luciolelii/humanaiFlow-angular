@@ -7,6 +7,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { OperationsStatistics, UserStatistics } from '@models/user';
+import { AdminService } from '@services/admin/admin';
 import { Authorization } from '@services/authorization/authorization';
 
 @Component({
@@ -25,6 +26,7 @@ import { Authorization } from '@services/authorization/authorization';
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class AdminStatsPage {
+  private adminService = inject(AdminService);
   private authorization = inject(Authorization);
 
   readonly users = signal<string[]>([]);
@@ -47,6 +49,23 @@ export class AdminStatsPage {
     this.selectedUsername() ? this.selectedUserStats() : this.operationsStats()
   );
 
+  formatDuration(totalSeconds: number | null | undefined): string {
+    const seconds = Math.max(0, Math.trunc(Number(totalSeconds ?? 0)));
+    if (!seconds) return '0m';
+
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const remainingSeconds = seconds % 60;
+
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    }
+    if (minutes > 0) {
+      return `${minutes}m ${remainingSeconds}s`;
+    }
+    return `${remainingSeconds}s`;
+  }
+
   ngOnInit() {
     this.loadUsers();
     this.loadOperationsStats();
@@ -56,7 +75,7 @@ export class AdminStatsPage {
     if (!this.authorization.isAdmin()) return;
     this.loadingUsers.set(true);
     this.pageError.set(null);
-    this.authorization.listStatisticsUsers().subscribe({
+    this.adminService.listStatisticsUsers().subscribe({
       next: (users) => {
         this.users.set(users);
         this.loadingUsers.set(false);
@@ -73,7 +92,7 @@ export class AdminStatsPage {
     if (!this.authorization.isAdmin()) return;
     this.loadingOverview.set(true);
     this.statsError.set(null);
-    this.authorization.getOperationsStatistics().subscribe({
+    this.adminService.getOperationsStatistics().subscribe({
       next: (stats) => {
         this.operationsStats.set(stats);
         this.loadingOverview.set(false);
@@ -104,7 +123,7 @@ export class AdminStatsPage {
 
     this.loadingUserStats.set(true);
     this.statsError.set(null);
-    this.authorization.getUserStatistics(username).subscribe({
+    this.adminService.getUserStatistics(username).subscribe({
       next: (stats) => {
         this.selectedUserStats.set(stats);
         this.loadingUserStats.set(false);

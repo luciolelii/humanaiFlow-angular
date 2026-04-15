@@ -50,6 +50,9 @@ export type UserStatistics = {
     executionsSucceeded: number;
     executionsFailed: number;
     simulationsStarted: number;
+    loginCount: number;
+    avgSessionDurationSeconds: number;
+    lastLoginAt: string | null;
     lastFlowUpdateAt: string | null;
     lastExecutionAt: number | null;
 };

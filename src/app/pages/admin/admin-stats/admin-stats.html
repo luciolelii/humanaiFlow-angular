@@ -69,6 +69,14 @@
       <div class="admin-stats-metric__value">{{ currentStats.simulationsStarted }}</div>
       <div class="admin-stats-metric__meta">Started in simulation mode</div>
     </mat-card>
+
+    @if (selectedUsername() && selectedUserStats(); as userStats) {
+    <mat-card class="admin-stats-metric">
+      <div class="admin-stats-metric__label">Authentications</div>
+      <div class="admin-stats-metric__value">{{ userStats.loginCount }}</div>
+      <div class="admin-stats-metric__meta">Average session {{ formatDuration(userStats.avgSessionDurationSeconds) }}</div>
+    </mat-card>
+    }
   </div>
 
   <mat-card class="admin-stats-card">
@@ -82,6 +90,11 @@
     <div class="admin-stats-details">
       @if (!selectedUsername() && operationsStats(); as overviewStats) {
       <div><span class="admin-stats-details__label">Users count:</span> {{ overviewStats.usersCount }}</div>
+      }
+      @if (selectedUsername() && selectedUserStats(); as userStats) {
+      <div><span class="admin-stats-details__label">Login count:</span> {{ userStats.loginCount }}</div>
+      <div><span class="admin-stats-details__label">Average session duration:</span> {{ formatDuration(userStats.avgSessionDurationSeconds) }}</div>
+      <div><span class="admin-stats-details__label">Last login:</span> {{ userStats.lastLoginAt ? (userStats.lastLoginAt | date:'dd/MM/yyyy HH:mm') : 'N/A' }}</div>
       }
       <div><span class="admin-stats-details__label">Last flow update:</span> {{ currentStats.lastFlowUpdateAt ? (currentStats.lastFlowUpdateAt | date:'dd/MM/yyyy HH:mm') : 'N/A' }}</div>
       <div><span class="admin-stats-details__label">Last execution:</span> {{ currentStats.lastExecutionAt ? (currentStats.lastExecutionAt | date:'dd/MM/yyyy HH:mm') : 'N/A' }}</div>

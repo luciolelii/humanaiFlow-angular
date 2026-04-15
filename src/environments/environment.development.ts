@@ -1,3 +1,4 @@
+import { AdminCallFakeService } from "@services/admin/admin-call.fake";
 import { AssistantCallServiceFake } from "@services/assistant/assistant-call.fake";
 import { AuthorizationCallFakeService } from "@services/authorization/authorization-call.fake";
 import { BlocksCallServiceFake } from "@services/blocks/blocks-call.fake";
@@ -13,6 +14,7 @@ export const environment = {
     tourModeAlwaysOn: true,
     turnstileEnabled: false,
     authorizationCallService: AuthorizationCallFakeService, // Assign the appropriate service here
+    adminCallService: AdminCallFakeService,
     assistantCallService: AssistantCallServiceFake,
     flowsCallService: FlowsCallServiceFake,
     blocksCallService: BlocksCallServiceFake,

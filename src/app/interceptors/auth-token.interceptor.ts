@@ -14,7 +14,8 @@ export const authTokenInterceptor: HttpInterceptorFn = (req, next) => {
   const requestPath = req.url.split('?')[0];
   const isAuthEndpoint =
     requestPath.endsWith('/auth/login') ||
-    requestPath.endsWith('/auth/register');
+    requestPath.endsWith('/auth/register') ||
+    requestPath.endsWith('/auth/me');
 
   return next(req).pipe(
     catchError((error: unknown) => {

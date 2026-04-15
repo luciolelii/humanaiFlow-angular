@@ -51,6 +51,13 @@ export class Login extends FormUtility {
   }
 
   ngOnInit(): void {
+      this.authService.validateSession().subscribe({
+        next: (user) => {
+          if (user) {
+            void this.router.navigate(['/']);
+          }
+        }
+      });
       const registered = history.state?.registered;
       if (registered) {
         this.registeredUser.set(registered);

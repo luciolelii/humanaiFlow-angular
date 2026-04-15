@@ -10,7 +10,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { AdminCreateUserRequest, UserRole } from '@models/user';
 import { Router } from '@angular/router';
-import { Authorization } from '@services/authorization/authorization';
+import { AdminService } from '@services/admin/admin';
 import { FormUtility } from '@utilities/form-utility';
 import { hasValidPasswordComplexity, evaluatePasswordChecks, initialPasswordChecks } from '@utilities/password-validation';
 
@@ -32,7 +32,7 @@ import { hasValidPasswordComplexity, evaluatePasswordChecks, initialPasswordChec
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class AdminCreateUserPage extends FormUtility {
-  private authorization = inject(Authorization);
+  private adminService = inject(AdminService);
   private router = inject(Router);
 
   readonly createError = signal<string | null>(null);
@@ -92,7 +92,7 @@ export class AdminCreateUserPage extends FormUtility {
     this.createEmailError.set(null);
     this.createPasswordError.set(null);
 
-    this.authorization.createAdminUser(this.createModel()).subscribe({
+    this.adminService.createAdminUser(this.createModel()).subscribe({
       next: () => {
         this.createSaving.set(false);
         this.successMessage.set('User created successfully.');

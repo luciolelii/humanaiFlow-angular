@@ -1,3 +1,4 @@
+import { AdminCallService } from "@services/admin/admin-call";
 import { AssistantCallService } from "@services/assistant/assistant-call";
 import { AuthorizationCallService } from "@services/authorization/authorization-call";
 import { BlocksCallService } from "@services/blocks/blocks-call";
@@ -14,6 +15,7 @@ export const environment = {
     turnstileEnabled: false,
     assistantCallService: AssistantCallService,
     authorizationCallService: AuthorizationCallService,
+    adminCallService: AdminCallService,
     flowsCallService: FlowsCallService,
     blocksCallService: BlocksCallService,
     containersCallService: ContainersCallService,

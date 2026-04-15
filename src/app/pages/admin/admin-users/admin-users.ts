@@ -13,7 +13,7 @@ import {
   AdminUser,
   UserRole
 } from '@models/user';
-import { Authorization } from '@services/authorization/authorization';
+import { AdminService } from '@services/admin/admin';
 import { ConfirmDialogService } from '@services/dialogs/confirm-dialog';
 import { AdminResetPasswordDialogComponent } from '@shared/admin-reset-password-dialog/admin-reset-password-dialog';
 import { FormUtility } from '@utilities/form-utility';
@@ -38,7 +38,7 @@ import { hasValidPasswordComplexity, evaluatePasswordChecks, initialPasswordChec
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class AdminUsersPage extends FormUtility {
-  private authorization = inject(Authorization);
+  private adminService = inject(AdminService);
   private confirmDialog = inject(ConfirmDialogService);
 
   readonly users = signal<AdminUser[]>([]);
@@ -106,7 +106,7 @@ export class AdminUsersPage extends FormUtility {
   loadUsers() {
     this.loading.set(true);
     this.pageError.set(null);
-    this.authorization.listAdminUsers().subscribe({
+    this.adminService.listAdminUsers().subscribe({
       next: (users) => {
         this.users.set(users);
         this.roleDraftByUser.set(
@@ -132,7 +132,7 @@ export class AdminUsersPage extends FormUtility {
     this.createEmailError.set(null);
     this.createPasswordError.set(null);
 
-    this.authorization.createAdminUser(this.createModel()).subscribe({
+    this.adminService.createAdminUser(this.createModel()).subscribe({
       next: () => {
         this.createSaving.set(false);
         this.successMessage.set('User created successfully.');
@@ -189,7 +189,7 @@ export class AdminUsersPage extends FormUtility {
 
     this.roleSavingByUser.update((current) => ({ ...current, [user.username]: true }));
     this.roleErrorByUser.update((current) => ({ ...current, [user.username]: null }));
-    this.authorization.changeAdminUserRole(user.username, { role: nextRole }).subscribe({
+    this.adminService.changeAdminUserRole(user.username, { role: nextRole }).subscribe({
       next: () => {
         this.roleSavingByUser.update((current) => ({ ...current, [user.username]: false }));
         this.successMessage.set(`Role updated for ${user.username}.`);
@@ -220,7 +220,7 @@ export class AdminUsersPage extends FormUtility {
   submitResetPassword(event: { username: string; newPassword: string }) {
     this.resetPasswordSaving.set(true);
     this.resetPasswordError.set(null);
-    this.authorization.changeAdminUserPassword(event.username, { newPassword: event.newPassword }).subscribe({
+    this.adminService.changeAdminUserPassword(event.username, { newPassword: event.newPassword }).subscribe({
       next: () => {
         this.resetPasswordSaving.set(false);
         this.resetPasswordDialogUser.set(null);
@@ -239,7 +239,7 @@ export class AdminUsersPage extends FormUtility {
     if (!confirmed) return;
 
     this.deleteBusyByUser.update((current) => ({ ...current, [user.username]: true }));
-    this.authorization.deleteAdminUser(user.username).subscribe({
+    this.adminService.deleteAdminUser(user.username).subscribe({
       next: () => {
         this.deleteBusyByUser.update((current) => ({ ...current, [user.username]: false }));
         this.successMessage.set(`User ${user.username} deleted.`);
