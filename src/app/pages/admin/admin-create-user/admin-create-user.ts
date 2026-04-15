@@ -12,7 +12,7 @@ import { AdminCreateUserRequest, UserRole } from '@models/user';
 import { Router } from '@angular/router';
 import { AdminService } from '@services/admin/admin';
 import { FormUtility } from '@utilities/form-utility';
-import { hasValidPasswordComplexity, evaluatePasswordChecks, initialPasswordChecks } from '@utilities/password-validation';
+import { hasValidPasswordComplexity, evaluatePasswordChecks, initialPasswordChecks, PASSWORD_MIN_LENGTH } from '@utilities/password-validation';
 
 @Component({
   selector: 'app-admin-create-user-page',
@@ -58,7 +58,7 @@ export class AdminCreateUserPage extends FormUtility {
       return { kind: 'invalidEmail', message: 'Invalid email address' };
     });
     required(model.password, { message: 'Password is required' });
-    minLength(model.password, 8, { message: 'Password must be at least 8 characters long' });
+    minLength(model.password, PASSWORD_MIN_LENGTH, { message: `Password must be at least ${PASSWORD_MIN_LENGTH} characters long` });
     validate(model.password, ({ value }) => {
       const password = value();
       if (!password || hasValidPasswordComplexity(password)) return null;

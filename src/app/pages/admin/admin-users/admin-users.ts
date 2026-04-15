@@ -17,7 +17,7 @@ import { AdminService } from '@services/admin/admin';
 import { ConfirmDialogService } from '@services/dialogs/confirm-dialog';
 import { AdminResetPasswordDialogComponent } from '@shared/admin-reset-password-dialog/admin-reset-password-dialog';
 import { FormUtility } from '@utilities/form-utility';
-import { hasValidPasswordComplexity, evaluatePasswordChecks, initialPasswordChecks } from '@utilities/password-validation';
+import { hasValidPasswordComplexity, evaluatePasswordChecks, initialPasswordChecks, PASSWORD_MIN_LENGTH } from '@utilities/password-validation';
 
 @Component({
   selector: 'app-admin-users',
@@ -77,7 +77,7 @@ export class AdminUsersPage extends FormUtility {
       };
     });
     required(model.password, { message: 'Password is required' });
-    minLength(model.password, 8, { message: 'Password must be at least 8 characters long' });
+    minLength(model.password, PASSWORD_MIN_LENGTH, { message: `Password must be at least ${PASSWORD_MIN_LENGTH} characters long` });
     validate(model.password, ({ value }) => {
       const password = value();
       if (!password || hasValidPasswordComplexity(password)) return null;

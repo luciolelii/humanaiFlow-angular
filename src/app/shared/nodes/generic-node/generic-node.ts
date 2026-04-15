@@ -1391,6 +1391,12 @@ export class GenericNodeComponent {
       const propertySchema = resolveSchemaRef(rawPropertySchema as Record<string, any>, schemaRoot);
       if (shouldSkipSchemaField(key, propertySchema)) continue;
 
+      const fieldUi = this.toFieldUiMeta(propertySchema);
+      const visible = fieldUi.visibleWhen.every((rule) =>
+        evaluateUiConditionRule(rule, item, (fieldPath) => resolveSchemaPath(itemSchema, fieldPath))
+      );
+      if (!visible) continue;
+
       if (this.hasDynamicSchema(propertySchema)) {
         const dynamicFields = await this.buildDynamicSchemaFields(key, propertySchema, item);
         fields.push(...dynamicFields.fields);
@@ -1415,7 +1421,10 @@ export class GenericNodeComponent {
         rows: fieldType === 'textarea' ? 8 : undefined,
         options,
         placeholder: typeof propertySchema?.['x-ui-placeholder'] === 'string' ? String(propertySchema['x-ui-placeholder']) : undefined,
-        tip: schemaFieldDescription(propertySchema) ?? undefined
+        tip: schemaFieldDescription(propertySchema) ?? undefined,
+        readonly: !fieldUi.enabledWhen.every((rule) =>
+          evaluateUiConditionRule(rule, item, (fieldPath) => resolveSchemaPath(itemSchema, fieldPath))
+        )
       });
 
       if (fieldType === 'checkbox') {
@@ -1464,6 +1473,13 @@ export class GenericNodeComponent {
     for (const [key, rawPropertySchema] of Object.entries(properties)) {
       const propertySchema = resolveSchemaRef(rawPropertySchema as Record<string, any>, schemaRoot);
       if (shouldSkipSchemaField(key, propertySchema)) continue;
+
+      const fieldUi = this.toFieldUiMeta(propertySchema);
+      const visible = fieldUi.visibleWhen.every((rule) =>
+        evaluateUiConditionRule(rule, result, (fieldPath) => resolveSchemaPath(itemSchema, fieldPath))
+      );
+      if (!visible) continue;
+
       if (this.hasDynamicSchema(propertySchema)) {
         const dynamicValue = this.extractNestedDialogValues(result, key);
         nextItem[key] = Object.keys(dynamicValue).length ? dynamicValue : (previousItem[key] ?? {});
@@ -1608,7 +1624,8 @@ export class GenericNodeComponent {
     const walk = async (
       node: Record<string, any>,
       pathPrefix: string,
-      titlePrefix: string
+      titlePrefix: string,
+      inheritedUi?: { visibleWhen: UiConditionRule[]; enabledWhen: UiConditionRule[]; group: string | null }
     ) => {
       const resolved = resolveSchemaRef(node, schema);
       const properties = resolved?.['properties'] as Record<string, any> | undefined;
@@ -1617,13 +1634,27 @@ export class GenericNodeComponent {
       for (const [childKey, rawChildSchema] of Object.entries(properties)) {
         const childSchema = resolveSchemaRef(rawChildSchema as Record<string, any>, schema);
         if (shouldSkipSchemaField(childKey, childSchema)) continue;
+
+        const childUi = this.toFieldUiMeta(childSchema, inheritedUi);
+        const fieldRelativePath = pathPrefix === keyPrefix
+          ? childKey
+          : `${pathPrefix.slice(`${keyPrefix}.`.length)}.${childKey}`;
+        const visible = childUi.visibleWhen.every((rule) =>
+          evaluateUiConditionRule(rule, currentRecord, (fieldPath) => resolveSchemaPath(schema, fieldPath))
+        );
+        if (!visible) continue;
+
         const nextPath = `${pathPrefix}.${childKey}`;
         const nextLabel = `${titlePrefix} ${schemaFieldLabel(childKey, childSchema)}`;
-        const currentNestedValue = getValueByPath(currentRecord, nextPath.slice(`${keyPrefix}.`.length));
+        const currentNestedValue = getValueByPath(currentRecord, fieldRelativePath);
 
         const hasChildren = !!childSchema?.['properties'] || childSchema?.type === 'object';
         if (hasChildren) {
-          await walk(childSchema as Record<string, any>, nextPath, nextLabel);
+          await walk(childSchema as Record<string, any>, nextPath, nextLabel, {
+            visibleWhen: childUi.visibleWhen,
+            enabledWhen: childUi.enabledWhen,
+            group: childUi.group
+          });
           continue;
         }
 
@@ -1646,7 +1677,10 @@ export class GenericNodeComponent {
           rows: fieldType === 'textarea' ? 8 : undefined,
           options,
           placeholder: typeof childSchema?.['x-ui-placeholder'] === 'string' ? String(childSchema['x-ui-placeholder']) : undefined,
-          tip: schemaFieldDescription(childSchema) ?? undefined
+          tip: schemaFieldDescription(childSchema) ?? undefined,
+          readonly: !childUi.enabledWhen.every((rule) =>
+            evaluateUiConditionRule(rule, currentRecord, (fieldPath) => resolveSchemaPath(schema, fieldPath))
+          )
         });
 
         if (fieldType === 'checkbox') {

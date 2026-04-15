@@ -10,7 +10,7 @@ import { environment } from '@environment';
 import { UserRegistration } from '@models/user';
 import { Authorization } from '@services/authorization/authorization';
 import { FormUtility } from '@utilities/form-utility';
-import { hasValidPasswordComplexity } from '@utilities/password-validation';
+import { hasValidPasswordComplexity, PASSWORD_MIN_LENGTH } from '@utilities/password-validation';
 
 declare global {
   interface Window {
@@ -91,7 +91,7 @@ export class Signup extends FormUtility implements AfterViewInit, OnDestroy {
     maxLength(model.username, 20, { message: 'Username cannot exceed 20 characters' }),
     email(model.email, { message: 'Invalid email address' }),
     required(model.email, { message: 'Email is required' }),
-    minLength(model.password, 8, { message: 'Password must be at least 8 characters long' }),
+    minLength(model.password, PASSWORD_MIN_LENGTH, { message: `Password must be at least ${PASSWORD_MIN_LENGTH} characters long` }),
     validate(model.password, ({ value }) => {
       const password = value();
       if (!password || hasValidPasswordComplexity(password)) {

@@ -7,14 +7,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { ChangePasswordRequest } from '@models/user';
 import { FormUtility } from '@utilities/form-utility';
-
-function hasValidPasswordComplexity(value: string): boolean {
-  return /^\S+$/.test(value)
-    && /[a-z]/.test(value)
-    && /[A-Z]/.test(value)
-    && /\d/.test(value)
-    && /[^A-Za-z0-9]/.test(value);
-}
+import { hasValidPasswordComplexity, evaluatePasswordChecks, PASSWORD_MIN_LENGTH } from '@utilities/password-validation';
 
 @Component({
   selector: 'app-change-password-dialog',
@@ -45,7 +38,7 @@ export class ChangePasswordDialogComponent extends FormUtility {
     required(model.oldPassword, { message: 'Current password is required' });
 
     required(model.newPassword, { message: 'New password is required' });
-    minLength(model.newPassword, 8, { message: 'Password must be at least 8 characters long' });
+    minLength(model.newPassword, PASSWORD_MIN_LENGTH, { message: `Password must be at least ${PASSWORD_MIN_LENGTH} characters long` });
     validate(model.newPassword, ({ value }) => {
       const password = value();
       if (!password || hasValidPasswordComplexity(password)) return null;
@@ -68,17 +61,7 @@ export class ChangePasswordDialogComponent extends FormUtility {
   });
 
   readonly canSubmit = computed(() => !this.passwordForm().invalid() && !this.saving());
-  readonly newPasswordChecks = computed(() => {
-    const password = this.model().newPassword;
-    return [
-      { label: 'At least 8 characters', satisfied: password.length >= 8 },
-      { label: 'At least one lowercase letter', satisfied: /[a-z]/.test(password) },
-      { label: 'At least one uppercase letter', satisfied: /[A-Z]/.test(password) },
-      { label: 'At least one number', satisfied: /\d/.test(password) },
-      { label: 'At least one special character', satisfied: /[^A-Za-z0-9]/.test(password) },
-      { label: 'No spaces', satisfied: /^\S*$/.test(password) }
-    ];
-  });
+  readonly newPasswordChecks = computed(() => evaluatePasswordChecks(this.model().newPassword));
 
   close(event?: Event) {
     event?.preventDefault();
