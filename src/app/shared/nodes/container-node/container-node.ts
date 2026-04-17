@@ -13,15 +13,28 @@ import { EditorStateHolder } from '@stores/flow-editor';
 import { CONTAINER_SUBFLOW_DRAG_MIME } from './container-node-drag';
 import { firstValueFrom } from 'rxjs';
 import { extractSchemaRequirements, SchemaRequirements } from '../schema-requirements';
-import { evaluateUiConditionRule, getValueByPath, parentPath, pathToLabel, readEffectiveUiVisibleConditionRule, readUiConditionRule, resolveNodeIcon, resolveSchemaPath, resolveSchemaRef, schemaFieldLabel, shouldSkipSchemaField, splitTemplatedTextParts, valueToDisplayString } from '../node-utility';
+import { type UiConditionRule, evaluateUiConditionRule, getValueByPath, parentPath, pathToLabel, resolveNodeIcon, resolveSchemaPath, schemaFieldLabel, splitTemplatedTextParts, valueToDisplayString } from '../node-utility';
+import {
+  type SchemaFieldType,
+  type SchemaFieldGroup,
+  type SchemaFieldUiMeta,
+  type SchemaNodeOptionsSource,
+  buildTemplatedRichContentParts,
+  collectSchemaLeafFields,
+  getSchemaPathUiMeta,
+  groupSchemaFields,
+  isLongTextValue,
+  isSchemaPathEnabled,
+  isSchemaPathVisible,
+  schemaEnumOptions,
+  schemaFieldTypeFromSchema,
+  schemaNodeOptionsSource,
+  toSchemaFieldUiMeta
+} from '../schema-driven-fields';
 
-type ContainerFieldType = 'string' | 'number' | 'integer' | 'boolean' | 'unknown';
+type ContainerFieldType = SchemaFieldType;
 
-type NodeOptionsSource = {
-  collection: 'inputs' | 'outputs';
-  valueField: string;
-  labelField: string;
-};
+type NodeOptionsSource = SchemaNodeOptionsSource;
 
 type ContainerFieldDefinition = {
   path: string;
@@ -31,7 +44,12 @@ type ContainerFieldDefinition = {
   nodeOptionsSource: NodeOptionsSource | null;
   widget: 'textarea' | null;
   structural: boolean;
-  enabledWhen: ReturnType<typeof readUiConditionRule>[];
+  visibleWhen: UiConditionRule[];
+  enabledWhen: UiConditionRule[];
+  group: string | null;
+  placeholder?: string;
+  tip?: string;
+  rows?: number;
 };
 
 type ContainerFieldView = {
@@ -52,6 +70,8 @@ type RichContentView = {
   expandable: boolean;
   parts: { text: string; isDynamicInput: boolean }[];
 };
+
+type ContainerFieldGroupView = SchemaFieldGroup<ContainerFieldView, RichContentView>;
 
 type StructuredRetrieverConfig = {
   retrieverName: string;
@@ -86,6 +106,7 @@ export class ContainerNodeComponent {
   importLoading = false;
   private importErrorMessage: string | null = null;
   parameterFields: ContainerFieldView[] = [];
+  parameterFieldGroups: ContainerFieldGroupView[] = [];
   richContentFields: RichContentView[] = [];
   schemaReady = false;
   private schemaLoading = false;
@@ -268,11 +289,11 @@ export class ContainerNodeComponent {
   }
 
   hasParameterFields() {
-    return this.parameterFields.length > 0;
+    return this.parameterFields.length > 0 || this.parameterFieldGroups.some((group) => group.fields.length > 0);
   }
 
   hasMainContent() {
-    return this.richContentFields.length > 0;
+    return this.richContentFields.length > 0 || this.parameterFieldGroups.some((group) => group.richContentFields.length > 0);
   }
 
   formatDynamicInputToken(token: string): string {
@@ -440,7 +461,9 @@ export class ContainerNodeComponent {
       label: definition.label,
       type: this.toDialogFieldType(definition),
       required: this.missingRequiredParams.includes(definition.label),
-      rows: definition.widget === 'textarea' ? 6 : undefined,
+      placeholder: definition.placeholder,
+      tip: definition.tip,
+      rows: definition.widget === 'textarea' ? definition.rows ?? 6 : undefined,
       options: this.resolveSelectableOptions(definition)
     };
 
@@ -760,7 +783,7 @@ export class ContainerNodeComponent {
   private refreshParameterFields() {
     const config = this.configuration ?? {};
     const richContentPaths = new Set(this.richContentPaths());
-    this.richContentFields = this.richContentPaths()
+    const allRichContentFields = this.richContentPaths()
       .filter((path) => this.isFieldVisible(path))
       .map((path) => {
         const rawValue = String(getValueByPath(config, path) ?? '');
@@ -768,13 +791,13 @@ export class ContainerNodeComponent {
           path,
           label: this.containerFieldDefinitions.find((field) => field.path === path)?.label ?? pathToLabel(path),
           rawValue,
-          expandable: this.isLongTextValue(rawValue),
+          expandable: isLongTextValue(rawValue),
           parts: this.toRichContentParts(path)
         };
       })
       .filter((field) => field.parts.length > 0);
 
-    this.parameterFields = this.containerFieldDefinitions
+    const orderedFields = this.containerFieldDefinitions
       .filter((field) => !this.isContainerTypeField(field.path))
       .filter((field) => this.isFieldVisible(field.path))
       .filter((field) => !richContentPaths.has(field.path))
@@ -783,55 +806,44 @@ export class ContainerNodeComponent {
         label: field.label,
         value: valueToDisplayString(getValueByPath(config, field.path)),
         wide: field.widget === 'textarea' || field.label.length >= 18,
-        expandable: this.isLongTextValue(valueToDisplayString(getValueByPath(config, field.path))),
+        expandable: isLongTextValue(valueToDisplayString(getValueByPath(config, field.path))),
         enabled: this.isFieldEnabled(field.path),
         type: field.type,
         booleanValue: getValueByPath(config, field.path) === true
       }));
+
+    const grouped = groupSchemaFields({
+      fields: orderedFields,
+      richContentFields: allRichContentFields,
+      resolveGroupLabel: (path) => getSchemaPathUiMeta(this.containerSchema, path).group ?? parentPath(path)
+    });
+
+    this.parameterFields = grouped.rootFields;
+    this.richContentFields = grouped.rootRichContentFields;
+    this.parameterFieldGroups = grouped.groups;
   }
 
   private buildContainerFieldDefinitions(schema: Record<string, any> | null): ContainerFieldDefinition[] {
-    if (!schema) return [];
+    return collectSchemaLeafFields(schema, ({ key, path, schema: childResolved, ui }) => {
+      if (key.startsWith('__')) return null;
+      if (path === 'name' || path === 'subFlow' || this.isContainerTypeField(path)) return null;
 
-    const definitions: ContainerFieldDefinition[] = [];
-    const walk = (node: Record<string, any>, pathPrefix: string) => {
-      const resolved = resolveSchemaRef(node, schema);
-      if (!resolved || typeof resolved !== 'object') return;
-
-      const properties = resolved.properties as Record<string, any> | undefined;
-      if (!properties) return;
-
-      for (const [key, childSchema] of Object.entries(properties)) {
-        const childResolved = resolveSchemaRef(childSchema as Record<string, any>, schema);
-        if (shouldSkipSchemaField(key, childResolved)) continue;
-        const path = pathPrefix ? `${pathPrefix}.${key}` : key;
-        if (path === 'name' || path === 'subFlow' || this.isContainerTypeField(path)) continue;
-
-        const hasChildren = !!childResolved?.properties || childResolved?.type === 'object';
-        if (hasChildren) {
-          walk(childResolved as Record<string, any>, path);
-          continue;
-        }
-
-        definitions.push({
-          path,
-          label: schemaFieldLabel(path, childResolved),
-          type: this.toFieldType(childResolved),
-          enumOptions: Array.isArray(childResolved?.enum)
-            ? childResolved.enum.filter((item: unknown): item is string => typeof item === 'string')
-            : [],
-          nodeOptionsSource: this.toNodeOptionsSource(childResolved),
-          widget: typeof childResolved?.['x-ui-widget'] === 'string' && String(childResolved['x-ui-widget']).toLowerCase() === 'textarea'
-            ? 'textarea'
-            : null,
-          structural: childResolved?.['x-ui-structural'] === true,
-          enabledWhen: [readUiConditionRule(childResolved?.['x-ui-enabled-when'])].filter((rule) => !!rule)
-        });
-      }
-    };
-
-    walk(schema, '');
-    return definitions;
+      return {
+        path,
+        label: schemaFieldLabel(path, childResolved),
+        type: this.toFieldType(childResolved),
+        enumOptions: schemaEnumOptions(childResolved),
+        nodeOptionsSource: this.toNodeOptionsSource(childResolved),
+        widget: ui.widget,
+        structural: ui.structural,
+        visibleWhen: ui.visibleWhen,
+        enabledWhen: ui.enabledWhen,
+        group: ui.group,
+        placeholder: ui.placeholder,
+        tip: ui.tip,
+        rows: ui.rows
+      };
+    });
   }
 
   private richContentPaths(): string[] {
@@ -852,49 +864,23 @@ export class ContainerNodeComponent {
   }
 
   private toRichContentParts(path: string): { text: string; isDynamicInput: boolean }[] {
-    const content = String(getValueByPath(this.configuration ?? {}, path) ?? '').trim();
-    if (!content) return [];
-
-    const schema = this.resolveFieldSchema(path);
-    if (schema?.['x-ui-accept-variable-as-placeholder'] === true) {
-      return splitTemplatedTextParts(content);
-    }
-
-    return [{ text: content, isDynamicInput: false }];
+    return buildTemplatedRichContentParts(this.configuration ?? {}, path, this.containerSchema, splitTemplatedTextParts);
   }
 
   private isFieldVisible(path: string, visited = new Set<string>()): boolean {
     if (visited.has(path)) return true;
     visited.add(path);
-
-    const schema = this.resolveFieldSchema(path);
-    const rule = readEffectiveUiVisibleConditionRule(schema);
-    if (!rule) return true;
-
-    return evaluateUiConditionRule(rule, this.configuration ?? {}, (fieldPath) => this.resolveFieldSchema(fieldPath));
+    return isSchemaPathVisible(this.containerSchema, path, this.configuration ?? {});
   }
 
   private isFieldEnabled(path: string, visited = new Set<string>()): boolean {
     if (visited.has(path)) return true;
     visited.add(path);
-
-    const parent = parentPath(path);
-    if (parent && !this.isFieldEnabled(parent, visited)) return false;
-
-    const schema = this.resolveFieldSchema(path);
-    const rules = [readUiConditionRule(schema?.['x-ui-enabled-when'])].filter((rule) => !!rule);
-    return rules.every((rule) => {
-      if (!rule) return true;
-      return evaluateUiConditionRule(rule, this.configuration ?? {}, (fieldPath) => this.resolveFieldSchema(fieldPath));
-    });
+    return isSchemaPathEnabled(this.containerSchema, path, this.configuration ?? {});
   }
 
   private toFieldType(schema: Record<string, any> | null): ContainerFieldType {
-    const type = typeof schema?.['type'] === 'string' ? String(schema['type']) : 'unknown';
-    if (type === 'string' || type === 'number' || type === 'integer' || type === 'boolean') {
-      return type;
-    }
-    return 'unknown';
+    return schemaFieldTypeFromSchema(schema);
   }
 
   private toDialogFieldType(definition: ContainerFieldDefinition): NodeSettingField['type'] {
@@ -905,26 +891,7 @@ export class ContainerNodeComponent {
   }
 
   private toNodeOptionsSource(schema: Record<string, any> | null | undefined): NodeOptionsSource | null {
-    if (!schema || typeof schema !== 'object') return null;
-    const raw = schema['x-ui-options-from-node'];
-    if (!raw || typeof raw !== 'object') return null;
-
-    const collection = (raw as Record<string, unknown>)['collection'];
-    const valueField = (raw as Record<string, unknown>)['valueField'];
-    const labelField = (raw as Record<string, unknown>)['labelField'];
-    if ((collection !== 'inputs' && collection !== 'outputs')
-      || typeof valueField !== 'string'
-      || typeof labelField !== 'string'
-      || valueField.trim().length === 0
-      || labelField.trim().length === 0) {
-      return null;
-    }
-
-    return {
-      collection,
-      valueField: valueField.trim(),
-      labelField: labelField.trim()
-    };
+    return schemaNodeOptionsSource(schema);
   }
 
   private resolveSelectableOptions(definition: ContainerFieldDefinition): NodeSettingOption[] | undefined {
@@ -951,10 +918,6 @@ export class ContainerNodeComponent {
         return { label, value } satisfies NodeSettingOption;
       })
       .filter((option: NodeSettingOption | null): option is NodeSettingOption => option != null);
-  }
-
-  private isLongTextValue(value: string): boolean {
-    return String(value ?? '').trim().length > 80;
   }
 
   private getEditorInitialValue(definition: ContainerFieldDefinition): string | boolean {
@@ -1118,6 +1081,17 @@ export class ContainerNodeComponent {
 
   private resolveFieldSchema(path: string): Record<string, any> | null {
     return resolveSchemaPath(this.containerSchema, path);
+  }
+
+  private toFieldUiMeta(
+    schema: Record<string, any> | null | undefined,
+    inheritedUi?: Pick<SchemaFieldUiMeta, 'visibleWhen' | 'enabledWhen' | 'group'>
+  ) {
+    return toSchemaFieldUiMeta(schema, inheritedUi);
+  }
+
+  private getFieldUiMeta(path: string) {
+    return getSchemaPathUiMeta(this.containerSchema, path);
   }
 
 }

@@ -29,9 +29,6 @@ import {
   parentPath,
   pathToLabel,
   readUiConditionRule,
-  readEffectiveUiVisibleConditionRule,
-  readUiLabel,
-  readUiGroup,
   resolveNodeIcon,
   resolveSchemaRef,
   resolveSchemaPath,
@@ -43,8 +40,24 @@ import {
   validateUniqueByConstraint,
   valueToDisplayString
 } from '../node-utility';
+import {
+  type SchemaFieldType,
+  type SchemaFieldUiMeta,
+  type SchemaNodeOptionsSource,
+  buildTemplatedRichContentParts,
+  collectSchemaLeafFields,
+  getSchemaPathUiMeta,
+  groupSchemaFields,
+  isLongTextValue,
+  isSchemaPathEnabled,
+  isSchemaPathVisible,
+  schemaEnumOptions,
+  schemaFieldTypeFromSchema,
+  schemaNodeOptionsSource,
+  toSchemaFieldUiMeta
+} from '../schema-driven-fields';
 
-type FieldType = 'string' | 'number' | 'integer' | 'boolean' | 'unknown';
+type FieldType = SchemaFieldType;
 
 type RetrieverDependency = {
   key: string;
@@ -52,11 +65,7 @@ type RetrieverDependency = {
   source: 'field' | 'context';
 };
 
-type NodeOptionsSource = {
-  collection: 'inputs' | 'outputs';
-  valueField: string;
-  labelField: string;
-};
+type NodeOptionsSource = SchemaNodeOptionsSource;
 
 type EditableFieldDefinition = {
   path: string;
@@ -69,23 +78,7 @@ type EditableFieldDefinition = {
   retrieverUrl: string | null;
   retrieverStructuredData: boolean;
   retrieverDependsOn: RetrieverDependency[];
-  ui: {
-    widget: 'textarea' | null;
-    acceptVariableAsPlaceholder: boolean;
-    structural: boolean;
-    bindableAsInput: boolean;
-    inputName: string | null;
-    inputType: string | null;
-    inputMultiple: boolean | null;
-    structuralReason?: string;
-    label?: string;
-    placeholder?: string;
-    tip?: string;
-    rows?: number;
-    visibleWhen: UiConditionRule[];
-    enabledWhen: UiConditionRule[];
-    group: string | null;
-  };
+  ui: SchemaFieldUiMeta;
 };
 
 type EditableFieldView = {
@@ -670,221 +663,52 @@ export class GenericNodeComponent {
   }
 
   private buildEditableFieldDefinitions(schema: Record<string, any> | null): EditableFieldDefinition[] {
-    if (!schema) return [];
+    return collectSchemaLeafFields(schema, ({ key, path, pathPrefix, schema: childResolved, ui }) => {
+      if (childResolved?.['type'] === 'array') return null;
+      if (key === 'type' || key === 'name' || key.startsWith('__')) return null;
 
-    const definitions: EditableFieldDefinition[] = [];
-    const seen = new Set<string>();
-
-    const walk = (
-      node: Record<string, any>,
-      pathPrefix: string,
-      inheritedUi?: { visibleWhen: UiConditionRule[]; enabledWhen: UiConditionRule[]; group: string | null }
-    ) => {
-      const resolved = resolveSchemaRef(node, schema);
-      if (!resolved || typeof resolved !== 'object') return;
-
-      const properties = resolved.properties as Record<string, any> | undefined;
-      if (!properties) return;
-
-      for (const [key, childSchema] of Object.entries(properties)) {
-        const childResolved = resolveSchemaRef(childSchema as Record<string, any>, schema);
-        const path = pathPrefix ? `${pathPrefix}.${key}` : key;
-        if (childResolved?.type === 'array') {
-          continue;
-        }
-        const hasChildren = !!childResolved?.properties || childResolved?.type === 'object';
-        const childUi = this.toFieldUiMeta(childResolved, inheritedUi);
-
-        if (hasChildren) {
-          walk(childResolved as Record<string, any>, path, {
-            visibleWhen: childUi.visibleWhen,
-            enabledWhen: childUi.enabledWhen,
-            group: childUi.group
-          });
-          continue;
-        }
-
-        if (key === 'type' || key === 'name' || key.startsWith('__')) continue;
-        if (seen.has(path)) continue;
-
-        seen.add(path);
-        definitions.push({
-          path,
-          label: schemaFieldLabel(path, childResolved),
-          type: this.toFieldType(childResolved?.type),
-          enumOptions: this.toEnumOptions(childResolved),
-          nodeOptionsSource: this.toNodeOptionsSource(childResolved),
-          retrieverBlockType: this.toRetrieverBlockType(childResolved),
-          retrieverKey: this.toRetrieverKey(childResolved),
-          retrieverUrl: this.toRetrieverUrl(childResolved),
-          retrieverStructuredData: childResolved?.['x-retriever-structured-data'] === true,
-          retrieverDependsOn: this.toRetrieverDependsOn(childResolved, pathPrefix),
-          ui: childUi
-        });
-      }
-    };
-
-    walk(schema, '');
-    return definitions;
+      return {
+        path,
+        label: schemaFieldLabel(path, childResolved),
+        type: this.toFieldType(childResolved),
+        enumOptions: this.toEnumOptions(childResolved),
+        nodeOptionsSource: this.toNodeOptionsSource(childResolved),
+        retrieverBlockType: this.toRetrieverBlockType(childResolved),
+        retrieverKey: this.toRetrieverKey(childResolved),
+        retrieverUrl: this.toRetrieverUrl(childResolved),
+        retrieverStructuredData: childResolved?.['x-retriever-structured-data'] === true,
+        retrieverDependsOn: this.toRetrieverDependsOn(childResolved, pathPrefix),
+        ui
+      };
+    });
   }
 
   private buildArrayFieldDefinitions(schema: Record<string, any> | null): ArrayFieldDefinition[] {
-    if (!schema) return [];
+    return collectSchemaLeafFields(schema, ({ key, path, schema: childResolved, ui }) => {
+      if (childResolved?.['type'] !== 'array') return null;
+      if (key === 'type' || key === 'name' || key.startsWith('__')) return null;
 
-    const definitions: ArrayFieldDefinition[] = [];
-    const seen = new Set<string>();
-
-    const walk = (
-      node: Record<string, any>,
-      pathPrefix: string,
-      inheritedUi?: { visibleWhen: UiConditionRule[]; enabledWhen: UiConditionRule[]; group: string | null }
-    ) => {
-      const resolved = resolveSchemaRef(node, schema);
-      if (!resolved || typeof resolved !== 'object') return;
-
-      const properties = resolved.properties as Record<string, any> | undefined;
-      if (!properties) return;
-
-      for (const [key, childSchema] of Object.entries(properties)) {
-        const childResolved = resolveSchemaRef(childSchema as Record<string, any>, schema);
-        const path = pathPrefix ? `${pathPrefix}.${key}` : key;
-        const childUi = this.toFieldUiMeta(childResolved, inheritedUi);
-
-        if (childResolved?.type === 'array') {
-          if (key === 'type' || key === 'name' || key.startsWith('__') || seen.has(path)) {
-            continue;
-          }
-          seen.add(path);
-          definitions.push({
-            path,
-            label: schemaFieldLabel(path, childResolved),
-            itemSchema: this.resolveArrayItemSchema(childResolved, schema),
-            uniqueBy: typeof childResolved?.['x-ui-unique-by'] === 'string' && String(childResolved['x-ui-unique-by']).trim().length > 0
-              ? String(childResolved['x-ui-unique-by']).trim()
-              : null,
-            ui: {
-              structural: childUi.structural,
-              visibleWhen: childUi.visibleWhen,
-              enabledWhen: childUi.enabledWhen,
-              group: childUi.group
-            }
-          });
-          continue;
+      return {
+        path,
+        label: schemaFieldLabel(path, childResolved),
+        itemSchema: this.resolveArrayItemSchema(childResolved, schema ?? {}),
+        uniqueBy: typeof childResolved?.['x-ui-unique-by'] === 'string' && String(childResolved['x-ui-unique-by']).trim().length > 0
+          ? String(childResolved['x-ui-unique-by']).trim()
+          : null,
+        ui: {
+          structural: ui.structural,
+          visibleWhen: ui.visibleWhen,
+          enabledWhen: ui.enabledWhen,
+          group: ui.group
         }
-
-        const hasChildren = !!childResolved?.properties || childResolved?.type === 'object';
-        if (hasChildren) {
-          walk(childResolved as Record<string, any>, path, {
-            visibleWhen: childUi.visibleWhen,
-            enabledWhen: childUi.enabledWhen,
-            group: childUi.group
-          });
-        }
-      }
-    };
-
-    walk(schema, '');
-    return definitions;
-  }
-
-  private toFieldUiMeta(
-    schema: Record<string, any> | null | undefined,
-    inheritedUi?: { visibleWhen: UiConditionRule[]; enabledWhen: UiConditionRule[]; group: string | null }
-  ) {
-    const rawWidget = typeof schema?.['x-ui-widget'] === 'string'
-      ? String(schema['x-ui-widget']).toLowerCase().trim()
-      : '';
-    const normalizedWidget: 'textarea' | null =
-      rawWidget === 'textarea' || rawWidget === 'text-area' ? 'textarea' : null;
-    const placeholder = typeof schema?.['x-ui-placeholder'] === 'string'
-      ? String(schema['x-ui-placeholder'])
-      : undefined;
-    const tip = schemaFieldDescription(schema) ?? undefined;
-    const rowsRaw = schema?.['x-ui-rows'];
-    const rows = typeof rowsRaw === 'number' && Number.isFinite(rowsRaw) && rowsRaw > 0
-      ? Math.trunc(rowsRaw)
-      : undefined;
-    const acceptVariableAsPlaceholder = schema?.['x-ui-accept-variable-as-placeholder'] === true;
-    const structural = schema?.['x-ui-structural'] === true;
-    const bindableAsInput = schema?.['x-ui-bindable-as-input'] === true;
-    const inputName = typeof schema?.['x-ui-input-name'] === 'string'
-      ? String(schema['x-ui-input-name'])
-      : null;
-    const inputType = typeof schema?.['x-ui-input-type'] === 'string'
-      ? String(schema['x-ui-input-type']).toUpperCase()
-      : null;
-    const inputMultiple = typeof schema?.['x-ui-input-multiple'] === 'boolean'
-      ? Boolean(schema['x-ui-input-multiple'])
-      : null;
-    const structuralReason = typeof schema?.['x-ui-structural-reason'] === 'string'
-      ? String(schema['x-ui-structural-reason'])
-      : undefined;
-    const visibleWhen = readEffectiveUiVisibleConditionRule(schema);
-    const enabledWhen = readUiConditionRule(schema?.['x-ui-enabled-when']);
-    const label = readUiLabel(schema?.['x-ui-label']) ?? undefined;
-    const isObjectLike = schema?.['type'] === 'object' || !!schema?.['properties'];
-    const group = readUiGroup(schema?.['x-ui-group'])
-      ?? (isObjectLike ? label ?? null : null)
-      ?? inheritedUi?.group
-      ?? null;
-
-    return {
-      widget: normalizedWidget,
-      acceptVariableAsPlaceholder,
-      structural,
-      bindableAsInput,
-      inputName,
-      inputType,
-      inputMultiple,
-      structuralReason,
-      label,
-      placeholder,
-      tip,
-      rows,
-      visibleWhen: [
-        ...(inheritedUi?.visibleWhen ?? []),
-        ...(visibleWhen ? [visibleWhen] : [])
-      ],
-      enabledWhen: [
-        ...(inheritedUi?.enabledWhen ?? []),
-        ...(enabledWhen ? [enabledWhen] : [])
-      ],
-      group
-    };
-  }
-
-  private getFieldUiMeta(path: string) {
-    const root = this.blockSchema;
-    if (!root) return this.toFieldUiMeta(null);
-
-    let current: Record<string, any> | null = root;
-    let inheritedUi = { visibleWhen: [] as UiConditionRule[], enabledWhen: [] as UiConditionRule[], group: null as string | null };
-
-    for (const segment of path.split('.')) {
-      if (!current) return this.toFieldUiMeta(null, inheritedUi);
-      const resolved = resolveSchemaRef(current, root);
-      if (/^\d+$/.test(segment)) {
-        const items = resolved?.items;
-        if (!items || typeof items !== 'object') return this.toFieldUiMeta(null, inheritedUi);
-        current = resolveSchemaRef(items as Record<string, any>, root);
-      } else {
-        const properties = resolved?.properties as Record<string, unknown> | undefined;
-        if (!properties || !properties[segment]) return this.toFieldUiMeta(null, inheritedUi);
-        current = resolveSchemaRef(properties[segment] as Record<string, any>, root);
-      }
-      const nextUi = this.toFieldUiMeta(current, inheritedUi);
-      inheritedUi = {
-        visibleWhen: nextUi.visibleWhen,
-        enabledWhen: nextUi.enabledWhen,
-        group: nextUi.group
       };
-    }
-
-    return this.toFieldUiMeta(current, inheritedUi);
+    }, {
+      includeArrays: true
+    });
   }
 
   private isStructuralField(path: string): boolean {
-    return this.getFieldUiMeta(path).structural;
+    return getSchemaPathUiMeta(this.blockSchema, path).structural;
   }
 
   private resolveFieldSchema(path: string): Record<string, any> | null {
@@ -892,10 +716,12 @@ export class GenericNodeComponent {
   }
 
   private toFieldType(type: unknown): FieldType {
-    if (type === 'string') return 'string';
-    if (type === 'number') return 'number';
-    if (type === 'integer') return 'integer';
-    if (type === 'boolean') return 'boolean';
+    if (type && typeof type === 'object' && !Array.isArray(type)) {
+      return schemaFieldTypeFromSchema(type as Record<string, any>);
+    }
+    if (type === 'string' || type === 'number' || type === 'integer' || type === 'boolean') {
+      return type;
+    }
     return 'unknown';
   }
 
@@ -918,32 +744,11 @@ export class GenericNodeComponent {
   }
 
   private toEnumOptions(schema: Record<string, any> | null | undefined): string[] {
-    const raw = schema?.['enum'];
-    if (!Array.isArray(raw)) return [];
-    return raw.filter((value): value is string => typeof value === 'string');
+    return schemaEnumOptions(schema);
   }
 
   private toNodeOptionsSource(schema: Record<string, any> | null | undefined): NodeOptionsSource | null {
-    if (!schema || typeof schema !== 'object') return null;
-    const raw = schema['x-ui-options-from-node'];
-    if (!raw || typeof raw !== 'object') return null;
-
-    const collection = (raw as Record<string, unknown>)['collection'];
-    const valueField = (raw as Record<string, unknown>)['valueField'];
-    const labelField = (raw as Record<string, unknown>)['labelField'];
-    if ((collection !== 'inputs' && collection !== 'outputs')
-      || typeof valueField !== 'string'
-      || typeof labelField !== 'string'
-      || valueField.trim().length === 0
-      || labelField.trim().length === 0) {
-      return null;
-    }
-
-    return {
-      collection,
-      valueField: valueField.trim(),
-      labelField: labelField.trim()
-    };
+    return schemaNodeOptionsSource(schema);
   }
 
   private toRetrieverUrl(schema: Record<string, any> | null | undefined): string | null {
@@ -1160,10 +965,6 @@ export class GenericNodeComponent {
       .filter((option): option is NodeSettingOption => option != null);
   }
 
-  private isLongTextValue(value: string): boolean {
-    return String(value ?? '').trim().length > 80;
-  }
-
   private async openReadonlyTextDialog(label: string, value: string) {
     await this.settingsDialog.open({
       title: label,
@@ -1186,8 +987,6 @@ export class GenericNodeComponent {
   private refreshParameterFields() {
     const config = this.blockConfiguration ?? {};
     const richContentPaths = new Set(this.richContentPaths());
-    const grouped = new Map<string, EditableFieldView[]>();
-    const rootFields: EditableFieldView[] = [];
 
     this.richContentFields = this.richContentPaths()
       .filter((path) => this.isPathVisible(path))
@@ -1197,7 +996,7 @@ export class GenericNodeComponent {
           path,
           label: this.fieldDisplayLabel(path),
           rawValue,
-          expandable: this.isLongTextValue(rawValue),
+          expandable: isLongTextValue(rawValue),
           parts: this.toRichContentParts(path)
         };
       });
@@ -1218,7 +1017,7 @@ export class GenericNodeComponent {
           label: definition.label,
           value: this.fieldDisplayValue(definition, value),
           wide: this.shouldRenderWideField(definition.label, definition.ui.widget === 'textarea'),
-          expandable: this.isLongTextValue(this.fieldDisplayValue(definition, value)),
+          expandable: isLongTextValue(this.fieldDisplayValue(definition, value)),
           enabled: this.isPathEnabled(definition.path),
           type: definition.type,
           booleanValue: value === true
@@ -1226,23 +1025,15 @@ export class GenericNodeComponent {
       }).filter((field) => !richContentPaths.has(field.path))
         .filter((field) => this.isPathVisible(field.path));
 
-      for (const field of orderedFields) {
-        const groupLabel = this.getFieldUiMeta(field.path).group ?? parentPath(field.path);
-        const groupKey = groupLabel ? `group:${groupLabel}` : null;
-        if (!groupKey || !groupLabel) {
-          rootFields.push(field);
-          continue;
-        }
-        if (!grouped.has(groupKey)) {
-          grouped.set(groupKey, []);
-        }
-        grouped.get(groupKey)!.push(field);
-      }
-      this.parameterFields = rootFields;
-      this.parameterFieldGroups = Array.from(grouped.entries()).map(([key, fields]) => ({
-        key,
-        legend: key.startsWith('group:') ? key.slice('group:'.length) : this.fieldDisplayLabel(key),
-        fields
+      const groupedFields = groupSchemaFields({
+        fields: orderedFields,
+        resolveGroupLabel: (path) => getSchemaPathUiMeta(this.blockSchema, path).group ?? parentPath(path)
+      });
+      this.parameterFields = groupedFields.rootFields;
+      this.parameterFieldGroups = groupedFields.groups.map((group) => ({
+        key: group.key,
+        legend: group.legend,
+        fields: group.fields
       }));
       this.refreshView();
       return;
@@ -1256,29 +1047,23 @@ export class GenericNodeComponent {
         label: this.fieldDisplayLabel(entry.path),
         value: valueToDisplayString(entry.value),
         wide: this.shouldRenderWideField(this.fieldDisplayLabel(entry.path), false),
-        expandable: this.isLongTextValue(valueToDisplayString(entry.value)),
+        expandable: isLongTextValue(valueToDisplayString(entry.value)),
         enabled: this.isPathEnabled(entry.path),
         type: (typeof entry.value === 'boolean' ? 'boolean' : 'unknown') as FieldType,
         booleanValue: entry.value === true
       }));
 
-    for (const field of fallbackFields) {
-      const parentKey = parentPath(field.path);
-      if (!parentKey) {
-        rootFields.push(field);
-        continue;
-      }
-      if (!grouped.has(parentKey)) {
-        grouped.set(parentKey, []);
-      }
-      grouped.get(parentKey)!.push(field);
-    }
+    const groupedFallback = groupSchemaFields({
+      fields: fallbackFields,
+      resolveGroupLabel: (path) => parentPath(path),
+      resolveLegend: (groupLabel) => this.fieldDisplayLabel(groupLabel)
+    });
 
-    this.parameterFields = rootFields;
-    this.parameterFieldGroups = Array.from(grouped.entries()).map(([key, fields]) => ({
-      key,
-      legend: this.fieldDisplayLabel(key),
-      fields
+    this.parameterFields = groupedFallback.rootFields;
+    this.parameterFieldGroups = groupedFallback.groups.map((group) => ({
+      key: group.key,
+      legend: group.legend,
+      fields: group.fields
     }));
 
     this.refreshView();
@@ -1908,57 +1693,16 @@ export class GenericNodeComponent {
       return textareaPaths;
     }
 
-    return this.findMainContentCandidatePaths(this.blockSchema);
+    return collectSchemaLeafFields(this.blockSchema, ({ path, schema }) => {
+      if (schema?.['type'] === 'array') return null;
+      return getSchemaPathUiMeta(this.blockSchema, path).widget === 'textarea' ? path : null;
+    });
   }
 
   private toRichContentParts(path: string): { text: string; isDynamicInput: boolean }[] {
     const content = toStringOrNull(this.getByPath(this.blockConfiguration ?? {}, path));
     if (!content) return [];
-
-    const ui = this.getFieldUiMeta(path);
-    if (ui.widget === 'textarea' && ui.acceptVariableAsPlaceholder) {
-      return splitTemplatedTextParts(content);
-    }
-
-    return [{ text: content, isDynamicInput: false }];
-  }
-
-  private findMainContentCandidatePaths(schema: Record<string, any> | null): string[] {
-    if (!schema) return [];
-
-    const paths: string[] = [];
-    const seen = new Set<string>();
-
-    const walk = (node: Record<string, any>, pathPrefix: string) => {
-      const resolved = resolveSchemaRef(node, schema);
-      if (!resolved || typeof resolved !== 'object') return;
-
-      const properties = resolved.properties as Record<string, any> | undefined;
-      if (!properties) return;
-
-      for (const [key, childSchema] of Object.entries(properties)) {
-        const childResolved = resolveSchemaRef(childSchema as Record<string, any>, schema);
-        const path = pathPrefix ? `${pathPrefix}.${key}` : key;
-        const hasChildren = !!childResolved?.properties || childResolved?.type === 'object';
-
-        if (hasChildren) {
-          walk(childResolved as Record<string, any>, path);
-          continue;
-        }
-
-        const rawWidget = typeof childResolved?.['x-ui-widget'] === 'string'
-          ? String(childResolved['x-ui-widget']).toLowerCase().trim()
-          : '';
-        const isTextarea = rawWidget === 'textarea' || rawWidget === 'text-area';
-        if (!isTextarea || seen.has(path)) continue;
-
-        seen.add(path);
-        paths.push(path);
-      }
-    };
-
-    walk(schema, '');
-    return paths;
+    return buildTemplatedRichContentParts(this.blockConfiguration ?? {}, path, this.blockSchema, splitTemplatedTextParts);
   }
 
   private getByPath(source: Record<string, any>, path: string): unknown {
@@ -2171,7 +1915,7 @@ export class GenericNodeComponent {
   }
 
   private isPathVisible(path: string): boolean {
-    return this.isFieldConditionSatisfied(path);
+    return isSchemaPathVisible(this.blockSchema, path, this.blockConfiguration);
   }
 
   private editorFlowId(): string | null {
@@ -2271,12 +2015,7 @@ export class GenericNodeComponent {
   private isPathEnabled(path: string, visited = new Set<string>()): boolean {
     if (visited.has(path)) return true;
     visited.add(path);
-
-    const ui = this.getFieldUiMeta(path);
-    return ui.enabledWhen.every((rule) => {
-      if (!rule) return true;
-      return evaluateUiConditionRule(rule, this.blockConfiguration, (fieldPath) => this.resolveFieldSchema(fieldPath));
-    });
+    return isSchemaPathEnabled(this.blockSchema, path, this.blockConfiguration);
   }
 
   private isFieldVisible(field: EditableFieldDefinition): boolean {
@@ -2311,11 +2050,17 @@ export class GenericNodeComponent {
   private isFieldConditionSatisfied(path: string, visited = new Set<string>()): boolean {
     if (visited.has(path)) return true;
     visited.add(path);
+    return isSchemaPathVisible(this.blockSchema, path, this.blockConfiguration);
+  }
 
-    const ui = this.getFieldUiMeta(path);
-    return ui.visibleWhen.every((rule) => {
-      if (!rule) return true;
-      return evaluateUiConditionRule(rule, this.blockConfiguration, (fieldPath) => this.resolveFieldSchema(fieldPath));
-    });
+  private toFieldUiMeta(
+    schema: Record<string, any> | null | undefined,
+    inheritedUi?: Pick<SchemaFieldUiMeta, 'visibleWhen' | 'enabledWhen' | 'group'>
+  ) {
+    return toSchemaFieldUiMeta(schema, inheritedUi);
+  }
+
+  private getFieldUiMeta(path: string) {
+    return getSchemaPathUiMeta(this.blockSchema, path);
   }
 }

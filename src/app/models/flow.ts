@@ -145,10 +145,27 @@ export function normalizeFlowValidationErrors(raw: unknown): FlowValidationError
       id: typeof item['id'] === 'string' ? item['id'] : null,
       field: typeof item['field'] === 'string' ? item['field'] : null,
       message: String(item['message'] ?? item['error'] ?? 'Validation error'),
-      relatedNodeIds: Array.isArray(item['relatedNodeIds'])
-        ? item['relatedNodeIds'].map((value) => String(value)).filter((value) => value.length > 0)
-        : []
+      relatedNodeIds: normalizeRelatedNodeIds(item)
     }));
+}
+
+function normalizeRelatedNodeIds(item: Record<string, unknown>): string[] {
+  const explicitNodeIds = Array.isArray(item['relatedNodeIds'])
+    ? item['relatedNodeIds'].map((value) => String(value)).filter((value) => value.length > 0)
+    : [];
+
+  if (explicitNodeIds.length > 0) {
+    return Array.from(new Set(explicitNodeIds));
+  }
+
+  const entity = typeof item['entity'] === 'string' ? item['entity'].toLowerCase() : '';
+  const id = typeof item['id'] === 'string' ? item['id'].trim() : '';
+
+  if ((entity === 'block' || entity === 'container') && id.length > 0) {
+    return [id];
+  }
+
+  return [];
 }
 
 export type FlowBlockConfiguration =

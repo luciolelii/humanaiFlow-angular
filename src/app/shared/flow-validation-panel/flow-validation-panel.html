@@ -22,14 +22,17 @@
 
     <section class="validation-list">
       @for (error of errors(); track trackByError($index, error)) {
-      <article class="validation-item">
+      <article
+        class="validation-item"
+        [class.validation-item-clickable]="canFocusError(error)"
+        [attr.role]="canFocusError(error) ? 'button' : null"
+        [attr.tabindex]="canFocusError(error) ? 0 : null"
+        [attr.aria-label]="canFocusError(error) ? 'Highlight related nodes for this validation error' : null"
+        (click)="focusError(error)"
+        (keydown.enter)="focusError(error)"
+        (keydown.space)="focusError(error); $event.preventDefault()">
         <div class="validation-item-head">
           <span class="validation-code">{{ error.code || 'VALIDATION_ERROR' }}</span>
-          @if ((error.relatedNodeIds?.length ?? 0) > 0) {
-          <button type="button" class="validation-focus" mat-stroked-button (click)="focusError(error)">
-            Highlight
-          </button>
-          }
         </div>
         <p class="validation-message">{{ error.message }}</p>
       </article>

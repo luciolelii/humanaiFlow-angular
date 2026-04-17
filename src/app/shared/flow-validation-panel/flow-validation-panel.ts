@@ -25,7 +25,12 @@ export class FlowValidationPanel {
     return `${error.code ?? 'VALIDATION_ERROR'}:${error.entity ?? ''}:${error.id ?? ''}:${error.field ?? ''}:${error.message}`;
   }
 
+  canFocusError(error: FlowValidationError): boolean {
+    return (error.relatedNodeIds?.length ?? 0) > 0;
+  }
+
   focusError(error: FlowValidationError) {
+    if (!this.canFocusError(error)) return;
     const nodeIds = Array.isArray(error.relatedNodeIds) ? error.relatedNodeIds : [];
     this.editorState.setHighlightedValidationNodes(nodeIds);
   }

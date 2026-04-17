@@ -208,6 +208,94 @@
       </div>
     </div>
     }
+    @if (parameterFieldGroups.length) {
+    <div class="container-node__param-groups">
+      @for (group of parameterFieldGroups; track group.key) {
+      <fieldset class="container-node__param-fieldset">
+        <legend class="container-node__param-legend">{{ group.legend }}</legend>
+        @if (group.fields.length) {
+        <div class="container-node__params container-node__params--grouped">
+          @for (field of group.fields; track field.path) {
+          <div class="container-node__param-chip" [class.container-node__param-chip--wide]="field.wide" [class.container-node__param-chip--disabled]="!field.enabled">
+            <div class="container-node__param-head">
+              <span class="container-node__param-key">{{ field.label }}</span>
+              @if (field.type === 'boolean' && !isReadonly) {
+              <button
+                type="button"
+                class="container-node__bool-toggle"
+                [class.container-node__bool-toggle--on]="field.booleanValue"
+                [disabled]="!field.enabled"
+                [attr.aria-pressed]="field.booleanValue"
+                title="Toggle field"
+                (pointerdown)="$event.stopPropagation()"
+                (click)="toggleBooleanParameter(field.path, $event)">
+                <span class="container-node__bool-toggle-thumb"></span>
+              </button>
+              } @else if (!isReadonly) {
+              <button
+                type="button"
+                class="container-node__param-edit"
+                [disabled]="!field.enabled"
+                title="Edit field"
+                (pointerdown)="$event.stopPropagation()"
+                (click)="openParameterEditor(field.path, $event)">
+                <i class="bi bi-pen"></i>
+              </button>
+              } @else if (field.expandable) {
+              <button
+                type="button"
+                class="llm-param-view-btn"
+                aria-label="View full value"
+                (pointerdown)="$event.stopPropagation()"
+                (click)="openFieldPreview(field, $event)">
+                <i class="bi bi-eye"></i>
+              </button>
+              }
+            </div>
+            <span class="container-node__param-value" [class.container-node__param-value--clamped]="field.expandable">{{ field.type === 'boolean' ? (field.booleanValue ? 'Enabled' : 'Disabled') : field.value }}</span>
+          </div>
+          }
+        </div>
+        }
+        @for (contentField of group.richContentFields; track contentField.path) {
+        <div class="container-node__param-chip container-node__param-chip--wide">
+          <div class="container-node__param-head">
+            <span class="container-node__param-key">{{ contentField.label }}</span>
+            @if (contentField.expandable && isReadonly) {
+            <button
+              type="button"
+              class="llm-param-view-btn"
+              aria-label="View full value"
+              (pointerdown)="$event.stopPropagation()"
+              (click)="openMainContentPreview(contentField, $event)">
+              <i class="bi bi-eye"></i>
+            </button>
+            } @else if (!isReadonly) {
+            <button
+              type="button"
+              class="container-node__param-edit"
+              title="Edit field"
+              (pointerdown)="$event.stopPropagation()"
+              (click)="openParameterEditor(contentField.path, $event)">
+              <i class="bi bi-pen"></i>
+            </button>
+            }
+          </div>
+          <div class="container-node__param-value" [class.container-node__param-value--clamped]="contentField.expandable">
+            @for (part of contentField.parts; track $index) {
+              @if (part.isDynamicInput) {
+              <span class="llm-inline-token">{{ formatDynamicInputToken(part.text) }}</span>
+              } @else {
+              <span>{{ part.text }}</span>
+              }
+            }
+          </div>
+        </div>
+        }
+      </fieldset>
+      }
+    </div>
+    }
     @for (field of parameterFields; track field.path) {
     <div class="container-node__param-chip" [class.container-node__param-chip--wide]="field.wide" [class.container-node__param-chip--disabled]="!field.enabled">
       <div class="container-node__param-head">
@@ -260,6 +348,15 @@
           (pointerdown)="$event.stopPropagation()"
           (click)="openMainContentPreview(contentField, $event)">
           <i class="bi bi-eye"></i>
+        </button>
+        } @else if (!isReadonly) {
+        <button
+          type="button"
+          class="container-node__param-edit"
+          title="Edit field"
+          (pointerdown)="$event.stopPropagation()"
+          (click)="openParameterEditor(contentField.path, $event)">
+          <i class="bi bi-pen"></i>
         </button>
         }
       </div>
