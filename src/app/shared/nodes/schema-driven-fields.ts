@@ -2,12 +2,14 @@ import {
   type UiConditionRule,
   evaluateUiConditionRule,
   getValueByPath,
+  parentPath,
   readEffectiveUiVisibleConditionRule,
   readUiConditionRule,
   readUiGroup,
   readUiLabel,
   resolveSchemaRef,
   resolveSchemaPath,
+  schemaFieldLabel,
   schemaFieldDescription
 } from './node-utility';
 
@@ -17,6 +19,25 @@ export type SchemaNodeOptionsSource = {
   collection: 'inputs' | 'outputs';
   valueField: string;
   labelField: string;
+};
+
+export type SchemaRetrieverDependency = {
+  key: string;
+  path: string;
+  source: 'field' | 'context';
+};
+
+export type SchemaRetrieverMeta = {
+  retrieverBlockType: string | null;
+  retrieverKey: string | null;
+  retrieverUrl: string | null;
+  retrieverStructuredData: boolean;
+  retrieverDependsOn: SchemaRetrieverDependency[];
+};
+
+export type SchemaRetrieverFieldDefinition = {
+  path: string;
+  retrieverDependsOn: SchemaRetrieverDependency[];
 };
 
 export type SchemaFieldUiMeta = {
@@ -52,6 +73,34 @@ export type SchemaFieldGroup<TField, TRichContent = never> = {
   legend: string;
   fields: TField[];
   richContentFields: TRichContent[];
+};
+
+export type SchemaEditableFieldDefinition = {
+  path: string;
+  label: string;
+  type: SchemaFieldType;
+  enumOptions: string[];
+  nodeOptionsSource: SchemaNodeOptionsSource | null;
+  ui: SchemaFieldUiMeta;
+} & SchemaRetrieverMeta;
+
+export type SchemaParameterFieldView<TType = SchemaFieldType> = {
+  path: string;
+  label: string;
+  value: string;
+  wide: boolean;
+  expandable: boolean;
+  enabled: boolean;
+  type: TType;
+  booleanValue: boolean;
+};
+
+export type SchemaRichContentFieldView = {
+  path: string;
+  label: string;
+  rawValue: string;
+  expandable: boolean;
+  parts: { text: string; isDynamicInput: boolean }[];
 };
 
 export function toSchemaFieldUiMeta(
@@ -336,6 +385,174 @@ export function schemaNodeOptionsSource(schema: Record<string, any> | null | und
   };
 }
 
+export function parseSchemaRetrieverUrl(rawUrl: unknown): { blockType: string; key: string } | null {
+  if (typeof rawUrl !== 'string' || rawUrl.trim().length === 0) return null;
+
+  const path = rawUrl.split('?')[0];
+  const normalizedPath = path.endsWith('/required') ? path.slice(0, -'/required'.length) : path;
+  const parts = normalizedPath.split('/').filter(Boolean);
+  const retrieverIndex = parts.findIndex((part) => part === 'retriever' || part === 'secure-retriever');
+  if (retrieverIndex < 0 || parts.length < retrieverIndex + 3) return null;
+
+  const blockType = parts[retrieverIndex + 1];
+  const key = parts[retrieverIndex + 2];
+  if (!blockType || !key) return null;
+
+  return { blockType, key };
+}
+
+export function toSchemaRetrieverDependency(dependency: string, pathPrefix: string): SchemaRetrieverDependency {
+  const normalized = dependency.trim();
+  if (normalized.startsWith('$context.')) {
+    const contextKey = normalized.slice('$context.'.length).trim();
+    return {
+      key: contextKey,
+      path: normalized,
+      source: 'context'
+    };
+  }
+
+  return {
+    key: normalized,
+    path: pathPrefix ? `${pathPrefix}.${normalized}` : normalized,
+    source: 'field'
+  };
+}
+
+export function schemaRetrieverMeta(
+  schema: Record<string, any> | null | undefined,
+  pathPrefix = ''
+): SchemaRetrieverMeta {
+  if (!schema || typeof schema !== 'object') {
+    return {
+      retrieverBlockType: null,
+      retrieverKey: null,
+      retrieverUrl: null,
+      retrieverStructuredData: false,
+      retrieverDependsOn: []
+    };
+  }
+
+  const parsedRetrieverUrl = parseSchemaRetrieverUrl(schema['x-retriever-url']);
+  const retrieverName = schema['x-retriever-name'];
+  const retrieverOwner = schema['x-retriever-owner'];
+  const retrieverUrl = typeof schema['x-retriever-url'] === 'string' && schema['x-retriever-url'].trim().length > 0
+    ? schema['x-retriever-url'].trim()
+    : null;
+  const rawDependsOn = Array.isArray(schema['x-retriever-depends-on'])
+    ? (schema['x-retriever-depends-on'] as unknown[])
+    : [];
+
+  return {
+    retrieverBlockType: parsedRetrieverUrl?.blockType
+      ?? (typeof retrieverOwner === 'string' && retrieverOwner.trim().length > 0 ? retrieverOwner.trim() : null),
+    retrieverKey: parsedRetrieverUrl?.key
+      ?? (typeof retrieverName === 'string' && retrieverName.trim().length > 0 ? retrieverName.trim() : null),
+    retrieverUrl,
+    retrieverStructuredData: schema['x-retriever-structured-data'] === true,
+    retrieverDependsOn: rawDependsOn
+      .filter((dep): dep is string => typeof dep === 'string' && dep.trim().length > 0)
+      .map((dep) => toSchemaRetrieverDependency(dep, pathPrefix))
+  };
+}
+
+export function buildSchemaRetrieverContext(
+  source: Record<string, unknown>,
+  dependencies: SchemaRetrieverDependency[],
+  options?: {
+    baseContext?: Record<string, string>;
+    resolveContextDependency?: (key: string) => unknown;
+  }
+): Record<string, string> {
+  const context = { ...(options?.baseContext ?? {}) };
+  for (const dependency of dependencies) {
+    const value = dependency.source === 'context'
+      ? options?.resolveContextDependency?.(dependency.key)
+      : getValueByPath(source as Record<string, any>, dependency.path);
+    context[dependency.key] = value == null ? '' : String(value);
+  }
+  return context;
+}
+
+export function setSchemaValueByPath(target: Record<string, any>, path: string, value: unknown) {
+  const segments = path.split('.').filter(Boolean);
+  if (!segments.length) return;
+
+  let current: Record<string, any> = target;
+  for (let index = 0; index < segments.length - 1; index += 1) {
+    const key = segments[index];
+    const next = current[key];
+    if (!next || typeof next !== 'object' || Array.isArray(next)) {
+      current[key] = {};
+    }
+    current = current[key] as Record<string, any>;
+  }
+
+  current[segments[segments.length - 1]] = value;
+}
+
+export function deleteSchemaValueByPath(target: Record<string, any>, path: string) {
+  const segments = path.split('.').filter(Boolean);
+  if (!segments.length) return;
+
+  let current: Record<string, any> | undefined = target;
+  const parents: Array<{ owner: Record<string, any>; key: string }> = [];
+
+  for (let index = 0; index < segments.length - 1; index += 1) {
+    const key = segments[index];
+    const next = current?.[key];
+    if (!next || typeof next !== 'object' || Array.isArray(next)) return;
+    parents.push({ owner: current!, key });
+    current = next as Record<string, any>;
+  }
+
+  if (!current) return;
+  delete current[segments[segments.length - 1]];
+
+  for (let index = parents.length - 1; index >= 0; index -= 1) {
+    const { owner, key } = parents[index];
+    const value = owner[key];
+    if (!value || typeof value !== 'object' || Array.isArray(value)) break;
+    if (Object.keys(value).length > 0) break;
+    delete owner[key];
+  }
+}
+
+export function schemaValuesEqual(left: unknown, right: unknown): boolean {
+  if (left === right) return true;
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+export function resetDependentSchemaRetrieverFields(
+  config: Record<string, any>,
+  changedPath: string,
+  definitions: SchemaRetrieverFieldDefinition[],
+  visited = new Set<string>()
+) {
+  const dependentFields = definitions.filter((definition) =>
+    definition.retrieverDependsOn.some((dependency) => dependency.path === changedPath)
+  );
+
+  for (const field of dependentFields) {
+    if (visited.has(field.path)) continue;
+    visited.add(field.path);
+    setSchemaValueByPath(config, field.path, '');
+    resetDependentSchemaRetrieverFields(config, field.path, definitions, visited);
+  }
+}
+
+export function pruneInactiveSchemaConfiguration(
+  config: Record<string, any>,
+  candidatePaths: string[],
+  isPathActive: (path: string, config: Record<string, any>) => boolean
+) {
+  const orderedPaths = [...candidatePaths].sort((left, right) => right.length - left.length);
+  for (const path of orderedPaths) {
+    if (isPathActive(path, config)) continue;
+    deleteSchemaValueByPath(config, path);
+  }
+}
+
 export function isLongTextValue(value: string): boolean {
   return String(value ?? '').trim().length > 80;
 }
@@ -355,4 +572,101 @@ export function buildTemplatedRichContentParts(
   }
 
   return [{ text: content, isDynamicInput: false }];
+}
+
+export function buildSchemaEditableFieldDefinitions(
+  root: Record<string, any> | null | undefined,
+  options?: {
+    includeArrays?: boolean;
+    shouldSkip?: (context: { key: string; path: string; schema: Record<string, any> | null }) => boolean;
+  }
+): SchemaEditableFieldDefinition[] {
+  return collectSchemaLeafFields(root, ({ key, path, pathPrefix, schema, ui }) => {
+    if (options?.shouldSkip?.({ key, path, schema })) return null;
+
+    return {
+      path,
+      label: schemaFieldLabel(path, schema),
+      type: schemaFieldTypeFromSchema(schema),
+      enumOptions: schemaEnumOptions(schema),
+      nodeOptionsSource: schemaNodeOptionsSource(schema),
+      ...schemaRetrieverMeta(schema, pathPrefix),
+      ui
+    };
+  }, {
+    includeArrays: options?.includeArrays
+  });
+}
+
+export function buildSchemaFieldViewModel<
+  TDefinition extends { path: string; label: string; type: TType },
+  TType = SchemaFieldType
+>(
+  params: {
+    definitions: TDefinition[];
+    config: Record<string, any>;
+    richContentPaths: string[];
+    isPathVisible: (path: string, config: Record<string, any>) => boolean;
+    isPathEnabled: (path: string, config: Record<string, any>) => boolean;
+    getFieldValue: (definition: TDefinition, config: Record<string, any>) => string;
+    isFieldWide: (definition: TDefinition, renderedValue: string) => boolean;
+    getRichContentParts: (path: string, config: Record<string, any>) => Array<{ text: string; isDynamicInput: boolean }>;
+    getRichContentRawValue?: (path: string, config: Record<string, any>) => string;
+    resolveGroupLabel?: (path: string) => string | null;
+    resolveLegend?: (groupLabel: string) => string;
+    groupRichContent?: boolean;
+  }
+): {
+  parameterFields: Array<SchemaParameterFieldView<TType>>;
+  richContentFields: SchemaRichContentFieldView[];
+  parameterFieldGroups: Array<SchemaFieldGroup<SchemaParameterFieldView<TType>, SchemaRichContentFieldView>>;
+} {
+  const richContentPaths = new Set(params.richContentPaths);
+  const richContentFields = params.richContentPaths
+    .filter((path) => params.isPathVisible(path, params.config))
+    .map((path) => ({
+      path,
+      label: params.definitions.find((definition) => definition.path === path)?.label ?? schemaFieldLabel(path, null),
+      rawValue: params.getRichContentRawValue?.(path, params.config) ?? String(getValueByPath(params.config, path) ?? ''),
+      expandable: isLongTextValue(params.getRichContentRawValue?.(path, params.config) ?? String(getValueByPath(params.config, path) ?? '')),
+      parts: params.getRichContentParts(path, params.config)
+    }));
+
+  const parameterFields = params.definitions
+    .filter((definition) => params.isPathVisible(definition.path, params.config))
+    .filter((definition) => !richContentPaths.has(definition.path))
+    .map((definition) => {
+      const value = params.getFieldValue(definition, params.config);
+      return {
+        path: definition.path,
+        label: definition.label,
+        value,
+        wide: params.isFieldWide(definition, value),
+        expandable: isLongTextValue(value),
+        enabled: params.isPathEnabled(definition.path, params.config),
+        type: definition.type,
+        booleanValue: getValueByPath(params.config, definition.path) === true
+      } satisfies SchemaParameterFieldView<TType>;
+    });
+
+  if (!params.resolveGroupLabel) {
+    return {
+      parameterFields,
+      richContentFields,
+      parameterFieldGroups: []
+    };
+  }
+
+  const grouped = groupSchemaFields({
+    fields: parameterFields,
+    richContentFields: params.groupRichContent ? richContentFields : undefined,
+    resolveGroupLabel: (path) => params.resolveGroupLabel?.(path) ?? parentPath(path),
+    resolveLegend: params.resolveLegend
+  });
+
+  return {
+    parameterFields: grouped.rootFields,
+    richContentFields: params.groupRichContent ? grouped.rootRichContentFields : richContentFields,
+    parameterFieldGroups: grouped.groups
+  };
 }

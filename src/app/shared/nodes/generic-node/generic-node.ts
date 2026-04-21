@@ -41,9 +41,20 @@ import {
   valueToDisplayString
 } from '../node-utility';
 import {
+  buildSchemaEditableFieldDefinitions,
+  buildSchemaFieldViewModel,
+  buildSchemaRetrieverContext,
+  pruneInactiveSchemaConfiguration,
+  resetDependentSchemaRetrieverFields,
+  schemaValuesEqual,
+  setSchemaValueByPath,
+  type SchemaEditableFieldDefinition,
   type SchemaFieldType,
+  type SchemaParameterFieldView,
+  type SchemaRichContentFieldView,
   type SchemaFieldUiMeta,
   type SchemaNodeOptionsSource,
+  type SchemaRetrieverDependency,
   buildTemplatedRichContentParts,
   collectSchemaLeafFields,
   getSchemaPathUiMeta,
@@ -51,6 +62,7 @@ import {
   isLongTextValue,
   isSchemaPathEnabled,
   isSchemaPathVisible,
+  schemaRetrieverMeta,
   schemaEnumOptions,
   schemaFieldTypeFromSchema,
   schemaNodeOptionsSource,
@@ -59,38 +71,11 @@ import {
 
 type FieldType = SchemaFieldType;
 
-type RetrieverDependency = {
-  key: string;
-  path: string;
-  source: 'field' | 'context';
-};
-
 type NodeOptionsSource = SchemaNodeOptionsSource;
 
-type EditableFieldDefinition = {
-  path: string;
-  label: string;
-  type: FieldType;
-  enumOptions: string[];
-  nodeOptionsSource: NodeOptionsSource | null;
-  retrieverBlockType: string | null;
-  retrieverKey: string | null;
-  retrieverUrl: string | null;
-  retrieverStructuredData: boolean;
-  retrieverDependsOn: RetrieverDependency[];
-  ui: SchemaFieldUiMeta;
-};
+type EditableFieldDefinition = SchemaEditableFieldDefinition;
 
-type EditableFieldView = {
-  path: string;
-  label: string;
-  value: string;
-  wide: boolean;
-  expandable: boolean;
-  enabled: boolean;
-  type: FieldType;
-  booleanValue: boolean;
-};
+type EditableFieldView = SchemaParameterFieldView<FieldType>;
 
 type ArrayFieldDefinition = {
   path: string;
@@ -122,13 +107,7 @@ type EditableFieldGroupView = {
   fields: EditableFieldView[];
 };
 
-type RichContentView = {
-  path: string;
-  label: string;
-  rawValue: string;
-  expandable: boolean;
-  parts: { text: string; isDynamicInput: boolean }[];
-};
+type RichContentView = SchemaRichContentFieldView;
 
 type RenderedSocketPort = {
   key: string;
@@ -372,9 +351,9 @@ export class GenericNodeComponent {
       const parsedValue = this.localEditorUseInput
         ? this.emptyValueForFieldType(this.localEditorType)
         : this.parseEditorValue(this.localEditorValue, this.localEditorType);
-      this.setByPath(config, this.localEditorPath, parsedValue);
-      if (!this.areValuesEqual(previousValue, parsedValue)) {
-        this.resetDependentRetrieverFields(config, this.localEditorPath);
+      setSchemaValueByPath(config, this.localEditorPath, parsedValue);
+      if (!schemaValuesEqual(previousValue, parsedValue)) {
+        resetDependentSchemaRetrieverFields(config, this.localEditorPath, this.editableFieldDefinitions);
         if (this.isStructuralField(this.localEditorPath)) {
           this.markBlockForServerRecreate();
         }
@@ -648,9 +627,9 @@ export class GenericNodeComponent {
     const config = this.ensureBlockConfiguration();
     const nextValue = String(result[path] ?? '');
     const previousValue = this.getByPath(config, path);
-    this.setByPath(config, path, nextValue);
-    if (!this.areValuesEqual(previousValue, nextValue)) {
-      this.resetDependentRetrieverFields(config, path);
+    setSchemaValueByPath(config, path, nextValue);
+    if (!schemaValuesEqual(previousValue, nextValue)) {
+      resetDependentSchemaRetrieverFields(config, path, this.editableFieldDefinitions);
       if (this.isStructuralField(path)) {
         this.markBlockForServerRecreate();
       }
@@ -663,23 +642,9 @@ export class GenericNodeComponent {
   }
 
   private buildEditableFieldDefinitions(schema: Record<string, any> | null): EditableFieldDefinition[] {
-    return collectSchemaLeafFields(schema, ({ key, path, pathPrefix, schema: childResolved, ui }) => {
-      if (childResolved?.['type'] === 'array') return null;
-      if (key === 'type' || key === 'name' || key.startsWith('__')) return null;
-
-      return {
-        path,
-        label: schemaFieldLabel(path, childResolved),
-        type: this.toFieldType(childResolved),
-        enumOptions: this.toEnumOptions(childResolved),
-        nodeOptionsSource: this.toNodeOptionsSource(childResolved),
-        retrieverBlockType: this.toRetrieverBlockType(childResolved),
-        retrieverKey: this.toRetrieverKey(childResolved),
-        retrieverUrl: this.toRetrieverUrl(childResolved),
-        retrieverStructuredData: childResolved?.['x-retriever-structured-data'] === true,
-        retrieverDependsOn: this.toRetrieverDependsOn(childResolved, pathPrefix),
-        ui
-      };
+    return buildSchemaEditableFieldDefinitions(schema, {
+      shouldSkip: ({ key, schema: childResolved }) =>
+        childResolved?.['type'] === 'array' || key === 'type' || key === 'name' || key.startsWith('__')
     });
   }
 
@@ -725,51 +690,12 @@ export class GenericNodeComponent {
     return 'unknown';
   }
 
-  private toRetrieverKey(schema: Record<string, any> | null | undefined): string | null {
-    if (!schema || typeof schema !== 'object') return null;
-
-    const fromUrl = this.parseRetrieverUrl(schema['x-retriever-url'])?.key;
-    if (fromUrl) return fromUrl;
-
-    const retrieverName = schema['x-retriever-name'];
-    return typeof retrieverName === 'string' && retrieverName.length > 0 ? retrieverName : null;
-  }
-
-  private toRetrieverBlockType(schema: Record<string, any> | null | undefined): string | null {
-    if (!schema || typeof schema !== 'object') return null;
-    return this.parseRetrieverUrl(schema['x-retriever-url'])?.blockType
-      ?? (typeof schema['x-retriever-owner'] === 'string' && String(schema['x-retriever-owner']).trim().length > 0
-        ? String(schema['x-retriever-owner']).trim()
-        : null);
-  }
-
   private toEnumOptions(schema: Record<string, any> | null | undefined): string[] {
     return schemaEnumOptions(schema);
   }
 
   private toNodeOptionsSource(schema: Record<string, any> | null | undefined): NodeOptionsSource | null {
     return schemaNodeOptionsSource(schema);
-  }
-
-  private toRetrieverUrl(schema: Record<string, any> | null | undefined): string | null {
-    if (!schema || typeof schema !== 'object') return null;
-    const rawUrl = schema['x-retriever-url'];
-    return typeof rawUrl === 'string' && rawUrl.trim().length > 0 ? rawUrl : null;
-  }
-
-  private parseRetrieverUrl(rawUrl: unknown): { blockType: string; key: string } | null {
-    if (typeof rawUrl !== 'string' || rawUrl.trim().length === 0) return null;
-
-    const path = rawUrl.split('?')[0];
-    const parts = path.split('/').filter(Boolean);
-    const retrieverIndex = parts.findIndex((part) => part === 'retriever' || part === 'secure-retriever');
-    if (retrieverIndex < 0 || parts.length < retrieverIndex + 3) return null;
-
-    const blockType = parts[retrieverIndex + 1];
-    const key = parts[retrieverIndex + 2];
-    if (!blockType || !key) return null;
-
-    return { blockType, key };
   }
 
   private portDisplayLabel(kind: 'input' | 'output', key: string): string {
@@ -867,36 +793,6 @@ export class GenericNodeComponent {
 
     this.localEditorLoading = true;
     await this.loadLocalEditorOptions(definition);
-  }
-
-  private toRetrieverDependsOn(schema: Record<string, any> | null | undefined, pathPrefix: string): RetrieverDependency[] {
-    if (!schema || typeof schema !== 'object') return [];
-
-    const raw = Array.isArray(schema['x-retriever-depends-on'])
-      ? (schema['x-retriever-depends-on'] as unknown[])
-      : [];
-
-    return raw
-      .filter((dep): dep is string => typeof dep === 'string' && dep.length > 0)
-      .map((dep) => this.toRetrieverDependency(dep, pathPrefix));
-  }
-
-  private toRetrieverDependency(dependency: string, pathPrefix: string): RetrieverDependency {
-    const normalized = dependency.trim();
-    if (normalized.startsWith('$context.')) {
-      const contextKey = normalized.slice('$context.'.length).trim();
-      return {
-        key: contextKey,
-        path: normalized,
-        source: 'context'
-      };
-    }
-
-    return {
-      key: normalized,
-      path: pathPrefix ? `${pathPrefix}.${normalized}` : normalized,
-      source: 'field'
-    };
   }
 
   private async loadLocalEditorOptions(definition: EditableFieldDefinition) {
@@ -1010,31 +906,25 @@ export class GenericNodeComponent {
       }));
 
     if (this.editableFieldDefinitions.length) {
-      const orderedFields = this.editableFieldDefinitions.map((definition) => {
-        const value = this.getByPath(config, definition.path);
-        return {
-          path: definition.path,
-          label: definition.label,
-          value: this.fieldDisplayValue(definition, value),
-          wide: this.shouldRenderWideField(definition.label, definition.ui.widget === 'textarea'),
-          expandable: isLongTextValue(this.fieldDisplayValue(definition, value)),
-          enabled: this.isPathEnabled(definition.path),
-          type: definition.type,
-          booleanValue: value === true
-        };
-      }).filter((field) => !richContentPaths.has(field.path))
-        .filter((field) => this.isPathVisible(field.path));
-
-      const groupedFields = groupSchemaFields({
-        fields: orderedFields,
-        resolveGroupLabel: (path) => getSchemaPathUiMeta(this.blockSchema, path).group ?? parentPath(path)
+      const groupedFields = buildSchemaFieldViewModel({
+        definitions: this.editableFieldDefinitions,
+        config,
+        richContentPaths: this.richContentPaths(),
+        isPathVisible: (path, nextConfig) => this.isPathVisible(path, nextConfig),
+        isPathEnabled: (path, nextConfig) => this.isPathEnabled(path, nextConfig),
+        getFieldValue: (definition, nextConfig) => this.fieldDisplayValue(definition, this.getByPath(nextConfig, definition.path)),
+        isFieldWide: (definition) => this.shouldRenderWideField(definition.label, definition.ui.widget === 'textarea'),
+        getRichContentParts: (path, _nextConfig) => this.toRichContentParts(path),
+        resolveGroupLabel: (path) => getSchemaPathUiMeta(this.blockSchema, path).group ?? parentPath(path),
+        groupRichContent: false
       });
-      this.parameterFields = groupedFields.rootFields;
-      this.parameterFieldGroups = groupedFields.groups.map((group) => ({
+      this.parameterFields = groupedFields.parameterFields;
+      this.parameterFieldGroups = groupedFields.parameterFieldGroups.map((group) => ({
         key: group.key,
         legend: group.legend,
         fields: group.fields
       }));
+      this.richContentFields = groupedFields.richContentFields;
       this.refreshView();
       return;
     }
@@ -1094,7 +984,7 @@ export class GenericNodeComponent {
     if (index < 0 || index >= items.length) return;
 
     items.splice(index, 1);
-    this.setByPath(config, path, items);
+    setSchemaValueByPath(config, path, items);
     if (this.isStructuralField(path)) {
       this.markBlockForServerRecreate();
     }
@@ -1132,7 +1022,7 @@ export class GenericNodeComponent {
       items[index] = nextItem;
     }
 
-    this.setByPath(config, path, items);
+    setSchemaValueByPath(config, path, items);
     if (this.isStructuralField(path)) {
       this.markBlockForServerRecreate();
     }
@@ -1487,7 +1377,7 @@ export class GenericNodeComponent {
     for (const [key, value] of Object.entries(result)) {
       if (!key.startsWith(prefix)) continue;
       const nestedPath = key.slice(prefix.length);
-      this.setByPath(nested, nestedPath, value);
+      setSchemaValueByPath(nested, nestedPath, value);
     }
 
     return nested;
@@ -1507,20 +1397,18 @@ export class GenericNodeComponent {
       return enumOptions.map((value) => ({ label: value, value }));
     }
 
-    const retrieverKey = this.toRetrieverKey(propertySchema);
-    const retrieverBlockType = this.toRetrieverBlockType(propertySchema);
+    const retrieverMeta = schemaRetrieverMeta(propertySchema, pathPrefix);
+    const retrieverKey = retrieverMeta.retrieverKey;
+    const retrieverBlockType = retrieverMeta.retrieverBlockType;
     if (!retrieverKey || !retrieverBlockType) return undefined;
-
-    const retrieverDependsOn = this.toRetrieverDependsOn(propertySchema, pathPrefix);
-    const retrieverContext = this.buildRetrieverContext(item as Record<string, any>, retrieverDependsOn);
 
     try {
       return await this.fetchRetrieverOptions(
         retrieverBlockType,
         retrieverKey,
-        this.toRetrieverUrl(propertySchema),
-        propertySchema['x-retriever-structured-data'] === true,
-        retrieverContext
+        retrieverMeta.retrieverUrl,
+        retrieverMeta.retrieverStructuredData,
+        this.buildRetrieverContext(item as Record<string, any>, retrieverMeta.retrieverDependsOn)
       );
     } catch {
       return [];
@@ -1571,7 +1459,7 @@ export class GenericNodeComponent {
       definition.uniqueBy,
       currentIndex,
       (value) => this.isMissingValue(value),
-      (left, right) => this.areValuesEqual(left, right)
+      (left, right) => schemaValuesEqual(left, right)
     );
     if (!violation) return null;
 
@@ -1605,84 +1493,11 @@ export class GenericNodeComponent {
     return value;
   }
 
-  private setByPath(target: Record<string, any>, path: string, value: unknown) {
-    const keys = path.split('.').filter(Boolean);
-    if (!keys.length) return;
-
-    let current: Record<string, any> = target;
-    for (let i = 0; i < keys.length - 1; i++) {
-      const key = keys[i];
-      const next = current[key];
-      if (next == null || typeof next !== 'object' || Array.isArray(next)) {
-        current[key] = {};
-      }
-      current = current[key];
-    }
-
-    current[keys[keys.length - 1]] = value;
-  }
-
-  private deleteByPath(target: Record<string, any>, path: string) {
-    const keys = path.split('.').filter(Boolean);
-    if (!keys.length) return;
-
-    let current: Record<string, any> | undefined = target;
-    const parents: Array<{ owner: Record<string, any>; key: string }> = [];
-
-    for (let i = 0; i < keys.length - 1; i++) {
-      const key = keys[i];
-      const next = current?.[key];
-      if (!next || typeof next !== 'object' || Array.isArray(next)) {
-        return;
-      }
-      parents.push({ owner: current!, key });
-      current = next as Record<string, any>;
-    }
-
-    if (!current) return;
-    delete current[keys[keys.length - 1]];
-
-    for (let i = parents.length - 1; i >= 0; i--) {
-      const { owner, key } = parents[i];
-      const value = owner[key];
-      if (!value || typeof value !== 'object' || Array.isArray(value)) break;
-      if (Object.keys(value).length > 0) break;
-      delete owner[key];
-    }
-  }
-
   private pruneInactiveConfiguration(config: Record<string, any>) {
-    const candidatePaths = [
+    pruneInactiveSchemaConfiguration(config, [
       ...this.editableFieldDefinitions.map((field) => field.path),
       ...this.arrayFieldDefinitions.map((field) => field.path)
-    ].sort((left, right) => right.length - left.length);
-
-    for (const path of candidatePaths) {
-      if (this.isPathVisible(path) && this.isPathEnabled(path)) continue;
-      this.deleteByPath(config, path);
-    }
-  }
-
-  private resetDependentRetrieverFields(
-    config: Record<string, any>,
-    changedPath: string,
-    visited = new Set<string>()
-  ) {
-    const dependentFields = this.editableFieldDefinitions.filter((definition) =>
-      definition.retrieverDependsOn.some((dep) => dep.path === changedPath)
-    );
-
-    for (const field of dependentFields) {
-      if (visited.has(field.path)) continue;
-      visited.add(field.path);
-      this.setByPath(config, field.path, '');
-      this.resetDependentRetrieverFields(config, field.path, visited);
-    }
-  }
-
-  private areValuesEqual(left: unknown, right: unknown): boolean {
-    if (left === right) return true;
-    return JSON.stringify(left) === JSON.stringify(right);
+    ], (path, nextConfig) => this.isPathVisible(path, nextConfig) && this.isPathEnabled(path, nextConfig));
   }
 
   private richContentPaths(): string[] {
@@ -1914,8 +1729,8 @@ export class GenericNodeComponent {
     nodeData['__updateBlockError'] = null;
   }
 
-  private isPathVisible(path: string): boolean {
-    return isSchemaPathVisible(this.blockSchema, path, this.blockConfiguration);
+  private isPathVisible(path: string, config = this.blockConfiguration): boolean {
+    return isSchemaPathVisible(this.blockSchema, path, config);
   }
 
   private editorFlowId(): string | null {
@@ -1925,21 +1740,18 @@ export class GenericNodeComponent {
 
   private buildRetrieverContext(
     source: Record<string, unknown>,
-    dependencies: RetrieverDependency[]
+    dependencies: SchemaRetrieverDependency[]
   ) {
-    const context = this.withEditorFlowContext({});
-    for (const dep of dependencies) {
-      const value = this.resolveRetrieverDependencyValue(source, dep);
-      context[dep.key] = value == null ? '' : String(value);
-    }
-    return context;
+    return buildSchemaRetrieverContext(source, dependencies, {
+      baseContext: this.withEditorFlowContext({}),
+      resolveContextDependency: (key) => this.resolveEditorContextDependencyValue(key)
+    });
   }
 
-  private resolveRetrieverDependencyValue(source: Record<string, unknown>, dependency: RetrieverDependency): unknown {
-    if (dependency.source === 'context') {
-      return this.resolveEditorContextDependencyValue(dependency.key);
-    }
-    return getValueByPath(source as Record<string, any>, dependency.path);
+  private resolveRetrieverDependencyValue(source: Record<string, unknown>, dependency: SchemaRetrieverDependency): unknown {
+    return dependency.source === 'context'
+      ? this.resolveEditorContextDependencyValue(dependency.key)
+      : getValueByPath(source as Record<string, any>, dependency.path);
   }
 
   private resolveEditorContextDependencyValue(contextKey: string): unknown {
@@ -2012,10 +1824,10 @@ export class GenericNodeComponent {
     return nextContext;
   }
 
-  private isPathEnabled(path: string, visited = new Set<string>()): boolean {
+  private isPathEnabled(path: string, config = this.blockConfiguration, visited = new Set<string>()): boolean {
     if (visited.has(path)) return true;
     visited.add(path);
-    return isSchemaPathEnabled(this.blockSchema, path, this.blockConfiguration);
+    return isSchemaPathEnabled(this.blockSchema, path, config);
   }
 
   private isFieldVisible(field: EditableFieldDefinition): boolean {
@@ -2034,9 +1846,9 @@ export class GenericNodeComponent {
     const config = this.ensureBlockConfiguration();
     const previousValue = this.getByPath(config, path);
     const nextValue = previousValue !== true;
-    this.setByPath(config, path, nextValue);
-    this.resetDependentRetrieverFields(config, path);
-    if (!this.areValuesEqual(previousValue, nextValue) && this.isStructuralField(path)) {
+    setSchemaValueByPath(config, path, nextValue);
+    resetDependentSchemaRetrieverFields(config, path, this.editableFieldDefinitions);
+    if (!schemaValuesEqual(previousValue, nextValue) && this.isStructuralField(path)) {
       this.markBlockForServerRecreate();
     }
 

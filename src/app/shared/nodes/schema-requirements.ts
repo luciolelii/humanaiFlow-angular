@@ -1,4 +1,5 @@
 import { readUiConditionRule, resolveSchemaRef, schemaFieldLabel, type UiConditionRule } from './node-utility';
+import { parseSchemaRetrieverUrl, toSchemaRetrieverDependency } from './schema-driven-fields';
 
 export type RequiredField = {
   path: string;
@@ -79,7 +80,7 @@ function walkSchema(
 
     const retrieverRequiredUrl = propertyResolved?.['x-retriever-required-url'];
     if ((requiredWhen || typeof retrieverRequiredUrl === 'string') && key !== 'type' && !hasChildren) {
-      const parsedRetriever = parseRetrieverUrl(retrieverRequiredUrl);
+      const parsedRetriever = parseSchemaRetrieverUrl(retrieverRequiredUrl);
       const retrieverKey = parsedRetriever?.key
         ?? (typeof propertyResolved?.['x-retriever-name'] === 'string' ? String(propertyResolved['x-retriever-name']) : null);
       const retrieverBlockType = parsedRetriever?.blockType ?? null;
@@ -89,7 +90,7 @@ function walkSchema(
 
       const dependsOn = rawDepends
         .filter((dep): dep is string => typeof dep === 'string' && dep.length > 0)
-        .map((dep) => toRetrieverDependency(dep, pathPrefix));
+        .map((dep) => toSchemaRetrieverDependency(dep, pathPrefix));
 
       const signature = `${propertyPath}|${retrieverKey ?? 'local'}|${dependsOn.map((d) => d.path).join(',')}|${JSON.stringify(requiredWhen ?? null)}`;
       if (!seenConditional.has(signature)) {
@@ -123,38 +124,4 @@ function walkSchema(
       );
     }
   }
-}
-
-function parseRetrieverUrl(rawUrl: unknown): { blockType: string; key: string } | null {
-  if (typeof rawUrl !== 'string' || rawUrl.trim().length === 0) return null;
-
-  const path = rawUrl.split('?')[0];
-  const normalized = path.endsWith('/required') ? path.slice(0, -'/required'.length) : path;
-  const parts = normalized.split('/').filter(Boolean);
-  const retrieverIndex = parts.findIndex((part) => part === 'retriever' || part === 'secure-retriever');
-  if (retrieverIndex < 0 || parts.length < retrieverIndex + 3) return null;
-
-  const blockType = parts[retrieverIndex + 1];
-  const key = parts[retrieverIndex + 2];
-  if (!blockType || !key) return null;
-
-  return { blockType, key };
-}
-
-function toRetrieverDependency(dependency: string, pathPrefix: string) {
-  const normalized = dependency.trim();
-  if (normalized.startsWith('$context.')) {
-    const contextKey = normalized.slice('$context.'.length).trim();
-    return {
-      key: contextKey,
-      path: normalized,
-      source: 'context' as const
-    };
-  }
-
-  return {
-    key: normalized,
-    path: pathPrefix ? `${pathPrefix}.${normalized}` : normalized,
-    source: 'field' as const
-  };
 }

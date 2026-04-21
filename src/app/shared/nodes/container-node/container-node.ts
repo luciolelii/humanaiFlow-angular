@@ -13,63 +13,39 @@ import { EditorStateHolder } from '@stores/flow-editor';
 import { CONTAINER_SUBFLOW_DRAG_MIME } from './container-node-drag';
 import { firstValueFrom } from 'rxjs';
 import { extractSchemaRequirements, SchemaRequirements } from '../schema-requirements';
-import { type UiConditionRule, evaluateUiConditionRule, getValueByPath, parentPath, pathToLabel, resolveNodeIcon, resolveSchemaPath, schemaFieldLabel, splitTemplatedTextParts, valueToDisplayString } from '../node-utility';
+import { evaluateUiConditionRule, getValueByPath, parentPath, pathToLabel, resolveNodeIcon, resolveSchemaPath, splitTemplatedTextParts, valueToDisplayString } from '../node-utility';
 import {
+  buildSchemaEditableFieldDefinitions,
+  buildSchemaFieldViewModel,
+  buildSchemaRetrieverContext,
+  pruneInactiveSchemaConfiguration,
+  resetDependentSchemaRetrieverFields,
+  schemaValuesEqual,
+  setSchemaValueByPath,
+  type SchemaEditableFieldDefinition,
   type SchemaFieldType,
   type SchemaFieldGroup,
-  type SchemaFieldUiMeta,
   type SchemaNodeOptionsSource,
+  type SchemaParameterFieldView,
+  type SchemaRichContentFieldView,
+  type SchemaRetrieverDependency,
   buildTemplatedRichContentParts,
-  collectSchemaLeafFields,
   getSchemaPathUiMeta,
-  groupSchemaFields,
   isLongTextValue,
   isSchemaPathEnabled,
   isSchemaPathVisible,
-  schemaEnumOptions,
-  schemaFieldTypeFromSchema,
-  schemaNodeOptionsSource,
-  toSchemaFieldUiMeta
+  schemaNodeOptionsSource
 } from '../schema-driven-fields';
 
 type ContainerFieldType = SchemaFieldType;
 
 type NodeOptionsSource = SchemaNodeOptionsSource;
 
-type ContainerFieldDefinition = {
-  path: string;
-  label: string;
-  type: ContainerFieldType;
-  enumOptions: string[];
-  nodeOptionsSource: NodeOptionsSource | null;
-  widget: 'textarea' | null;
-  structural: boolean;
-  visibleWhen: UiConditionRule[];
-  enabledWhen: UiConditionRule[];
-  group: string | null;
-  placeholder?: string;
-  tip?: string;
-  rows?: number;
-};
+type ContainerFieldDefinition = SchemaEditableFieldDefinition;
 
-type ContainerFieldView = {
-  path: string;
-  label: string;
-  value: string;
-  wide: boolean;
-  expandable: boolean;
-  enabled: boolean;
-  type: ContainerFieldType;
-  booleanValue: boolean;
-};
+type ContainerFieldView = SchemaParameterFieldView<ContainerFieldType>;
 
-type RichContentView = {
-  path: string;
-  label: string;
-  rawValue: string;
-  expandable: boolean;
-  parts: { text: string; isDynamicInput: boolean }[];
-};
+type RichContentView = SchemaRichContentFieldView;
 
 type ContainerFieldGroupView = SchemaFieldGroup<ContainerFieldView, RichContentView>;
 
@@ -272,7 +248,7 @@ export class ContainerNodeComponent {
       .filter((field) => field.path !== 'name')
       .filter((field) => field.path !== 'subFlow')
       .filter((field) => !field.path.startsWith('subFlow.'))
-      .filter((field) => this.isFieldEnabled(field.path))
+      .filter((field) => this.isFieldEnabled(field.path, config))
       .filter((field) => this.isMissingValue(getValueByPath(config, field.path)))
       .map((field) => field.label)
       .concat(
@@ -280,7 +256,7 @@ export class ContainerNodeComponent {
           .filter((field) => field.path !== 'name')
           .filter((field) => field.path !== 'subFlow')
           .filter((field) => !field.path.startsWith('subFlow.'))
-          .filter((field) => this.isFieldEnabled(field.path))
+          .filter((field) => this.isFieldEnabled(field.path, config))
           .filter((field) => this.isMissingValue(getValueByPath(config, field.path)))
           .map((field) => field.label)
       )
@@ -461,10 +437,10 @@ export class ContainerNodeComponent {
       label: definition.label,
       type: this.toDialogFieldType(definition),
       required: this.missingRequiredParams.includes(definition.label),
-      placeholder: definition.placeholder,
-      tip: definition.tip,
-      rows: definition.widget === 'textarea' ? definition.rows ?? 6 : undefined,
-      options: this.resolveSelectableOptions(definition)
+      placeholder: definition.ui.placeholder,
+      tip: definition.ui.tip,
+      rows: definition.ui.widget === 'textarea' ? definition.ui.rows ?? 6 : undefined,
+      options: await this.resolveSelectableOptions(definition)
     };
 
     const result = await this.settingsDialog.open({
@@ -782,74 +758,34 @@ export class ContainerNodeComponent {
 
   private refreshParameterFields() {
     const config = this.configuration ?? {};
-    const richContentPaths = new Set(this.richContentPaths());
-    const allRichContentFields = this.richContentPaths()
-      .filter((path) => this.isFieldVisible(path))
-      .map((path) => {
-        const rawValue = String(getValueByPath(config, path) ?? '');
-        return {
-          path,
-          label: this.containerFieldDefinitions.find((field) => field.path === path)?.label ?? pathToLabel(path),
-          rawValue,
-          expandable: isLongTextValue(rawValue),
-          parts: this.toRichContentParts(path)
-        };
-      })
-      .filter((field) => field.parts.length > 0);
-
-    const orderedFields = this.containerFieldDefinitions
-      .filter((field) => !this.isContainerTypeField(field.path))
-      .filter((field) => this.isFieldVisible(field.path))
-      .filter((field) => !richContentPaths.has(field.path))
-      .map((field) => ({
-        path: field.path,
-        label: field.label,
-        value: valueToDisplayString(getValueByPath(config, field.path)),
-        wide: field.widget === 'textarea' || field.label.length >= 18,
-        expandable: isLongTextValue(valueToDisplayString(getValueByPath(config, field.path))),
-        enabled: this.isFieldEnabled(field.path),
-        type: field.type,
-        booleanValue: getValueByPath(config, field.path) === true
-      }));
-
-    const grouped = groupSchemaFields({
-      fields: orderedFields,
-      richContentFields: allRichContentFields,
+    const grouped = buildSchemaFieldViewModel({
+      definitions: this.containerFieldDefinitions.filter((field) => !this.isContainerTypeField(field.path)),
+      config,
+      richContentPaths: this.richContentPaths(),
+      isPathVisible: (path, nextConfig) => this.isFieldVisible(path, nextConfig),
+      isPathEnabled: (path, nextConfig) => this.isFieldEnabled(path, nextConfig),
+      getFieldValue: (definition, nextConfig) => valueToDisplayString(getValueByPath(nextConfig, definition.path)),
+      isFieldWide: (definition) => definition.ui.widget === 'textarea' || definition.label.length >= 18,
+      getRichContentParts: (path) => this.toRichContentParts(path),
       resolveGroupLabel: (path) => getSchemaPathUiMeta(this.containerSchema, path).group ?? parentPath(path)
     });
 
-    this.parameterFields = grouped.rootFields;
-    this.richContentFields = grouped.rootRichContentFields;
-    this.parameterFieldGroups = grouped.groups;
+    this.parameterFields = grouped.parameterFields;
+    this.richContentFields = grouped.richContentFields;
+    this.parameterFieldGroups = grouped.parameterFieldGroups;
   }
 
   private buildContainerFieldDefinitions(schema: Record<string, any> | null): ContainerFieldDefinition[] {
-    return collectSchemaLeafFields(schema, ({ key, path, schema: childResolved, ui }) => {
-      if (key.startsWith('__')) return null;
-      if (path === 'name' || path === 'subFlow' || this.isContainerTypeField(path)) return null;
-
-      return {
-        path,
-        label: schemaFieldLabel(path, childResolved),
-        type: this.toFieldType(childResolved),
-        enumOptions: schemaEnumOptions(childResolved),
-        nodeOptionsSource: this.toNodeOptionsSource(childResolved),
-        widget: ui.widget,
-        structural: ui.structural,
-        visibleWhen: ui.visibleWhen,
-        enabledWhen: ui.enabledWhen,
-        group: ui.group,
-        placeholder: ui.placeholder,
-        tip: ui.tip,
-        rows: ui.rows
-      };
+    return buildSchemaEditableFieldDefinitions(schema, {
+      shouldSkip: ({ key, path }) =>
+        key.startsWith('__') || path === 'name' || path === 'subFlow' || this.isContainerTypeField(path)
     });
   }
 
   private richContentPaths(): string[] {
     return this.containerFieldDefinitions
       .filter((field) => !this.isContainerTypeField(field.path))
-      .filter((field) => field.widget === 'textarea')
+      .filter((field) => field.ui.widget === 'textarea')
       .map((field) => field.path);
   }
 
@@ -867,39 +803,39 @@ export class ContainerNodeComponent {
     return buildTemplatedRichContentParts(this.configuration ?? {}, path, this.containerSchema, splitTemplatedTextParts);
   }
 
-  private isFieldVisible(path: string, visited = new Set<string>()): boolean {
+  private isFieldVisible(path: string, config = this.configuration ?? {}, visited = new Set<string>()): boolean {
     if (visited.has(path)) return true;
     visited.add(path);
-    return isSchemaPathVisible(this.containerSchema, path, this.configuration ?? {});
+    return isSchemaPathVisible(this.containerSchema, path, config);
   }
 
-  private isFieldEnabled(path: string, visited = new Set<string>()): boolean {
+  private isFieldEnabled(path: string, config = this.configuration ?? {}, visited = new Set<string>()): boolean {
     if (visited.has(path)) return true;
     visited.add(path);
-    return isSchemaPathEnabled(this.containerSchema, path, this.configuration ?? {});
-  }
-
-  private toFieldType(schema: Record<string, any> | null): ContainerFieldType {
-    return schemaFieldTypeFromSchema(schema);
+    return isSchemaPathEnabled(this.containerSchema, path, config);
   }
 
   private toDialogFieldType(definition: ContainerFieldDefinition): NodeSettingField['type'] {
     if (definition.type === 'boolean') return 'checkbox';
-    if (definition.widget === 'textarea') return 'textarea';
-    if (definition.enumOptions.length || definition.nodeOptionsSource) return 'select';
+    if (definition.ui.widget === 'textarea') return 'textarea';
+    if (definition.enumOptions.length || definition.nodeOptionsSource || definition.retrieverKey) return 'select';
     return 'text';
   }
 
-  private toNodeOptionsSource(schema: Record<string, any> | null | undefined): NodeOptionsSource | null {
-    return schemaNodeOptionsSource(schema);
-  }
-
-  private resolveSelectableOptions(definition: ContainerFieldDefinition): NodeSettingOption[] | undefined {
+  private async resolveSelectableOptions(definition: ContainerFieldDefinition): Promise<NodeSettingOption[] | undefined> {
     if (definition.nodeOptionsSource) {
       return this.resolveNodeOptions(definition.nodeOptionsSource);
     }
-    if (!definition.enumOptions.length) return undefined;
-    return definition.enumOptions.map((option) => ({ label: option, value: option }));
+    if (definition.enumOptions.length) {
+      return definition.enumOptions.map((option) => ({ label: option, value: option }));
+    }
+    if (!definition.retrieverKey) return undefined;
+
+    try {
+      return await this.fetchRetrieverOptions(definition);
+    } catch {
+      return [];
+    }
   }
 
   private resolveNodeOptions(source: NodeOptionsSource): NodeSettingOption[] {
@@ -930,9 +866,14 @@ export class ContainerNodeComponent {
   private async applyFieldValue(definition: ContainerFieldDefinition, rawValue: string | boolean | undefined) {
     const nextValue = this.parseFieldValue(definition, rawValue);
     const nextConfiguration = this.cloneConfiguration();
-    this.setByPath(nextConfiguration, definition.path, nextValue);
+    const previousValue = getValueByPath(nextConfiguration, definition.path);
+    setSchemaValueByPath(nextConfiguration, definition.path, nextValue);
+    if (!schemaValuesEqual(previousValue, nextValue)) {
+      resetDependentSchemaRetrieverFields(nextConfiguration, definition.path, this.containerFieldDefinitions);
+    }
+    this.pruneInactiveConfiguration(nextConfiguration);
 
-    if (definition.structural) {
+    if (definition.ui.structural) {
       this.updateCurrentFlowData(nextConfiguration);
       await this.recreateContainer(nextConfiguration);
       return;
@@ -952,7 +893,8 @@ export class ContainerNodeComponent {
     const stringValue = typeof rawValue === 'string' ? rawValue : '';
     if (definition.type === 'number' || definition.type === 'integer') {
       const parsed = Number(stringValue);
-      return Number.isFinite(parsed) ? parsed : null;
+      if (!Number.isFinite(parsed)) return null;
+      return definition.type === 'integer' ? Math.trunc(parsed) : parsed;
     }
     return stringValue;
   }
@@ -1055,18 +997,97 @@ export class ContainerNodeComponent {
     return JSON.parse(JSON.stringify(value)) as T;
   }
 
-  private setByPath(target: Record<string, any>, path: string, value: unknown) {
-    const parts = path.split('.');
-    let current = target;
-    for (let index = 0; index < parts.length - 1; index += 1) {
-      const key = parts[index];
-      const next = current[key];
-      if (!next || typeof next !== 'object' || Array.isArray(next)) {
-        current[key] = {};
-      }
-      current = current[key] as Record<string, any>;
+  private pruneInactiveConfiguration(config: Record<string, any>) {
+    pruneInactiveSchemaConfiguration(
+      config,
+      this.containerFieldDefinitions.map((field) => field.path),
+      (path, nextConfig) => this.isFieldVisible(path, nextConfig) && this.isFieldEnabled(path, nextConfig)
+    );
+  }
+
+  private buildRetrieverContext(source: Record<string, unknown>, dependencies: SchemaRetrieverDependency[]) {
+    return buildSchemaRetrieverContext(source, dependencies, {
+      baseContext: this.withEditorFlowContext({}),
+      resolveContextDependency: (key) => this.resolveEditorContextDependencyValue(key)
+    });
+  }
+
+  private resolveEditorContextDependencyValue(contextKey: string): unknown {
+    if (contextKey === 'flowId') {
+      const flowId = this.editorState.currentFlow()?.id;
+      return typeof flowId === 'string' && flowId.trim().length > 0 ? flowId.trim() : null;
     }
-    current[parts[parts.length - 1]] = value;
+    if (contextKey === 'blockId') {
+      return this.blockId;
+    }
+    if (contextKey === 'inputNames') {
+      return (Array.isArray(this.data?.data?.inputs) ? this.data.data.inputs : [])
+        .map((port: { name?: string }) => port?.name)
+        .filter((name: unknown): name is string => typeof name === 'string' && name.trim().length > 0)
+        .join(',');
+    }
+    if (contextKey === 'outputNames') {
+      return (Array.isArray(this.data?.data?.outputs) ? this.data.data.outputs : [])
+        .map((port: { name?: string }) => port?.name)
+        .filter((name: unknown): name is string => typeof name === 'string' && name.trim().length > 0)
+        .join(',');
+    }
+    return null;
+  }
+
+  private withEditorFlowContext(context?: Record<string, string>) {
+    const nextContext = { ...(context ?? {}) };
+    const flowId = this.editorState.currentFlow()?.id;
+    if (typeof flowId === 'string' && flowId.trim().length > 0) {
+      nextContext['flowId'] = flowId.trim();
+    }
+    return nextContext;
+  }
+
+  private async fetchRetrieverOptions(definition: ContainerFieldDefinition): Promise<NodeSettingOption[]> {
+    const blockType = definition.retrieverBlockType ?? this.typeName;
+    if (!blockType || !definition.retrieverKey) return [];
+
+    const context = this.buildRetrieverContext(
+      this.configuration ?? {},
+      definition.retrieverDependsOn
+    );
+
+    if (definition.retrieverStructuredData) {
+      const items = await firstValueFrom(
+        this.fieldRetriever.retrieveItems<unknown>(
+          blockType,
+          definition.retrieverKey,
+          context,
+          definition.retrieverUrl
+        )
+      );
+      return this.toStructuredRetrieverOptions(items ?? []);
+    }
+
+    const values = await firstValueFrom(
+      this.fieldRetriever.retrieveValues(
+        blockType,
+        definition.retrieverKey,
+        context,
+        definition.retrieverUrl
+      )
+    );
+    return (values ?? []).map((value) => ({ label: value, value }));
+  }
+
+  private toStructuredRetrieverOptions(items: Array<{ descriptor?: { label?: string; description?: string }; data?: unknown }>) {
+    return items
+      .map((item, index) => {
+        const value = item?.data == null ? '' : String(item.data);
+        const label = item.descriptor?.label?.trim() || value || `Item ${index + 1}`;
+        const description = item.descriptor?.description?.trim();
+        return {
+          label: description ? `${label} - ${description}` : label,
+          value
+        };
+      })
+      .filter((option) => option.value.trim().length > 0);
   }
 
   private refreshView() {
@@ -1081,17 +1102,6 @@ export class ContainerNodeComponent {
 
   private resolveFieldSchema(path: string): Record<string, any> | null {
     return resolveSchemaPath(this.containerSchema, path);
-  }
-
-  private toFieldUiMeta(
-    schema: Record<string, any> | null | undefined,
-    inheritedUi?: Pick<SchemaFieldUiMeta, 'visibleWhen' | 'enabledWhen' | 'group'>
-  ) {
-    return toSchemaFieldUiMeta(schema, inheritedUi);
-  }
-
-  private getFieldUiMeta(path: string) {
-    return getSchemaPathUiMeta(this.containerSchema, path);
   }
 
 }

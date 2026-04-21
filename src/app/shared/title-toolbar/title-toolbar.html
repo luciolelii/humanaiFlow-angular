@@ -104,20 +104,41 @@
 
 <div class="title-toolbar-global-inputs">
   <div class="title-toolbar-global-inputs-header">
-    <div>
+    <div class="title-toolbar-global-inputs-header-row">
       <button type="button" class="title-toolbar-global-inputs-toggle" (click)="toggleGlobalInputs()">
         <mat-icon [fontIcon]="globalInputsOpen() ? 'expand_less' : 'expand_more'"></mat-icon>
         <span class="title-toolbar-global-inputs-title">Global Inputs</span>
         <span class="title-toolbar-global-count">{{ globalInputs().length }}</span>
       </button>
+      <div class="title-toolbar-global-inputs-actions">
+        @if (compactGlobalInputsHelp()) {
+        <button
+          type="button"
+          class="title-toolbar-global-inputs-action"
+          [matTooltip]="globalInputsHelpTooltip()"
+          matTooltipPosition="below"
+          aria-label="Global inputs help">
+          <mat-icon fontIcon="info"></mat-icon>
+        </button>
+        }
+        @if (!readOnly()) {
+        <button
+          type="button"
+          class="title-toolbar-global-inputs-action"
+          matTooltip="Add global input"
+          aria-label="Add global input"
+          (click)="addGlobalInput()">
+          <mat-icon fontIcon="add"></mat-icon>
+        </button>
+        }
+      </div>
+    </div>
+    @if (!compactGlobalInputsHelp()) {
+    <div class="title-toolbar-global-inputs-header-copy">
       <div class="title-toolbar-global-inputs-help">
         Use shared flow-level inputs for values reused by multiple nodes. Reference them as template <code>{{ globalTemplateReference('name') }}</code> or SpEL <code>{{ globalSpelReference('name') }}</code>.
       </div>
     </div>
-    @if (!readOnly()) {
-    <button type="button" mat-icon-button matTooltip="Add global input" (click)="addGlobalInput()">
-      <mat-icon fontIcon="add"></mat-icon>
-    </button>
     }
   </div>
 

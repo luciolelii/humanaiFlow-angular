@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, ElementRef, inject, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, HostListener, computed, ElementRef, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -24,6 +24,7 @@ import { EditorStateHolder } from '@stores/flow-editor';
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class TitleToolbar {
+  private static readonly GLOBAL_INPUTS_HELP_COMPACT_HEIGHT_BREAKPOINT = 900;
   private snackTimeout: ReturnType<typeof setTimeout> | null = null;
 
   readonly titleInputRef = viewChild<ElementRef>('titleInput');
@@ -54,7 +55,11 @@ export class TitleToolbar {
     !this.blockSyncInProgress() &&
     !this.hasGlobalInputValidationIssues()
   );
+  compactGlobalInputsHelp = signal(this.shouldUseCompactGlobalInputsHelp());
   globalInputs = computed(() => this.flow()?.data.globalInputs ?? []);
+  globalInputsHelpTooltip = computed(() =>
+    `Use shared flow-level inputs for values reused by multiple nodes. Reference them as template ${this.globalTemplateReference('name')} or SpEL ${this.globalSpelReference('name')}.`
+  );
   hasGlobalInputValidationIssues = computed(() =>
     this.globalInputValidationErrors().some((message) => !!message)
   );
@@ -206,6 +211,11 @@ export class TitleToolbar {
     return `#global.${resolved}`;
   }
 
+  @HostListener('window:resize')
+  onWindowResize() {
+    this.compactGlobalInputsHelp.set(this.shouldUseCompactGlobalInputsHelp());
+  }
+
   toggleGlobalInputs() {
     this.globalInputsOpen.update((open) => !open);
   }
@@ -216,6 +226,10 @@ export class TitleToolbar {
     const name = draft.name.trim();
     if (!flow || !name) return false;
     return !(flow.data.globalInputs ?? []).some((input) => input.name.trim().toLowerCase() === name.toLowerCase());
+  }
+
+  private shouldUseCompactGlobalInputsHelp(): boolean {
+    return typeof window !== 'undefined' && window.innerHeight <= TitleToolbar.GLOBAL_INPUTS_HELP_COMPACT_HEIGHT_BREAKPOINT;
   }
 
   save() {
