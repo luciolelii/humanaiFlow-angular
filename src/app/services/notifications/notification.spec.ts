@@ -1,8 +1,13 @@
-import { TestBed, fakeAsync, tick } from '@angular/core/testing';
+import { TestBed } from '@angular/core/testing';
+import { afterEach, vi } from 'vitest';
 import { NotificationService } from './notification';
 
 describe('NotificationService', () => {
   let service: NotificationService;
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
 
   beforeEach(() => {
     TestBed.configureTestingModule({});
@@ -24,12 +29,13 @@ describe('NotificationService', () => {
     expect(service.current()!.type).toBe('success');
   });
 
-  it('should auto-dismiss after duration', fakeAsync(() => {
+  it('should auto-dismiss after duration', async () => {
+    vi.useFakeTimers();
     service.show('Auto dismiss', 'info', 2000);
     expect(service.current()).toBeTruthy();
-    tick(2000);
+    await vi.advanceTimersByTimeAsync(2000);
     expect(service.current()).toBeNull();
-  }));
+  });
 
   it('should dismiss manually', () => {
     service.show('Manual dismiss', 'error', 0);

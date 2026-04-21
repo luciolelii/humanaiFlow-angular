@@ -1,8 +1,8 @@
 import { TestBed } from '@angular/core/testing';
 import { Authorization } from '@services/authorization/authorization';
 import { ConfirmDialogService } from '@services/dialogs/confirm-dialog';
-import { FlowsService } from '@services/flows/flows';
 import { Flow, FlowData } from '@models/flow';
+import { of } from 'rxjs';
 import { vi } from 'vitest';
 import { EditorStateHolder } from './flow-editor';
 
@@ -47,6 +47,7 @@ describe('EditorStateHolder', () => {
     });
     service = TestBed.inject(EditorStateHolder);
     service.flowsService = flowsServiceSpy as any;
+    flowsServiceSpy.getFlowValidation.mockReturnValue(of([]));
   });
 
   it('should be created', () => {
@@ -61,11 +62,11 @@ describe('EditorStateHolder', () => {
   describe('openDocument', () => {
     it('should set the current flow', async () => {
       const flow = makeFlow();
-      flowsServiceSpy.getFlowValidation.mockReturnValue({ subscribe: () => {} } as any);
 
       await service.openDocument(flow);
 
-      expect(service.currentFlow()).toEqual(flow);
+      expect(service.currentFlow()).toMatchObject(flow);
+      expect(service.currentFlow()?.validationErrors).toEqual([]);
       expect(service.hasFlow()).toBe(true);
       expect(service.isDirty()).toBe(false);
     });
@@ -73,7 +74,6 @@ describe('EditorStateHolder', () => {
     it('should prompt confirmation when dirty', async () => {
       const flow1 = makeFlow({ id: 'f1' });
       const flow2 = makeFlow({ id: 'f2' });
-      flowsServiceSpy.getFlowValidation.mockReturnValue({ subscribe: () => {} } as any);
 
       await service.openDocument(flow1);
       service.updateData({
@@ -94,7 +94,6 @@ describe('EditorStateHolder', () => {
     it('should skip dirty check when option is set', async () => {
       const flow1 = makeFlow({ id: 'f1' });
       const flow2 = makeFlow({ id: 'f2' });
-      flowsServiceSpy.getFlowValidation.mockReturnValue({ subscribe: () => {} } as any);
 
       await service.openDocument(flow1);
       service.updateData({
@@ -113,8 +112,6 @@ describe('EditorStateHolder', () => {
 
   describe('closeDocument', () => {
     it('should clear the current flow', async () => {
-      flowsServiceSpy.getFlowValidation.mockReturnValue({ subscribe: () => {} } as any);
-
       await service.openDocument(makeFlow());
       service.closeDocument();
 
@@ -126,8 +123,6 @@ describe('EditorStateHolder', () => {
 
   describe('updateData', () => {
     it('should mark editor as dirty', async () => {
-      flowsServiceSpy.getFlowValidation.mockReturnValue({ subscribe: () => {} } as any);
-
       await service.openDocument(makeFlow());
       const newData: FlowData = {
         blocks: [{ id: 'b1', name: 'Block1', inputs: [], outputs: [], specificConfiguration: {}, typeName: 'LLMBlock' }],
@@ -142,7 +137,6 @@ describe('EditorStateHolder', () => {
 
     it('should not mark dirty if data unchanged', async () => {
       const flow = makeFlow();
-      flowsServiceSpy.getFlowValidation.mockReturnValue({ subscribe: () => {} } as any);
 
       await service.openDocument(flow);
       service.updateData({ ...flow.data });
@@ -153,24 +147,18 @@ describe('EditorStateHolder', () => {
 
   describe('isCurrentFlowReadOnly', () => {
     it('should return true for finalized flow', async () => {
-      flowsServiceSpy.getFlowValidation.mockReturnValue({ subscribe: () => {} } as any);
-
       await service.openDocument(makeFlow({ finalized: true }));
 
       expect(service.isCurrentFlowReadOnly()).toBe(true);
     });
 
     it('should return true for public flow by another author', async () => {
-      flowsServiceSpy.getFlowValidation.mockReturnValue({ subscribe: () => {} } as any);
-
       await service.openDocument(makeFlow({ visibility: 'PUBLIC', author: 'otheruser' }));
 
       expect(service.isCurrentFlowReadOnly()).toBe(true);
     });
 
     it('should return false for own private flow', async () => {
-      flowsServiceSpy.getFlowValidation.mockReturnValue({ subscribe: () => {} } as any);
-
       await service.openDocument(makeFlow({ visibility: 'PRIVATE', author: 'testuser' }));
 
       expect(service.isCurrentFlowReadOnly()).toBe(false);
@@ -198,8 +186,6 @@ describe('EditorStateHolder', () => {
 
   describe('updateFlowTitle', () => {
     it('should update the title and mark dirty', async () => {
-      flowsServiceSpy.getFlowValidation.mockReturnValue({ subscribe: () => {} } as any);
-
       await service.openDocument(makeFlow({ name: 'Old Title' }));
       service.updateFlowTitle('New Title');
 
@@ -208,8 +194,6 @@ describe('EditorStateHolder', () => {
     });
 
     it('should not mark dirty if title unchanged', async () => {
-      flowsServiceSpy.getFlowValidation.mockReturnValue({ subscribe: () => {} } as any);
-
       await service.openDocument(makeFlow({ name: 'Same' }));
       service.updateFlowTitle('Same');
 

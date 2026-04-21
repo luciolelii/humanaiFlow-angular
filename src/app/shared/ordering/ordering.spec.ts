@@ -14,6 +14,9 @@ describe('Ordering', () => {
 
     fixture = TestBed.createComponent(Ordering);
     component = fixture.componentInstance;
+    fixture.componentRef.setInput('orderView', { orderBy: null, orderDir: 'asc' });
+    fixture.componentRef.setInput('orderFields', []);
+    fixture.detectChanges();
     await fixture.whenStable();
   });
 
