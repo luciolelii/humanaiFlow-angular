@@ -11,9 +11,9 @@ export class BlocksCallService extends BlocksCallServiceBase {
 
   override retrieveAllBlocksTypes(): Observable<BlockType[]> {
     return this.http
-      .get<unknown[]>(`${environment.apiUrl}/blocks/types`)
+      .get<unknown>(`${environment.apiUrl}/blocks/types/catalog`)
       .pipe(
-        map((raw) => (Array.isArray(raw) ? raw.map((value) => this.blockTypeFromApi(value)) : [])),
+        map((raw) => this.parseCatalogResponse(raw)),
         map((types) => {
           this.blockTypesCache = types;
           return types;
@@ -94,8 +94,24 @@ export class BlocksCallService extends BlocksCallServiceBase {
     return this.retrieveAllBlocksTypes();
   }
 
-  private blockTypeFromApi(raw: unknown): BlockType {
+  private parseCatalogResponse(raw: unknown): BlockType[] {
     const value = this.toRecord(raw);
+    const descriptors = value["descriptors"];
+    if (!Array.isArray(descriptors)) {
+      throw new Error('Invalid block catalog response: expected reduced catalog format with a descriptors array');
+    }
+    const sharedDefinitions = this.toSchema(value["sharedDefinitions"]);
+
+    return descriptors.map((descriptor) => this.blockTypeFromApi(descriptor, sharedDefinitions));
+  }
+
+  private blockTypeFromApi(raw: unknown, sharedDefinitions?: Record<string, unknown> | null): BlockType {
+    const value = this.toRecord(raw);
+    const schema = this.attachSharedDefinitions(
+      this.toSchema(value["schema"] ?? value["configurationSchema"] ?? null),
+      sharedDefinitions ?? null
+    );
+
     return {
       type: String(value["type"] ?? value["blockType"] ?? value["name"] ?? "LLMBlock"),
       family: 'block',
@@ -106,7 +122,7 @@ export class BlocksCallService extends BlocksCallServiceBase {
       exampleBlockEndpoint: this.toApiPath(value["exampleBlockEndpoint"]),
       configurationType: this.toNullableString(value["configurationType"]),
       configurationClass: this.toNullableString(value["configurationClass"]),
-      schema: this.toSchema(value["schema"] ?? value["configurationSchema"] ?? null)
+      schema
     };
   }
 
@@ -175,6 +191,22 @@ export class BlocksCallService extends BlocksCallServiceBase {
   private toSchema(raw: unknown): Record<string, unknown> | null {
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
     return raw as Record<string, unknown>;
+  }
+
+  private attachSharedDefinitions(
+    schema: Record<string, unknown> | null,
+    sharedDefinitions: Record<string, unknown> | null
+  ): Record<string, unknown> | null {
+    if (!schema) return null;
+    if (!sharedDefinitions || !Object.keys(sharedDefinitions).length) return schema;
+
+    return {
+      ...schema,
+      sharedDefinitions: {
+        ...sharedDefinitions,
+        ...this.toRecord(schema["sharedDefinitions"])
+      }
+    };
   }
 
   private toInteractionContract(raw: unknown): BlockType["interactionContract"] {

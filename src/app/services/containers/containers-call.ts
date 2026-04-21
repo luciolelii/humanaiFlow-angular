@@ -16,9 +16,9 @@ export class ContainersCallService extends ContainersCallServiceBase {
 
   override retrieveAllContainerTypes(): Observable<BlockType[]> {
     return this.http
-      .get<unknown[]>(`${environment.apiUrl}/containers/types`)
+      .get<unknown>(`${environment.apiUrl}/containers/types/catalog`)
       .pipe(
-        map((raw) => (Array.isArray(raw) ? raw.map((value) => this.containerTypeFromApi(value)) : [])),
+        map((raw) => this.parseCatalogResponse(raw)),
         map((types) => {
           this.containerTypesCache = types;
           return types;
@@ -27,8 +27,11 @@ export class ContainersCallService extends ContainersCallServiceBase {
   }
 
   override createEmptyContainer(containerType: string): Observable<FlowContainer> {
+    const descriptor = this.containerTypesCache?.find((candidate) => candidate.type === containerType);
+    const exampleEndpoint = this.resolveExampleEndpoint(containerType, descriptor);
+
     return this.http
-      .get<unknown>(`${environment.apiUrl}/containers/types/${encodeURIComponent(containerType)}/example`)
+      .get<unknown>(exampleEndpoint)
       .pipe(map((raw) => this.flowContainerFromApi(raw, containerType)));
   }
 
@@ -70,18 +73,34 @@ export class ContainersCallService extends ContainersCallServiceBase {
       .pipe(map((raw) => this.subflowValidationFromApi(raw)));
   }
 
-  private containerTypeFromApi(raw: unknown): BlockType {
+  private parseCatalogResponse(raw: unknown): BlockType[] {
     const value = this.toRecord(raw);
+    const descriptors = value["descriptors"];
+    if (!Array.isArray(descriptors)) {
+      throw new Error('Invalid container catalog response: expected reduced catalog format with a descriptors array');
+    }
+    const sharedDefinitions = this.toSchema(value["sharedDefinitions"]);
+
+    return descriptors.map((descriptor) => this.containerTypeFromApi(descriptor, sharedDefinitions));
+  }
+
+  private containerTypeFromApi(raw: unknown, sharedDefinitions?: Record<string, unknown> | null): BlockType {
+    const value = this.toRecord(raw);
+    const schema = this.attachSharedDefinitions(
+      this.toSchema(value["schema"] ?? value["configurationSchema"] ?? null),
+      sharedDefinitions ?? null
+    );
+
     return {
       type: String(value["type"] ?? value["containerType"] ?? value["name"] ?? "GenericContainer"),
       family: 'container',
       description: String(value["description"] ?? ""),
       userInteractive: Boolean(value["userInteractive"] ?? value["interactive"] ?? false),
-      hasExampleBlock: Boolean(value["hasExampleBlock"] ?? false),
-      exampleBlockEndpoint: this.toApiPath(value["exampleBlockEndpoint"]),
+      hasExampleBlock: Boolean(value["hasExampleBlock"] ?? value["hasExampleContainer"] ?? false),
+      exampleBlockEndpoint: this.toApiPath(value["exampleBlockEndpoint"] ?? value["exampleContainerEndpoint"]),
       configurationType: this.toNullableString(value["configurationType"]),
       configurationClass: this.toNullableString(value["configurationClass"]),
-      schema: this.toSchema(value["schema"] ?? value["configurationSchema"] ?? null)
+      schema
     };
   }
 
@@ -208,6 +227,22 @@ export class ContainersCallService extends ContainersCallServiceBase {
     return raw as Record<string, unknown>;
   }
 
+  private attachSharedDefinitions(
+    schema: Record<string, unknown> | null,
+    sharedDefinitions: Record<string, unknown> | null
+  ): Record<string, unknown> | null {
+    if (!schema) return null;
+    if (!sharedDefinitions || !Object.keys(sharedDefinitions).length) return schema;
+
+    return {
+      ...schema,
+      sharedDefinitions: {
+        ...sharedDefinitions,
+        ...this.toRecord(schema["sharedDefinitions"])
+      }
+    };
+  }
+
   private toRecord(value: unknown): Record<string, unknown> {
     if (!value || typeof value !== "object" || Array.isArray(value)) return {};
     return value as Record<string, unknown>;
@@ -221,6 +256,13 @@ export class ContainersCallService extends ContainersCallServiceBase {
     if (typeof value !== "string" || value.length === 0) return null;
     if (/^https?:\/\//.test(value)) return value;
     return `${environment.apiUrl}${value.startsWith("/") ? value : `/${value}`}`;
+  }
+
+  private resolveExampleEndpoint(typeName: string, descriptor?: BlockType): string {
+    if (descriptor?.hasExampleBlock && descriptor.exampleBlockEndpoint) {
+      return descriptor.exampleBlockEndpoint;
+    }
+    return `${environment.apiUrl}/containers/types/${encodeURIComponent(typeName)}/example`;
   }
 
   private buildContainerConfigurationPayload(containerType: string, configuration: Record<string, unknown>) {

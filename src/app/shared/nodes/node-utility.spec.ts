@@ -90,6 +90,31 @@ describe('node-utility', () => {
     });
   });
 
+  it('resolveSchemaRef resolves refs declared in sharedDefinitions', () => {
+    const root = {
+      sharedDefinitions: {
+        LLMDescriptor: {
+          type: 'object',
+          properties: {
+            provider: { type: 'string' },
+            model: { type: 'string' }
+          }
+        }
+      }
+    };
+
+    expect(resolveSchemaRef({
+      $ref: '#/sharedDefinitions/LLMDescriptor'
+    }, root)).toEqual({
+      $ref: '#/sharedDefinitions/LLMDescriptor',
+      type: 'object',
+      properties: {
+        provider: { type: 'string' },
+        model: { type: 'string' }
+      }
+    });
+  });
+
   it('getValueByPath resolves nested values', () => {
     expect(getValueByPath({ llm: { enabled: true } }, 'llm.enabled')).toBe(true);
     expect(getValueByPath({ llm: { enabled: true } }, 'llm.missing')).toBeUndefined();
