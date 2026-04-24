@@ -49,9 +49,11 @@
 
 .app-shell {
   display: flex;
-  flex: 1;
+  flex: 1 1 auto;
   flex-direction: column;
-  height: 100vh;
+  box-sizing: border-box;
+  height: 100%;
+  min-height: 0;
   overflow: hidden;
   padding-top: 112px;
 }
@@ -61,6 +63,8 @@
 }
 
 .app-main-content {
+  display: flex;
+  flex-direction: column;
   width: 100%;
   flex: 1 1 auto;
   min-height: 0;

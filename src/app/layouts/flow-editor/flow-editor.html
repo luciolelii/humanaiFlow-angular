@@ -1,10 +1,10 @@
-<div class="flex flex-col flex-1 h-full">
+<div class="flex flex-col flex-1 h-full min-h-0 min-w-0">
 
   <!-- HEADER -->
   <!--<app-header></app-header> -->
 
   <!-- BODY -->
-  <div class="flex flex-row flex-1 overflow-hidden">
+  <div class="flex flex-row flex-1 min-h-0 min-w-0 overflow-hidden">
 
     <!-- LEFT SIDEBAR -->
     <div data-tour="editor-sidebar">
@@ -27,7 +27,29 @@
       } @else {
       <div class="flow-editor-empty">
         <h2>No flow selected</h2>
+        @if (assistantEnabled) {
+        <p>Open an existing flow from the sidebar, create a new one, or ask the assistant to draft one to start editing.</p>
+        } @else {
         <p>Open an existing flow from the sidebar or create a new one to start editing.</p>
+        }
+        <div class="flow-editor-empty-actions">
+          <button
+            type="button"
+            mat-flat-button
+            color="primary"
+            [disabled]="creatingFlowFromEmpty()"
+            (click)="createFlowFromEmpty()">
+            <mat-icon fontIcon="add"></mat-icon>
+            New one
+          </button>
+          <button
+            type="button"
+            mat-stroked-button
+            (click)="openFlowsSidebar()">
+            <mat-icon fontIcon="menu_open"></mat-icon>
+            Open flows
+          </button>
+        </div>
       </div>
       }
     </main>

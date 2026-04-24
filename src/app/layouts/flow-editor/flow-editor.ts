@@ -47,6 +47,7 @@ export class FlowEditor {
   assistantEnabled = environment.assistantEnabled;
   assistantOpen = signal(true);
   activeRightPanel = signal<'assistant' | 'errors'>('assistant');
+  creatingFlowFromEmpty = signal(false);
   flow = this.editorState.currentFlow; 
   readonly = this.editorState.isCurrentFlowReadOnly;
   validationErrors = this.editorState.flowValidationErrors;
@@ -182,6 +183,24 @@ export class FlowEditor {
 
   async skipTour() {
     await this.closeTour(true);
+  }
+
+  openFlowsSidebar() {
+    this.editorSidebar?.openSide('flows');
+  }
+
+  async createFlowFromEmpty() {
+    if (this.creatingFlowFromEmpty()) return;
+    this.creatingFlowFromEmpty.set(true);
+    try {
+      const flow = await firstValueFrom(this.flowsService.createNewFlow());
+      await this.editorState.openDocument(flow, { skipDirtyCheck: true });
+      this.openFlowsSidebar();
+    } catch (err) {
+      console.error('Failed to create flow from empty state', err);
+    } finally {
+      this.creatingFlowFromEmpty.set(false);
+    }
   }
 
   private async startTourIfNeeded() {
