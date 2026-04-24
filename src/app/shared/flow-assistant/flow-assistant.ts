@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, inject, OnDestroy, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, ElementRef, inject, OnDestroy, OnInit, signal, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -17,6 +17,7 @@ import {
 import { Flow } from '@models/flow';
 import { AssistantService } from '@services/assistant/assistant';
 import { Authorization } from '@services/authorization/authorization';
+import { AssistantSessionStore } from '@stores/assistant-session-store';
 import { EditorStateHolder } from '@stores/flow-editor';
 import { finalize, interval, Subscription, switchMap, take } from 'rxjs';
 
@@ -28,10 +29,16 @@ import { finalize, interval, Subscription, switchMap, take } from 'rxjs';
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class FlowAssistant implements OnInit, OnDestroy {
+  @ViewChild('assistantScroll') assistantScrollElement?: ElementRef<HTMLDivElement>;
+
   private readonly assistant = inject(AssistantService);
   private readonly editorState = inject(EditorStateHolder);
   private readonly authorization = inject(Authorization);
+  private readonly sessionStore = inject(AssistantSessionStore);
   private pollSubscription: Subscription | null = null;
+  private initialized = false;
+  private activeFlowKey: string | null = null;
+  private lastAutoScrollKey = '';
 
   readonly assistantConfig = signal<AssistantConfig | null>(null);
   readonly sessionState = signal<AssistantSessionState | null>(null);
@@ -137,11 +144,39 @@ export class FlowAssistant implements OnInit, OnDestroy {
   readonly currentFlow = this.editorState.currentFlow;
   readonly currentDraft = computed(() => this.sessionState()?.currentDraftFlow ?? null);
 
+  constructor() {
+    effect(() => {
+      const flowKey = this.resolveFlowKey(this.currentFlow()?.id ?? null);
+      if (!this.initialized || this.activeFlowKey === flowKey) return;
+
+      const previousFlowKey = this.activeFlowKey;
+      if (previousFlowKey) {
+        this.persistSnapshot(previousFlowKey);
+      }
+
+      this.activeFlowKey = flowKey;
+      void this.restoreSessionForFlow(flowKey);
+    });
+
+    effect(() => {
+      const messages = this.displayedMessages();
+      const lastMessageId = messages[messages.length - 1]?.id ?? '';
+      const busy = this.assistantBusy();
+      const nextKey = `${messages.length}:${lastMessageId}:${busy ? '1' : '0'}`;
+      if (nextKey === this.lastAutoScrollKey) return;
+      this.lastAutoScrollKey = nextKey;
+      this.scheduleScrollToLatestMessage();
+    });
+  }
+
   ngOnInit(): void {
     this.bootstrapAssistant();
   }
 
   ngOnDestroy(): void {
+    if (this.activeFlowKey) {
+      this.persistSnapshot(this.activeFlowKey);
+    }
     this.stopPolling();
   }
 
@@ -153,14 +188,17 @@ export class FlowAssistant implements OnInit, OnDestroy {
 
   useStarter(prompt: string) {
     this.prompt.set(prompt);
+    this.persistSnapshot();
   }
 
   toggleQuickPrompts() {
     this.quickPromptsOpen.update((value) => !value);
+    this.persistSnapshot();
   }
 
   toggleModelPicker() {
     this.modelPickerOpen.update((value) => !value);
+    this.persistSnapshot();
   }
 
   submitPrompt() {
@@ -176,6 +214,7 @@ export class FlowAssistant implements OnInit, OnDestroy {
         content
       }
     ]);
+    this.persistSnapshot();
 
     this.assistant.sendMessage(sessionId, { message: content }).pipe(
       take(1)
@@ -187,6 +226,7 @@ export class FlowAssistant implements OnInit, OnDestroy {
           status: 'QUEUED',
           phase: 'queued'
         });
+        this.persistSnapshot();
         this.startPolling(callId, sessionId);
       },
       error: (err) => {
@@ -230,7 +270,9 @@ export class FlowAssistant implements OnInit, OnDestroy {
           this.modelsError.set('No assistant model is available.');
           return;
         }
-        void this.openSession(selectedModel);
+        this.activeFlowKey = this.resolveFlowKey(this.currentFlow()?.id ?? null);
+        this.initialized = true;
+        void this.restoreSessionForFlow(this.activeFlowKey);
       },
       error: (err) => {
         console.error('Assistant model loading failed', err);
@@ -242,7 +284,7 @@ export class FlowAssistant implements OnInit, OnDestroy {
     });
   }
 
-  private async openSession(model: string) {
+  private async openSession(model: string, flowKey = this.activeFlowKey ?? this.resolveFlowKey(this.currentFlow()?.id ?? null)) {
     this.stopPolling();
     this.currentCall.set(null);
     this.localMessages.set([]);
@@ -254,6 +296,7 @@ export class FlowAssistant implements OnInit, OnDestroy {
     ).subscribe({
       next: (session) => {
         this.applySessionState(session);
+        this.persistSnapshot(flowKey);
       },
       error: (err) => {
         console.error('Assistant session creation failed', err);
@@ -269,6 +312,7 @@ export class FlowAssistant implements OnInit, OnDestroy {
     ).subscribe({
       next: (callState) => {
         this.currentCall.set(callState);
+        this.persistSnapshot();
         if (callState.status === 'COMPLETED' || callState.status === 'FAILED') {
           this.stopPolling();
           void this.reloadSession(sessionId, callState.status === 'FAILED' ? callState.errorMessage : undefined);
@@ -289,6 +333,7 @@ export class FlowAssistant implements OnInit, OnDestroy {
       next: (session) => {
         this.applySessionState(session);
         this.currentCall.set(null);
+        this.persistSnapshot();
         if (failureMessage) {
           this.pushLocalAssistantMessage(failureMessage);
         }
@@ -301,7 +346,7 @@ export class FlowAssistant implements OnInit, OnDestroy {
     });
   }
 
-  private applySessionState(session: AssistantSessionState) {
+  private applySessionState(session: AssistantSessionState, options?: { clearLocalMessages?: boolean; syncDraftToEditor?: boolean }) {
     const normalizedSession = session.messages.length
       ? session
       : {
@@ -311,8 +356,13 @@ export class FlowAssistant implements OnInit, OnDestroy {
 
     this.sessionState.set(normalizedSession);
     this.selectedModel.set(normalizedSession.selectedModel || this.selectedModel());
-    this.localMessages.set([]);
-    this.syncDraftToEditor(normalizedSession.currentDraftFlow);
+    if (options?.clearLocalMessages !== false) {
+      this.localMessages.set([]);
+    }
+    if (options?.syncDraftToEditor !== false) {
+      this.syncDraftToEditor(normalizedSession.currentDraftFlow);
+    }
+    this.persistSnapshot();
   }
 
   private syncDraftToEditor(draft: AssistantDraftPayload | null) {
@@ -325,6 +375,11 @@ export class FlowAssistant implements OnInit, OnDestroy {
       this.editorState.loadAssistantFlow(nextFlow, { markDirty: true });
       return;
     }
+
+    const currentFlowKey = this.activeFlowKey ?? this.resolveFlowKey(currentFlow?.id ?? null);
+    const nextFlowKey = this.resolveFlowKey(nextFlow.id);
+    this.persistSnapshot(currentFlowKey);
+    this.sessionStore.cloneSnapshot(currentFlowKey, nextFlowKey);
 
     void this.editorState.openDocument(nextFlow, { skipDirtyCheck: false }).then((opened) => {
       if (!opened) {
@@ -363,6 +418,7 @@ export class FlowAssistant implements OnInit, OnDestroy {
         content
       }
     ]);
+    this.persistSnapshot();
   }
 
   private systemWelcomeMessage(): AssistantChatMessage {
@@ -373,6 +429,103 @@ export class FlowAssistant implements OnInit, OnDestroy {
         ? 'Select a model, then ask me to create a new workflow.'
         : 'Select a model, then ask me to refine, fix, or explain the current workflow.'
     };
+  }
+
+  private async restoreSessionForFlow(flowKey: string) {
+    this.stopPolling();
+    this.currentCall.set(null);
+
+    const snapshot = this.sessionStore.getSnapshot(flowKey);
+    if (!snapshot) {
+      this.prompt.set('');
+      this.modelPickerOpen.set(false);
+      this.quickPromptsOpen.set(true);
+      this.sessionState.set(null);
+      this.localMessages.set([]);
+      const model = this.selectedModel();
+      if (!model) {
+        this.sessionLoading.set(false);
+        return;
+      }
+      void this.openSession(model, flowKey);
+      return;
+    }
+
+    this.prompt.set(snapshot.prompt);
+    this.modelPickerOpen.set(snapshot.modelPickerOpen);
+    this.quickPromptsOpen.set(snapshot.quickPromptsOpen);
+    this.localMessages.set(snapshot.localMessages);
+    this.currentCall.set(null);
+    if (snapshot.selectedModel) {
+      this.selectedModel.set(snapshot.selectedModel);
+    }
+    if (snapshot.sessionState) {
+      this.sessionState.set(snapshot.sessionState);
+    } else {
+      this.sessionState.set(null);
+    }
+
+    if (!snapshot.sessionId) {
+      const model = this.selectedModel();
+      if (!model) {
+        this.sessionLoading.set(false);
+        return;
+      }
+      void this.openSession(model, flowKey);
+      return;
+    }
+
+    this.sessionLoading.set(true);
+    this.assistant.getSession(snapshot.sessionId).pipe(
+      take(1),
+      finalize(() => this.sessionLoading.set(false))
+    ).subscribe({
+      next: (session) => {
+        this.applySessionState(session, {
+          clearLocalMessages: false,
+          syncDraftToEditor: !this.currentFlow()?.id
+        });
+      },
+      error: (err) => {
+        console.error('Assistant session restore failed', err);
+        const model = this.selectedModel();
+        if (!model) return;
+        void this.openSession(model, flowKey);
+      }
+    });
+  }
+
+  private resolveFlowKey(flowId: string | null | undefined): string {
+    return this.sessionStore.flowKey(flowId);
+  }
+
+  private persistSnapshot(flowKey = this.activeFlowKey ?? this.resolveFlowKey(this.currentFlow()?.id ?? null)) {
+    this.sessionStore.setSnapshot(flowKey, {
+      sessionId: this.sessionState()?.id ?? null,
+      selectedModel: this.selectedModel(),
+      prompt: this.prompt(),
+      modelPickerOpen: this.modelPickerOpen(),
+      quickPromptsOpen: this.quickPromptsOpen(),
+      localMessages: this.localMessages(),
+      currentCall: this.currentCall(),
+      sessionState: this.sessionState()
+    });
+  }
+
+  private scheduleScrollToLatestMessage() {
+    queueMicrotask(() => {
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(() => this.scrollToLatestMessage());
+        return;
+      }
+      setTimeout(() => this.scrollToLatestMessage(), 0);
+    });
+  }
+
+  private scrollToLatestMessage() {
+    const container = this.assistantScrollElement?.nativeElement;
+    if (!container) return;
+    container.scrollTop = container.scrollHeight;
   }
 
   private stopPolling() {
