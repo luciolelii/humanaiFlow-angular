@@ -2,8 +2,8 @@
   @if (execution()) {
   <div class="h-full bg-white border border-slate-200 rounded-md flex flex-col overflow-hidden">
     <div class="px-5 pt-2 border-b border-slate-200 bg-slate-50">
-      <div class="flex items-stretch justify-between gap-3">
-        <div>
+      <div class="execution-header-main">
+        <div class="execution-header-details">
           <h2 class="text-base font-semibold text-slate-900">{{ execution()!.name }}</h2>
           <p class="text-sm text-slate-500">Execution ID: {{ execution()!.id }}</p>
           @if (isSimulatedExecution()) {
@@ -12,46 +12,6 @@
           <p class="text-xs text-sky-900">Simulator: {{ simulationDescriptor }}</p>
           }
           }
-        </div>
-        <div class="flex items-stretch gap-2">
-          @if (execution()!.simulationAvailable === true) {
-          <button
-            type="button"
-            class="self-stretch h-full rounded-md border border-sky-300 bg-sky-50 px-3 text-sky-700 hover:bg-sky-100 disabled:opacity-40 disabled:cursor-not-allowed"
-            matTooltip="Simulate execution"
-            aria-label="Simulate execution"
-            [disabled]="!canSimulateExecution()"
-            (click)="simulateExecution()">
-            Simulate
-          </button>
-          }
-          <button
-            type="button"
-            class="self-stretch h-full rounded-md border border-violet-300 bg-violet-50 px-3 text-violet-700 hover:bg-violet-100 disabled:opacity-40 disabled:cursor-not-allowed"
-            matTooltip="Resume execution"
-            aria-label="Resume execution"
-            [disabled]="!canResumeExecution()"
-            (click)="resumeExecution()">
-            Resume
-          </button>
-          <button
-            type="button"
-            class="self-stretch h-full w-10 rounded-md border border-rose-300 bg-rose-50 text-rose-600 hover:bg-rose-100 disabled:opacity-40 disabled:cursor-not-allowed"
-            matTooltip="Cancel execution"
-            aria-label="Cancel execution"
-            [disabled]="!canCancelExecution()"
-            (click)="cancelExecution()">
-            <mat-icon fontIcon="stop"></mat-icon>
-          </button>
-          <button
-            type="button"
-            class="self-stretch h-full w-10 rounded-md border border-emerald-300 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 disabled:opacity-40 disabled:cursor-not-allowed"
-            matTooltip="Start execution"
-            aria-label="Start execution"
-            [disabled]="!canStartExecution() || startInProgress()"
-            (click)="startExecution()">
-            <mat-icon fontIcon="play_arrow"></mat-icon>
-          </button>
         </div>
       </div>
     </div>
@@ -90,9 +50,49 @@
     </div>
     }
     <div class="flex-1 min-h-0 flex gap-2 p-1">
-      <div class="flex-1 border border-slate-200 rounded-md bg-slate-50 min-h-0 overflow-hidden">
+      <div class="execution-graph-shell flex-1 border border-slate-200 rounded-md bg-slate-50 min-h-0 overflow-hidden">
         <div class="px-3 py-2 text-xs font-semibold text-slate-600 border-b border-slate-200 bg-white">Execution Graph (read-only)</div>
-        <div class="h-[calc(100%-33px)] execution-rete-readonly">
+        <div class="execution-graph-body h-[calc(100%-33px)] execution-rete-readonly">
+          <div class="execution-graph-actions">
+            <button
+              type="button"
+              class="execution-action-button execution-graph-action-button execution-action-button-play"
+              matTooltip="Start execution"
+              aria-label="Start execution"
+              [disabled]="!canStartExecution() || startInProgress()"
+              (click)="startExecution()">
+              <mat-icon fontIcon="play_arrow"></mat-icon>
+            </button>
+            <button
+              type="button"
+              class="execution-action-button execution-graph-action-button execution-action-button-stop"
+              matTooltip="Cancel execution"
+              aria-label="Cancel execution"
+              [disabled]="!canCancelExecution()"
+              (click)="cancelExecution()">
+              <mat-icon fontIcon="stop"></mat-icon>
+            </button>
+            <button
+              type="button"
+              class="execution-action-button execution-graph-action-button execution-action-button-resume"
+              matTooltip="Resume execution"
+              aria-label="Resume execution"
+              [disabled]="!canResumeExecution()"
+              (click)="resumeExecution()">
+              <mat-icon fontIcon="restart_alt"></mat-icon>
+            </button>
+            @if (execution()!.simulationAvailable === true) {
+            <button
+              type="button"
+              class="execution-action-button execution-graph-action-button execution-action-button-simulate"
+              matTooltip="Simulate execution"
+              aria-label="Simulate execution"
+              [disabled]="!canSimulateExecution()"
+              (click)="simulateExecution()">
+              <mat-icon fontIcon="science"></mat-icon>
+            </button>
+            }
+          </div>
           <app-rete-editor
             [flowId]="execution()!.id"
             [flowData]="executionFlowData()"
