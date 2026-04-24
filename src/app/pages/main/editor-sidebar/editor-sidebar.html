@@ -51,13 +51,23 @@
       <div data-tour="editor-sidebar-flows" class="h-full min-h-0 flex flex-col">
       <app-group-holder title="Flows" icon="bi-lightning-charge-fill">
         @if (!creatingFlow()) {
-        <i ngProjectAs="header-button" 
-          class="bi bi-plus-circle-fill text-blue-600 hover:cursor-pointer hover:text-blue-400 text-lg"
-          (click)="createNewFlow()"></i>
+        <button
+          ngProjectAs="header-button"
+          type="button"
+          class="editor-sidebar-new-flow-button"
+          (click)="createNewFlow()"
+          aria-label="Create new flow">
+          New
+        </button>
         } @else {
-        <span ngProjectAs="header-button" class="spinner-border spinner-border-sm text-blue-600" role="status">
-          <span class="visually-hidden">Creating flow...</span>
-        </span>
+        <button
+          ngProjectAs="header-button"
+          type="button"
+          class="editor-sidebar-new-flow-button editor-sidebar-new-flow-button-loading"
+          disabled>
+          <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+          <span>New</span>
+        </button>
         }
         <app-flows-list></app-flows-list>
       </app-group-holder>

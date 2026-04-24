@@ -15,3 +15,34 @@
 .enabled:hover {
  background-color: var(--color-gray-100) ;
 }
+
+.editor-sidebar-new-flow-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 56px;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid #2563eb;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.editor-sidebar-new-flow-button:hover:not(:disabled) {
+  background: #dbeafe;
+  border-color: #1d4ed8;
+}
+
+.editor-sidebar-new-flow-button:disabled {
+  opacity: 0.75;
+  cursor: not-allowed;
+}
+
+.editor-sidebar-new-flow-button-loading {
+  gap: 6px;
+}
