@@ -318,20 +318,18 @@
     @if (arrayFields.length) {
     <div class="llm-array-sections">
       @for (arrayField of arrayFields; track arrayField.path) {
+      @if (arrayField.items.length) {
       <div class="llm-array-block">
         <div class="llm-param-row-head">
           <div class="llm-param-key">{{ arrayField.label }}</div>
         </div>
-        @if (!arrayField.items.length) {
-        <div class="llm-array-empty">No items</div>
-        } @else {
-          @for (item of arrayField.items; track item.index) {
-          <div class="llm-array-item">
-            <span class="llm-array-item-summary">{{ item.summary }}</span>
-          </div>
-          }
+        @for (item of arrayField.items; track item.index) {
+        <div class="llm-array-item">
+          <span class="llm-array-item-summary">{{ item.summary }}</span>
+        </div>
         }
       </div>
+      }
       }
     </div>
     }
