@@ -18,6 +18,7 @@ import {
   getOutputsTitle,
   isConditionalByPorts,
   isHumanInteractiveNode,
+  orderedSchemaPropertyEntries,
   parentPath,
   pathToLabel,
   readUiConditionRule,
@@ -811,14 +812,14 @@ export class TaskStepNodeComponent {
       const resolved = resolveSchemaRef(node, schema);
       if (!resolved || typeof resolved !== 'object') return;
 
-      const properties = resolved.properties as Record<string, any> | undefined;
-      if (!properties) return;
+      const properties = orderedSchemaPropertyEntries(resolved, schema);
+      if (!properties.length) return;
 
-      for (const [key, childSchema] of Object.entries(properties)) {
-        const childResolved = resolveSchemaRef(childSchema as Record<string, any>, schema);
+      for (const { key, schema: childResolved } of properties) {
+        if (!childResolved) continue;
         const path = pathPrefix ? `${pathPrefix}.${key}` : key;
 
-        if (childResolved?.type === 'array') {
+        if (childResolved?.['type'] === 'array') {
           if (shouldSkipSchemaField(key, childResolved) || key === 'name' || seen.has(path)) {
             continue;
           }
@@ -831,7 +832,7 @@ export class TaskStepNodeComponent {
           continue;
         }
 
-        const hasChildren = !!childResolved?.properties || childResolved?.type === 'object';
+        const hasChildren = !!childResolved?.['properties'] || childResolved?.['type'] === 'object';
         if (hasChildren) {
           walk(childResolved as Record<string, any>, path);
         }
@@ -932,7 +933,7 @@ export class TaskStepNodeComponent {
     if (!properties) return `Item ${index + 1}`;
 
     const summaryParts: string[] = [];
-    for (const key of Object.keys(properties)) {
+    for (const { key } of orderedSchemaPropertyEntries(definition.itemSchema, this.blockSchema ?? definition.itemSchema ?? {})) {
       const value = (item as Record<string, unknown>)[key];
       if (value == null) continue;
       if (typeof value === 'string' && value.trim().length > 0) {

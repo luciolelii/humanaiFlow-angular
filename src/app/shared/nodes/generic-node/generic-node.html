@@ -228,22 +228,22 @@
       </div>
     </div>
     }
-    @if (parameterFieldGroups.length) {
-    <div class="llm-param-groups">
-      @for (group of parameterFieldGroups; track group.key) {
+    @for (section of parameterDisplaySections; track section.key) {
+      @if (section.group; as group) {
       <fieldset class="llm-param-fieldset">
         <legend class="llm-param-legend">{{ group.legend }}</legend>
         <div class="llm-param-grid">
-          @for (field of group.fields; track field.path) {
-          <div class="llm-param-chip" [class.llm-param-chip-wide]="field.wide" [class.llm-param-chip-disabled]="!field.enabled">
+          @for (item of group.items; track item.path) {
+          @if (item.field; as field) {
+          <div class="llm-param-chip" [class.llm-param-chip-wide]="field.wide" [class.llm-param-chip-boolean]="field.type === 'boolean'" [class.llm-param-chip-disabled]="!field.enabled">
             <div class="llm-param-row-head">
               <span class="llm-param-key">{{ field.label }}</span>
-              @if (field.type === 'boolean' && !isReadonly) {
+              @if (field.type === 'boolean') {
               <button
                 type="button"
                 class="llm-bool-toggle"
                 [class.llm-bool-toggle-on]="field.booleanValue"
-                [disabled]="!field.enabled"
+                [disabled]="isReadonly || !field.enabled"
                 [attr.aria-pressed]="field.booleanValue"
                 [attr.title]="'Toggle ' + field.label.toLowerCase()"
                 (pointerdown)="$event.stopPropagation()"
@@ -271,27 +271,109 @@
               </button>
               }
             </div>
-            <span class="llm-param-value" [class.llm-param-value-clamped]="field.expandable">{{ field.type === 'boolean' ? (field.booleanValue ? 'Enabled' : 'Disabled') : field.value }}</span>
+            @if (field.type !== 'boolean') {
+            <span class="llm-param-value" [class.llm-param-value-clamped]="field.expandable">{{ field.value }}</span>
+            }
           </div>
+          } @else {
+          @if (item.richContentField; as contentField) {
+          <div class="llm-param-block llm-param-chip llm-param-chip-wide">
+            <div class="llm-param-row-head">
+              <div class="llm-param-key">{{ contentField.label }}</div>
+              @if (!isReadonly) {
+              <button type="button" class="llm-edit-btn" [attr.title]="'Edit ' + contentField.label.toLowerCase()" (pointerdown)="$event.stopPropagation()" (click)="openMainContentEditor(contentField.path, $event)">
+                <i class="bi bi-pen"></i>
+              </button>
+              } @else if (contentField.expandable) {
+              <button
+                type="button"
+                class="llm-param-view-btn"
+                aria-label="View full value"
+                (pointerdown)="$event.stopPropagation()"
+                (click)="openMainContentPreview(contentField, $event)">
+                <i class="bi bi-eye"></i>
+              </button>
+              }
+            </div>
+            <div class="llm-param-text" [class.llm-param-text-clamped]="contentField.expandable">
+              @if (!contentField.parts.length) {
+              -
+              } @else {
+                @for (part of contentField.parts; track $index) {
+                  @if (part.isDynamicInput) {
+                  <span class="llm-inline-token">{{ formatDynamicInputToken(part.text) }}</span>
+                  } @else {
+                  <span>{{ part.text }}</span>
+                  }
+                }
+              }
+            </div>
+          </div>
+          }
+          @if (item.arrayField; as arrayField) {
+          <div class="llm-array-block llm-param-chip llm-param-chip-wide">
+            <div class="llm-param-row-head">
+              <div class="llm-param-key">{{ arrayField.label }}</div>
+              @if (!isReadonly) {
+              <button
+                type="button"
+                class="llm-edit-btn"
+                [attr.title]="'Add ' + arrayField.label.toLowerCase()"
+                (pointerdown)="$event.stopPropagation()"
+                (click)="addArrayItem(arrayField.path, $event)">
+                <i class="bi bi-plus-lg"></i>
+              </button>
+              }
+            </div>
+            @if (!arrayField.items.length) {
+            <div class="llm-array-empty">No items</div>
+            } @else {
+              @for (entry of arrayField.items; track entry.index) {
+              <div class="llm-array-item">
+                <span class="llm-array-item-summary">{{ entry.summary }}</span>
+                <div class="llm-array-item-actions">
+                  @if (!isReadonly) {
+                  <button
+                    type="button"
+                    class="llm-edit-btn"
+                    title="Edit item"
+                    (pointerdown)="$event.stopPropagation()"
+                    (click)="editArrayItem(arrayField.path, entry.index, $event)">
+                    <i class="bi bi-pen"></i>
+                  </button>
+                  }
+                  @if (!isReadonly) {
+                  <button
+                    type="button"
+                    class="llm-edit-btn llm-array-remove-btn"
+                    title="Remove item"
+                    (pointerdown)="$event.stopPropagation()"
+                    (click)="removeArrayItem(arrayField.path, entry.index, $event)">
+                    <i class="bi bi-trash"></i>
+                  </button>
+                  }
+                </div>
+              </div>
+              }
+            }
+          </div>
+          }
+          }
           }
         </div>
       </fieldset>
-      }
-    </div>
-    }
-
-    @if (parameterFields.length) {
+      } @else if (section.item; as item) {
     <div class="llm-param-grid">
-      @for (field of parameterFields; track field.path) {
-      <div class="llm-param-chip" [class.llm-param-chip-wide]="field.wide" [class.llm-param-chip-disabled]="!field.enabled">
+      @if (item.field; as field) {
+      <div class="llm-param-chip llm-param-chip-root" [class.llm-param-chip-wide]="field.wide" [class.llm-param-chip-boolean]="field.type === 'boolean'" [class.llm-param-chip-disabled]="!field.enabled">
         <div class="llm-param-row-head">
           <span class="llm-param-key">{{ field.label }}</span>
-          @if (field.type === 'boolean' && !isReadonly) {
+          @if (field.type === 'boolean') {
           <button
             type="button"
             class="llm-bool-toggle"
             [class.llm-bool-toggle-on]="field.booleanValue"
-            [disabled]="!field.enabled"
+            [disabled]="isReadonly || !field.enabled"
             [attr.aria-pressed]="field.booleanValue"
             [attr.title]="'Toggle ' + field.label.toLowerCase()"
             (pointerdown)="$event.stopPropagation()"
@@ -319,53 +401,47 @@
           </button>
           }
         </div>
-        <span class="llm-param-value" [class.llm-param-value-clamped]="field.expandable">{{ field.type === 'boolean' ? (field.booleanValue ? 'Enabled' : 'Disabled') : field.value }}</span>
-      </div>
-      }
-    </div>
-    }
-
-    @if (hasMainContent()) {
-      @for (contentField of richContentFields; track contentField.path) {
-    <div class="llm-param-block">
-      <div class="llm-param-row-head">
-        <div class="llm-param-key">{{ contentField.label }}</div>
-        @if (!isReadonly) {
-        <button type="button" class="llm-edit-btn" [attr.title]="'Edit ' + contentField.label.toLowerCase()" (pointerdown)="$event.stopPropagation()" (click)="openMainContentEditor(contentField.path, $event)">
-          <i class="bi bi-pen"></i>
-        </button>
-        } @else if (contentField.expandable) {
-        <button
-          type="button"
-          class="llm-param-view-btn"
-          aria-label="View full value"
-          (pointerdown)="$event.stopPropagation()"
-          (click)="openMainContentPreview(contentField, $event)">
-          <i class="bi bi-eye"></i>
-        </button>
+        @if (field.type !== 'boolean') {
+        <span class="llm-param-value" [class.llm-param-value-clamped]="field.expandable">{{ field.value }}</span>
         }
       </div>
-      <div class="llm-param-text" [class.llm-param-text-clamped]="contentField.expandable">
-        @if (!contentField.parts.length) {
-        -
-        } @else {
-          @for (part of contentField.parts; track $index) {
-            @if (part.isDynamicInput) {
-            <span class="llm-inline-token">{{ formatDynamicInputToken(part.text) }}</span>
-            } @else {
-            <span>{{ part.text }}</span>
+      } @else {
+      @if (item.richContentField; as contentField) {
+      <div class="llm-param-block llm-param-chip llm-param-chip-wide">
+        <div class="llm-param-row-head">
+          <div class="llm-param-key">{{ contentField.label }}</div>
+          @if (!isReadonly) {
+          <button type="button" class="llm-edit-btn" [attr.title]="'Edit ' + contentField.label.toLowerCase()" (pointerdown)="$event.stopPropagation()" (click)="openMainContentEditor(contentField.path, $event)">
+            <i class="bi bi-pen"></i>
+          </button>
+          } @else if (contentField.expandable) {
+          <button
+            type="button"
+            class="llm-param-view-btn"
+            aria-label="View full value"
+            (pointerdown)="$event.stopPropagation()"
+            (click)="openMainContentPreview(contentField, $event)">
+            <i class="bi bi-eye"></i>
+          </button>
+          }
+        </div>
+        <div class="llm-param-text" [class.llm-param-text-clamped]="contentField.expandable">
+          @if (!contentField.parts.length) {
+          -
+          } @else {
+            @for (part of contentField.parts; track $index) {
+              @if (part.isDynamicInput) {
+              <span class="llm-inline-token">{{ formatDynamicInputToken(part.text) }}</span>
+              } @else {
+              <span>{{ part.text }}</span>
+              }
             }
           }
-        }
+        </div>
       </div>
-    </div>
       }
-    }
-
-    @if (arrayFields.length) {
-    <div class="llm-array-sections">
-      @for (arrayField of arrayFields; track arrayField.path) {
-      <div class="llm-array-block">
+      @if (item.arrayField; as arrayField) {
+      <div class="llm-array-block llm-param-chip llm-param-chip-wide">
         <div class="llm-param-row-head">
           <div class="llm-param-key">{{ arrayField.label }}</div>
           @if (!isReadonly) {
@@ -382,9 +458,9 @@
         @if (!arrayField.items.length) {
         <div class="llm-array-empty">No items</div>
         } @else {
-          @for (item of arrayField.items; track item.index) {
+          @for (entry of arrayField.items; track entry.index) {
           <div class="llm-array-item">
-            <span class="llm-array-item-summary">{{ item.summary }}</span>
+            <span class="llm-array-item-summary">{{ entry.summary }}</span>
             <div class="llm-array-item-actions">
               @if (!isReadonly) {
               <button
@@ -392,7 +468,7 @@
                 class="llm-edit-btn"
                 title="Edit item"
                 (pointerdown)="$event.stopPropagation()"
-                (click)="editArrayItem(arrayField.path, item.index, $event)">
+                (click)="editArrayItem(arrayField.path, entry.index, $event)">
                 <i class="bi bi-pen"></i>
               </button>
               }
@@ -402,7 +478,7 @@
                 class="llm-edit-btn llm-array-remove-btn"
                 title="Remove item"
                 (pointerdown)="$event.stopPropagation()"
-                (click)="removeArrayItem(arrayField.path, item.index, $event)">
+                (click)="removeArrayItem(arrayField.path, entry.index, $event)">
                 <i class="bi bi-trash"></i>
               </button>
               }
@@ -412,7 +488,9 @@
         }
       </div>
       }
+      }
     </div>
+      }
     }
   </div>
 

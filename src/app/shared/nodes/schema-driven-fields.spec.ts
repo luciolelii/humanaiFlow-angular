@@ -1,4 +1,5 @@
 import {
+  buildOrderedSchemaDisplay,
   buildSchemaEditableFieldDefinitions,
   buildSchemaFieldViewModel,
   buildSchemaRetrieverContext,
@@ -138,6 +139,71 @@ describe('schema-driven-fields', () => {
     ]);
   });
 
+  it('orders editable schema field definitions using x-ui-property-order and x-ui-order', () => {
+    const definitions = buildSchemaEditableFieldDefinitions({
+      type: 'object',
+      'x-ui-property-order': ['name', 'subFlow', 'maxIterations', 'useLlm', 'guardCondition', 'llmDescriptor', 'guardPrompt'],
+      properties: {
+        guardPrompt: {
+          type: 'string'
+        },
+        type: {
+          type: 'string'
+        },
+        llmDescriptor: {
+          type: 'object',
+          properties: {
+            model: {
+              type: 'string',
+              'x-ui-order': 20
+            },
+            provider: {
+              type: 'string',
+              'x-ui-order': 10
+            }
+          }
+        },
+        extraAlpha: {
+          type: 'string',
+          'x-ui-order': 50
+        },
+        maxIterations: {
+          type: 'integer'
+        },
+        guardCondition: {
+          type: 'string'
+        },
+        extraBeta: {
+          type: 'string'
+        },
+        name: {
+          type: 'string'
+        },
+        subFlow: {
+          type: 'string'
+        },
+        useLlm: {
+          type: 'boolean'
+        }
+      }
+    }, {
+      shouldSkip: ({ key }) => key === 'type'
+    });
+
+    expect(definitions.map((definition) => definition.path)).toEqual([
+      'name',
+      'subFlow',
+      'maxIterations',
+      'useLlm',
+      'guardCondition',
+      'llmDescriptor.provider',
+      'llmDescriptor.model',
+      'guardPrompt',
+      'extraAlpha',
+      'extraBeta'
+    ]);
+  });
+
   it('builds grouped schema field view models', () => {
     const result = buildSchemaFieldViewModel({
       definitions: [
@@ -171,6 +237,80 @@ describe('schema-driven-fields', () => {
     expect(result.parameterFieldGroups).toHaveLength(1);
     expect(result.parameterFieldGroups[0].fields.map((field) => field.path)).toEqual(['useLlm']);
     expect(result.richContentFields.map((field) => field.path)).toEqual(['prompt']);
+  });
+
+  it('builds ordered display sections without pushing rich content into grouped fieldsets', () => {
+    const result = buildOrderedSchemaDisplay({
+      definitions: [
+        { path: 'name' },
+        { path: 'llmDescriptor.provider' },
+        { path: 'llmDescriptor.model' },
+        { path: 'prompt' },
+        { path: 'examples' }
+      ],
+      fields: [
+        {
+          path: 'name',
+          label: 'Name',
+          value: 'Conditional',
+          wide: false,
+          expandable: false,
+          enabled: true,
+          type: 'string' as const,
+          booleanValue: false
+        },
+        {
+          path: 'llmDescriptor.provider',
+          label: 'Provider',
+          value: 'OpenAI',
+          wide: false,
+          expandable: false,
+          enabled: true,
+          type: 'string' as const,
+          booleanValue: false
+        },
+        {
+          path: 'llmDescriptor.model',
+          label: 'Model',
+          value: 'gpt-5.4',
+          wide: false,
+          expandable: false,
+          enabled: true,
+          type: 'string' as const,
+          booleanValue: false
+        }
+      ],
+      richContentFields: [
+        {
+          path: 'prompt',
+          label: 'Prompt',
+          rawValue: 'Decide true or false',
+          expandable: false,
+          parts: [{ text: 'Decide true or false', isDynamicInput: false }]
+        }
+      ],
+      arrayFields: [
+        {
+          path: 'examples',
+          label: 'Examples',
+          items: [{ index: 0, summary: 'Example 1' }]
+        }
+      ],
+      resolveGroupLabel: (path) => path.startsWith('llmDescriptor.') ? 'llm' : null
+    });
+
+    expect(result.rootItems.map((item) => item.path)).toEqual(['name', 'prompt', 'examples']);
+    expect(result.groups).toHaveLength(1);
+    expect(result.groups[0].items.map((item) => item.path)).toEqual([
+      'llmDescriptor.provider',
+      'llmDescriptor.model'
+    ]);
+    expect(result.sections.map((section) => section.group?.key ?? section.item?.path)).toEqual([
+      'name',
+      'group:llm',
+      'prompt',
+      'examples'
+    ]);
   });
 
   it('updates and deletes nested schema values by path', () => {

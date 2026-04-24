@@ -1,6 +1,7 @@
 import {
   evaluateUiConditionRule,
   flattenPrimitiveValues,
+  orderedSchemaPropertyEntries,
   parentPath,
   pathToLabel,
   readUiConditionRule,
@@ -115,6 +116,38 @@ describe('node-utility', () => {
     });
   });
 
+  it('orderedSchemaPropertyEntries prioritizes x-ui-property-order, then x-ui-order, then stable schema order', () => {
+    const root = {
+      type: 'object',
+      'x-ui-property-order': ['name', 'subFlow', 'maxIterations', 'useLlm', 'guardCondition', 'llmDescriptor', 'guardPrompt'],
+      properties: {
+        guardPrompt: { type: 'string' },
+        type: { type: 'string', 'x-ui-order': -10 },
+        llmDescriptor: { type: 'object', 'x-ui-order': 20 },
+        extraAlpha: { type: 'string', 'x-ui-order': 10 },
+        maxIterations: { type: 'integer' },
+        guardCondition: { type: 'string' },
+        extraBeta: { type: 'string' },
+        name: { type: 'string' },
+        subFlow: { type: 'object' },
+        useLlm: { type: 'boolean' }
+      }
+    };
+
+    expect(orderedSchemaPropertyEntries(root, root).map((entry) => entry.key)).toEqual([
+      'name',
+      'subFlow',
+      'maxIterations',
+      'useLlm',
+      'guardCondition',
+      'llmDescriptor',
+      'guardPrompt',
+      'extraAlpha',
+      'extraBeta',
+      'type'
+    ]);
+  });
+
   it('getValueByPath resolves nested values', () => {
     expect(getValueByPath({ llm: { enabled: true } }, 'llm.enabled')).toBe(true);
     expect(getValueByPath({ llm: { enabled: true } }, 'llm.missing')).toBeUndefined();
@@ -128,6 +161,10 @@ describe('node-utility', () => {
     expect(readUiConditionRule({ field: 'method', in: ['POST', 'PUT'] })).toEqual({
       field: 'method',
       in: ['POST', 'PUT']
+    });
+    expect(readUiConditionRule({ field: 'feedbackInput', present: true })).toEqual({
+      field: 'feedbackInput',
+      present: true
     });
     expect(readUiConditionRule({ field: '', equals: 'true' })).toBeNull();
     expect(readUiConditionRule({ field: 'useLlm', equals: true })).toBeNull();
@@ -156,6 +193,25 @@ describe('node-utility', () => {
     expect(evaluateUiConditionRule({ field: 'provider', in: ['openai', 'anthropic'] }, config, resolveFieldSchema)).toBe(true);
     expect(evaluateUiConditionRule({ field: 'retries', in: ['1', '3'] }, config, resolveFieldSchema)).toBe(true);
     expect(evaluateUiConditionRule({ field: 'useLlm', in: ['false', 'true'] }, config, resolveFieldSchema)).toBe(true);
+  });
+
+  it('evaluateUiConditionRule treats present using non-null and collection length semantics', () => {
+    const config = {
+      feedbackInput: '  hello  ',
+      emptyFeedback: '   ',
+      selectedTools: [''],
+      noTools: [],
+      feedbackPrompt: {},
+      missingPrompt: null
+    };
+
+    expect(evaluateUiConditionRule({ field: 'feedbackInput', present: true }, config)).toBe(true);
+    expect(evaluateUiConditionRule({ field: 'emptyFeedback', present: true }, config)).toBe(false);
+    expect(evaluateUiConditionRule({ field: 'selectedTools', present: true }, config)).toBe(true);
+    expect(evaluateUiConditionRule({ field: 'noTools', present: true }, config)).toBe(false);
+    expect(evaluateUiConditionRule({ field: 'feedbackPrompt', present: true }, config)).toBe(true);
+    expect(evaluateUiConditionRule({ field: 'missingPrompt', present: true }, config)).toBe(false);
+    expect(evaluateUiConditionRule({ field: 'missingPrompt', present: false }, config)).toBe(true);
   });
 
   it('splitTemplatedTextParts identifies dynamic placeholders', () => {

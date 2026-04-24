@@ -409,6 +409,7 @@
 }
 
 .container-node__param-fieldset {
+  grid-column: 1 / -1;
   margin: 0 14px;
   padding: 12px;
   border: 1px solid #dbe2ea;
@@ -433,12 +434,25 @@
   padding: 8px 10px;
 }
 
+.container-node__param-chip--root {
+  grid-column: 1 / -1;
+}
+
 .container-node__param-chip--disabled {
   opacity: 0.58;
 }
 
 .container-node__param-chip--wide {
   grid-column: 1 / -1;
+}
+
+.container-node__param-chip--boolean {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+.container-node__param-chip--boolean .container-node__param-head {
+  margin-bottom: 0;
 }
 
 .container-node__param-head {

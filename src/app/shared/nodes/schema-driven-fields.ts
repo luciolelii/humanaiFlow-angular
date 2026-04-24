@@ -1,4 +1,5 @@
 import {
+  orderedSchemaPropertyEntries,
   type UiConditionRule,
   evaluateUiConditionRule,
   getValueByPath,
@@ -101,6 +102,29 @@ export type SchemaRichContentFieldView = {
   rawValue: string;
   expandable: boolean;
   parts: { text: string; isDynamicInput: boolean }[];
+};
+
+export type SchemaDisplayItem<
+  TField extends { path: string },
+  TRichContent extends { path: string } = never,
+  TArray extends { path: string } = never
+> = {
+  path: string;
+  field: TField | null;
+  richContentField: TRichContent | null;
+  arrayField: TArray | null;
+};
+
+export type SchemaDisplayGroup<TItem extends { path: string }> = {
+  key: string;
+  legend: string;
+  items: TItem[];
+};
+
+export type SchemaDisplaySection<TItem extends { path: string }> = {
+  key: string;
+  group: SchemaDisplayGroup<TItem> | null;
+  item: TItem | null;
 };
 
 export function toSchemaFieldUiMeta(
@@ -225,17 +249,16 @@ export function collectSchemaLeafFields<T>(
     const resolved = resolveSchemaRef(node, root);
     if (!resolved || typeof resolved !== 'object') return;
 
-    const properties = resolved.properties as Record<string, any> | undefined;
-    if (!properties) return;
+    const properties = orderedSchemaPropertyEntries(resolved, root);
+    if (!properties.length) return;
 
-    for (const [key, childSchema] of Object.entries(properties)) {
-      const childResolved = resolveSchemaRef(childSchema as Record<string, any>, root);
+    for (const { key, schema: childResolved } of properties) {
       const path = pathPrefix ? `${pathPrefix}.${key}` : key;
       if (options?.shouldSkip?.({ key, path, schema: childResolved })) continue;
 
       const childUi = toSchemaFieldUiMeta(childResolved, inheritedUi);
-      const isArray = childResolved?.type === 'array';
-      const hasChildren = !!childResolved?.properties || childResolved?.type === 'object';
+      const isArray = childResolved?.['type'] === 'array';
+      const hasChildren = !!childResolved?.['properties'] || childResolved?.['type'] === 'object';
 
       if (isArray && options?.includeArrays !== true) {
         continue;
@@ -327,6 +350,84 @@ export function groupSchemaFields<TField extends { path: string }, TRichContent 
     rootFields,
     rootRichContentFields,
     groups: Array.from(grouped.values()).filter((group) => group.fields.length > 0 || group.richContentFields.length > 0)
+  };
+}
+
+export function buildOrderedSchemaDisplay<
+  TDefinition extends { path: string },
+  TField extends { path: string },
+  TRichContent extends { path: string } = never,
+  TArray extends { path: string } = never
+>(
+  params: {
+    definitions: TDefinition[];
+    fields: TField[];
+    richContentFields?: TRichContent[];
+    arrayFields?: TArray[];
+    resolveGroupLabel: (path: string) => string | null;
+    resolveLegend?: (groupLabel: string) => string;
+    shouldGroupItem?: (item: SchemaDisplayItem<TField, TRichContent, TArray>) => boolean;
+  }
+): {
+  rootItems: Array<SchemaDisplayItem<TField, TRichContent, TArray>>;
+  groups: Array<SchemaDisplayGroup<SchemaDisplayItem<TField, TRichContent, TArray>>>;
+  sections: Array<SchemaDisplaySection<SchemaDisplayItem<TField, TRichContent, TArray>>>;
+} {
+  const fieldByPath = new Map(params.fields.map((field) => [field.path, field] as const));
+  const richContentByPath = new Map((params.richContentFields ?? []).map((field) => [field.path, field] as const));
+  const arrayByPath = new Map((params.arrayFields ?? []).map((field) => [field.path, field] as const));
+  const rootItems: Array<SchemaDisplayItem<TField, TRichContent, TArray>> = [];
+  const groups = new Map<string, SchemaDisplayGroup<SchemaDisplayItem<TField, TRichContent, TArray>>>();
+  const sections: Array<SchemaDisplaySection<SchemaDisplayItem<TField, TRichContent, TArray>>> = [];
+  const resolveLegend = params.resolveLegend ?? ((groupLabel: string) => groupLabel);
+  const shouldGroupItem = params.shouldGroupItem ?? ((item: SchemaDisplayItem<TField, TRichContent, TArray>) => item.field != null);
+
+  for (const definition of params.definitions) {
+    const item: SchemaDisplayItem<TField, TRichContent, TArray> = {
+      path: definition.path,
+      field: fieldByPath.get(definition.path) ?? null,
+      richContentField: richContentByPath.get(definition.path) ?? null,
+      arrayField: arrayByPath.get(definition.path) ?? null
+    };
+
+    if (!item.field && !item.richContentField && !item.arrayField) {
+      continue;
+    }
+
+    const groupLabel = shouldGroupItem(item) ? params.resolveGroupLabel(definition.path) : null;
+    if (!groupLabel) {
+      rootItems.push(item);
+      sections.push({
+        key: `item:${definition.path}`,
+        group: null,
+        item
+      });
+      continue;
+    }
+
+    const groupKey = `group:${groupLabel}`;
+    let group = groups.get(groupKey);
+    if (!group) {
+      group = {
+        key: groupKey,
+        legend: resolveLegend(groupLabel),
+        items: []
+      };
+      groups.set(groupKey, group);
+      sections.push({
+        key: groupKey,
+        group,
+        item: null
+      });
+    }
+
+    group.items.push(item);
+  }
+
+  return {
+    rootItems,
+    groups: Array.from(groups.values()),
+    sections
   };
 }
 

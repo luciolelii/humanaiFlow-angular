@@ -18,13 +18,16 @@ import {
   buildSchemaEditableFieldDefinitions,
   buildSchemaFieldViewModel,
   buildSchemaRetrieverContext,
+  buildOrderedSchemaDisplay,
   pruneInactiveSchemaConfiguration,
   resetDependentSchemaRetrieverFields,
   schemaValuesEqual,
   setSchemaValueByPath,
   type SchemaEditableFieldDefinition,
+  type SchemaDisplayGroup,
+  type SchemaDisplayItem,
+  type SchemaDisplaySection,
   type SchemaFieldType,
-  type SchemaFieldGroup,
   type SchemaNodeOptionsSource,
   type SchemaParameterFieldView,
   type SchemaRichContentFieldView,
@@ -47,7 +50,11 @@ type ContainerFieldView = SchemaParameterFieldView<ContainerFieldType>;
 
 type RichContentView = SchemaRichContentFieldView;
 
-type ContainerFieldGroupView = SchemaFieldGroup<ContainerFieldView, RichContentView>;
+type ContainerDisplayItem = SchemaDisplayItem<ContainerFieldView, RichContentView>;
+
+type ContainerFieldGroupView = SchemaDisplayGroup<ContainerDisplayItem>;
+
+type ContainerDisplaySection = SchemaDisplaySection<ContainerDisplayItem>;
 
 type StructuredRetrieverConfig = {
   retrieverName: string;
@@ -84,6 +91,8 @@ export class ContainerNodeComponent {
   parameterFields: ContainerFieldView[] = [];
   parameterFieldGroups: ContainerFieldGroupView[] = [];
   richContentFields: RichContentView[] = [];
+  parameterDisplayItems: ContainerDisplayItem[] = [];
+  parameterDisplaySections: ContainerDisplaySection[] = [];
   schemaReady = false;
   private schemaLoading = false;
   nameEditorOpen = false;
@@ -265,11 +274,11 @@ export class ContainerNodeComponent {
   }
 
   hasParameterFields() {
-    return this.parameterFields.length > 0 || this.parameterFieldGroups.some((group) => group.fields.length > 0);
+    return this.parameterDisplaySections.length > 0;
   }
 
   hasMainContent() {
-    return this.richContentFields.length > 0 || this.parameterFieldGroups.some((group) => group.richContentFields.length > 0);
+    return this.richContentFields.length > 0;
   }
 
   formatDynamicInputToken(token: string): string {
@@ -770,9 +779,26 @@ export class ContainerNodeComponent {
       resolveGroupLabel: (path) => getSchemaPathUiMeta(this.containerSchema, path).group ?? parentPath(path)
     });
 
+    const allFields = [
+      ...grouped.parameterFields,
+      ...grouped.parameterFieldGroups.flatMap((group) => group.fields)
+    ];
+    const allRichContentFields = [
+      ...grouped.richContentFields,
+      ...grouped.parameterFieldGroups.flatMap((group) => group.richContentFields)
+    ];
+
     this.parameterFields = grouped.parameterFields;
     this.richContentFields = grouped.richContentFields;
-    this.parameterFieldGroups = grouped.parameterFieldGroups;
+    const ordered = buildOrderedSchemaDisplay({
+      definitions: this.containerFieldDefinitions.filter((field) => !this.isContainerTypeField(field.path)),
+      fields: allFields,
+      richContentFields: allRichContentFields,
+      resolveGroupLabel: (path) => getSchemaPathUiMeta(this.containerSchema, path).group ?? parentPath(path)
+    });
+    this.parameterDisplayItems = ordered.rootItems;
+    this.parameterFieldGroups = ordered.groups;
+    this.parameterDisplaySections = ordered.sections;
   }
 
   private buildContainerFieldDefinitions(schema: Record<string, any> | null): ContainerFieldDefinition[] {

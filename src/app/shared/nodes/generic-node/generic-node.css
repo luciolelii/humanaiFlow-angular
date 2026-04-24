@@ -714,12 +714,21 @@
   overflow: hidden;
 }
 
+.llm-param-chip-root {
+  grid-column: 1 / -1;
+}
+
 .llm-param-chip-disabled {
   opacity: 0.58;
 }
 
 .llm-param-chip-wide {
   grid-column: 1 / -1;
+}
+
+.llm-param-chip-boolean {
+  padding-top: 5px;
+  padding-bottom: 5px;
 }
 
 .llm-param-row-head {

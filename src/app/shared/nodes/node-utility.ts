@@ -4,6 +4,11 @@ export type UiConditionRule =
   | { field: string; in: string[] }
   | { field: string; present: boolean };
 
+export type OrderedSchemaPropertyEntry = {
+  key: string;
+  schema: Record<string, any> | null;
+};
+
 export function toStringOrNull(value: unknown): string | null {
   if (typeof value === 'string' && value.trim().length > 0) return value;
   return null;
@@ -116,6 +121,63 @@ export function resolveSchemaPath(root: Record<string, any> | null | undefined, 
   }
 
   return current;
+}
+
+export function orderedSchemaPropertyEntries(
+  node: Record<string, any> | null | undefined,
+  root: Record<string, any>
+): OrderedSchemaPropertyEntry[] {
+  if (!node || typeof node !== 'object') return [];
+
+  const resolved = resolveSchemaRef(node, root);
+  const properties = resolved?.properties as Record<string, unknown> | undefined;
+  if (!properties) return [];
+
+  const propertyOrder = readUiPropertyOrder(resolved?.['x-ui-property-order']);
+  const prioritized = new Map<string, number>();
+  propertyOrder.forEach((key, index) => {
+    if (!prioritized.has(key)) {
+      prioritized.set(key, index);
+    }
+  });
+
+  return Object.entries(properties)
+    .map(([key, childSchema], originalIndex) => {
+      const resolvedChild = childSchema && typeof childSchema === 'object'
+        ? resolveSchemaRef(childSchema as Record<string, any>, root)
+        : null;
+      const rawOrder = resolvedChild?.['x-ui-order'];
+      const uiOrder = typeof rawOrder === 'number' && Number.isInteger(rawOrder) ? rawOrder : null;
+      const priorityIndex = prioritized.get(key) ?? null;
+      const isTechnical = key === 'type';
+      return {
+        key,
+        schema: resolvedChild,
+        originalIndex,
+        uiOrder,
+        priorityIndex,
+        isTechnical
+      };
+    })
+    .sort((left, right) => {
+      const leftBucket = left.priorityIndex != null ? 0 : left.isTechnical ? 2 : 1;
+      const rightBucket = right.priorityIndex != null ? 0 : right.isTechnical ? 2 : 1;
+      if (leftBucket !== rightBucket) return leftBucket - rightBucket;
+
+      if (left.priorityIndex != null && right.priorityIndex != null) {
+        return left.priorityIndex - right.priorityIndex;
+      }
+
+      const leftHasOrder = left.uiOrder != null;
+      const rightHasOrder = right.uiOrder != null;
+      if (leftHasOrder !== rightHasOrder) return leftHasOrder ? -1 : 1;
+      if (left.uiOrder != null && right.uiOrder != null && left.uiOrder !== right.uiOrder) {
+        return left.uiOrder - right.uiOrder;
+      }
+
+      return left.originalIndex - right.originalIndex;
+    })
+    .map(({ key, schema }) => ({ key, schema }));
 }
 
 export function readUiConditionRule(value: unknown): UiConditionRule | null {
@@ -260,13 +322,19 @@ function parseBooleanCondition(value: string): boolean {
   return value.trim().toLowerCase() === 'true';
 }
 
+function readUiPropertyOrder(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is string => typeof item === 'string')
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+}
+
 function isMeaningfullyPresent(value: unknown): boolean {
   if (value == null) return false;
   if (typeof value === 'string') return value.trim().length > 0;
-  if (Array.isArray(value)) return value.some((item) => isMeaningfullyPresent(item));
-  if (typeof value === 'object') {
-    return Object.values(value as Record<string, unknown>).some((item) => isMeaningfullyPresent(item));
-  }
+  if (Array.isArray(value)) return value.length > 0;
+  if (typeof value === 'object') return true;
   return true;
 }
 

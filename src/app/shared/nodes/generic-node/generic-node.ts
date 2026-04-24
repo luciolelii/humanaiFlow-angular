@@ -26,6 +26,7 @@ import {
   getValueByPath,
   isConditionalByPorts,
   isHumanInteractiveNode,
+  orderedSchemaPropertyEntries,
   parentPath,
   pathToLabel,
   readUiConditionRule,
@@ -49,6 +50,9 @@ import {
   schemaValuesEqual,
   setSchemaValueByPath,
   type SchemaEditableFieldDefinition,
+  type SchemaDisplayGroup,
+  type SchemaDisplayItem,
+  type SchemaDisplaySection,
   type SchemaFieldType,
   type SchemaParameterFieldView,
   type SchemaRichContentFieldView,
@@ -56,6 +60,7 @@ import {
   type SchemaNodeOptionsSource,
   type SchemaRetrieverDependency,
   buildTemplatedRichContentParts,
+  buildOrderedSchemaDisplay,
   collectSchemaLeafFields,
   getSchemaPathUiMeta,
   groupSchemaFields,
@@ -101,13 +106,13 @@ type ArrayFieldView = {
   items: ArrayFieldItemView[];
 };
 
-type EditableFieldGroupView = {
-  key: string;
-  legend: string;
-  fields: EditableFieldView[];
-};
-
 type RichContentView = SchemaRichContentFieldView;
+
+type ParameterDisplayItem = SchemaDisplayItem<EditableFieldView, RichContentView, ArrayFieldView>;
+
+type EditableFieldGroupView = SchemaDisplayGroup<ParameterDisplayItem>;
+
+type ParameterDisplaySection = SchemaDisplaySection<ParameterDisplayItem>;
 
 type RenderedSocketPort = {
   key: string;
@@ -159,6 +164,8 @@ export class GenericNodeComponent {
   parameterFields: EditableFieldView[] = [];
   parameterFieldGroups: EditableFieldGroupView[] = [];
   richContentFields: RichContentView[] = [];
+  parameterDisplayItems: ParameterDisplayItem[] = [];
+  parameterDisplaySections: ParameterDisplaySection[] = [];
   arrayFields: ArrayFieldView[] = [];
   name = 'noName';
 
@@ -199,6 +206,8 @@ export class GenericNodeComponent {
     this.parameterFields = [];
     this.parameterFieldGroups = [];
     this.richContentFields = [];
+    this.parameterDisplayItems = [];
+    this.parameterDisplaySections = [];
     this.arrayFields = [];
 
     Object.entries(this.data.outputs).forEach(([key, output]) => {
@@ -509,6 +518,10 @@ export class GenericNodeComponent {
 
   hasMainContent(): boolean {
     return this.richContentFields.length > 0;
+  }
+
+  hasOrderedParameterItems(): boolean {
+    return this.parameterDisplaySections.length > 0;
   }
 
   formatDynamicInputToken(token: string): string {
@@ -883,6 +896,8 @@ export class GenericNodeComponent {
   private refreshParameterFields() {
     const config = this.blockConfiguration ?? {};
     const richContentPaths = new Set(this.richContentPaths());
+    this.parameterDisplayItems = [];
+    this.parameterDisplaySections = [];
 
     this.richContentFields = this.richContentPaths()
       .filter((path) => this.isPathVisible(path))
@@ -918,13 +933,26 @@ export class GenericNodeComponent {
         resolveGroupLabel: (path) => getSchemaPathUiMeta(this.blockSchema, path).group ?? parentPath(path),
         groupRichContent: false
       });
+      const allFields = [
+        ...groupedFields.parameterFields,
+        ...groupedFields.parameterFieldGroups.flatMap((group) => group.fields)
+      ];
+      const allRichContentFields = [
+        ...groupedFields.richContentFields,
+        ...groupedFields.parameterFieldGroups.flatMap((group) => group.richContentFields)
+      ];
       this.parameterFields = groupedFields.parameterFields;
-      this.parameterFieldGroups = groupedFields.parameterFieldGroups.map((group) => ({
-        key: group.key,
-        legend: group.legend,
-        fields: group.fields
-      }));
       this.richContentFields = groupedFields.richContentFields;
+      const ordered = buildOrderedSchemaDisplay({
+        definitions: this.orderedDisplayPaths(),
+        fields: allFields,
+        richContentFields: allRichContentFields,
+        arrayFields: this.arrayFields,
+        resolveGroupLabel: (path) => getSchemaPathUiMeta(this.blockSchema, path).group ?? parentPath(path)
+      });
+      this.parameterDisplayItems = ordered.rootItems;
+      this.parameterFieldGroups = ordered.groups;
+      this.parameterDisplaySections = ordered.sections;
       this.refreshView();
       return;
     }
@@ -952,11 +980,57 @@ export class GenericNodeComponent {
     this.parameterFields = groupedFallback.rootFields;
     this.parameterFieldGroups = groupedFallback.groups.map((group) => ({
       key: group.key,
-      legend: group.legend,
-      fields: group.fields
+        legend: group.legend,
+        items: group.fields.map((field) => ({
+          path: field.path,
+          field,
+          richContentField: null,
+          arrayField: null
+        }))
+      }));
+    this.parameterDisplayItems = groupedFallback.rootFields.map((field) => ({
+      path: field.path,
+      field,
+      richContentField: null,
+      arrayField: null
     }));
+    this.parameterDisplaySections = [
+      ...groupedFallback.groups.map((group) => ({
+        key: group.key,
+        group: {
+          key: group.key,
+          legend: group.legend,
+          items: group.fields.map((field) => ({
+            path: field.path,
+            field,
+            richContentField: null,
+            arrayField: null
+          }))
+        },
+        item: null
+      })),
+      ...groupedFallback.rootFields.map((field) => ({
+        key: `item:${field.path}`,
+        group: null,
+        item: {
+          path: field.path,
+          field,
+          richContentField: null,
+          arrayField: null
+        }
+      }))
+    ];
 
     this.refreshView();
+  }
+
+  private orderedDisplayPaths(): Array<{ path: string }> {
+    return collectSchemaLeafFields(this.blockSchema, ({ key, path }) => {
+      if (key === 'type' || key === 'name' || key.startsWith('__')) return null;
+      return { path };
+    }, {
+      includeArrays: true
+    });
   }
 
   async addArrayItem(path: string, event?: Event) {
@@ -1062,8 +1136,8 @@ export class GenericNodeComponent {
     const fields: NodeSettingField[] = [];
     const initial: Record<string, string | boolean> = {};
 
-    for (const [key, rawPropertySchema] of Object.entries(properties)) {
-      const propertySchema = resolveSchemaRef(rawPropertySchema as Record<string, any>, schemaRoot);
+    for (const { key, schema: propertySchema } of orderedSchemaPropertyEntries(itemSchema, schemaRoot)) {
+      if (!propertySchema) continue;
       if (shouldSkipSchemaField(key, propertySchema)) continue;
 
       const fieldUi = this.toFieldUiMeta(propertySchema);
@@ -1082,10 +1156,10 @@ export class GenericNodeComponent {
       const label = schemaFieldLabel(key, propertySchema);
       const currentValue = item[key];
       const options = await this.loadNodeSettingOptions(propertySchema, item, '');
-      const isObjectLike = propertySchema?.type === 'object';
+      const isObjectLike = propertySchema?.['type'] === 'object';
       const fieldType =
         options ? 'select' :
-          propertySchema?.type === 'boolean' ? 'checkbox' :
+          propertySchema?.['type'] === 'boolean' ? 'checkbox' :
             propertySchema?.['x-ui-widget'] === 'textarea' || isObjectLike ? 'textarea' :
               'text';
 
@@ -1145,8 +1219,8 @@ export class GenericNodeComponent {
 
     const nextItem: Record<string, unknown> = {};
 
-    for (const [key, rawPropertySchema] of Object.entries(properties)) {
-      const propertySchema = resolveSchemaRef(rawPropertySchema as Record<string, any>, schemaRoot);
+    for (const { key, schema: propertySchema } of orderedSchemaPropertyEntries(itemSchema, schemaRoot)) {
+      if (!propertySchema) continue;
       if (shouldSkipSchemaField(key, propertySchema)) continue;
 
       const fieldUi = this.toFieldUiMeta(propertySchema);
@@ -1162,9 +1236,9 @@ export class GenericNodeComponent {
       }
 
       const rawValue = result[key];
-      const isObjectLike = propertySchema?.type === 'object';
+      const isObjectLike = propertySchema?.['type'] === 'object';
 
-      if (propertySchema?.type === 'boolean') {
+      if (propertySchema?.['type'] === 'boolean') {
         nextItem[key] = rawValue === true;
         continue;
       }
@@ -1178,10 +1252,10 @@ export class GenericNodeComponent {
         continue;
       }
 
-      if (propertySchema?.type === 'number' || propertySchema?.type === 'integer') {
+      if (propertySchema?.['type'] === 'number' || propertySchema?.['type'] === 'integer') {
         const numeric = Number(rawValue ?? 0);
         nextItem[key] = Number.isFinite(numeric)
-          ? (propertySchema.type === 'integer' ? Math.trunc(numeric) : numeric)
+          ? (propertySchema['type'] === 'integer' ? Math.trunc(numeric) : numeric)
           : 0;
         continue;
       }
@@ -1198,18 +1272,18 @@ export class GenericNodeComponent {
     if (!properties) return {};
 
     const item: Record<string, unknown> = {};
-    for (const [key, rawPropertySchema] of Object.entries(properties)) {
-      const propertySchema = resolveSchemaRef(rawPropertySchema as Record<string, any>, schemaRoot);
+    for (const { key, schema: propertySchema } of orderedSchemaPropertyEntries(itemSchema, schemaRoot)) {
+      if (!propertySchema) continue;
       if (shouldSkipSchemaField(key, propertySchema)) continue;
       if (Object.prototype.hasOwnProperty.call(propertySchema ?? {}, 'default')) {
-        item[key] = propertySchema.default;
+        item[key] = propertySchema['default'];
         continue;
       }
-      if (propertySchema?.type === 'boolean') {
+      if (propertySchema?.['type'] === 'boolean') {
         item[key] = false;
-      } else if (propertySchema?.type === 'number' || propertySchema?.type === 'integer') {
+      } else if (propertySchema?.['type'] === 'number' || propertySchema?.['type'] === 'integer') {
         item[key] = 0;
-      } else if (propertySchema?.type === 'object' || this.hasDynamicSchema(propertySchema)) {
+      } else if (propertySchema?.['type'] === 'object' || this.hasDynamicSchema(propertySchema)) {
         item[key] = {};
       } else {
         item[key] = '';
@@ -1303,11 +1377,11 @@ export class GenericNodeComponent {
       inheritedUi?: { visibleWhen: UiConditionRule[]; enabledWhen: UiConditionRule[]; group: string | null }
     ) => {
       const resolved = resolveSchemaRef(node, schema);
-      const properties = resolved?.['properties'] as Record<string, any> | undefined;
-      if (!properties) return;
+      const properties = orderedSchemaPropertyEntries(resolved, schema);
+      if (!properties.length) return;
 
-      for (const [childKey, rawChildSchema] of Object.entries(properties)) {
-        const childSchema = resolveSchemaRef(rawChildSchema as Record<string, any>, schema);
+      for (const { key: childKey, schema: childSchema } of properties) {
+        if (!childSchema) continue;
         if (shouldSkipSchemaField(childKey, childSchema)) continue;
 
         const childUi = this.toFieldUiMeta(childSchema, inheritedUi);
@@ -1323,7 +1397,7 @@ export class GenericNodeComponent {
         const nextLabel = `${titlePrefix} ${schemaFieldLabel(childKey, childSchema)}`;
         const currentNestedValue = getValueByPath(currentRecord, fieldRelativePath);
 
-        const hasChildren = !!childSchema?.['properties'] || childSchema?.type === 'object';
+        const hasChildren = !!childSchema?.['properties'] || childSchema?.['type'] === 'object';
         if (hasChildren) {
           await walk(childSchema as Record<string, any>, nextPath, nextLabel, {
             visibleWhen: childUi.visibleWhen,
@@ -1341,7 +1415,7 @@ export class GenericNodeComponent {
 
         const fieldType =
           options ? 'select' :
-            childSchema?.type === 'boolean' ? 'checkbox' :
+            childSchema?.['type'] === 'boolean' ? 'checkbox' :
               childSchema?.['x-ui-widget'] === 'textarea' ? 'textarea' :
                 'text';
 
@@ -1433,7 +1507,7 @@ export class GenericNodeComponent {
     if (!properties) return `Item ${index + 1}`;
 
     const summaryParts: string[] = [];
-    for (const key of Object.keys(properties)) {
+    for (const { key } of orderedSchemaPropertyEntries(definition.itemSchema, this.blockSchema ?? definition.itemSchema ?? {})) {
       const value = (item as Record<string, unknown>)[key];
       if (this.isMissingValue(value)) continue;
       if (typeof value === 'string') {

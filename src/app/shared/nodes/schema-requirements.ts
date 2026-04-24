@@ -1,4 +1,4 @@
-import { readUiConditionRule, resolveSchemaRef, schemaFieldLabel, type UiConditionRule } from './node-utility';
+import { orderedSchemaPropertyEntries, readUiConditionRule, resolveSchemaRef, schemaFieldLabel, type UiConditionRule } from './node-utility';
 import { parseSchemaRetrieverUrl, toSchemaRetrieverDependency } from './schema-driven-fields';
 
 export type RequiredField = {
@@ -53,15 +53,14 @@ function walkSchema(
   const resolved = resolveSchemaRef(node, root);
   if (!resolved || typeof resolved !== 'object') return;
 
-  const properties = resolved.properties as Record<string, any> | undefined;
-  if (!properties) return;
+  const properties = orderedSchemaPropertyEntries(resolved, root);
+  if (!properties.length) return;
 
-  const requiredSet = new Set<string>(Array.isArray(resolved.required) ? resolved.required : []);
+  const requiredSet = new Set<string>(Array.isArray(resolved['required']) ? resolved['required'] : []);
 
-  for (const [key, propertySchema] of Object.entries(properties)) {
+  for (const { key, schema: propertyResolved } of properties) {
     const propertyPath = pathPrefix ? `${pathPrefix}.${key}` : key;
-    const propertyResolved = resolveSchemaRef(propertySchema as Record<string, any>, root);
-    const hasChildren = !!propertyResolved?.properties || propertyResolved?.type === 'object';
+    const hasChildren = !!propertyResolved?.['properties'] || propertyResolved?.['type'] === 'object';
     const label = schemaFieldLabel(key, propertyResolved);
     const isRequiredBySchema = requiredSet.has(key);
     const isRequiredByAncestor = requireAllDescendants && key !== 'type';
@@ -108,7 +107,7 @@ function walkSchema(
     }
 
     if (hasChildren) {
-      const childHasOwnRequired = Array.isArray(propertyResolved?.required) && propertyResolved.required.length > 0;
+      const childHasOwnRequired = Array.isArray(propertyResolved?.['required']) && propertyResolved['required'].length > 0;
       walkSchema(
         propertyResolved as Record<string, any>,
         root,
