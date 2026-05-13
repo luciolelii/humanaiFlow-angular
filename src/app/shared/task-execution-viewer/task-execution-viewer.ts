@@ -39,6 +39,8 @@ import { firstValueFrom } from 'rxjs';
 import {
   ExecutionOutputEntry,
   ExecutionOutputGroup,
+  ExecutionIntermediateInputEntry,
+  ExecutionIntermediateInputGroup,
   ExecutionLogEntryView,
   stepTitle,
   stepNodeId,
@@ -50,6 +52,8 @@ import {
   formatExecutionOutputLabel,
   buildExecutionOutputs,
   buildExecutionOutputGroups,
+  buildExecutionIntermediateInputs,
+  buildExecutionIntermediateInputGroups,
   buildVisibleExecutionLogs,
   isInputSet,
   normalizeEditableInputValue,
@@ -81,7 +85,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   private static readonly SIMULATOR_MODEL_RETRIEVER_URL = '/retriever/LLM/models';
   readonly execution = input<TaskExecution | null>(null);
   readonly contextAsideOpen = signal(true);
-  readonly activeAsideTab = signal<'inputs' | 'logs' | 'output'>('inputs');
+  readonly activeAsideTab = signal<'inputs' | 'intermediate' | 'logs' | 'output'>('inputs');
   readonly startInProgress = signal(false);
   readonly simulateInProgress = signal(false);
   readonly cancelInProgress = signal(false);
@@ -93,6 +97,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   readonly savingAuthorizations = signal<Record<string, boolean>>({});
   readonly authorizationErrors = signal<Record<string, string>>({});
   readonly outputPreviewModal = signal<ExecutionOutputEntry | null>(null);
+  readonly intermediateInputPreviewModal = signal<ExecutionIntermediateInputEntry | null>(null);
   readonly executionLogs = signal<ExecutionEventLogEntry[]>([]);
   readonly logsLoading = signal(false);
   readonly logsError = signal<string | null>(null);
@@ -109,6 +114,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
       this.authorizationErrors.set({});
       this.activeAsideTab.set('inputs');
       this.outputPreviewModal.set(null);
+      this.intermediateInputPreviewModal.set(null);
       this.executionLogs.set([]);
       this.logsError.set(null);
       this.logsLoading.set(false);
@@ -324,6 +330,14 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     buildExecutionOutputGroups(this.executionOutputs())
   );
 
+  readonly executionIntermediateInputs = computed<ExecutionIntermediateInputEntry[]>(() =>
+    buildExecutionIntermediateInputs(this.execution())
+  );
+
+  readonly executionIntermediateInputGroups = computed<ExecutionIntermediateInputGroup[]>(() =>
+    buildExecutionIntermediateInputGroups(this.executionIntermediateInputs())
+  );
+
   readonly inputsReadOnly = computed(() => {
     const status = this.execution()?.context.status;
     return getExecutionStatusGroup(status) !== 'INIT';
@@ -468,7 +482,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     this.contextAsideOpen.update((open) => !open);
   }
 
-  selectAsideTab(tab: 'inputs' | 'logs' | 'output') {
+  selectAsideTab(tab: 'inputs' | 'intermediate' | 'logs' | 'output') {
     if (tab === 'output' && !this.executionOutputTabEnabled()) return;
     this.activeAsideTab.set(tab);
   }
@@ -494,6 +508,30 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     event?.preventDefault();
     event?.stopPropagation();
     this.outputPreviewModal.set(null);
+  }
+
+  openIntermediateInputPreview(input: ExecutionIntermediateInputEntry, event?: Event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+    if (!input.isLong) return;
+    this.intermediateInputPreviewModal.set(input);
+  }
+
+  intermediateInputPreviewTitle(input: ExecutionIntermediateInputEntry | null): string {
+    if (!input) return 'Intermediate input';
+    return input.nodeTitle;
+  }
+
+  intermediateInputPreviewSubtitle(input: ExecutionIntermediateInputEntry | null): string {
+    if (!input) return '';
+    const itemLabel = input.itemLabel ? ` · ${input.itemLabel}` : '';
+    return `${input.inputName}${itemLabel}`;
+  }
+
+  closeIntermediateInputPreview(event?: Event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+    this.intermediateInputPreviewModal.set(null);
   }
 
   startExecution() {

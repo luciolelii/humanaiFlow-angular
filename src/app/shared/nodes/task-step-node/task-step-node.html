@@ -81,21 +81,15 @@
             }"
             [emit]="emit">
           </div>
-          @if (showInputTooltip() && executionInputTooltip(input.key); as inputTooltip) {
-          <span class="llm-io-tooltip llm-io-tooltip-input">{{ inputTooltip }}</span>
-          }
         </span>
         } @else {
         <span class="llm-input-value-wrap" (pointerdown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
           <button
             type="button"
             class="llm-input-value-icon"
-            aria-label="Show input value">
+            aria-label="Input value available in Intermediate tab">
             <i class="bi bi-box-arrow-in-right"></i>
           </button>
-          @if (showInputTooltip()) {
-          <span class="llm-io-tooltip llm-io-tooltip-input">{{ inputValueTooltip(input.key) }}</span>
-          }
         </span>
         }
         <span class="llm-pill llm-pill-input">

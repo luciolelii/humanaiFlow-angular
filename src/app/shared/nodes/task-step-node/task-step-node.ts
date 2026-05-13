@@ -352,10 +352,6 @@ export class TaskStepNodeComponent {
     return connectedInputs.includes(inputName);
   }
 
-  inputValueTooltip(inputName: string): string {
-    return this.executionInputTooltip(inputName) ?? 'not ready yet';
-  }
-
   showInputTooltip(): boolean {
     const statusGroup = this.blockConfiguration?.['__executionStatusGroup'];
     return statusGroup !== 'INIT';
@@ -767,6 +763,10 @@ export class TaskStepNodeComponent {
     ).subscribe({
       next: () => {
         this.interactionSubmitting = false;
+        if (result.mode === 'complete') {
+          this.humanInteractionDialog.close(result);
+          return;
+        }
         this.humanInteractionDialog.update({
           isSubmitting: false,
           submitError: null

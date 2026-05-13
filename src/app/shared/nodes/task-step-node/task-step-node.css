@@ -438,7 +438,7 @@
   align-items: center;
   justify-content: center;
   padding: 0;
-  cursor: help;
+  cursor: default;
   border-radius: 999px;
 }
 
@@ -502,16 +502,10 @@
   pointer-events: none;
 }
 
-.llm-io-tooltip-input {
-  left: calc(100% + 8px);
-}
-
 .llm-io-tooltip-output {
   right: calc(100% + 8px);
 }
 
-.llm-input-value-wrap:hover .llm-io-tooltip,
-.llm-input-value-wrap:focus-within .llm-io-tooltip,
 .llm-output-value-wrap:hover .llm-io-tooltip,
 .llm-output-value-wrap:focus-within .llm-io-tooltip,
 .llm-socket-wrap:hover .llm-io-tooltip,

@@ -123,6 +123,13 @@
           <button
             type="button"
             class="execution-aside-tab"
+            [class.execution-aside-tab-active]="activeAsideTab() === 'intermediate'"
+            (click)="selectAsideTab('intermediate')">
+            Intermediate
+          </button>
+          <button
+            type="button"
+            class="execution-aside-tab"
             [class.execution-aside-tab-active]="activeAsideTab() === 'logs'"
             (click)="selectAsideTab('logs')">
             Logs
@@ -154,6 +161,46 @@
             (textInputSubmit)="submitTextInput($event)"
             (fileInputChange)="onFileInputChange($event.input, $event.files)">
           </app-task-execution-inputs-panel>
+          } @else if (activeAsideTab() === 'intermediate') {
+          <div class="p-3 space-y-3">
+            @if (!executionIntermediateInputGroups().length) {
+            <div class="text-xs text-slate-500">No intermediate inputs available.</div>
+            } @else {
+              @for (group of executionIntermediateInputGroups(); track group.nodeTitle) {
+              <div class="execution-intermediate-group">
+                <div class="execution-intermediate-group-title">{{ group.nodeTitle }}</div>
+                <div class="execution-intermediate-group-list">
+                  @for (input of group.inputs; track input.key) {
+                  <div class="execution-intermediate-item">
+                    <div class="execution-intermediate-item-head">
+                      <div class="min-w-0">
+                        <div class="execution-intermediate-item-name">{{ input.inputName }}</div>
+                        <div class="execution-intermediate-item-meta">
+                          <span>{{ input.sourceLabel }}</span>
+                          <span>{{ input.inputType }}</span>
+                          @if (input.itemLabel) {
+                          <span>{{ input.itemLabel }}</span>
+                          }
+                        </div>
+                      </div>
+                      @if (input.isLong) {
+                      <button
+                        type="button"
+                        class="execution-output-view-btn"
+                        aria-label="View full intermediate input"
+                        (click)="openIntermediateInputPreview(input, $event)">
+                        <i class="bi bi-eye"></i>
+                      </button>
+                      }
+                    </div>
+                    <div class="execution-intermediate-preview">{{ input.preview }}</div>
+                  </div>
+                  }
+                </div>
+              </div>
+              }
+            }
+          </div>
           } @else if (activeAsideTab() === 'logs') {
           <div #logsScrollViewport class="execution-logs-scroll p-3 space-y-3">
             @if (logsLoading()) {
@@ -244,6 +291,23 @@
       </div>
       <div class="min-h-0 flex-1 overflow-auto px-5 py-4">
         <pre class="execution-output-modal">{{ outputModal.value }}</pre>
+      </div>
+    </div>
+  </div>
+  }
+  @if (intermediateInputPreviewModal(); as inputModal) {
+  <div class="fixed inset-0 z-9999 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/45" (click)="closeIntermediateInputPreview($event)"></div>
+    <div class="relative z-10 flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
+      <div class="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
+        <div class="min-w-0">
+          <h3 class="text-lg font-semibold text-slate-900">{{ intermediateInputPreviewTitle(inputModal) }}</h3>
+          <p class="mt-1 break-all text-xs text-slate-500">{{ intermediateInputPreviewSubtitle(inputModal) }}</p>
+        </div>
+        <button type="button" mat-stroked-button (click)="closeIntermediateInputPreview($event)">Close</button>
+      </div>
+      <div class="min-h-0 flex-1 overflow-auto px-5 py-4">
+        <pre class="execution-output-modal">{{ inputModal.value }}</pre>
       </div>
     </div>
   </div>

@@ -26,9 +26,26 @@ export type ExecutionOutputEntry = {
   itemLabel: string | null;
 };
 
+export type ExecutionIntermediateInputEntry = {
+  key: string;
+  nodeTitle: string;
+  inputName: string;
+  inputType: string;
+  sourceLabel: string;
+  value: string;
+  preview: string;
+  isLong: boolean;
+  itemLabel: string | null;
+};
+
 export type ExecutionOutputGroup = {
   nodeTitle: string;
   outputs: ExecutionOutputEntry[];
+};
+
+export type ExecutionIntermediateInputGroup = {
+  nodeTitle: string;
+  inputs: ExecutionIntermediateInputEntry[];
 };
 
 export type ExecutionLogEntryView = ExecutionEventLogEntry & {
@@ -37,6 +54,7 @@ export type ExecutionLogEntryView = ExecutionEventLogEntry & {
 };
 
 const OUTPUT_PREVIEW_LIMIT = 80;
+const INTERMEDIATE_INPUT_PREVIEW_LIMIT = 120;
 
 export function stepTitle(step: TaskExecutionStep | null | undefined): string {
   return getTaskExecutionStepNode(step)?.name?.trim() || step?.id || 'Step';
@@ -155,6 +173,52 @@ export function buildExecutionOutputGroups(outputs: ExecutionOutputEntry[]): Exe
   }
   return Array.from(groups.entries())
     .map(([nodeTitle, outs]) => ({ nodeTitle, outputs: outs }))
+    .sort((a, b) => a.nodeTitle.localeCompare(b.nodeTitle));
+}
+
+export function buildExecutionIntermediateInputs(execution: TaskExecution | null): ExecutionIntermediateInputEntry[] {
+  if (!execution) return [];
+  const contextInputs = execution.context.inputs ?? {};
+
+  return Object.values(execution.context.steps ?? {})
+    .flatMap((step) => {
+      const inputValues = getExecutionInputValues(step, contextInputs);
+      return Object.entries(inputValues).flatMap(([inputName, rawValue]) => {
+        const input = (step.inputs ?? []).find((candidate) => candidate.descriptor?.name === inputName);
+        const values = Array.isArray(rawValue) ? rawValue : [rawValue];
+        const isArrayValue = Array.isArray(rawValue);
+
+        return values.map((item, index) => {
+          const value = stringifyOutputValue(item);
+          const isLong = value.length > INTERMEDIATE_INPUT_PREVIEW_LIMIT;
+          return {
+            key: isArrayValue ? `${step.id}:${inputName}:${index}` : `${step.id}:${inputName}`,
+            nodeTitle: stepTitle(step),
+            inputName,
+            inputType: String(input?.descriptor?.type ?? 'TEXT').toUpperCase(),
+            sourceLabel: input?.registered ? 'Connected input' : 'Prepared input',
+            value,
+            preview: isLong ? `${value.slice(0, INTERMEDIATE_INPUT_PREVIEW_LIMIT)}...` : value,
+            isLong,
+            itemLabel: isArrayValue ? `Item ${index + 1}` : null,
+          };
+        });
+      });
+    })
+    .filter((entry) => entry.value.trim().length > 0)
+    .sort((a, b) => a.nodeTitle.localeCompare(b.nodeTitle) || a.inputName.localeCompare(b.inputName));
+}
+
+export function buildExecutionIntermediateInputGroups(
+  inputs: ExecutionIntermediateInputEntry[]
+): ExecutionIntermediateInputGroup[] {
+  const groups = new Map<string, ExecutionIntermediateInputEntry[]>();
+  for (const input of inputs) {
+    if (!groups.has(input.nodeTitle)) groups.set(input.nodeTitle, []);
+    groups.get(input.nodeTitle)!.push(input);
+  }
+  return Array.from(groups.entries())
+    .map(([nodeTitle, items]) => ({ nodeTitle, inputs: items }))
     .sort((a, b) => a.nodeTitle.localeCompare(b.nodeTitle));
 }
 
