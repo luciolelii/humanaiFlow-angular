@@ -169,6 +169,84 @@
   margin-top: 6px;
 }
 
+.flow-editor-create-ai-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  background: rgba(15, 23, 42, 0.42);
+}
+
+.flow-editor-create-ai-modal {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  z-index: 1301;
+  display: flex;
+  flex-direction: column;
+  width: min(760px, calc(100vw - 32px));
+  height: min(720px, calc(100vh - 48px));
+  transform: translate(-50%, -50%);
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.36);
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 30px 70px rgba(15, 23, 42, 0.34);
+}
+
+.flow-editor-create-ai-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid #e2e8f0;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.flow-editor-create-ai-eyebrow {
+  margin-bottom: 4px;
+  color: #0f766e;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.flow-editor-create-ai-title {
+  margin: 0;
+  color: #0f172a;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.flow-editor-create-ai-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #475569;
+}
+
+.flow-editor-create-ai-close:hover {
+  background: #f1f5f9;
+}
+
+.flow-editor-create-ai-close .mat-icon {
+  width: 18px;
+  height: 18px;
+  font-size: 18px;
+}
+
+.flow-editor-create-ai-assistant {
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
 .flow-editor-tour-target {
   height: 100%;
 }

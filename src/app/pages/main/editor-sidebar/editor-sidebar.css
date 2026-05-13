@@ -16,6 +16,11 @@
  background-color: var(--color-gray-100) ;
 }
 
+.editor-sidebar-new-flow-header-action {
+  display: inline-flex;
+  align-items: center;
+}
+
 .editor-sidebar-new-flow-button {
   display: inline-flex;
   align-items: center;
@@ -45,4 +50,40 @@
 
 .editor-sidebar-new-flow-button-loading {
   gap: 6px;
+}
+
+:host ::ng-deep .editor-sidebar-new-flow-menu.mat-mdc-menu-panel {
+  min-width: 178px;
+  border: 1px solid #dbeafe;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.16);
+}
+
+:host ::ng-deep .editor-sidebar-new-flow-menu .mat-mdc-menu-content {
+  padding: 6px;
+}
+
+:host ::ng-deep .editor-sidebar-new-flow-menu-item.mat-mdc-menu-item {
+  min-height: 40px;
+  border-radius: 9px;
+  padding: 0 10px;
+}
+
+:host ::ng-deep .editor-sidebar-new-flow-menu-item.mat-mdc-menu-item:hover {
+  background: #eff6ff;
+}
+
+:host ::ng-deep .editor-sidebar-new-flow-menu-item .mat-icon {
+  width: 18px;
+  height: 18px;
+  margin-right: 10px;
+  color: #2563eb;
+  font-size: 18px;
+}
+
+:host ::ng-deep .editor-sidebar-new-flow-menu-item span {
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 700;
 }

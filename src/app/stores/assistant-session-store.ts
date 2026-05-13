@@ -82,8 +82,18 @@ export class AssistantSessionStore {
         ? (snapshot['currentCall'] as AssistantCallState)
         : null,
       sessionState: snapshot['sessionState'] && typeof snapshot['sessionState'] === 'object'
-        ? (snapshot['sessionState'] as AssistantSessionState)
+        ? this.normalizeSessionState(snapshot['sessionState'])
         : null
+    };
+  }
+
+  private normalizeSessionState(rawSession: unknown): AssistantSessionState | null {
+    if (!rawSession || typeof rawSession !== 'object') return null;
+    const session = rawSession as AssistantSessionState;
+    return {
+      ...session,
+      currentFlow: session.currentFlow ?? session.currentDraftFlow ?? null,
+      currentDraftFlow: session.currentDraftFlow ?? null
     };
   }
 

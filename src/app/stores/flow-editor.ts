@@ -224,6 +224,12 @@ export class EditorStateHolder {
 
   private ensureValidationForFlow(flow: Flow | null) {
     if (!flow) return;
+    if (flow.id.startsWith(EditorStateHolder.ASSISTANT_DRAFT_PREFIX)) {
+      this.lastValidationFetchKey = this.validationFetchKey(flow);
+      this.applyFlowValidationErrors(flow.validationErrors ?? [], flow);
+      return;
+    }
+
     if (flow.status === 'EXECUTABLE') {
       this.lastValidationFetchKey = this.validationFetchKey(flow);
       this.applyFlowValidationErrors(flow.validationErrors ?? [], flow);

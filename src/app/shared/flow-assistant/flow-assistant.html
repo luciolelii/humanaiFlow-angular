@@ -1,31 +1,15 @@
 <aside class="assistant-shell">
   <div #assistantScroll class="assistant-scroll">
+    @if (!isCreateModal()) {
     <header class="assistant-header">
       <div>
         <p class="assistant-eyebrow">Workflow Copilot</p>
         <h2 class="assistant-title">{{ assistantModeLabel() }}</h2>
       </div>
     </header>
+    }
 
-    <section class="assistant-card assistant-model-card">
-      <div class="assistant-section-head">
-        <div>
-          <p class="assistant-copy">
-            {{ assistantModeDescription() }}
-          </p>
-          <p class="assistant-label">Mode</p>
-        </div>
-      </div>
-      <p class="assistant-meta">
-        @if (canOfferCreate()) {
-        Create mode
-        } @else if (canOfferFix()) {
-        Refine / Fix / Explain mode
-        } @else {
-        Refine / Explain mode
-        }
-      </p>
-    </section>
+
 
     @if (activePhaseLabel()) {
     <div class="assistant-intent-row">
@@ -33,7 +17,7 @@
     </div>
     }
 
-    @if (assistantBusy()) {
+    @if (assistantBusy() || createModalProgressOnly()) {
     <section class="assistant-card assistant-busy-card">
       <div class="assistant-busy-row">
         <span class="assistant-busy-spinner" aria-hidden="true"></span>
@@ -54,51 +38,9 @@
     </section>
     }
 
-    <section class="assistant-card assistant-model-card">
-      <div class="assistant-section-head">
-        <div>
-          <p class="assistant-copy">
-            @if (canOfferCreate()) {
-            Create a new flow draft in chat. Once a flow exists, the same session is treated as attached to that flow.
-            } @else {
-            Refine, fix, or explain the flow already open in the editor. Create mode is not offered while a flow is attached.
-            }
-          </p>
-          <p class="assistant-label">Model</p>
-        </div>
-        <button
-          type="button"
-          class="assistant-section-toggle"
-          (click)="toggleModelPicker()"
-          [attr.aria-label]="modelPickerOpen() ? 'Collapse model selector' : 'Expand model selector'">
-          {{ modelPickerOpen() ? '−' : '+' }}
-        </button>
-      </div>
 
-      @if (modelPickerOpen()) {
-      <mat-form-field appearance="outline">
-        <mat-label>Model</mat-label>
-        <mat-select
-          id="assistant-model"
-          [ngModel]="selectedModel()"
-          (ngModelChange)="selectModel($event)"
-          [disabled]="modelsLoading() || !models().length">
-          @for (model of models(); track model) {
-          <mat-option [value]="model">{{ model }}</mat-option>
-          }
-        </mat-select>
-      </mat-form-field>
-      }
 
-      @if (modelsLoading()) {
-      <p class="assistant-meta">Loading internal models...</p>
-      } @else if (modelsError()) {
-      <p class="assistant-error">{{ modelsError() }}</p>
-      } @else if (selectedModel()) {
-      <p class="assistant-meta">Using <strong>{{ selectedModel() }}</strong></p>
-      }
-    </section>
-
+    @if (!createModalProgressOnly()) {
     <section class="assistant-card assistant-starters">
       <div class="assistant-starters-head">
         <p class="assistant-label">Quick prompts</p>
@@ -152,9 +94,11 @@
       </article>
       }
     </section>
+    }
 
   </div>
 
+  @if (!createModalProgressOnly()) {
   <form class="assistant-composer" (ngSubmit)="submitPrompt()">
     <mat-form-field appearance="outline">
       <mat-label>Prompt</mat-label>
@@ -177,4 +121,5 @@
       Send
     </button>
   </form>
+  }
 </aside>

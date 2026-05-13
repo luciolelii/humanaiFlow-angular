@@ -8,7 +8,7 @@
 
     <!-- LEFT SIDEBAR -->
     <div data-tour="editor-sidebar">
-      <app-editor-sidebar></app-editor-sidebar>
+      <app-editor-sidebar (createWithAiRequested)="openCreateWithAi()"></app-editor-sidebar>
     </div>
 
     <!-- CENTER EDITOR -->
@@ -28,7 +28,7 @@
       <div class="flow-editor-empty">
         <h2>No flow selected</h2>
         @if (assistantEnabled) {
-        <p>Open an existing flow from the sidebar, create a new one, or ask the assistant to draft one to start editing.</p>
+        <p>Start from a blank canvas, open an existing flow, or draft a new workflow with AI.</p>
         } @else {
         <p>Open an existing flow from the sidebar or create a new one to start editing.</p>
         }
@@ -40,21 +40,30 @@
             [disabled]="creatingFlowFromEmpty()"
             (click)="createFlowFromEmpty()">
             <mat-icon fontIcon="add"></mat-icon>
-            New one
+            New empty flow
           </button>
           <button
             type="button"
             mat-stroked-button
             (click)="openFlowsSidebar()">
             <mat-icon fontIcon="menu_open"></mat-icon>
-            Open flows
+            Open flow
           </button>
+          @if (assistantEnabled) {
+          <button
+            type="button"
+            mat-stroked-button
+            (click)="openCreateWithAi()">
+            <mat-icon fontIcon="auto_awesome"></mat-icon>
+            New flow with AI
+          </button>
+          }
         </div>
       </div>
       }
     </main>
 
-    @if (assistantEnabled && !readonly()) {
+    @if (showAssistantPanel()) {
     <section class="flow-editor-assistant" data-tour="editor-assistant" [class.flow-editor-assistant-collapsed]="!assistantOpen()">
       <div class="flow-editor-side-rail">
         <button
@@ -97,6 +106,26 @@
     }
 
   </div>
+
+  @if (showCreateAssistantModal()) {
+  <div class="flow-editor-create-ai-backdrop" (click)="closeCreateWithAi()"></div>
+  <section class="flow-editor-create-ai-modal" role="dialog" aria-modal="true" aria-labelledby="create-ai-title">
+    <div class="flow-editor-create-ai-header">
+      <div>
+        <div class="flow-editor-create-ai-eyebrow">Workflow Copilot</div>
+        <h2 id="create-ai-title" class="flow-editor-create-ai-title">New flow with AI</h2>
+      </div>
+      <button
+        type="button"
+        class="flow-editor-create-ai-close"
+        aria-label="Close AI flow creation"
+        (click)="closeCreateWithAi()">
+        <mat-icon fontIcon="close"></mat-icon>
+      </button>
+    </div>
+    <app-flow-assistant class="flow-editor-create-ai-assistant" [variant]="'create-modal'"></app-flow-assistant>
+  </section>
+  }
 
   @if (tourActive() && activeTourStep(); as step) {
   <div class="flow-editor-tour-overlay" (click)="skipTour()"></div>

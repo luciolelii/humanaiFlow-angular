@@ -8,6 +8,16 @@ export type AssistantDraftPayload = {
   flow: FlowData;
 };
 
+export type AssistantSendMessageRequest = {
+  message: string;
+};
+
+export type AssistantFlowResult = {
+  name?: string;
+  description?: string;
+  flow: FlowData;
+};
+
 export type AssistantValidationIssue = {
   message: string;
   path?: string;
@@ -58,6 +68,7 @@ export type AssistantCallState = {
   progressMessage?: string;
   intent?: AssistantIntent | null;
   errorMessage?: string;
+  flowResult?: AssistantFlowResult | null;
 };
 
 export type AssistantSessionState = {
@@ -65,6 +76,7 @@ export type AssistantSessionState = {
   owner?: string;
   selectedModel: string;
   messages: AssistantChatMessage[];
+  currentFlow: AssistantDraftPayload | null;
   currentDraftFlow: AssistantDraftPayload | null;
   lastValidationErrors: AssistantValidationIssue[];
   lastCallId: string | null;

@@ -12,3 +12,9 @@
   min-width: 0;
   min-height: 0;
 }
+
+.group-holder-header-action {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}

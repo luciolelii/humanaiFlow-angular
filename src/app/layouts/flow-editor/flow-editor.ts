@@ -9,6 +9,7 @@ import { EditorSidebar } from "@pages/main/editor-sidebar/editor-sidebar";
 import { Flow } from '@models/flow';
 import { Authorization } from '@services/authorization/authorization';
 import { BlocksService } from '@services/blocks/blocks';
+import { ConfirmDialogService } from '@services/dialogs/confirm-dialog';
 import { FlowsService } from '@services/flows/flows';
 import { EditorStateHolder } from '@stores/flow-editor';
 import { FlowAssistant } from '@shared/flow-assistant/flow-assistant';
@@ -41,17 +42,25 @@ export class FlowEditor {
   private authorization = inject(Authorization);
   private flowsService = inject(FlowsService);
   private blocksService = inject(BlocksService);
+  private confirm = inject(ConfirmDialogService);
   private tourBootstrapped = false;
   private demoFlowId: string | null = null;
 
   assistantEnabled = environment.assistantEnabled;
   assistantOpen = signal(true);
   activeRightPanel = signal<'assistant' | 'errors'>('assistant');
+  aiCreationRequested = signal(false);
   creatingFlowFromEmpty = signal(false);
   flow = this.editorState.currentFlow; 
   readonly = this.editorState.isCurrentFlowReadOnly;
   validationErrors = this.editorState.flowValidationErrors;
   validationErrorCount = computed(() => this.validationErrors().length);
+  showAssistantPanel = computed(() =>
+    this.assistantEnabled && !this.readonly() && !!this.flow()
+  );
+  showCreateAssistantModal = computed(() =>
+    this.assistantEnabled && this.aiCreationRequested() && !this.flow()
+  );
   tourActive = signal(false);
   tourStepIndex = signal(0);
   tourSpotlightStyle = signal<Record<string, string>>({});
@@ -139,6 +148,12 @@ export class FlowEditor {
         this.activeRightPanel.set('assistant');
       }
     });
+
+    effect(() => {
+      if (this.aiCreationRequested() && this.flow()) {
+        this.aiCreationRequested.set(false);
+      }
+    });
   }
 
   toggleAssistant() {
@@ -187,6 +202,26 @@ export class FlowEditor {
 
   openFlowsSidebar() {
     this.editorSidebar?.openSide('flows');
+  }
+
+  async openCreateWithAi() {
+    if (!this.assistantEnabled) return;
+    if (this.flow()) {
+      if (this.editorState.isDirty()) {
+        const confirmed = await this.confirm.open(
+          'You have unsaved changes. Close this flow and create a new AI draft?'
+        );
+        if (!confirmed) return;
+      }
+      this.editorState.closeDocument();
+    }
+    this.aiCreationRequested.set(true);
+    this.activeRightPanel.set('assistant');
+    this.assistantOpen.set(true);
+  }
+
+  closeCreateWithAi() {
+    this.aiCreationRequested.set(false);
   }
 
   async createFlowFromEmpty() {

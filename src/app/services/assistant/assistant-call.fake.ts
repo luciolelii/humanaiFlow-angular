@@ -4,6 +4,7 @@ import {
   AssistantChatMessage,
   AssistantConfig,
   AssistantDraftPayload,
+  AssistantSendMessageRequest,
   AssistantSessionState,
   AssistantValidationIssue
 } from '@models/assistant';
@@ -50,6 +51,7 @@ export class AssistantCallServiceFake extends AssistantCallServiceBase {
           content: 'Select a model, then ask me to create, refine, fix, or explain a workflow.'
         }
       ],
+      currentFlow: null,
       currentDraftFlow: null,
       lastValidationErrors: [],
       lastCallId: null
@@ -58,14 +60,11 @@ export class AssistantCallServiceFake extends AssistantCallServiceBase {
     return of(structuredClone(session));
   }
 
-  override sendMessage(sessionId: string, request: {
-    message: string;
-  }): Observable<{ callId: string }> {
+  override sendMessage(sessionId: string, request: AssistantSendMessageRequest): Observable<{ callId: string }> {
     const session = this.sessions.get(sessionId);
     if (!session) {
       throw new Error(`Assistant session ${sessionId} not found`);
     }
-
     session.messages = [
       ...session.messages,
       {
@@ -192,6 +191,7 @@ export class AssistantCallServiceFake extends AssistantCallServiceBase {
       assistantMessage = 'I created an initial draft, but it still needs corrections.';
     }
 
+    session.currentFlow = draft;
     session.currentDraftFlow = draft;
     session.lastValidationErrors = validationErrors;
     session.messages = [

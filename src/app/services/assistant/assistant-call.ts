@@ -7,7 +7,9 @@ import {
   AssistantChatMessage,
   AssistantConfig,
   AssistantDraftPayload,
+  AssistantFlowResult,
   AssistantIntent,
+  AssistantSendMessageRequest,
   AssistantSessionState,
   AssistantValidationIssue
 } from '@models/assistant';
@@ -39,9 +41,7 @@ export class AssistantCallService extends AssistantCallServiceBase {
       .pipe(map((raw) => mapAssistantSessionState(raw)));
   }
 
-  override sendMessage(sessionId: string, request: {
-    message: string;
-  }): Observable<{ callId: string }> {
+  override sendMessage(sessionId: string, request: AssistantSendMessageRequest): Observable<{ callId: string }> {
     const encodedId = encodeURIComponent(sessionId);
     return this.http
       .post<unknown>(`${environment.apiUrl}/assistant/sessions/${encodedId}/messages`, request)
@@ -113,7 +113,8 @@ function mapAssistantCallState(raw: unknown): AssistantCallState {
       ? value['errorMessage']
       : typeof value['message'] === 'string' && status === 'FAILED'
         ? value['message']
-        : undefined
+        : undefined,
+    flowResult: mapAssistantFlowResult(value['flowResult'])
   };
 }
 
@@ -125,8 +126,9 @@ function mapAssistantSessionState(raw: unknown): AssistantSessionState {
     owner: typeof value['owner'] === 'string' ? value['owner'] : undefined,
     selectedModel: String(value['selectedModel'] ?? value['model'] ?? ''),
     messages: mapAssistantMessages(value['messages']),
+    currentFlow: mapAssistantDraftPayload(value['currentFlow']),
     currentDraftFlow: mapAssistantDraftPayload(
-      value['currentDraftFlow'] ?? value['currentFlow'] ?? value['currentDraft'] ?? value['flow']
+      value['currentDraftFlow'] ?? value['currentDraft'] ?? value['flow']
     ),
     lastValidationErrors: mapValidationIssues(value['lastValidationErrors'] ?? value['validationErrors']),
     lastCallId: value['lastCallId'] == null ? null : String(value['lastCallId'])
@@ -150,20 +152,55 @@ function mapAssistantMessages(raw: unknown): AssistantChatMessage[] {
   });
 }
 
+function mapAssistantFlowResult(raw: unknown): AssistantFlowResult | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const value = raw as Record<string, unknown>;
+  const flow = mapAssistantFlowData(value['flow']);
+  if (!hasAssistantFlowData(flow)) return null;
+  return {
+    name: typeof value['name'] === 'string' ? value['name'] : undefined,
+    description: typeof value['description'] === 'string' ? value['description'] : undefined,
+    flow
+  };
+}
+
 function mapAssistantDraftPayload(raw: unknown): AssistantDraftPayload | null {
   if (!raw || typeof raw !== 'object') return null;
 
   const value = raw as Record<string, unknown>;
-  const flow = (value['flow'] ?? {}) as Record<string, unknown>;
+  const flow = mapAssistantFlowData(
+    value['flow']
+      ?? value['data']
+      ?? value['flowData']
+      ?? value['currentFlowData']
+      ?? value
+  );
+  if (!hasAssistantFlowData(flow)) return null;
   return {
     name: String(value['name'] ?? 'Assistant Draft'),
     description: typeof value['description'] === 'string' ? value['description'] : undefined,
-    flow: {
-      blocks: Array.isArray(flow['blocks']) ? (flow['blocks'] as any[]) : [],
-      containers: Array.isArray(flow['containers']) ? (flow['containers'] as any[]) : [],
-      connections: Array.isArray(flow['connections']) ? (flow['connections'] as any[]) : [],
-      dependencies: Array.isArray(flow['dependencies']) ? (flow['dependencies'] as any[]) : []
-    }
+    flow
+  };
+}
+
+function hasAssistantFlowData(flow: AssistantDraftPayload['flow']): boolean {
+  return (
+    flow.blocks.length > 0 ||
+    flow.containers.length > 0 ||
+    flow.connections.length > 0 ||
+    flow.dependencies.length > 0 ||
+    (flow.globalInputs?.length ?? 0) > 0
+  );
+}
+
+function mapAssistantFlowData(raw: unknown): AssistantDraftPayload['flow'] {
+  const value = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  return {
+    blocks: Array.isArray(value['blocks']) ? (value['blocks'] as any[]) : [],
+    containers: Array.isArray(value['containers']) ? (value['containers'] as any[]) : [],
+    connections: Array.isArray(value['connections']) ? (value['connections'] as any[]) : [],
+    dependencies: Array.isArray(value['dependencies']) ? (value['dependencies'] as any[]) : [],
+    globalInputs: Array.isArray(value['globalInputs']) ? (value['globalInputs'] as any[]) : []
   };
 }
 

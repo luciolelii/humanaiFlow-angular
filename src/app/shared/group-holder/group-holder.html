@@ -15,8 +15,8 @@
       <i class="bi {{ icon }} text-lg"></i>
       <span class="truncate">{{ title }}</span>
   </div>
-  <span>
-  <ng-content select="header-button"></ng-content>
+  <span class="group-holder-header-action">
+  <ng-content select="[header-button]"></ng-content>
   </span>
 </div>
   <!-- Body -->

@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, effect, ElementRef, inject, OnDestroy, OnInit, signal, ViewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, ElementRef, inject, input, OnDestroy, OnInit, signal, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -12,6 +12,7 @@ import {
   AssistantChatMessage,
   AssistantConfig,
   AssistantDraftPayload,
+  AssistantFlowResult,
   AssistantSessionState
 } from '@models/assistant';
 import { Flow } from '@models/flow';
@@ -39,8 +40,10 @@ export class FlowAssistant implements OnInit, OnDestroy {
   private initialized = false;
   private activeFlowKey: string | null = null;
   private lastAutoScrollKey = '';
+  private readonly createModalFlowKey = `__assistant:create-modal:${crypto.randomUUID()}`;
 
   readonly assistantConfig = signal<AssistantConfig | null>(null);
+  readonly variant = input<'aside' | 'create-modal'>('aside');
   readonly sessionState = signal<AssistantSessionState | null>(null);
   readonly currentCall = signal<AssistantCallState | null>(null);
   readonly localMessages = signal<AssistantChatMessage[]>([]);
@@ -48,7 +51,9 @@ export class FlowAssistant implements OnInit, OnDestroy {
   readonly modelsLoading = signal(false);
   readonly modelsError = signal<string | null>(null);
   readonly sessionLoading = signal(false);
+  readonly requestPending = signal(false);
   readonly prompt = signal('');
+  readonly createPromptSubmitted = signal(false);
   readonly selectedModel = signal('');
   readonly modelPickerOpen = signal(false);
   readonly quickPromptsOpen = signal(true);
@@ -57,6 +62,10 @@ export class FlowAssistant implements OnInit, OnDestroy {
   readonly sessionHasDraft = computed(() => !!this.currentDraft());
   readonly canOfferCreate = computed(() => !this.editorHasNonEmptyFlow() && !this.sessionHasDraft());
   readonly canOfferFix = computed(() => !this.canOfferCreate() && (this.sessionState()?.lastValidationErrors?.length ?? 0) > 0);
+  readonly isCreateModal = computed(() => this.variant() === 'create-modal');
+  readonly createModalProgressOnly = computed(() =>
+    this.isCreateModal() && this.createPromptSubmitted()
+  );
   readonly assistantModeLabel = computed(() => this.canOfferCreate() ? 'Create with assistant' : 'Refine with assistant');
   readonly assistantModeDescription = computed(() => {
     if (this.canOfferCreate()) {
@@ -101,7 +110,7 @@ export class FlowAssistant implements OnInit, OnDestroy {
   });
   readonly assistantBusy = computed(() => {
     const status = this.currentCall()?.status;
-    return this.sessionLoading() || status === 'QUEUED' || status === 'RUNNING';
+    return this.sessionLoading() || this.requestPending() || status === 'QUEUED' || status === 'RUNNING';
   });
   readonly activePhase = computed<AssistantCallPhase | null>(() => {
     const call = this.currentCall();
@@ -114,14 +123,25 @@ export class FlowAssistant implements OnInit, OnDestroy {
   readonly callProgressMessage = computed(() => this.currentCall()?.progressMessage ?? '');
   readonly busyHeadline = computed(() => {
     const phase = this.activePhase();
+    if (this.requestPending()) {
+      return 'Sending request...';
+    }
     if (!phase) {
-      return this.sessionLoading() ? 'Preparing assistant session...' : '';
+      if (this.sessionLoading()) return 'Preparing assistant session...';
+      if (this.createModalProgressOnly()) return 'Finalizing flow...';
+      return '';
     }
     return this.phaseText(phase);
   });
   readonly busyDetail = computed(() => {
+    if (this.requestPending()) {
+      return 'Preparing the assistant run.';
+    }
     if (this.sessionLoading()) {
       return 'Loading assistant configuration, models, and chat session...';
+    }
+    if (this.createModalProgressOnly() && !this.currentCall()) {
+      return 'The draft is almost ready.';
     }
     if (!this.currentCall()) return '';
     return this.callProgressMessage() || 'The backend may perform multiple internal steps before returning the updated conversation and flow.';
@@ -146,6 +166,17 @@ export class FlowAssistant implements OnInit, OnDestroy {
 
   constructor() {
     effect(() => {
+      const messages = this.displayedMessages();
+      const lastMessageId = messages[messages.length - 1]?.id ?? '';
+      const busy = this.assistantBusy();
+      const nextKey = `${messages.length}:${lastMessageId}:${busy ? '1' : '0'}`;
+      if (nextKey === this.lastAutoScrollKey) return;
+      this.lastAutoScrollKey = nextKey;
+      this.scheduleScrollToLatestMessage();
+    });
+
+    effect(() => {
+      if (this.isCreateModal()) return;
       const flowKey = this.resolveFlowKey(this.currentFlow()?.id ?? null);
       if (!this.initialized || this.activeFlowKey === flowKey) return;
 
@@ -156,16 +187,6 @@ export class FlowAssistant implements OnInit, OnDestroy {
 
       this.activeFlowKey = flowKey;
       void this.restoreSessionForFlow(flowKey);
-    });
-
-    effect(() => {
-      const messages = this.displayedMessages();
-      const lastMessageId = messages[messages.length - 1]?.id ?? '';
-      const busy = this.assistantBusy();
-      const nextKey = `${messages.length}:${lastMessageId}:${busy ? '1' : '0'}`;
-      if (nextKey === this.lastAutoScrollKey) return;
-      this.lastAutoScrollKey = nextKey;
-      this.scheduleScrollToLatestMessage();
     });
   }
 
@@ -206,6 +227,8 @@ export class FlowAssistant implements OnInit, OnDestroy {
     const sessionId = this.sessionState()?.id;
     if (!content || this.assistantBusy() || !sessionId) return;
 
+    if (this.isCreateModal()) this.createPromptSubmitted.set(true);
+    this.requestPending.set(true);
     this.prompt.set('');
     this.localMessages.set([
       {
@@ -220,6 +243,7 @@ export class FlowAssistant implements OnInit, OnDestroy {
       take(1)
     ).subscribe({
       next: ({ callId }) => {
+        this.requestPending.set(false);
         this.currentCall.set({
           id: callId,
           sessionId,
@@ -231,6 +255,8 @@ export class FlowAssistant implements OnInit, OnDestroy {
       },
       error: (err) => {
         console.error('Assistant send message failed', err);
+        this.requestPending.set(false);
+        this.createPromptSubmitted.set(false);
         this.pushLocalAssistantMessage('The assistant request failed.');
       }
     });
@@ -270,8 +296,14 @@ export class FlowAssistant implements OnInit, OnDestroy {
           this.modelsError.set('No assistant model is available.');
           return;
         }
-        this.activeFlowKey = this.resolveFlowKey(this.currentFlow()?.id ?? null);
+        this.activeFlowKey = this.isCreateModal()
+          ? this.createModalFlowKey
+          : this.resolveFlowKey(this.currentFlow()?.id ?? null);
         this.initialized = true;
+        if (this.isCreateModal()) {
+          void this.openSession(selectedModel, this.activeFlowKey);
+          return;
+        }
         void this.restoreSessionForFlow(this.activeFlowKey);
       },
       error: (err) => {
@@ -315,6 +347,9 @@ export class FlowAssistant implements OnInit, OnDestroy {
         this.persistSnapshot();
         if (callState.status === 'COMPLETED' || callState.status === 'FAILED') {
           this.stopPolling();
+          if (callState.status === 'COMPLETED' && callState.flowResult?.flow) {
+            this.syncDraftToEditor(this.flowResultToDraft(callState.flowResult));
+          }
           void this.reloadSession(sessionId, callState.status === 'FAILED' ? callState.errorMessage : undefined);
         }
       },
@@ -335,6 +370,7 @@ export class FlowAssistant implements OnInit, OnDestroy {
         this.currentCall.set(null);
         this.persistSnapshot();
         if (failureMessage) {
+          this.createPromptSubmitted.set(false);
           this.pushLocalAssistantMessage(failureMessage);
         }
       },
@@ -360,7 +396,7 @@ export class FlowAssistant implements OnInit, OnDestroy {
       this.localMessages.set([]);
     }
     if (options?.syncDraftToEditor !== false) {
-      this.syncDraftToEditor(normalizedSession.currentDraftFlow);
+      this.syncDraftToEditor(normalizedSession.currentFlow ?? normalizedSession.currentDraftFlow);
     }
     this.persistSnapshot();
   }
@@ -408,17 +444,61 @@ export class FlowAssistant implements OnInit, OnDestroy {
     };
   }
 
+  private flowResultToDraft(result: AssistantFlowResult): AssistantDraftPayload {
+    const currentFlow = this.currentFlow();
+    return {
+      name: result.name ?? currentFlow?.name ?? 'Assistant Draft',
+      description: result.description ?? currentFlow?.description,
+      flow: result.flow
+    };
+  }
+
   private pushLocalAssistantMessage(content: string) {
+    const normalizedContent = this.normalizeAssistantMessageContent(content);
     const filtered = this.localMessages().filter((message) => message.role !== 'assistant');
+    if (this.sessionHasAssistantMessage(normalizedContent)) {
+      this.localMessages.set(filtered);
+      this.persistSnapshot();
+      return;
+    }
+
     this.localMessages.set([
       ...filtered,
       {
         id: crypto.randomUUID(),
         role: 'assistant',
-        content
+        content: normalizedContent
       }
     ]);
     this.persistSnapshot();
+  }
+
+  private sessionHasAssistantMessage(content: string): boolean {
+    if (!content) return false;
+    const canonicalContent = this.canonicalAssistantErrorContent(content);
+    return (this.sessionState()?.messages ?? []).some((message) =>
+      message.role === 'assistant' && this.assistantMessagesOverlap(
+        canonicalContent,
+        this.canonicalAssistantErrorContent(message.content)
+      )
+    );
+  }
+
+  private assistantMessagesOverlap(left: string, right: string): boolean {
+    if (!left || !right) return false;
+    return left === right || left.includes(right) || right.includes(left);
+  }
+
+  private normalizeAssistantMessageContent(content: string): string {
+    return String(content ?? '').trim().replace(/\s+/g, ' ');
+  }
+
+  private canonicalAssistantErrorContent(content: string): string {
+    return this.normalizeAssistantMessageContent(content)
+      .replace(/^the assistant request failed:\s*/i, '')
+      .replace(/\s+"/g, ' "')
+      .replace(/"\s+/g, '" ')
+      .toLowerCase();
   }
 
   private systemWelcomeMessage(): AssistantChatMessage {
@@ -426,7 +506,7 @@ export class FlowAssistant implements OnInit, OnDestroy {
       id: 'assistant-system-welcome',
       role: 'system',
       content: this.canOfferCreate()
-        ? 'Select a model, then ask me to create a new workflow.'
+        ? (this.isCreateModal() ? 'Describe the workflow you want to create.' : 'Select a model, then ask me to create a new workflow.')
         : 'Select a model, then ask me to refine, fix, or explain the current workflow.'
     };
   }
@@ -483,7 +563,7 @@ export class FlowAssistant implements OnInit, OnDestroy {
       next: (session) => {
         this.applySessionState(session, {
           clearLocalMessages: false,
-          syncDraftToEditor: !this.currentFlow()?.id
+          syncDraftToEditor: true
         });
       },
       error: (err) => {

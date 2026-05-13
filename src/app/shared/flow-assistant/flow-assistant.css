@@ -22,6 +22,26 @@
   border-left: 1px solid #dbe4ee;
 }
 
+:host(.flow-editor-create-ai-assistant) .assistant-shell {
+  border-left: 0;
+  background:
+    radial-gradient(circle at top right, rgba(14, 165, 233, 0.1), transparent 28%),
+    linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+:host(.flow-editor-create-ai-assistant) .assistant-scroll {
+  padding: 16px 20px 10px;
+}
+
+:host(.flow-editor-create-ai-assistant) .assistant-card {
+  border-radius: 12px;
+}
+
+:host(.flow-editor-create-ai-assistant) .assistant-composer {
+  margin: 0 20px 20px;
+  border-radius: 12px;
+}
+
 .assistant-scroll {
   display: flex;
   flex: 1 1 auto;

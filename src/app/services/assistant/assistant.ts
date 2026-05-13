@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { environment } from '@environment';
+import { AssistantSendMessageRequest } from '@models/assistant';
 import { AssistantCallServiceBase } from './assistant-call.base';
 
 @Injectable({
@@ -20,7 +21,7 @@ export class AssistantService {
     return this.assistantCall.createSession(request);
   }
 
-  sendMessage(sessionId: string, request: { message: string }) {
+  sendMessage(sessionId: string, request: AssistantSendMessageRequest) {
     return this.assistantCall.sendMessage(sessionId, request);
   }
 

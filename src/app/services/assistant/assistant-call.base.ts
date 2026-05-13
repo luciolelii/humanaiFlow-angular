@@ -1,6 +1,7 @@
 import {
   AssistantCallState,
   AssistantConfig,
+  AssistantSendMessageRequest,
   AssistantSessionState
 } from '@models/assistant';
 import { Observable } from 'rxjs';
@@ -14,9 +15,7 @@ export abstract class AssistantCallServiceBase {
     model: string;
   }): Observable<AssistantSessionState>;
 
-  abstract sendMessage(sessionId: string, request: {
-    message: string;
-  }): Observable<{ callId: string }>;
+  abstract sendMessage(sessionId: string, request: AssistantSendMessageRequest): Observable<{ callId: string }>;
 
   abstract getCall(callId: string): Observable<AssistantCallState>;
 

@@ -50,18 +50,27 @@
       @case ('flows') {
       <div data-tour="editor-sidebar-flows" class="h-full min-h-0 flex flex-col">
       <app-group-holder title="Flows" icon="bi-lightning-charge-fill">
+        <span header-button class="editor-sidebar-new-flow-header-action">
         @if (!creatingFlow()) {
         <button
-          ngProjectAs="header-button"
           type="button"
           class="editor-sidebar-new-flow-button"
-          (click)="createNewFlow()"
+          [matMenuTriggerFor]="newFlowMenu"
           aria-label="Create new flow">
           New
         </button>
+        <mat-menu #newFlowMenu="matMenu" panelClass="editor-sidebar-new-flow-menu">
+          <button type="button" mat-menu-item class="editor-sidebar-new-flow-menu-item" (click)="createNewFlow()">
+            <mat-icon fontIcon="note_add"></mat-icon>
+            <span>Empty flow</span>
+          </button>
+          <button type="button" mat-menu-item class="editor-sidebar-new-flow-menu-item" (click)="createNewFlowWithAi()">
+            <mat-icon fontIcon="auto_awesome"></mat-icon>
+            <span>Create with AI</span>
+          </button>
+        </mat-menu>
         } @else {
         <button
-          ngProjectAs="header-button"
           type="button"
           class="editor-sidebar-new-flow-button editor-sidebar-new-flow-button-loading"
           disabled>
@@ -69,6 +78,7 @@
           <span>New</span>
         </button>
         }
+        </span>
         <app-flows-list></app-flows-list>
       </app-group-holder>
       </div>

@@ -108,6 +108,16 @@ describe('EditorStateHolder', () => {
       expect(result).toBe(true);
       expect(service.currentFlow()!.id).toBe('f2');
     });
+
+    it('should not request validation for assistant draft temporary ids', async () => {
+      const flow = makeFlow({
+        id: `${EditorStateHolder.ASSISTANT_DRAFT_PREFIX}tmp-1`
+      });
+
+      await service.openDocument(flow);
+
+      expect(flowsServiceSpy.getFlowValidation).not.toHaveBeenCalled();
+    });
   });
 
   describe('closeDocument', () => {

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Output, computed, inject, signal } from '@angular/core';
 import { GroupHolder } from '@shared/group-holder/group-holder';
 import { FlowsList } from '@shared/flows-list/flows-list';
 import { BlocksList } from '@shared/blocks-list/blocks-list';
@@ -10,18 +10,21 @@ import { BlocksService } from '@services/blocks/blocks';
 import { ContainersService } from '@services/containers/containers';
 import { ListState } from '@stores/list-state';
 import { finalize } from 'rxjs';
+import { MatMenuModule } from '@angular/material/menu';
+import { MatIconModule } from '@angular/material/icon';
 
 type OpenedId = 'flows' | 'blocks' | 'containers';
 
 @Component({
   selector: 'app-editor-sidebar',
-  imports: [GroupHolder, FlowsList, BlocksList, ContainersList, CommonModule],
+  imports: [GroupHolder, FlowsList, BlocksList, ContainersList, CommonModule, MatMenuModule, MatIconModule],
   templateUrl: './editor-sidebar.html',
   styleUrl: './editor-sidebar.css',
   providers:[ListState],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class EditorSidebar {
+  @Output() createWithAiRequested = new EventEmitter<void>();
 
   flowState = inject(EditorStateHolder);
 
@@ -70,6 +73,10 @@ export class EditorSidebar {
           console.error('Error creating new flow:', err);
         },
       });
+  }
+
+  createNewFlowWithAi() {
+    this.createWithAiRequested.emit();
   }
 
   createNewBlock() {
