@@ -41,6 +41,7 @@ export class FlowAssistant implements OnInit, OnDestroy {
   private activeFlowKey: string | null = null;
   private lastAutoScrollKey = '';
   private readonly createModalFlowKey = `__assistant:create-modal:${crypto.randomUUID()}`;
+  private static readonly STANDARD_ASSISTANT_ERROR = 'Something went wrong while processing your workflow request. Please try again.';
 
   readonly assistantConfig = signal<AssistantConfig | null>(null);
   readonly variant = input<'aside' | 'create-modal'>('aside');
@@ -57,6 +58,9 @@ export class FlowAssistant implements OnInit, OnDestroy {
   readonly selectedModel = signal('');
   readonly modelPickerOpen = signal(false);
   readonly quickPromptsOpen = signal(true);
+  readonly assistantErrorMessage = signal<string | null>(null);
+  readonly lastFailedPrompt = signal<string | null>(null);
+  readonly lastSubmittedPrompt = signal('');
   readonly editorHasOpenFlow = computed(() => !!this.currentFlow());
   readonly editorHasNonEmptyFlow = computed(() => this.hasMeaningfulFlow(this.currentFlow()));
   readonly sessionHasDraft = computed(() => !!this.currentDraft());
@@ -65,6 +69,15 @@ export class FlowAssistant implements OnInit, OnDestroy {
   readonly isCreateModal = computed(() => this.variant() === 'create-modal');
   readonly createModalProgressOnly = computed(() =>
     this.isCreateModal() && this.createPromptSubmitted()
+  );
+  readonly refineProgressOnly = computed(() =>
+    !this.isCreateModal() && !this.canOfferCreate() && this.assistantBusy()
+  );
+  readonly progressOnlyMode = computed(() =>
+    this.createModalProgressOnly() || this.refineProgressOnly()
+  );
+  readonly canRetryLastPrompt = computed(() =>
+    !this.assistantBusy() && !!this.lastFailedPrompt() && !!this.sessionState()?.id
   );
   readonly assistantModeLabel = computed(() => this.canOfferCreate() ? 'Create with assistant' : 'Refine with assistant');
   readonly assistantModeDescription = computed(() => {
@@ -224,22 +237,35 @@ export class FlowAssistant implements OnInit, OnDestroy {
 
   submitPrompt() {
     const content = this.prompt().trim();
+    this.sendPrompt(content);
+  }
+
+  retryLastPrompt() {
+    const failedPrompt = this.lastFailedPrompt()?.trim() ?? '';
+    if (!failedPrompt) return;
+    this.sendPrompt(failedPrompt);
+  }
+
+  private sendPrompt(content: string) {
+    const normalizedContent = content.trim();
     const sessionId = this.sessionState()?.id;
-    if (!content || this.assistantBusy() || !sessionId) return;
+    if (!normalizedContent || this.assistantBusy() || !sessionId) return;
 
     if (this.isCreateModal()) this.createPromptSubmitted.set(true);
     this.requestPending.set(true);
+    this.assistantErrorMessage.set(null);
+    this.lastSubmittedPrompt.set(normalizedContent);
     this.prompt.set('');
     this.localMessages.set([
       {
         id: crypto.randomUUID(),
         role: 'user',
-        content
+        content: normalizedContent
       }
     ]);
     this.persistSnapshot();
 
-    this.assistant.sendMessage(sessionId, { message: content }).pipe(
+    this.assistant.sendMessage(sessionId, { message: normalizedContent }).pipe(
       take(1)
     ).subscribe({
       next: ({ callId }) => {
@@ -256,8 +282,7 @@ export class FlowAssistant implements OnInit, OnDestroy {
       error: (err) => {
         console.error('Assistant send message failed', err);
         this.requestPending.set(false);
-        this.createPromptSubmitted.set(false);
-        this.pushLocalAssistantMessage('The assistant request failed.');
+        this.handleAssistantErrorWithRetry(normalizedContent);
       }
     });
   }
@@ -350,18 +375,18 @@ export class FlowAssistant implements OnInit, OnDestroy {
           if (callState.status === 'COMPLETED' && callState.flowResult?.flow) {
             this.syncDraftToEditor(this.flowResultToDraft(callState.flowResult));
           }
-          void this.reloadSession(sessionId, callState.status === 'FAILED' ? callState.errorMessage : undefined);
+          void this.reloadSession(sessionId, callState.status === 'FAILED');
         }
       },
       error: (err) => {
         console.error('Assistant call polling failed', err);
         this.stopPolling();
-        this.pushLocalAssistantMessage('Polling the assistant call failed.');
+        this.handleAssistantErrorWithRetry(this.lastSubmittedPrompt());
       }
     });
   }
 
-  private async reloadSession(sessionId: string, failureMessage?: string) {
+  private async reloadSession(sessionId: string, hasFailedCall = false) {
     this.assistant.getSession(sessionId).pipe(
       take(1)
     ).subscribe({
@@ -369,17 +394,25 @@ export class FlowAssistant implements OnInit, OnDestroy {
         this.applySessionState(session);
         this.currentCall.set(null);
         this.persistSnapshot();
-        if (failureMessage) {
-          this.createPromptSubmitted.set(false);
-          this.pushLocalAssistantMessage(failureMessage);
+        if (hasFailedCall) {
+          this.handleAssistantErrorWithRetry(this.lastSubmittedPrompt());
         }
       },
       error: (err) => {
         console.error('Assistant session refresh failed', err);
         this.currentCall.set(null);
-        this.pushLocalAssistantMessage('Unable to refresh the assistant session.');
+        this.handleAssistantErrorWithRetry(this.lastSubmittedPrompt());
       }
     });
+  }
+
+  private handleAssistantErrorWithRetry(promptForRetry: string) {
+    const normalizedPrompt = String(promptForRetry ?? '').trim();
+    this.createPromptSubmitted.set(false);
+    this.assistantErrorMessage.set(FlowAssistant.STANDARD_ASSISTANT_ERROR);
+    this.lastFailedPrompt.set(normalizedPrompt || null);
+    this.pushLocalAssistantMessage(FlowAssistant.STANDARD_ASSISTANT_ERROR);
+    this.persistSnapshot();
   }
 
   private applySessionState(session: AssistantSessionState, options?: { clearLocalMessages?: boolean; syncDraftToEditor?: boolean }) {

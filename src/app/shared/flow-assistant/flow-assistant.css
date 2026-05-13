@@ -105,6 +105,24 @@
     linear-gradient(180deg, rgba(240, 253, 250, 0.96), rgba(248, 250, 252, 0.96));
 }
 
+.assistant-error-card {
+  border-color: rgba(185, 28, 28, 0.24);
+  background: linear-gradient(180deg, rgba(254, 242, 242, 0.96), rgba(255, 255, 255, 0.96));
+}
+
+.assistant-error-message {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #7f1d1d;
+}
+
+.assistant-retry {
+  margin-top: 10px;
+  border-color: #ef4444;
+  color: #7f1d1d;
+}
+
 .assistant-busy-row {
   display: flex;
   align-items: flex-start;

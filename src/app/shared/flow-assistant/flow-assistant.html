@@ -11,13 +11,13 @@
 
 
 
-    @if (activePhaseLabel()) {
+    @if (activePhaseLabel() && !progressOnlyMode()) {
     <div class="assistant-intent-row">
       <span class="assistant-intent">{{ activePhaseLabel() }}</span>
     </div>
     }
 
-    @if (assistantBusy() || createModalProgressOnly()) {
+    @if (assistantBusy() || progressOnlyMode()) {
     <section class="assistant-card assistant-busy-card">
       <div class="assistant-busy-row">
         <span class="assistant-busy-spinner" aria-hidden="true"></span>
@@ -38,9 +38,23 @@
     </section>
     }
 
+    @if (assistantErrorMessage() && !assistantBusy()) {
+    <section class="assistant-card assistant-error-card" role="status" aria-live="polite">
+      <p class="assistant-error-message">{{ assistantErrorMessage() }}</p>
+      <button
+        type="button"
+        mat-stroked-button
+        class="assistant-retry"
+        [disabled]="!canRetryLastPrompt()"
+        (click)="retryLastPrompt()">
+        Retry
+      </button>
+    </section>
+    }
 
 
-    @if (!createModalProgressOnly()) {
+
+    @if (!progressOnlyMode()) {
     <section class="assistant-card assistant-starters">
       <div class="assistant-starters-head">
         <p class="assistant-label">Quick prompts</p>
@@ -98,7 +112,7 @@
 
   </div>
 
-  @if (!createModalProgressOnly()) {
+  @if (!progressOnlyMode()) {
   <form class="assistant-composer" (ngSubmit)="submitPrompt()">
     <mat-form-field appearance="outline">
       <mat-label>Prompt</mat-label>
