@@ -1,7 +1,13 @@
+@if (focusOpen) {
+<div class="llm-node__focus-backdrop" (pointerdown)="$event.stopPropagation()" (click)="closeFocus($event)"></div>
+}
 <div class="llm-node"
   [class.llm-node-error]="hasUpdateBlockError()"
   [class.llm-node-delete-pending]="deleteConfirmOpen"
-  [class.llm-node--human]="isHumanNode()">
+  [class.llm-node--human]="isHumanNode()"
+  [class.llm-node--focus]="focusOpen"
+  (pointerdown)="focusOpen && $event.stopPropagation()"
+  (click)="focusOpen && $event.stopPropagation()">
   @if (isCreatingOnServer()) {
   <div class="llm-loading-overlay">
     <div class="llm-loading-chip">
@@ -74,12 +80,22 @@
       </div>
       }
       @if (!isReadonly) {
+      <button
+        type="button"
+        class="llm-clone-btn"
+        [matTooltip]="focusOpen ? 'Close expanded node' : 'Expand node'"
+        (pointerdown)="$event.stopPropagation()"
+        (click)="toggleFocus($event)">
+        <i class="bi" [class.bi-fullscreen]="!focusOpen" [class.bi-fullscreen-exit]="focusOpen"></i>
+      </button>
+      @if (!focusOpen) {
       <button type="button" class="llm-clone-btn" matTooltip="Clone node" (pointerdown)="$event.stopPropagation()" (click)="cloneCurrentNode($event)">
         <i class="bi bi-copy"></i>
       </button>
       <button type="button" class="llm-delete-btn" matTooltip="Delete node" (pointerdown)="$event.stopPropagation()" (click)="confirmDelete($event)">
         <i class="bi bi-trash"></i>
       </button>
+      }
       }
     </div>
   </div>

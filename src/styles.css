@@ -65,6 +65,10 @@ body {
   font-family: var(--font-body);
 }
 
+body.node-focus-modal-open {
+  overflow: hidden;
+}
+
 /* ── Global Material overrides ────────────────────────────────── */
 
 /* Default form fields to full width — uses :where() for zero specificity

@@ -45,6 +45,8 @@
   min-height: 48px;
   border-radius: 0;
   font-weight: 600;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .app-shell {

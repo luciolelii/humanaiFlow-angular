@@ -1,4 +1,13 @@
-<div class="container-node" [class.container-node-assigning]="isAssigning" [class.container-node-delete-pending]="deleteConfirmOpen">
+@if (focusOpen) {
+<div class="container-node__focus-backdrop" (pointerdown)="$event.stopPropagation()" (click)="closeFocus($event)"></div>
+}
+<div
+  class="container-node"
+  [class.container-node-assigning]="isAssigning"
+  [class.container-node-delete-pending]="deleteConfirmOpen"
+  [class.container-node--focus]="focusOpen"
+  (pointerdown)="focusOpen && $event.stopPropagation()"
+  (click)="focusOpen && $event.stopPropagation()">
   @if (isSchemaLoading && !isAssigning) {
   <div class="llm-loading-overlay">
     <div class="llm-loading-chip">
@@ -51,12 +60,17 @@
       </div>
       }
       @if (!isReadonly) {
+      <button type="button" class="container-node__focus" [matTooltip]="focusOpen ? 'Close expanded node' : 'Expand node'" (pointerdown)="$event.stopPropagation()" (click)="toggleFocus($event)">
+        <i class="bi" [class.bi-fullscreen]="!focusOpen" [class.bi-fullscreen-exit]="focusOpen"></i>
+      </button>
+      @if (!focusOpen) {
       <button type="button" class="container-node__clone" matTooltip="Clone node" (pointerdown)="$event.stopPropagation()" (click)="cloneCurrentNode($event)">
         <i class="bi bi-copy"></i>
       </button>
       <button type="button" class="container-node__delete" matTooltip="Delete node" (pointerdown)="$event.stopPropagation()" (click)="deleteNode($event)">
         <i class="bi bi-trash"></i>
       </button>
+      }
       }
     </div>
   </div>
