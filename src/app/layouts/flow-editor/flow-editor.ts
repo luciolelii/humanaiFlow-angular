@@ -3,6 +3,7 @@ import { ChangeDetectionStrategy, Component, HostListener, ViewChild, computed, 
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { environment } from '@environment';
 import { FlowBlock, FlowData } from '@models/flow';
 import { EditorSidebar } from "@pages/main/editor-sidebar/editor-sidebar";
@@ -11,6 +12,7 @@ import { Authorization } from '@services/authorization/authorization';
 import { BlocksService } from '@services/blocks/blocks';
 import { ConfirmDialogService } from '@services/dialogs/confirm-dialog';
 import { FlowsService } from '@services/flows/flows';
+import { AssistantSessionStore } from '@stores/assistant-session-store';
 import { EditorStateHolder } from '@stores/flow-editor';
 import { FlowAssistant } from '@shared/flow-assistant/flow-assistant';
 import { FlowValidationPanel } from '@shared/flow-validation-panel/flow-validation-panel';
@@ -28,7 +30,7 @@ type TourStep = {
 
 @Component({
   selector: 'app-flow-editor',
-  imports: [CommonModule, EditorSidebar, TitleToolbar, ReteEditor, FlowAssistant, FlowValidationPanel, MatButtonModule, MatCardModule, MatIconModule],
+  imports: [CommonModule, EditorSidebar, TitleToolbar, ReteEditor, FlowAssistant, FlowValidationPanel, MatButtonModule, MatCardModule, MatIconModule, MatTooltipModule],
   templateUrl: './flow-editor.html',
   styleUrl: './flow-editor.css',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -37,12 +39,14 @@ export class FlowEditor {
   private static readonly SIDEBAR_OPEN_DELAY_MS = 320;
   private static readonly TOUR_SEEN_KEY_PREFIX = 'editor-guided-tour-seen:';
   @ViewChild(EditorSidebar) editorSidebar?: EditorSidebar;
+  @ViewChild('createAssistant') createAssistant?: FlowAssistant;
 
   private editorState: EditorStateHolder = inject(EditorStateHolder);
   private authorization = inject(Authorization);
   private flowsService = inject(FlowsService);
   private blocksService = inject(BlocksService);
   private confirm = inject(ConfirmDialogService);
+  private assistantSessionStore = inject(AssistantSessionStore);
   private tourBootstrapped = false;
   private demoFlowId: string | null = null;
 
@@ -50,6 +54,8 @@ export class FlowEditor {
   assistantOpen = signal(true);
   activeRightPanel = signal<'assistant' | 'errors'>('assistant');
   aiCreationRequested = signal(false);
+  aiCreationMinimized = signal(false);
+  createAssistantCancellable = signal(false);
   creatingFlowFromEmpty = signal(false);
   flow = this.editorState.currentFlow; 
   readonly = this.editorState.isCurrentFlowReadOnly;
@@ -59,7 +65,10 @@ export class FlowEditor {
     this.assistantEnabled && !this.readonly() && !!this.flow()
   );
   showCreateAssistantModal = computed(() =>
-    this.assistantEnabled && this.aiCreationRequested() && !this.flow()
+    this.assistantEnabled && this.aiCreationRequested() && !this.aiCreationMinimized() && !this.flow()
+  );
+  showCreateAssistantFloatingButton = computed(() =>
+    this.assistantEnabled && this.aiCreationRequested() && this.aiCreationMinimized() && !this.flow()
   );
   tourActive = signal(false);
   tourStepIndex = signal(0);
@@ -152,8 +161,12 @@ export class FlowEditor {
     effect(() => {
       if (this.aiCreationRequested() && this.flow()) {
         this.aiCreationRequested.set(false);
+        this.aiCreationMinimized.set(false);
+        this.createAssistantCancellable.set(false);
       }
     });
+
+    queueMicrotask(() => this.restoreMinimizedCreateAssistantIfAvailable());
   }
 
   toggleAssistant() {
@@ -216,12 +229,37 @@ export class FlowEditor {
       this.editorState.closeDocument();
     }
     this.aiCreationRequested.set(true);
+    this.aiCreationMinimized.set(false);
     this.activeRightPanel.set('assistant');
     this.assistantOpen.set(true);
   }
 
-  closeCreateWithAi() {
+  minimizeCreateWithAi() {
+    if (!this.aiCreationRequested() || !this.createAssistantCancellable()) return;
+    this.aiCreationMinimized.set(true);
+  }
+
+  restoreCreateWithAi() {
+    if (!this.aiCreationRequested()) return;
+    this.aiCreationMinimized.set(false);
+  }
+
+  async closeCreateWithAi() {
+    const assistant = this.createAssistant;
+    if (assistant?.hasCancellableCall()) {
+      const confirmed = await this.confirm.open(
+        'An assistant request is still running. Cancel it and close AI flow creation?'
+      );
+      if (!confirmed) return;
+
+      const cancelled = await assistant.cancelActiveCall();
+      if (!cancelled) return;
+      assistant.clearActiveSnapshot();
+    }
+
     this.aiCreationRequested.set(false);
+    this.aiCreationMinimized.set(false);
+    this.createAssistantCancellable.set(false);
   }
 
   async createFlowFromEmpty() {
@@ -405,6 +443,14 @@ export class FlowEditor {
 
   private hasSeenTour(username: string): boolean {
     return localStorage.getItem(`${FlowEditor.TOUR_SEEN_KEY_PREFIX}${username}`) === 'true';
+  }
+
+  private restoreMinimizedCreateAssistantIfAvailable() {
+    if (!this.assistantEnabled || this.flow() || this.aiCreationRequested()) return;
+    if (!this.assistantSessionStore.hasSnapshot(AssistantSessionStore.CREATE_MODAL_FLOW_KEY)) return;
+
+    this.aiCreationRequested.set(true);
+    this.aiCreationMinimized.set(true);
   }
 
   private ensureSidebarForStep(): boolean {

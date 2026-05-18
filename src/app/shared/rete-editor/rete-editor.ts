@@ -78,6 +78,10 @@ export class ReteEditor implements OnChanges, OnDestroy {
     }
     if (changes['flowData'] && this.rete) {
       setEditorGlobalInputs(this.rete.editor, this.flowData().globalInputs ?? []);
+      if (!this.readonly() && !this.isEditorGraphInSync()) {
+        void this.reloadEditor();
+        return;
+      }
     }
     if (this.readonly() && changes['flowData']) {
       void this.syncReadonlyFlowData();
@@ -533,6 +537,11 @@ export class ReteEditor implements OnChanges, OnDestroy {
     const updatedData = exportGraph(rete.editor);
     this.flowState.updateData(updatedData, { structural: context?.type !== 'nodetranslated' });
     this.flowChanged.emit(updatedData);
+  }
+
+  private isEditorGraphInSync(): boolean {
+    if (!this.rete) return false;
+    return JSON.stringify(exportGraph(this.rete.editor)) === JSON.stringify(this.flowData());
   }
 
   private canStartSelection(target: EventTarget | null) {

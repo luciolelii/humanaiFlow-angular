@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, effect, ElementRef, inject, input, OnDestroy, OnInit, signal, ViewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, ElementRef, EventEmitter, inject, input, OnDestroy, OnInit, Output, signal, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -20,7 +20,7 @@ import { AssistantService } from '@services/assistant/assistant';
 import { Authorization } from '@services/authorization/authorization';
 import { AssistantSessionStore } from '@stores/assistant-session-store';
 import { EditorStateHolder } from '@stores/flow-editor';
-import { finalize, interval, Subscription, switchMap, take } from 'rxjs';
+import { finalize, firstValueFrom, interval, Subscription, switchMap, take } from 'rxjs';
 
 @Component({
   selector: 'app-flow-assistant',
@@ -30,6 +30,7 @@ import { finalize, interval, Subscription, switchMap, take } from 'rxjs';
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class FlowAssistant implements OnInit, OnDestroy {
+  @Output() cancellableCallChange = new EventEmitter<boolean>();
   @ViewChild('assistantScroll') assistantScrollElement?: ElementRef<HTMLDivElement>;
 
   private readonly assistant = inject(AssistantService);
@@ -40,7 +41,9 @@ export class FlowAssistant implements OnInit, OnDestroy {
   private initialized = false;
   private activeFlowKey: string | null = null;
   private lastAutoScrollKey = '';
-  private readonly createModalFlowKey = `__assistant:create-modal:${crypto.randomUUID()}`;
+  private lastCancellableCallState = false;
+  private skipDestroySnapshot = false;
+  private readonly createModalFlowKey = AssistantSessionStore.CREATE_MODAL_FLOW_KEY;
   private static readonly STANDARD_ASSISTANT_ERROR = 'Something went wrong while processing your workflow request. Please try again.';
 
   readonly assistantConfig = signal<AssistantConfig | null>(null);
@@ -119,7 +122,8 @@ export class FlowAssistant implements OnInit, OnDestroy {
     const baseMessages = this.sessionState()?.messages?.length
       ? this.sessionState()!.messages
       : [this.systemWelcomeMessage()];
-    return [...baseMessages, ...this.localMessages()];
+    return [...baseMessages, ...this.localMessages()]
+      .filter((message) => !this.isTechnicalAssistantFailureMessage(message));
   });
   readonly assistantBusy = computed(() => {
     const status = this.currentCall()?.status;
@@ -201,6 +205,13 @@ export class FlowAssistant implements OnInit, OnDestroy {
       this.activeFlowKey = flowKey;
       void this.restoreSessionForFlow(flowKey);
     });
+
+    effect(() => {
+      const nextState = this.hasCancellableCall();
+      if (this.lastCancellableCallState === nextState) return;
+      this.lastCancellableCallState = nextState;
+      this.cancellableCallChange.emit(nextState);
+    });
   }
 
   ngOnInit(): void {
@@ -208,7 +219,7 @@ export class FlowAssistant implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    if (this.activeFlowKey) {
+    if (this.activeFlowKey && !this.skipDestroySnapshot) {
       this.persistSnapshot(this.activeFlowKey);
     }
     this.stopPolling();
@@ -244,6 +255,54 @@ export class FlowAssistant implements OnInit, OnDestroy {
     const failedPrompt = this.lastFailedPrompt()?.trim() ?? '';
     if (!failedPrompt) return;
     this.sendPrompt(failedPrompt);
+  }
+
+  canRetryFromMessage(message: AssistantChatMessage): boolean {
+    return message.role === 'assistant'
+      && this.canRetryLastPrompt()
+      && this.canonicalAssistantErrorContent(message.content)
+      === this.canonicalAssistantErrorContent(FlowAssistant.STANDARD_ASSISTANT_ERROR);
+  }
+
+  hasCancellableCall(): boolean {
+    return this.isActiveCall(this.currentCall());
+  }
+
+  async cancelActiveCall(): Promise<boolean> {
+    const call = this.currentCall();
+    if (!this.isActiveCall(call)) {
+      this.requestPending.set(false);
+      this.createPromptSubmitted.set(false);
+      return true;
+    }
+
+    this.stopPolling();
+    this.requestPending.set(false);
+
+    try {
+      const cancelledCall = await firstValueFrom(this.assistant.cancelCall(call.id).pipe(take(1)));
+      this.currentCall.set(cancelledCall);
+      this.createPromptSubmitted.set(false);
+      this.persistSnapshot();
+
+      const session = await firstValueFrom(this.assistant.getSession(cancelledCall.sessionId || call.sessionId).pipe(take(1)));
+      this.applySessionState(session, { syncDraftToEditor: false });
+      this.currentCall.set(null);
+      this.persistSnapshot();
+      return true;
+    } catch (err) {
+      console.error('Assistant call cancel failed', err);
+      this.currentCall.set(call);
+      this.startPolling(call.id, call.sessionId);
+      this.assistantErrorMessage.set('Unable to cancel the assistant request.');
+      this.persistSnapshot();
+      return false;
+    }
+  }
+
+  clearActiveSnapshot() {
+    const flowKey = this.activeFlowKey ?? this.resolveFlowKey(this.currentFlow()?.id ?? null);
+    this.clearSnapshot(flowKey);
   }
 
   private sendPrompt(content: string) {
@@ -325,10 +384,6 @@ export class FlowAssistant implements OnInit, OnDestroy {
           ? this.createModalFlowKey
           : this.resolveFlowKey(this.currentFlow()?.id ?? null);
         this.initialized = true;
-        if (this.isCreateModal()) {
-          void this.openSession(selectedModel, this.activeFlowKey);
-          return;
-        }
         void this.restoreSessionForFlow(this.activeFlowKey);
       },
       error: (err) => {
@@ -370,10 +425,13 @@ export class FlowAssistant implements OnInit, OnDestroy {
       next: (callState) => {
         this.currentCall.set(callState);
         this.persistSnapshot();
-        if (callState.status === 'COMPLETED' || callState.status === 'FAILED') {
+        if (this.isTerminalCall(callState)) {
           this.stopPolling();
           if (callState.status === 'COMPLETED' && callState.flowResult?.flow) {
             this.syncDraftToEditor(this.flowResultToDraft(callState.flowResult));
+          }
+          if (callState.status === 'CANCELLED') {
+            this.createPromptSubmitted.set(false);
           }
           void this.reloadSession(sessionId, callState.status === 'FAILED');
         }
@@ -449,6 +507,7 @@ export class FlowAssistant implements OnInit, OnDestroy {
     const nextFlowKey = this.resolveFlowKey(nextFlow.id);
     this.persistSnapshot(currentFlowKey);
     this.sessionStore.cloneSnapshot(currentFlowKey, nextFlowKey);
+    const shouldClearCreateModalSnapshot = currentFlowKey === this.createModalFlowKey;
 
     void this.editorState.openDocument(nextFlow, { skipDirtyCheck: false }).then((opened) => {
       if (!opened) {
@@ -456,6 +515,9 @@ export class FlowAssistant implements OnInit, OnDestroy {
         return;
       }
       this.editorState.loadAssistantFlow(nextFlow, { markDirty: true });
+      if (shouldClearCreateModalSnapshot) {
+        this.clearSnapshot(currentFlowKey);
+      }
     });
   }
 
@@ -526,6 +588,11 @@ export class FlowAssistant implements OnInit, OnDestroy {
     return String(content ?? '').trim().replace(/\s+/g, ' ');
   }
 
+  private isTechnicalAssistantFailureMessage(message: AssistantChatMessage): boolean {
+    return message.role === 'assistant'
+      && /^the assistant request failed:/i.test(this.normalizeAssistantMessageContent(message.content));
+  }
+
   private canonicalAssistantErrorContent(content: string): string {
     return this.normalizeAssistantMessageContent(content)
       .replace(/^the assistant request failed:\s*/i, '')
@@ -555,6 +622,9 @@ export class FlowAssistant implements OnInit, OnDestroy {
       this.quickPromptsOpen.set(true);
       this.sessionState.set(null);
       this.localMessages.set([]);
+      this.assistantErrorMessage.set(null);
+      this.lastFailedPrompt.set(null);
+      this.lastSubmittedPrompt.set('');
       const model = this.selectedModel();
       if (!model) {
         this.sessionLoading.set(false);
@@ -568,7 +638,11 @@ export class FlowAssistant implements OnInit, OnDestroy {
     this.modelPickerOpen.set(snapshot.modelPickerOpen);
     this.quickPromptsOpen.set(snapshot.quickPromptsOpen);
     this.localMessages.set(snapshot.localMessages);
-    this.currentCall.set(null);
+    this.currentCall.set(snapshot.currentCall);
+    this.assistantErrorMessage.set(snapshot.assistantErrorMessage);
+    this.lastFailedPrompt.set(snapshot.lastFailedPrompt);
+    this.lastSubmittedPrompt.set(snapshot.lastSubmittedPrompt);
+    this.createPromptSubmitted.set(this.isCreateModal() && this.isActiveCall(snapshot.currentCall));
     if (snapshot.selectedModel) {
       this.selectedModel.set(snapshot.selectedModel);
     }
@@ -585,6 +659,12 @@ export class FlowAssistant implements OnInit, OnDestroy {
         return;
       }
       void this.openSession(model, flowKey);
+      return;
+    }
+
+    if (this.isActiveCall(snapshot.currentCall)) {
+      this.sessionLoading.set(false);
+      this.startPolling(snapshot.currentCall.id, snapshot.currentCall.sessionId || snapshot.sessionId);
       return;
     }
 
@@ -612,6 +692,21 @@ export class FlowAssistant implements OnInit, OnDestroy {
     return this.sessionStore.flowKey(flowId);
   }
 
+  private isActiveCall(call: AssistantCallState | null): call is AssistantCallState {
+    return call?.status === 'QUEUED' || call?.status === 'RUNNING';
+  }
+
+  private isTerminalCall(call: AssistantCallState): boolean {
+    return call.status === 'COMPLETED' || call.status === 'FAILED' || call.status === 'CANCELLED';
+  }
+
+  private clearSnapshot(flowKey: string) {
+    if (flowKey === this.activeFlowKey) {
+      this.skipDestroySnapshot = true;
+    }
+    this.sessionStore.clearSnapshot(flowKey);
+  }
+
   private persistSnapshot(flowKey = this.activeFlowKey ?? this.resolveFlowKey(this.currentFlow()?.id ?? null)) {
     this.sessionStore.setSnapshot(flowKey, {
       sessionId: this.sessionState()?.id ?? null,
@@ -621,7 +716,10 @@ export class FlowAssistant implements OnInit, OnDestroy {
       quickPromptsOpen: this.quickPromptsOpen(),
       localMessages: this.localMessages(),
       currentCall: this.currentCall(),
-      sessionState: this.sessionState()
+      sessionState: this.sessionState(),
+      assistantErrorMessage: this.assistantErrorMessage(),
+      lastFailedPrompt: this.lastFailedPrompt(),
+      lastSubmittedPrompt: this.lastSubmittedPrompt()
     });
   }
 
@@ -668,6 +766,8 @@ export class FlowAssistant implements OnInit, OnDestroy {
         return 'Finalizing flow...';
       case 'failed':
         return 'Assistant request failed.';
+      case 'cancelled':
+        return 'Assistant request cancelled.';
     }
   }
 

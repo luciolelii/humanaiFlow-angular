@@ -123,6 +123,36 @@
   color: #7f1d1d;
 }
 
+.assistant-inline-retry {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 8px;
+  padding: 5px 12px;
+  border: 1px solid rgba(15, 118, 110, 0.28);
+  border-radius: 999px;
+  background: #f0fdfa;
+  color: #0f766e;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: lowercase;
+  cursor: pointer;
+}
+
+.assistant-inline-retry:hover {
+  border-color: rgba(15, 118, 110, 0.46);
+  background: #ccfbf1;
+  color: #115e59;
+}
+
+.assistant-inline-retry:disabled {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+  color: #94a3b8;
+  cursor: default;
+}
+
 .assistant-busy-row {
   display: flex;
   align-items: flex-start;

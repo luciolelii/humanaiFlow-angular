@@ -38,22 +38,6 @@
     </section>
     }
 
-    @if (assistantErrorMessage() && !assistantBusy()) {
-    <section class="assistant-card assistant-error-card" role="status" aria-live="polite">
-      <p class="assistant-error-message">{{ assistantErrorMessage() }}</p>
-      <button
-        type="button"
-        mat-stroked-button
-        class="assistant-retry"
-        [disabled]="!canRetryLastPrompt()"
-        (click)="retryLastPrompt()">
-        Retry
-      </button>
-    </section>
-    }
-
-
-
     @if (!progressOnlyMode()) {
     <section class="assistant-card assistant-starters">
       <div class="assistant-starters-head">
@@ -82,6 +66,16 @@
       <article class="assistant-message" [class.assistant-message-user]="message.role === 'user'" [class.assistant-message-system]="message.role === 'system'">
         <div class="assistant-message-role">{{ message.role }}</div>
         <p class="assistant-message-body">{{ message.content }}</p>
+        @if (canRetryFromMessage(message)) {
+        <button
+          type="button"
+          class="assistant-inline-retry"
+          aria-label="Retry last assistant request"
+          [disabled]="!canRetryLastPrompt()"
+          (click)="retryLastPrompt()">
+          retry
+        </button>
+        }
 
         @if (message.warnings?.length) {
         <div class="assistant-list assistant-list-warning">

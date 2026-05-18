@@ -220,6 +220,13 @@
   line-height: 1.1;
 }
 
+.flow-editor-create-ai-window-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
 .flow-editor-create-ai-close {
   display: inline-flex;
   align-items: center;
@@ -236,6 +243,19 @@
   background: #f1f5f9;
 }
 
+.flow-editor-create-ai-close:disabled {
+  border-color: #e2e8f0;
+  background: #f8fafc;
+  color: #cbd5e1;
+  cursor: not-allowed;
+  opacity: 0.72;
+  box-shadow: none;
+}
+
+.flow-editor-create-ai-close:disabled:hover {
+  background: #f8fafc;
+}
+
 .flow-editor-create-ai-close .mat-icon {
   width: 18px;
   height: 18px;
@@ -245,6 +265,37 @@
 .flow-editor-create-ai-assistant {
   min-height: 0;
   flex: 1 1 auto;
+}
+
+.flow-editor-create-ai-floating {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 1299;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100vw - 48px);
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid rgba(14, 116, 144, 0.28);
+  border-radius: 999px;
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.22);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.flow-editor-create-ai-floating:hover {
+  background: #f8fafc;
+}
+
+.flow-editor-create-ai-floating .mat-icon {
+  width: 18px;
+  height: 18px;
+  font-size: 18px;
+  color: #0f766e;
 }
 
 .flow-editor-tour-target {

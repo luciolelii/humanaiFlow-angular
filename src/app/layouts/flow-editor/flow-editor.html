@@ -108,23 +108,53 @@
   </div>
 
   @if (showCreateAssistantModal()) {
-  <div class="flow-editor-create-ai-backdrop" (click)="closeCreateWithAi()"></div>
+  <div class="flow-editor-create-ai-backdrop"></div>
   <section class="flow-editor-create-ai-modal" role="dialog" aria-modal="true" aria-labelledby="create-ai-title">
     <div class="flow-editor-create-ai-header">
       <div>
         <div class="flow-editor-create-ai-eyebrow">Workflow Copilot</div>
         <h2 id="create-ai-title" class="flow-editor-create-ai-title">New flow with AI</h2>
       </div>
-      <button
-        type="button"
-        class="flow-editor-create-ai-close"
-        aria-label="Close AI flow creation"
-        (click)="closeCreateWithAi()">
-        <mat-icon fontIcon="close"></mat-icon>
-      </button>
+      <div class="flow-editor-create-ai-window-actions">
+        <span
+          [matTooltip]="createAssistantCancellable() ? 'Minimize and keep the assistant running' : 'Minimize is available while the assistant is running'">
+          <button
+            type="button"
+            class="flow-editor-create-ai-close"
+            aria-label="Minimize AI flow creation"
+            [disabled]="!createAssistantCancellable()"
+            (click)="minimizeCreateWithAi()">
+            <mat-icon fontIcon="remove"></mat-icon>
+          </button>
+        </span>
+        <button
+          type="button"
+          class="flow-editor-create-ai-close"
+          aria-label="Close AI flow creation"
+          [matTooltip]="createAssistantCancellable() ? 'Cancel the assistant request and close' : 'Close AI flow creation'"
+          (click)="closeCreateWithAi()">
+          <mat-icon fontIcon="close"></mat-icon>
+        </button>
+      </div>
     </div>
-    <app-flow-assistant class="flow-editor-create-ai-assistant" [variant]="'create-modal'"></app-flow-assistant>
+    <app-flow-assistant
+      #createAssistant
+      class="flow-editor-create-ai-assistant"
+      [variant]="'create-modal'"
+      (cancellableCallChange)="createAssistantCancellable.set($event)"></app-flow-assistant>
   </section>
+  }
+
+  @if (showCreateAssistantFloatingButton()) {
+  <button
+    type="button"
+    class="flow-editor-create-ai-floating"
+    aria-label="Reopen AI flow creation"
+    matTooltip="Reopen AI flow creation"
+    (click)="restoreCreateWithAi()">
+    <mat-icon fontIcon="auto_awesome"></mat-icon>
+    <span>AI flow creation</span>
+  </button>
   }
 
   @if (tourActive() && activeTourStep(); as step) {
