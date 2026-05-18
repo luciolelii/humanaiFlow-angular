@@ -12,6 +12,7 @@ import { ListState } from '@stores/list-state';
 import { finalize } from 'rxjs';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatIconModule } from '@angular/material/icon';
+import { ConfirmDialogService } from '@services/dialogs/confirm-dialog';
 
 type OpenedId = 'flows' | 'blocks' | 'containers';
 
@@ -31,6 +32,7 @@ export class EditorSidebar {
   flowService = inject(FlowsService);
   blocksService = inject(BlocksService);
   containersService = inject(ContainersService);
+  confirm = inject(ConfirmDialogService);
 
   blockDisabled = computed(() => !this.flowState.hasFlow());
 
@@ -58,8 +60,17 @@ export class EditorSidebar {
     this.open = null;
   }
 
-  createNewFlow() {
+  async createNewFlow() {
     if (this.creatingFlow()) return;
+
+    if (this.flowState.hasFlow() && this.flowState.isDirty()) {
+      const confirmed = await this.confirm.open(
+        'You have unsaved changes. Close this flow and create a new one?'
+      );
+      if (!confirmed) return;
+      this.flowState.closeDocument();
+    }
+
     this.creatingFlow.set(true);
     console.log('Creating new flow...');
     this.flowService.createNewFlow().pipe(
