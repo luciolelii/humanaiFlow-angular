@@ -409,6 +409,7 @@ export async function addBlockToEditor(
   };
   const replaceWithCreatedNode = async (createdBlock: FlowNode) => {
     if (!editor.getNode(node.id)) return;
+    const createdBlockData = createdBlock as FlowNode & Record<string, unknown>;
     const previousConnections = editor.getConnections()
       .filter((connection) => connection.source === node.id || connection.target === node.id)
       .map((connection) => ({
@@ -422,7 +423,11 @@ export async function addBlockToEditor(
     const replacementNode = await addBlockToEditor(
       editor,
       area,
-      { ...createdBlock, position: currentPosition },
+      {
+        ...createdBlockData,
+        position: currentPosition,
+        __focusOpen: node.data?.['__focusOpen'] === true || createdBlockData['__focusOpen'] === true
+      } as FlowNode & Record<string, unknown>,
       currentPosition,
       resolvedRuntime
     );
@@ -493,6 +498,7 @@ export async function addBlockToEditor(
       __needsServerCreate: sourceData['nodeFamily'] === 'container' ? false : true,
       __createdOnServer: false,
       __isCreatingOnServer: false,
+      __focusOpen: false,
       __updateBlockError: null
     } as FlowNode & Record<string, unknown>;
 

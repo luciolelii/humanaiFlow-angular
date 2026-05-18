@@ -57,6 +57,26 @@ describe('ContainerNodeComponent', () => {
     expect(component.richContentFields.map((field) => field.path)).toContain('prompt');
   });
 
+  it('restores and syncs persisted expanded-mode state', () => {
+    component.data = {
+      data: {
+        __focusOpen: true,
+        specificConfiguration: {},
+        inputs: [],
+        outputs: []
+      }
+    };
+
+    (component as any).restorePersistedFocusState();
+
+    expect(component.focusOpen).toBe(true);
+    expect(component.data.data.__focusOpen).toBe(true);
+
+    component.toggleFocus();
+    expect(component.focusOpen).toBe(false);
+    expect(component.data.data.__focusOpen).toBe(false);
+  });
+
   it('loads retriever-backed options for nested LLM descriptor fields', async () => {
     const schema = {
       type: 'object',

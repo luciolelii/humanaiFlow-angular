@@ -131,6 +131,7 @@ export class ContainerNodeComponent implements OnDestroy {
   }
 
   ngOnInit() {
+    this.restorePersistedFocusState();
     void this.loadSchemaContext();
   }
 
@@ -175,6 +176,7 @@ export class ContainerNodeComponent implements OnDestroy {
   private setFocusOpen(value: boolean) {
     if (this.focusOpen === value) return;
     this.focusOpen = value;
+    this.syncPersistedFocusState();
     if (value) {
       this.attachHostToModalLayer();
       this.applyPageScrollLock();
@@ -183,6 +185,18 @@ export class ContainerNodeComponent implements OnDestroy {
       this.restoreHostFromModalLayer();
     }
     this.cdr.markForCheck();
+  }
+
+  private restorePersistedFocusState() {
+    const nodeData = this.data?.data as Record<string, unknown> | undefined;
+    if (nodeData?.['__focusOpen'] !== true) return;
+    this.setFocusOpen(true);
+  }
+
+  private syncPersistedFocusState() {
+    const nodeData = this.data?.data as Record<string, unknown> | undefined;
+    if (!nodeData) return;
+    nodeData['__focusOpen'] = this.focusOpen;
   }
 
   private applyPageScrollLock() {
@@ -1063,7 +1077,8 @@ export class ContainerNodeComponent implements OnDestroy {
       if (typeof replaceNode === 'function') {
         await replaceNode({
           ...createdContainer,
-          position: (current['position'] as { x: number; y: number } | undefined) ?? createdContainer.position
+          position: (current['position'] as { x: number; y: number } | undefined) ?? createdContainer.position,
+          __focusOpen: current['__focusOpen'] === true
         });
         return;
       }

@@ -242,6 +242,7 @@ export class GenericNodeComponent implements OnDestroy {
 
     this.refreshValidationState();
     this.refreshParameterFields();
+    this.restorePersistedFocusState();
     void this.loadSchemaContext();
   }
 
@@ -290,6 +291,7 @@ export class GenericNodeComponent implements OnDestroy {
   private setFocusOpen(value: boolean) {
     if (this.focusOpen === value) return;
     this.focusOpen = value;
+    this.syncPersistedFocusState();
     if (value) {
       this.attachHostToModalLayer();
       this.applyPageScrollLock();
@@ -298,6 +300,18 @@ export class GenericNodeComponent implements OnDestroy {
       this.restoreHostFromModalLayer();
     }
     this.cdr.markForCheck();
+  }
+
+  private restorePersistedFocusState() {
+    const nodeData = this.data?.data as Record<string, unknown> | undefined;
+    if (nodeData?.['__focusOpen'] !== true) return;
+    this.setFocusOpen(true);
+  }
+
+  private syncPersistedFocusState() {
+    const nodeData = this.data?.data as Record<string, unknown> | undefined;
+    if (!nodeData) return;
+    nodeData['__focusOpen'] = this.focusOpen;
   }
 
   private applyPageScrollLock() {
@@ -1868,7 +1882,8 @@ export class GenericNodeComponent implements OnDestroy {
         if (typeof replaceNode === 'function') {
           void replaceNode({
             ...createdBlock,
-            position: (current['position'] as { x: number; y: number } | undefined) ?? createdBlock.position
+            position: (current['position'] as { x: number; y: number } | undefined) ?? createdBlock.position,
+            __focusOpen: current['__focusOpen'] === true
           });
           return;
         }

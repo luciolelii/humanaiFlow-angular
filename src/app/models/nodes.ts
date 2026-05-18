@@ -12,6 +12,7 @@ export type HFNodeData = FlowNode & {
   __needsServerCreate?: boolean;
   __createdOnServer?: boolean;
   __isCreatingOnServer?: boolean;
+  __focusOpen?: boolean;
   __updateBlockError?: string | null;
   __containerValidationErrors?: unknown[];
   __containerAssignmentError?: string | null;

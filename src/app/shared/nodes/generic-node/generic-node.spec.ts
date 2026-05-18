@@ -75,4 +75,18 @@ describe('GenericNodeComponent', () => {
   it('should create', () => {
     expect(component).toBeTruthy();
   });
+
+  it('restores and syncs persisted expanded-mode state', () => {
+    const nodeData = component.data.data as Record<string, unknown>;
+    nodeData['__focusOpen'] = true;
+
+    (component as any).restorePersistedFocusState();
+
+    expect(component.focusOpen).toBe(true);
+    expect(nodeData['__focusOpen']).toBe(true);
+
+    component.toggleFocus();
+    expect(component.focusOpen).toBe(false);
+    expect(nodeData['__focusOpen']).toBe(false);
+  });
 });
