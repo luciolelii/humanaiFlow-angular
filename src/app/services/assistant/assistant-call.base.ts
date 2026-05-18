@@ -19,5 +19,7 @@ export abstract class AssistantCallServiceBase {
 
   abstract getCall(callId: string): Observable<AssistantCallState>;
 
+  abstract cancelCall(callId: string): Observable<AssistantCallState>;
+
   abstract getSession(sessionId: string): Observable<AssistantSessionState>;
 }

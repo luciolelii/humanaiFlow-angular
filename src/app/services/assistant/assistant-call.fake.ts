@@ -20,6 +20,7 @@ type FakeCallRecord = {
   phases: AssistantCallPhase[];
   completed: boolean;
   failed: boolean;
+  cancelled: boolean;
 };
 
 export class AssistantCallServiceFake extends AssistantCallServiceBase {
@@ -83,7 +84,8 @@ export class AssistantCallServiceFake extends AssistantCallServiceBase {
       phaseIndex: 0,
       phases,
       completed: false,
-      failed: false
+      failed: false,
+      cancelled: false
     });
     session.lastCallId = callId;
 
@@ -96,7 +98,7 @@ export class AssistantCallServiceFake extends AssistantCallServiceBase {
       throw new Error(`Assistant call ${callId} not found`);
     }
 
-    if (!call.completed && !call.failed) {
+    if (!call.completed && !call.failed && !call.cancelled) {
       if (call.phaseIndex < call.phases.length - 1) {
         call.phaseIndex += 1;
       } else {
@@ -109,20 +111,41 @@ export class AssistantCallServiceFake extends AssistantCallServiceBase {
       ? 'completed'
       : call.failed
         ? 'failed'
-        : call.phases[call.phaseIndex];
+        : call.cancelled
+          ? 'cancelled'
+          : call.phases[call.phaseIndex];
 
     return of({
       id: call.id,
       sessionId: call.sessionId,
       status: call.failed
         ? 'FAILED'
+        : call.cancelled
+          ? 'CANCELLED'
         : call.completed
           ? 'COMPLETED'
           : call.phaseIndex === 0
             ? 'QUEUED'
             : 'RUNNING',
       phase,
+      progressMessage: call.cancelled ? 'Assistant request cancelled' : undefined,
       errorMessage: call.failed ? 'Fake assistant call failed.' : undefined
+    });
+  }
+
+  override cancelCall(callId: string): Observable<AssistantCallState> {
+    const call = this.calls.get(callId);
+    if (!call) {
+      throw new Error(`Assistant call ${callId} not found`);
+    }
+
+    call.cancelled = true;
+    return of({
+      id: call.id,
+      sessionId: call.sessionId,
+      status: 'CANCELLED',
+      phase: 'cancelled',
+      progressMessage: 'Assistant request cancelled'
     });
   }
 

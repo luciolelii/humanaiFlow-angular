@@ -29,6 +29,10 @@ export class AssistantService {
     return this.assistantCall.getCall(callId);
   }
 
+  cancelCall(callId: string) {
+    return this.assistantCall.cancelCall(callId);
+  }
+
   getSession(sessionId: string) {
     return this.assistantCall.getSession(sessionId);
   }

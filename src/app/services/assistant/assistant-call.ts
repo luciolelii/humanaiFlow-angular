@@ -55,6 +55,13 @@ export class AssistantCallService extends AssistantCallServiceBase {
       .pipe(map((raw) => mapAssistantCallState(raw)));
   }
 
+  override cancelCall(callId: string): Observable<AssistantCallState> {
+    const encodedId = encodeURIComponent(callId);
+    return this.http
+      .put<unknown>(`${environment.apiUrl}/assistant/calls/${encodedId}/cancel`, {})
+      .pipe(map((raw) => mapAssistantCallState(raw)));
+  }
+
   override getSession(sessionId: string): Observable<AssistantSessionState> {
     const encodedId = encodeURIComponent(sessionId);
     return this.http
@@ -222,7 +229,7 @@ function mapValidationIssues(raw: unknown): AssistantValidationIssue[] {
 
 function mapCallStatus(raw: unknown): AssistantCallStatus {
   const normalized = typeof raw === 'string' ? raw.toUpperCase() : '';
-  if (normalized === 'QUEUED' || normalized === 'RUNNING' || normalized === 'FAILED') return normalized;
+  if (normalized === 'QUEUED' || normalized === 'RUNNING' || normalized === 'FAILED' || normalized === 'CANCELLED') return normalized;
   return 'COMPLETED';
 }
 
@@ -239,6 +246,7 @@ function mapCallPhase(raw: unknown): AssistantCallPhase {
     case 'explaining':
     case 'completed':
     case 'failed':
+    case 'cancelled':
       return normalized;
     default:
       return 'queued';

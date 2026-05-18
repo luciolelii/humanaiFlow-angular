@@ -46,7 +46,7 @@ export type AssistantConfig = {
   availableModelsRetrieverUrl: string;
 };
 
-export type AssistantCallStatus = 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED';
+export type AssistantCallStatus = 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
 
 export type AssistantCallPhase =
   | 'queued'
@@ -58,7 +58,8 @@ export type AssistantCallPhase =
   | 'fixing'
   | 'explaining'
   | 'completed'
-  | 'failed';
+  | 'failed'
+  | 'cancelled';
 
 export type AssistantCallState = {
   id: string;

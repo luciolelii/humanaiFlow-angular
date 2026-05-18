@@ -10,10 +10,14 @@ export type AssistantSessionSnapshot = {
   localMessages: AssistantChatMessage[];
   currentCall: AssistantCallState | null;
   sessionState: AssistantSessionState | null;
+  assistantErrorMessage: string | null;
+  lastFailedPrompt: string | null;
+  lastSubmittedPrompt: string;
 };
 
 @Injectable({ providedIn: 'root' })
 export class AssistantSessionStore {
+  static readonly CREATE_MODAL_FLOW_KEY = '__assistant:create-modal';
   private static readonly NO_FLOW_KEY = '__assistant:no-flow__';
   private static readonly STORAGE_KEY = 'assistant-session-store:v1';
   private static readonly STORAGE_TARGETS: Array<'localStorage' | 'sessionStorage'> = ['localStorage', 'sessionStorage'];
@@ -32,6 +36,10 @@ export class AssistantSessionStore {
     return snapshot ? structuredClone(snapshot) : null;
   }
 
+  hasSnapshot(flowKey: string): boolean {
+    return this.snapshots.has(flowKey);
+  }
+
   setSnapshot(flowKey: string, snapshot: AssistantSessionSnapshot) {
     this.snapshots.set(flowKey, structuredClone(snapshot));
     this.persistToStorage();
@@ -41,6 +49,11 @@ export class AssistantSessionStore {
     const snapshot = this.snapshots.get(fromFlowKey);
     if (!snapshot) return;
     this.snapshots.set(toFlowKey, structuredClone(snapshot));
+    this.persistToStorage();
+  }
+
+  clearSnapshot(flowKey: string) {
+    if (!this.snapshots.delete(flowKey)) return;
     this.persistToStorage();
   }
 
@@ -83,7 +96,16 @@ export class AssistantSessionStore {
         : null,
       sessionState: snapshot['sessionState'] && typeof snapshot['sessionState'] === 'object'
         ? this.normalizeSessionState(snapshot['sessionState'])
-        : null
+        : null,
+      assistantErrorMessage: typeof snapshot['assistantErrorMessage'] === 'string'
+        ? snapshot['assistantErrorMessage']
+        : null,
+      lastFailedPrompt: typeof snapshot['lastFailedPrompt'] === 'string'
+        ? snapshot['lastFailedPrompt']
+        : null,
+      lastSubmittedPrompt: typeof snapshot['lastSubmittedPrompt'] === 'string'
+        ? snapshot['lastSubmittedPrompt']
+        : ''
     };
   }
 
