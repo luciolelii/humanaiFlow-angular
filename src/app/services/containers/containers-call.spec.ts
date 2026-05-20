@@ -143,4 +143,64 @@ describe('ContainersCallService', () => {
       'Invalid container catalog response: expected reduced catalog format with a descriptors array'
     );
   });
+
+  it('fills missing required boolean fields using descriptor schema defaults', async () => {
+    const typesRequest = firstValueFrom(service.retrieveAllContainerTypes());
+
+    httpMock.expectOne(`${environment.apiUrl}/containers/types/catalog`).flush({
+      descriptors: [
+        {
+          type: 'LoopContainer',
+          description: 'Loop container node',
+          userInteractive: false,
+          hasExampleContainer: true,
+          exampleContainerEndpoint: '/containers/types/LoopContainer/example',
+          schema: {
+            type: 'object',
+            properties: {
+              name: { type: 'string' },
+              maxIterations: { type: 'integer' },
+              useLlm: { type: 'boolean' }
+            },
+            required: ['name', 'maxIterations', 'useLlm']
+          }
+        }
+      ]
+    });
+
+    await typesRequest;
+
+    const request = firstValueFrom(service.createContainer('container-1', {
+      typeName: 'LoopContainer',
+      specificConfiguration: {
+        name: 'Loop',
+        maxIterations: 3
+      }
+    }));
+
+    const createRequest = httpMock.expectOne(`${environment.apiUrl}/containers`);
+    expect(createRequest.request.method).toBe('POST');
+    expect(createRequest.request.body.useLlm).toBe(false);
+    expect(createRequest.request.body.useLLM).toBeUndefined();
+
+    createRequest.flush({
+      id: 'container-1',
+      name: 'Loop',
+      typeName: 'LoopContainer',
+      specificConfiguration: {
+        type: 'LoopContainerConfiguration',
+        name: 'Loop',
+        maxIterations: 3,
+        useLlm: false
+      },
+      inputs: [],
+      outputs: []
+    });
+
+    await expect(request).resolves.toEqual(expect.objectContaining({
+      id: 'container-1',
+      typeName: 'LoopContainer',
+      nodeFamily: 'container'
+    }));
+  });
 });

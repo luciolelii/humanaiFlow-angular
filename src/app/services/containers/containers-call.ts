@@ -267,14 +267,46 @@ export class ContainersCallService extends ContainersCallServiceBase {
 
   private buildContainerConfigurationPayload(containerType: string, configuration: Record<string, unknown>) {
     const { typeName: _ignoreTypeName, ...sanitized } = configuration;
-    const configurationType = this.resolveConfigurationType(containerType, sanitized);
+    const normalized = this.normalizeConfigurationWithSchema(containerType, sanitized);
+    const configurationType = this.resolveConfigurationType(containerType, normalized);
     return {
-      ...sanitized,
+      ...normalized,
       type: configurationType,
-      name: typeof sanitized["name"] === "string" && sanitized["name"].length > 0
-        ? sanitized["name"]
+      name: typeof normalized["name"] === "string" && normalized["name"].length > 0
+        ? normalized["name"]
         : containerType
     };
+  }
+
+  private normalizeConfigurationWithSchema(containerType: string, configuration: Record<string, unknown>) {
+    const normalized = { ...configuration };
+    const descriptor = this.containerTypesCache
+      ?.find((candidate) => candidate.type === containerType);
+    const schema = descriptor?.schema;
+    if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
+      return normalized;
+    }
+
+    const required = Array.isArray(schema["required"])
+      ? schema["required"].filter((value): value is string => typeof value === "string" && value.length > 0)
+      : [];
+    if (!required.length) return normalized;
+
+    const properties = this.toRecord(schema["properties"]);
+    for (const key of required) {
+      if (normalized[key] !== undefined) continue;
+      const propertySchema = this.toRecord(properties[key]);
+      const defaultValue = propertySchema["default"];
+      if (typeof defaultValue === "boolean" || typeof defaultValue === "number" || typeof defaultValue === "string") {
+        normalized[key] = defaultValue;
+        continue;
+      }
+      if (propertySchema["type"] === "boolean") {
+        normalized[key] = false;
+      }
+    }
+
+    return normalized;
   }
 
   private resolveConfigurationType(containerType: string, configuration: Record<string, unknown>) {

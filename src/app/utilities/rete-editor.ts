@@ -289,6 +289,7 @@ export async function addBlockToEditor(
 
       const currentConfiguration = cloneValue(currentLiveNode.data.specificConfiguration ?? {}) as Record<string, unknown>;
       const nextConfiguration: Record<string, unknown> = {
+        ...currentConfiguration,
         name: String(currentConfiguration['name'] ?? currentLiveNode.data['name'] ?? 'Container'),
         subFlow: candidateSubFlow
       };
