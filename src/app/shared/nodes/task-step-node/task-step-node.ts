@@ -448,7 +448,8 @@ export class TaskStepNodeComponent {
     event?.stopPropagation();
     const subFlow = this.subFlow();
     if (!subFlow) return;
-    this.subflowPreview.open(subFlow, `${this.name || this.nodeTitle()} subflow`);
+    const sourceName = this.name || this.nodeTitle();
+    this.subflowPreview.open(subFlow, `${sourceName} subflow`, sourceName);
   }
 
   openFieldPreview(field: DisplayField, event?: Event) {

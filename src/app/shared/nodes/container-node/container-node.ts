@@ -677,7 +677,7 @@ export class ContainerNodeComponent implements OnDestroy {
     event?.preventDefault();
     event?.stopPropagation();
     if (!this.subFlow) return;
-    this.subflowPreview.open(this.subFlow, `${this.name} subflow`);
+    this.subflowPreview.open(this.subFlow, `${this.name} subflow`, this.name);
   }
 
   async openFieldPreview(field: ContainerFieldView, event?: Event) {

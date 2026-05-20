@@ -33,6 +33,12 @@
   border-bottom: 1px solid #e2e8f0;
 }
 
+.subflow-preview__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .subflow-preview__eyebrow {
   font-size: 11px;
   font-weight: 800;
