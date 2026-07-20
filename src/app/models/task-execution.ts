@@ -21,6 +21,10 @@ export type TaskExecution = {
   id: string;
   name: string;
   creationTime: number;
+  flowId?: string | null;
+  sourceFlowId?: string | null;
+  runNumber?: number | null;
+  rerunOfExecutionId?: string | null;
   context: TaskExecutionContext;
   interactionSimulationEnabled?: boolean;
   simulationAvailable?: boolean;
@@ -31,6 +35,18 @@ export type TaskExecution = {
   providedAuthorizations?: Record<string, unknown>;
   missingAuthorizationKeys?: string[];
   missingGlobalInputKeys?: string[];
+};
+
+export type TaskExecutionGroup = {
+  id: string;
+  sourceFlowId: string;
+  name: string;
+  firstExecutionId: string;
+  latestExecutionId: string;
+  creationTime: number;
+  lastExecutionTime: number;
+  executionCount: number;
+  executions: TaskExecution[];
 };
 
 export type TaskExecutionAuthorizationRequirement = {

@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, HostBinding, HostListener, Input, OnDestroy, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { currentFlowPortValueKind, flowValueKindLabel, FlowBlock, FlowContainer, FlowData, FLOW_DEPENDANT_PORT_KEY, FLOW_DEPENDENCY_PORT_KEY } from '@models/flow';
+import { currentFlowPortValueKind, flowValueKindLabel, FlowData, FLOW_DEPENDANT_PORT_KEY, FLOW_DEPENDENCY_PORT_KEY } from '@models/flow';
 import { NodeSettingField, NodeSettingOption, NodeSettingsDialogService } from '@services/dialogs/node-settings-dialog';
 import { ContainersService } from '@services/containers/containers';
 import { FieldRetriever } from '@services/retriever/field-retriever';
@@ -14,6 +14,13 @@ import { CONTAINER_SUBFLOW_DRAG_MIME } from './container-node-drag';
 import { firstValueFrom } from 'rxjs';
 import { extractSchemaRequirements, SchemaRequirements } from '../schema-requirements';
 import { evaluateUiConditionRule, getValueByPath, parentPath, pathToLabel, resolveNodeIcon, resolveSchemaPath, splitTemplatedTextParts, valueToDisplayString } from '../node-utility';
+import {
+  collectSchemaFlowDataFields,
+  flowDataNodeCount,
+  isFlowDataFieldPath,
+  normalizeFlowDataValue,
+  type SchemaFlowDataFieldDefinition
+} from '../flow-data-schema-fields';
 import {
   buildSchemaEditableFieldDefinitions,
   buildSchemaFieldViewModel,
@@ -56,12 +63,11 @@ type ContainerFieldGroupView = SchemaDisplayGroup<ContainerDisplayItem>;
 
 type ContainerDisplaySection = SchemaDisplaySection<ContainerDisplayItem>;
 
-type StructuredRetrieverConfig = {
-  retrieverName: string;
-  retrieverUrl: string;
-  validationUrl: string | null;
-  structuredData: boolean;
-  requiresAuth: boolean;
+type ContainerFlowFieldView = SchemaFlowDataFieldDefinition & {
+  flow: FlowData | null;
+  blockCount: number;
+  replaceConfirmOpen: boolean;
+  importLoading: boolean;
 };
 
 @Component({
@@ -87,9 +93,10 @@ export class ContainerNodeComponent implements OnDestroy {
   private containerSchema: Record<string, any> | null = null;
   private schemaRequirements: SchemaRequirements = { required: [], requiredObjects: [], conditional: [] };
   private containerFieldDefinitions: ContainerFieldDefinition[] = [];
+  private containerFlowFieldDefinitions: SchemaFlowDataFieldDefinition[] = [];
   deleteConfirmOpen = false;
-  replaceConfirmSelection: string[] | null = null;
-  importLoading = false;
+  replaceConfirmSelection: { path: string; selection: string[] } | null = null;
+  importLoadingPath: string | null = null;
   private importErrorMessage: string | null = null;
   parameterFields: ContainerFieldView[] = [];
   parameterFieldGroups: ContainerFieldGroupView[] = [];
@@ -313,37 +320,25 @@ export class ContainerNodeComponent implements OnDestroy {
     return this.editorState.selectedBlockIds().filter((id) => id !== this.blockId).length;
   }
 
-  get subFlow(): FlowData | null {
-    const value = this.configuration?.['subFlow'];
-    if (!value || typeof value !== 'object') return null;
-    const candidate = value as Record<string, unknown>;
-    const blocks = this.normalizeSubFlowBlocks(candidate['blocks']);
-    const containers = this.normalizeSubFlowContainers(candidate['containers']);
-    const connections = Array.isArray(candidate['connections'])
-      ? candidate['connections'].filter((item): item is FlowData['connections'][number] => !!item && typeof item === 'object')
-      : [];
-    const dependencies = Array.isArray(candidate['dependencies'])
-      ? candidate['dependencies'].filter((item): item is FlowData['dependencies'][number] => !!item && typeof item === 'object')
-      : [];
-
-    if (!blocks.length && !containers.length && !connections.length && !dependencies.length) {
-      return null;
-    }
-
-    return {
-      blocks,
-      containers,
-      connections,
-      dependencies
-    };
-  }
-
-  get subFlowBlockCount() {
-    return (this.subFlow?.blocks?.length ?? 0) + (this.subFlow?.containers?.length ?? 0);
+  get flowFields(): ContainerFlowFieldView[] {
+    return this.resolveFlowFieldDefinitions().map((definition) => {
+      const flow = this.flowAtPath(definition.path);
+      return {
+        ...definition,
+        flow,
+        blockCount: flowDataNodeCount(flow),
+        replaceConfirmOpen: this.replaceConfirmSelection?.path === definition.path,
+        importLoading: this.importLoadingPath === definition.path
+      };
+    });
   }
 
   get replaceConfirmOpen() {
-    return Array.isArray(this.replaceConfirmSelection) && this.replaceConfirmSelection.length > 0;
+    return !!this.replaceConfirmSelection?.selection.length;
+  }
+
+  get hasFlowDropzones() {
+    return this.flowFields.length > 0;
   }
 
   get assignmentErrorMessage() {
@@ -358,6 +353,8 @@ export class ContainerNodeComponent implements OnDestroy {
 
   get missingRequiredParams() {
     const config = this.configuration ?? {};
+    const flowFieldDefinitions = this.resolveFlowFieldDefinitions();
+    const flowFieldPaths = new Set(flowFieldDefinitions.map((field) => field.path));
     const requiredFields = [
       ...this.schemaRequirements.required,
       ...this.schemaRequirements.conditional.filter((field) =>
@@ -370,21 +367,25 @@ export class ContainerNodeComponent implements OnDestroy {
     return requiredFields
       .filter((field, index, fields) => fields.findIndex((candidate) => candidate.path === field.path) === index)
       .filter((field) => field.path !== 'name')
-      .filter((field) => field.path !== 'subFlow')
-      .filter((field) => !field.path.startsWith('subFlow.'))
+      .filter((field) => !isFlowDataFieldPath(field.path, flowFieldDefinitions))
       .filter((field) => this.isFieldEnabled(field.path, config))
       .filter((field) => this.isMissingValue(getValueByPath(config, field.path)))
       .map((field) => field.label)
       .concat(
         this.schemaRequirements.requiredObjects
           .filter((field) => field.path !== 'name')
-          .filter((field) => field.path !== 'subFlow')
-          .filter((field) => !field.path.startsWith('subFlow.'))
+          .filter((field) => !isFlowDataFieldPath(field.path, flowFieldDefinitions))
           .filter((field) => this.isFieldEnabled(field.path, config))
           .filter((field) => this.isMissingValue(getValueByPath(config, field.path)))
           .map((field) => field.label)
       )
-      .concat(this.subFlow ? [] : ['Subflow'])
+      .concat(
+        this.schemaRequirements.requiredObjects
+          .filter((field) => flowFieldPaths.has(field.path))
+          .filter((field) => this.isFieldEnabled(field.path, config))
+          .filter((field) => !this.flowAtPath(field.path))
+          .map((field) => field.label)
+      )
       .filter((field, index, fields) => fields.indexOf(field) === index);
   }
 
@@ -427,25 +428,25 @@ export class ContainerNodeComponent implements OnDestroy {
     return this.toPortLabelParts(this.outputDisplayLabel(outputKey));
   }
 
-  async importSubflow(event?: Event) {
+  async importSubflow(flowField: ContainerFlowFieldView, event?: Event) {
     event?.preventDefault();
     event?.stopPropagation();
-    if (this.isReadonly || this.importLoading || this.replaceConfirmOpen) return;
+    if (this.isReadonly || this.importLoadingPath || this.replaceConfirmOpen) return;
 
-    this.importLoading = true;
+    this.importLoadingPath = flowField.path;
     this.importErrorMessage = null;
 
     try {
-      const retriever = await this.resolveStructuredRetrieverConfig();
+      const retriever = this.resolveStructuredRetrieverConfig(flowField);
       if (!retriever || !retriever.structuredData) {
-        this.importErrorMessage = 'Subflow import is not available for this container.';
+        this.importErrorMessage = `${flowField.label} import is not available for this container.`;
         return;
       }
 
       const items = await firstValueFrom(
         this.fieldRetriever.retrieveItems<FlowData>(
-          retriever.retrieverName || this.typeName,
-          'subFlow',
+          retriever.blockType,
+          retriever.key,
           {
             context: 'CONTAINER',
             validOnly: 'true',
@@ -495,12 +496,12 @@ export class ContainerNodeComponent implements OnDestroy {
         return;
       }
 
-      await assignImportedSubflow(selectedItem.data, retriever.validationUrl);
+      await assignImportedSubflow(selectedItem.data, flowField.path, retriever.validationUrl);
       this.refreshParameterFields();
     } catch {
       this.importErrorMessage = 'Failed to load importable flows.';
     } finally {
-      this.importLoading = false;
+      this.importLoadingPath = null;
     }
   }
 
@@ -591,16 +592,16 @@ export class ContainerNodeComponent implements OnDestroy {
     await this.applyFieldValue(definition, currentValue !== true);
   }
 
-  onDropZoneDragOver(event: DragEvent) {
+  onDropZoneDragOver(event: DragEvent, flowField: ContainerFlowFieldView) {
     if (this.isReadonly) return;
-    if (!this.canAcceptSelectionDrop()) return;
+    if (!this.canAcceptSelectionDrop(flowField.path)) return;
     event.preventDefault();
     if (event.dataTransfer) {
       event.dataTransfer.dropEffect = 'move';
     }
   }
 
-  onDropZoneDrop(event: DragEvent) {
+  onDropZoneDrop(event: DragEvent, flowField: ContainerFlowFieldView) {
     if (this.isReadonly) return;
     event.preventDefault();
     event.stopPropagation();
@@ -609,13 +610,13 @@ export class ContainerNodeComponent implements OnDestroy {
     const payload = this.parseDraggedSelection(raw);
     if (!payload.length) return;
 
-    if (this.subFlowBlockCount > 0) {
-      this.replaceConfirmSelection = payload;
+    if (flowField.blockCount > 0) {
+      this.replaceConfirmSelection = { path: flowField.path, selection: payload };
       this.editorState.stopDraggingSelectedBlocks();
       return;
     }
 
-    this.assignSelectionToContainer(payload);
+    this.assignSelectionToContainer(flowField, payload);
   }
 
   onDropZoneDragLeave(_: DragEvent) {
@@ -623,16 +624,18 @@ export class ContainerNodeComponent implements OnDestroy {
     this.editorState.stopDraggingSelectedBlocks();
   }
 
-  confirmReplaceSubflow(event?: Event) {
+  confirmReplaceSubflow(flowField: ContainerFlowFieldView, event?: Event) {
     event?.preventDefault();
     event?.stopPropagation();
     if (this.isReadonly) return;
 
-    const payload = this.replaceConfirmSelection;
+    const payload = this.replaceConfirmSelection?.path === flowField.path
+      ? this.replaceConfirmSelection.selection
+      : null;
     this.replaceConfirmSelection = null;
     if (!payload?.length) return;
 
-    this.assignSelectionToContainer(payload);
+    this.assignSelectionToContainer(flowField, payload);
   }
 
   cancelReplaceSubflow(event?: Event) {
@@ -673,11 +676,11 @@ export class ContainerNodeComponent implements OnDestroy {
     }
   }
 
-  openSubflowPreview(event?: Event) {
+  openSubflowPreview(flowField: ContainerFlowFieldView, event?: Event) {
     event?.preventDefault();
     event?.stopPropagation();
-    if (!this.subFlow) return;
-    this.subflowPreview.open(this.subFlow, `${this.name} subflow`, this.name);
+    if (!flowField.flow) return;
+    this.subflowPreview.open(flowField.flow, `${this.name} ${flowField.label}`, this.name);
   }
 
   async openFieldPreview(field: ContainerFieldView, event?: Event) {
@@ -708,8 +711,49 @@ export class ContainerNodeComponent implements OnDestroy {
     return String(this.data?.data?.typeName ?? 'GenericContainer');
   }
 
-  private canAcceptSelectionDrop() {
-    return !this.isAssigning && !this.replaceConfirmOpen && this.selectedCount > 0;
+  private resolveFlowFieldDefinitions(): SchemaFlowDataFieldDefinition[] {
+    if (this.containerFlowFieldDefinitions.length) return this.containerFlowFieldDefinitions;
+
+    const config = this.configuration ?? {};
+    const configuredFields = Object.keys(config)
+      .filter((key) => normalizeFlowDataValue(config[key]))
+      .map((key) => this.fallbackSubflowDefinition(key, pathToLabel(key)));
+
+    if (configuredFields.length) {
+      return configuredFields;
+    }
+
+    if (!this.schemaReady) {
+      return [this.fallbackSubflowDefinition()];
+    }
+
+    return [];
+  }
+
+  private fallbackSubflowDefinition(path = 'subFlow', label = 'Subflow'): SchemaFlowDataFieldDefinition {
+    return {
+      path,
+      label,
+      retrieverBlockType: 'Flows',
+      retrieverKey: path,
+      retrieverUrl: null,
+      retrieverStructuredData: false,
+      retrieverDependsOn: [],
+      validationUrl: null,
+      validationType: null,
+      requiresAuth: false,
+      ui: getSchemaPathUiMeta(this.containerSchema, path)
+    };
+  }
+
+  private flowAtPath(path: string): FlowData | null {
+    return normalizeFlowDataValue(getValueByPath(this.configuration ?? {}, path));
+  }
+
+  private canAcceptSelectionDrop(path: string) {
+    return !this.isAssigning
+      && (!this.replaceConfirmOpen || this.replaceConfirmSelection?.path === path)
+      && this.selectedCount > 0;
   }
 
   private async openReadonlyTextDialog(label: string, value: string) {
@@ -731,12 +775,12 @@ export class ContainerNodeComponent implements OnDestroy {
     });
   }
 
-  private assignSelectionToContainer(payload: string[]) {
+  private assignSelectionToContainer(flowField: ContainerFlowFieldView, payload: string[]) {
     this.importErrorMessage = null;
     const assign = this.data?.data?.assignSelectedBlocksToContainer;
     if (typeof assign !== 'function' || !payload.length) return;
 
-    void assign(payload);
+    void assign(payload, flowField.path, flowField.validationUrl);
     this.editorState.stopDraggingSelectedBlocks();
   }
 
@@ -780,64 +824,21 @@ export class ContainerNodeComponent implements OnDestroy {
     return ports.find((item: any) => item?.name === key) ?? null;
   }
 
-  private normalizeSubFlowBlocks(raw: unknown): FlowBlock[] {
-    if (!Array.isArray(raw)) return [];
-
-    return raw
-      .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object' && !Array.isArray(item))
-      .map((item) => ({
-        ...item,
-        position: this.normalizePosition(item['position']),
-        nodeFamily: 'block'
-      })) as FlowBlock[];
-  }
-
-  private normalizeSubFlowContainers(raw: unknown): FlowContainer[] {
-    if (!Array.isArray(raw)) return [];
-
-    return raw
-      .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object' && !Array.isArray(item))
-      .map((item) => ({
-        ...item,
-        position: this.normalizePosition(item['position']),
-        nodeFamily: 'container'
-      })) as FlowContainer[];
-  }
-
-  private normalizePosition(raw: unknown): { x: number; y: number } | undefined {
-    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
-    const value = raw as Record<string, unknown>;
-    const x = typeof value['x'] === 'number' ? value['x'] : Number(value['x']);
-    const y = typeof value['y'] === 'number' ? value['y'] : Number(value['y']);
-    if (!Number.isFinite(x) || !Number.isFinite(y)) return undefined;
-    return { x, y };
-  }
-
-  private async resolveStructuredRetrieverConfig(): Promise<StructuredRetrieverConfig | null> {
-    const containerType = await this.containersService.getContainerType(this.typeName);
-    const schema = containerType?.schema;
-    const properties = schema?.['properties'];
-    const propertySchema = properties && typeof properties === 'object' && !Array.isArray(properties)
-      ? (properties as Record<string, unknown>)['subFlow']
-      : null;
-
-    if (!propertySchema || typeof propertySchema !== 'object' || Array.isArray(propertySchema)) {
-      return null;
-    }
-
-    const fieldSchema = propertySchema as Record<string, unknown>;
-    const retrieverUrl = typeof fieldSchema['x-retriever-url'] === 'string' ? fieldSchema['x-retriever-url'] : null;
-    const retrieverName = typeof fieldSchema['x-retriever-name'] === 'string' ? fieldSchema['x-retriever-name'] : this.typeName;
-    if (!retrieverUrl) return null;
+  private resolveStructuredRetrieverConfig(flowField: SchemaFlowDataFieldDefinition): {
+    blockType: string;
+    key: string;
+    retrieverUrl: string;
+    validationUrl: string | null;
+    structuredData: boolean;
+  } | null {
+    if (!flowField.retrieverUrl) return null;
 
     return {
-      retrieverName,
-      retrieverUrl,
-      validationUrl: typeof fieldSchema['x-retriever-validation-url'] === 'string'
-        ? fieldSchema['x-retriever-validation-url']
-        : null,
-      structuredData: fieldSchema['x-retriever-structured-data'] === true,
-      requiresAuth: fieldSchema['x-retriever-requires-auth'] === true
+      blockType: flowField.retrieverBlockType ?? this.typeName,
+      key: flowField.retrieverKey ?? flowField.path,
+      retrieverUrl: flowField.retrieverUrl,
+      validationUrl: flowField.validationUrl,
+      structuredData: flowField.retrieverStructuredData
     };
   }
 
@@ -849,6 +850,7 @@ export class ContainerNodeComponent implements OnDestroy {
       const containerType = this.containersService.peekContainerType(this.typeName) ?? await this.containersService.getContainerType(this.typeName);
       this.containerSchema = (containerType?.schema ?? null) as Record<string, any> | null;
       this.schemaRequirements = extractSchemaRequirements(this.containerSchema);
+      this.containerFlowFieldDefinitions = collectSchemaFlowDataFields(this.containerSchema);
       this.containerFieldDefinitions = this.buildContainerFieldDefinitions(this.containerSchema);
       this.refreshParameterFields();
     } finally {
@@ -919,7 +921,7 @@ export class ContainerNodeComponent implements OnDestroy {
   private buildContainerFieldDefinitions(schema: Record<string, any> | null): ContainerFieldDefinition[] {
     return buildSchemaEditableFieldDefinitions(schema, {
       shouldSkip: ({ key, path }) =>
-        key.startsWith('__') || path === 'name' || path === 'subFlow' || this.isContainerTypeField(path)
+        key.startsWith('__') || path === 'name' || isFlowDataFieldPath(path, this.resolveFlowFieldDefinitions()) || this.isContainerTypeField(path)
     });
   }
 

@@ -608,6 +608,27 @@
   flex-wrap: wrap;
 }
 
+.container-node__dropzone-title {
+  align-self: center;
+  max-width: 100%;
+  font-size: 17px;
+  line-height: 1.2;
+  font-weight: 900;
+  color: #db2777;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.container-node__dropzone-description {
+  max-width: 320px;
+  align-self: center;
+  font-size: 12px;
+  line-height: 1.45;
+  font-weight: 600;
+  color: #334155;
+  text-align: center;
+}
+
 .container-node__replace-confirm {
   display: flex;
   flex-direction: column;
@@ -695,7 +716,7 @@
 }
 
 .container-node__dropzone-empty {
-  font-size: 16px;
+  font-size: 14px;
 }
 
 .container-node__subflow-view {

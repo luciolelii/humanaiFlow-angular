@@ -115,7 +115,7 @@ export class FieldRetrieverCallServiceFake extends FieldRetrieverCallServiceBase
     context?: Record<string, string>,
     retrieverUrl?: string | null
   ): Observable<RetrieverStructuredItem<T>[]> {
-    if (key === 'subFlow') {
+    if (key === 'subFlow' || retrieverUrl?.includes('/Flows/subFlow/items')) {
       return of(this.subFlowItems as unknown as RetrieverStructuredItem<T>[]);
     }
     if (

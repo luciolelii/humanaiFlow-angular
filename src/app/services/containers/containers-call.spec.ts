@@ -144,6 +144,39 @@ describe('ContainersCallService', () => {
     );
   });
 
+  it('posts subflow validation to the field-specific validation url including query params', async () => {
+    const request = firstValueFrom(service.validateContainerSubflow({
+      blocks: [],
+      containers: [],
+      connections: [],
+      dependencies: []
+    }, '/containers/validate-subflow?type=LOOP_GUARD'));
+
+    const validationRequest = httpMock.expectOne(`${environment.apiUrl}/containers/validate-subflow?type=LOOP_GUARD`);
+    expect(validationRequest.request.method).toBe('POST');
+    expect(validationRequest.request.body).toEqual({
+      subFlow: {
+        blocks: [],
+        containers: [],
+        connections: [],
+        dependencies: []
+      }
+    });
+    validationRequest.flush({
+      valid: true,
+      errors: [],
+      openInputs: [],
+      openOutputs: []
+    });
+
+    await expect(request).resolves.toEqual({
+      valid: true,
+      errors: [],
+      openInputs: [],
+      openOutputs: []
+    });
+  });
+
   it('fills missing required boolean fields using descriptor schema defaults', async () => {
     const typesRequest = firstValueFrom(service.retrieveAllContainerTypes());
 

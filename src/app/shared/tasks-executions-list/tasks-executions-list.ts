@@ -21,8 +21,24 @@ export type TaskExecutionListItem = {
   flowName: string;
   status: TaskExecutionStatus;
   startedAt: string;
+  creationTime: number;
+  runNumber: number | null;
+  rerunOfExecutionId?: string | null;
   duration?: string;
   simulated?: boolean;
+};
+
+export type TaskExecutionGroupListItem = {
+  id: string;
+  sourceFlowId: string;
+  name: string;
+  executionCount: number;
+  lastExecutionTime: number;
+  lastExecutionTimeLabel: string;
+  latestExecutionId: string;
+  latestStatus: TaskExecutionStatus;
+  latestRunNumber: number | null;
+  executions: TaskExecutionListItem[];
 };
 
 @Component({
@@ -33,14 +49,16 @@ export type TaskExecutionListItem = {
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class TasksExecutionsListComponent {
-  readonly executions = input<TaskExecutionListItem[]>([]);
+  readonly groups = input<TaskExecutionGroupListItem[]>([]);
   readonly selectedExecutionId = input<string | null>(null);
   readonly executionSelected = output<string>();
   readonly executionDeleteRequested = output<string>();
+  readonly executionRerunRequested = output<string>();
   readonly searchTerm = model<string>('');
   readonly filter = signal<TaskExecutionFilter>('all');
-  readonly orderBy = signal<string | null>('startedAt');
+  readonly orderBy = signal<string | null>('lastExecutionTime');
   readonly orderDir = signal<orderDirType>('desc');
+  readonly expandedGroupIds = signal<Set<string>>(new Set<string>());
 
   readonly orderView: OrderViewState = {
     orderBy: this.orderBy(),
@@ -48,26 +66,32 @@ export class TasksExecutionsListComponent {
   };
 
   readonly orderFields: OrderField[] = [
-    { field: 'title', label: 'Title' },
-    { field: 'flowName', label: 'Flow Name' },
-    { field: 'startedAt', label: 'Started At' },
-    { field: 'duration', label: 'Duration' }
+    { field: 'name', label: 'Name' },
+    { field: 'executionCount', label: 'Executions' },
+    { field: 'lastExecutionTime', label: 'Latest Run' },
+    { field: 'latestStatus', label: 'Status' }
   ];
 
-  readonly filteredExecutions = computed(() => {
+  readonly filteredGroups = computed(() => {
     const term = this.searchTerm().trim().toLowerCase();
     const filter = this.filter();
     const orderBy = this.orderBy();
     const orderDir = this.orderDir();
 
-    const filtered = this.executions().filter((execution) => {
-      if (!this.matchesFilter(execution.status, filter)) return false;
+    const filtered = this.groups().filter((group) => {
+      if (!this.groupMatchesFilter(group, filter)) return false;
       if (!term) return true;
 
       return (
-        execution.title.toLowerCase().includes(term) ||
-        execution.flowName.toLowerCase().includes(term) ||
-        execution.id.toLowerCase().includes(term)
+        group.name.toLowerCase().includes(term) ||
+        group.sourceFlowId.toLowerCase().includes(term) ||
+        group.id.toLowerCase().includes(term) ||
+        group.executions.some((execution) =>
+          execution.title.toLowerCase().includes(term) ||
+          execution.flowName.toLowerCase().includes(term) ||
+          execution.id.toLowerCase().includes(term) ||
+          String(execution.rerunOfExecutionId ?? '').toLowerCase().includes(term)
+        )
       );
     });
 
@@ -99,6 +123,28 @@ export class TasksExecutionsListComponent {
     this.executionDeleteRequested.emit(executionId);
   }
 
+  requestRerunExecution(executionId: string, event?: Event) {
+    event?.stopPropagation();
+    this.executionRerunRequested.emit(executionId);
+  }
+
+  toggleGroup(groupId: string, event?: Event) {
+    event?.stopPropagation();
+    this.expandedGroupIds.update((current) => {
+      const next = new Set(current);
+      if (next.has(groupId)) {
+        next.delete(groupId);
+      } else {
+        next.add(groupId);
+      }
+      return next;
+    });
+  }
+
+  isGroupExpanded(groupId: string): boolean {
+    return this.expandedGroupIds().has(groupId);
+  }
+
   onOrderChanged(event: OrderEvent) {
     this.orderBy.set(event.orderBy);
     this.orderDir.set(event.orderDir);
@@ -120,6 +166,19 @@ export class TasksExecutionsListComponent {
 
   isDeleteDisabled(status: TaskExecutionStatus): boolean {
     return getExecutionStatusGroup(status) === 'RUNNING';
+  }
+
+  canRerun(status: TaskExecutionStatus): boolean {
+    return getExecutionStatusGroup(status) === 'FINAL';
+  }
+
+  runNumberLabel(runNumber: number | null | undefined): string {
+    return runNumber == null ? '-' : `#${runNumber}`;
+  }
+
+  private groupMatchesFilter(group: TaskExecutionGroupListItem, filter: TaskExecutionFilter): boolean {
+    if (filter === 'all') return true;
+    return group.executions.some((execution) => this.matchesFilter(execution.status, filter));
   }
 
   private matchesFilter(status: TaskExecutionStatus, filter: TaskExecutionFilter): boolean {

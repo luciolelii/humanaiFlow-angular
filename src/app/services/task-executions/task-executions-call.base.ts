@@ -1,11 +1,13 @@
 import { LLMDescriptor } from '@models/flow';
-import { ExecutionEventLogEntry, TaskExecution } from '@models/task-execution';
+import { ExecutionEventLogEntry, TaskExecution, TaskExecutionGroup } from '@models/task-execution';
 import { Observable } from 'rxjs';
 
 export abstract class TaskExecutionsCallServiceBase {
   abstract retrieveAllTaskExecutions(): Observable<TaskExecution[]>;
+  abstract retrieveTaskExecutionGroups(): Observable<TaskExecutionGroup[]>;
   abstract retrieveExecutionEvents(executionId: string): Observable<ExecutionEventLogEntry[]>;
   abstract createTaskExecution(flowId: string): Observable<TaskExecution>;
+  abstract rerunTaskExecution(executionId: string): Observable<TaskExecution>;
   abstract deleteTaskExecution(executionId: string): Observable<void>;
   abstract startTaskExecution(executionId: string): Observable<TaskExecution>;
   abstract simulateTaskExecution(executionId: string, simulator: LLMDescriptor): Observable<TaskExecution>;

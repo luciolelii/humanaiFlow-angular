@@ -1,5 +1,5 @@
 import { LLMDescriptor } from '@models/flow';
-import { ExecutionEventLogEntry, TaskExecution } from '@models/task-execution';
+import { ExecutionEventLogEntry, TaskExecution, TaskExecutionGroup } from '@models/task-execution';
 import { Observable, of } from 'rxjs';
 import { TaskExecutionsCallServiceBase } from './task-executions-call.base';
 
@@ -451,16 +451,24 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
     return of(this.data.map((execution) => this.withSimulationAvailability(execution)));
   }
 
+  override retrieveTaskExecutionGroups(): Observable<TaskExecutionGroup[]> {
+    return of(this.buildExecutionGroups());
+  }
+
   override retrieveExecutionEvents(executionId: string): Observable<ExecutionEventLogEntry[]> {
     const execution = this.findExecution(executionId);
     return of(this.buildExecutionEvents(execution));
   }
 
   override createTaskExecution(flowId: string): Observable<TaskExecution> {
+    const sourceFlowId = flowId || 'Execution';
     const execution: TaskExecution = {
       id: crypto.randomUUID(),
-      name: flowId || 'Execution',
+      name: sourceFlowId,
       creationTime: Date.now(),
+      flowId: sourceFlowId,
+      sourceFlowId,
+      runNumber: this.nextRunNumber(sourceFlowId),
       simulationAvailable: false,
       context: {
         inputs: {},
@@ -472,6 +480,38 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
         steps: {},
         status: 'CREATED',
         waitingSteps: [],
+      }
+    };
+    this.data.unshift(execution);
+    return of(this.withSimulationAvailability(execution));
+  }
+
+  override rerunTaskExecution(executionId: string): Observable<TaskExecution> {
+    const source = this.findExecution(executionId);
+    const sourceFlowId = this.executionSourceFlowId(source);
+    const now = Date.now();
+    const execution: TaskExecution = {
+      ...this.cloneExecution(source),
+      id: crypto.randomUUID(),
+      name: source.name,
+      creationTime: now,
+      flowId: source.flowId ?? sourceFlowId,
+      sourceFlowId,
+      runNumber: this.nextRunNumber(sourceFlowId),
+      rerunOfExecutionId: source.id,
+      interactionSimulationEnabled: false,
+      interactionSimulationDescriptor: undefined,
+      context: {
+        ...this.cloneExecution(source).context,
+        inputs: {},
+        result: {},
+        partialResult: {},
+        startTime: null,
+        endTime: null,
+        errors: {},
+        warnings: {},
+        status: 'CREATED',
+        waitingSteps: []
       }
     };
     this.data.unshift(execution);
@@ -693,6 +733,64 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
       throw new Error(`Execution with id ${executionId} not found`);
     }
     return execution;
+  }
+
+  private buildExecutionGroups(): TaskExecutionGroup[] {
+    const grouped = new Map<string, TaskExecution[]>();
+    for (const execution of this.data.map((item) => this.withSimulationAvailability(item))) {
+      const sourceFlowId = this.executionSourceFlowId(execution);
+      if (!grouped.has(sourceFlowId)) grouped.set(sourceFlowId, []);
+      grouped.get(sourceFlowId)!.push(execution);
+    }
+
+    return Array.from(grouped.entries())
+      .map(([sourceFlowId, executions]) => {
+        const ordered = [...executions].sort((left, right) =>
+          (this.executionRunNumber(left) - this.executionRunNumber(right))
+          || ((left.creationTime ?? 0) - (right.creationTime ?? 0))
+        );
+        const firstExecution = ordered[0];
+        const latestExecution = ordered[ordered.length - 1];
+        return {
+          id: sourceFlowId,
+          sourceFlowId,
+          name: latestExecution?.name ?? sourceFlowId,
+          firstExecutionId: firstExecution?.id ?? '',
+          latestExecutionId: latestExecution?.id ?? '',
+          creationTime: firstExecution?.creationTime ?? 0,
+          lastExecutionTime: latestExecution?.creationTime ?? 0,
+          executionCount: ordered.length,
+          executions: ordered
+        };
+      })
+      .sort((left, right) => right.lastExecutionTime - left.lastExecutionTime);
+  }
+
+  private executionSourceFlowId(execution: TaskExecution): string {
+    return String(execution.sourceFlowId ?? execution.flowId ?? execution.name ?? execution.id).trim() || execution.id;
+  }
+
+  private executionRunNumber(execution: TaskExecution): number {
+    const value = Number(execution.runNumber);
+    return Number.isFinite(value) && value > 0 ? value : 1;
+  }
+
+  private nextRunNumber(sourceFlowId: string): number {
+    const runs = this.data
+      .filter((execution) => this.executionSourceFlowId(execution) === sourceFlowId)
+      .map((execution) => this.executionRunNumber(execution));
+    return runs.length ? Math.max(...runs) + 1 : 1;
+  }
+
+  private cloneExecution(execution: TaskExecution): TaskExecution {
+    if (typeof globalThis.structuredClone === 'function') {
+      try {
+        return globalThis.structuredClone(execution);
+      } catch {
+        // Fall back to JSON clone for plain fake execution data.
+      }
+    }
+    return JSON.parse(JSON.stringify(execution)) as TaskExecution;
   }
 
   private withSimulationAvailability(execution: TaskExecution): TaskExecution {

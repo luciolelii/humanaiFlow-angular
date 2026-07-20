@@ -330,9 +330,11 @@
 
     @if (hasViewableSubflow()) {
     <div class="llm-subflow-section">
-      <button type="button" class="llm-subflow-view" (pointerdown)="$event.stopPropagation()" (click)="openSubflowPreview($event)">
-        View Subflow
+      @for (subflow of viewableSubflows(); track subflow.path) {
+      <button type="button" class="llm-subflow-view" (pointerdown)="$event.stopPropagation()" (click)="openSubflowPreview(subflow.path, $event)">
+        View {{ subflow.label }}
       </button>
+      }
     </div>
     }
   </div>

@@ -1,7 +1,7 @@
 import { DestroyRef, inject, Injectable, signal } from '@angular/core';
 import { environment } from '@environment';
 import { LLMDescriptor } from '@models/flow';
-import { ExecutionEventLogEntry, getExecutionStatusGroup, TaskExecution } from '@models/task-execution';
+import { ExecutionEventLogEntry, getExecutionStatusGroup, TaskExecution, TaskExecutionGroup } from '@models/task-execution';
 import { catchError, finalize, Observable, tap, throwError } from 'rxjs';
 import { TaskExecutionsCallServiceBase } from './task-executions-call.base';
 
@@ -16,9 +16,11 @@ export class TaskExecutionsService {
   private refreshInFlight = false;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private _taskExecutions = signal<TaskExecution[]>([]);
+  private _taskExecutionGroups = signal<TaskExecutionGroup[]>([]);
   private _pendingExecutionCreation = signal(false);
 
   taskExecutions = this._taskExecutions.asReadonly();
+  taskExecutionGroups = this._taskExecutionGroups.asReadonly();
   pendingExecutionCreation = this._pendingExecutionCreation.asReadonly();
 
   init() {
@@ -32,11 +34,13 @@ export class TaskExecutionsService {
     if (this.refreshInFlight) return;
     this.refreshInFlight = true;
 
-    this.taskExecutionsCallService.retrieveAllTaskExecutions().pipe(
+    this.taskExecutionsCallService.retrieveTaskExecutionGroups().pipe(
       finalize(() => {
         this.refreshInFlight = false;
       })
-    ).subscribe((taskExecutions) => {
+    ).subscribe((groups) => {
+      const taskExecutions = this.flattenGroups(groups);
+      this._taskExecutionGroups.set([...groups]);
       this._taskExecutions.set([...taskExecutions]);
       this.updatePollingState(taskExecutions);
     });
@@ -57,6 +61,18 @@ export class TaskExecutionsService {
       tap(() => this.refresh()),
       catchError((err) => {
         console.error('Create execution failed', err);
+        return throwError(() => err);
+      })
+    );
+  }
+
+  rerunExecution(executionId: string) {
+    this._pendingExecutionCreation.set(true);
+    return this.taskExecutionsCallService.rerunTaskExecution(executionId).pipe(
+      finalize(() => this._pendingExecutionCreation.set(false)),
+      tap(() => this.refresh()),
+      catchError((err) => {
+        console.error('Rerun execution failed', err);
         return throwError(() => err);
       })
     );
@@ -197,6 +213,12 @@ export class TaskExecutionsService {
     }
 
     this.stopPolling();
+  }
+
+  private flattenGroups(groups: TaskExecutionGroup[]): TaskExecution[] {
+    return groups
+      .flatMap((group) => group.executions ?? [])
+      .sort((left, right) => (right.creationTime ?? 0) - (left.creationTime ?? 0));
   }
 
   private startPolling() {

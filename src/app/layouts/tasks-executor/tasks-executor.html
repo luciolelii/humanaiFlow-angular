@@ -2,7 +2,7 @@
   <div class="flex flex-row flex-1 overflow-hidden gap-2">
     <app-tasks-executions-list
       class="w-[360px] shrink-0"
-      [executions]="executions()"
+      [groups]="groups()"
       [selectedExecutionId]="selectedExecutionId()"
       (executionSelected)="selectExecution($event)"
       (executionDeleteRequested)="removeExecution($event)">

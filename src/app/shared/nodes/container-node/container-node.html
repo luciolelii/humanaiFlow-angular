@@ -353,20 +353,21 @@
   </div>
   }
 
+  @for (flowField of flowFields; track flowField.path) {
   <div
     class="container-node__dropzone"
     [class.container-node__dropzone--active]="!isReadonly && selectedCount > 0"
-    [class.container-node__dropzone--filled]="subFlowBlockCount > 0"
-    (dragover)="onDropZoneDragOver($event)"
+    [class.container-node__dropzone--filled]="flowField.blockCount > 0"
+    (dragover)="onDropZoneDragOver($event, flowField)"
     (dragleave)="onDropZoneDragLeave($event)"
-    (drop)="onDropZoneDrop($event)">
-    @if (replaceConfirmOpen) {
+    (drop)="onDropZoneDrop($event, flowField)">
+    @if (flowField.replaceConfirmOpen) {
     <div class="container-node__replace-confirm" (pointerdown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
-      <div class="container-node__replace-confirm-text">Replace current subflow?</div>
+      <div class="container-node__replace-confirm-text">Replace current {{ flowField.label }}?</div>
       <div class="container-node__replace-confirm-note">The existing embedded flow will be removed and replaced by the dropped selection.</div>
       <div class="container-node__replace-confirm-actions">
         <button type="button" class="container-node__replace-confirm-cancel" (click)="cancelReplaceSubflow($event)">Cancel</button>
-        <button type="button" class="container-node__replace-confirm-action" (click)="confirmReplaceSubflow($event)">Replace</button>
+        <button type="button" class="container-node__replace-confirm-action" (click)="confirmReplaceSubflow(flowField, $event)">Replace</button>
       </div>
     </div>
     } @else if (isAssigning) {
@@ -375,6 +376,12 @@
       <span>Updating container...</span>
     </div>
     } @else {
+    <div class="container-node__dropzone-title">{{ flowField.label }}</div>
+    @if (flowField.ui.tip) {
+    <div class="container-node__dropzone-description">
+      {{ flowField.ui.tip }}
+    </div>
+    }
     <div class="container-node__dropzone-main">
       <span class="container-node__dropzone-empty">Drag a flow here or import from flow</span>
     </div>
@@ -382,17 +389,17 @@
       Use the selection box in the editor, then drag the floating selection badge into this area.
     </div>
     }
-    @if (subFlowBlockCount > 0 && !replaceConfirmOpen && !isAssigning) {
+    @if (flowField.blockCount > 0 && !flowField.replaceConfirmOpen && !isAssigning) {
     <div class="container-node__dropzone-actions">
-      <button type="button" class="container-node__subflow-view" (pointerdown)="$event.stopPropagation()" (click)="openSubflowPreview($event)">
+      <button type="button" class="container-node__subflow-view" (pointerdown)="$event.stopPropagation()" (click)="openSubflowPreview(flowField, $event)">
         View Flow
       </button>
     </div>
     }
-    @if (!isReadonly && !replaceConfirmOpen && !isAssigning) {
+    @if (!isReadonly && !flowField.replaceConfirmOpen && !isAssigning) {
     <div class="container-node__dropzone-actions">
-      <button type="button" class="container-node__import" (pointerdown)="$event.stopPropagation()" (click)="importSubflow($event)">
-        @if (importLoading) {
+      <button type="button" class="container-node__import" (pointerdown)="$event.stopPropagation()" (click)="importSubflow(flowField, $event)">
+        @if (flowField.importLoading) {
         <span class="container-node__spinner" aria-hidden="true"></span>
         <span>Loading flows...</span>
         } @else {
@@ -402,6 +409,7 @@
     </div>
     }
   </div>
+  }
 
   @if (assignmentErrorMessage) {
   <div class="container-node__message container-node__message--error">

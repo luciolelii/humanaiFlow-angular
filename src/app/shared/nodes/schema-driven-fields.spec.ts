@@ -1,4 +1,8 @@
 import {
+  collectSchemaFlowDataFields,
+  isFlowDataFieldPath
+} from './flow-data-schema-fields';
+import {
   buildOrderedSchemaDisplay,
   buildSchemaEditableFieldDefinitions,
   buildSchemaFieldViewModel,
@@ -14,6 +18,69 @@ import {
 } from './schema-driven-fields';
 
 describe('schema-driven-fields', () => {
+  it('collects every schema-driven FlowData field', () => {
+    const fields = collectSchemaFlowDataFields({
+      type: 'object',
+      sharedDefinitions: {
+        FlowData: {
+          type: 'object',
+          properties: {
+            blocks: { type: 'array' },
+            containers: { type: 'array' },
+            connections: { type: 'array' },
+            dependencies: { type: 'array' }
+          }
+        }
+      },
+      properties: {
+        subFlow: {
+          $ref: '#/sharedDefinitions/FlowData',
+          'x-ui-label': 'Internal Flow',
+          'x-retriever-url': '/secure-retriever/Flows/subFlow/items',
+          'x-retriever-structured-data': true,
+          'x-retriever-validation-url': '/containers/validate-subflow',
+          'x-subflow-validation-type': 'LOOP_BODY'
+        },
+        guardSubFlow: {
+          $ref: '#/sharedDefinitions/FlowData',
+          'x-ui-label': 'Guard Flow',
+          'x-retriever-url': '/secure-retriever/Flows/subFlow/items',
+          'x-retriever-structured-data': true,
+          'x-retriever-validation-url': '/containers/validate-subflow?type=LOOP_GUARD',
+          'x-subflow-validation-type': 'LOOP_GUARD'
+        },
+        maxIterations: {
+          type: 'integer'
+        }
+      }
+    });
+
+    expect(fields.map((field) => ({
+      path: field.path,
+      label: field.label,
+      key: field.retrieverKey,
+      validationUrl: field.validationUrl,
+      validationType: field.validationType
+    }))).toEqual([
+      {
+        path: 'subFlow',
+        label: 'Internal Flow',
+        key: 'subFlow',
+        validationUrl: '/containers/validate-subflow?type=LOOP_BODY',
+        validationType: 'LOOP_BODY'
+      },
+      {
+        path: 'guardSubFlow',
+        label: 'Guard Flow',
+        key: 'subFlow',
+        validationUrl: '/containers/validate-subflow?type=LOOP_GUARD',
+        validationType: 'LOOP_GUARD'
+      }
+    ]);
+    expect(isFlowDataFieldPath('guardSubFlow.blocks', fields)).toBe(true);
+    expect(isFlowDataFieldPath('maxIterations', fields)).toBe(false);
+  });
+
   it('parses retriever urls including required suffix', () => {
     expect(parseSchemaRetrieverUrl('/retriever/LLM/providers')).toEqual({
       blockType: 'LLM',

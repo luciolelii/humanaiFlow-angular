@@ -1,10 +1,11 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { MatCardModule } from '@angular/material/card';
-import { normalizeExecutionStatus, TaskExecution } from '@models/task-execution';
+import { normalizeExecutionStatus, TaskExecution, TaskExecutionGroup } from '@models/task-execution';
 import { ActivatedRoute, Router } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import {
   TaskExecutionListItem,
+  TaskExecutionGroupListItem,
   TasksExecutionsListComponent
 } from '@shared/tasks-executions-list/tasks-executions-list';
 import { TaskExecutionViewerComponent } from '@shared/task-execution-viewer/task-execution-viewer';
@@ -33,18 +34,11 @@ export class TasksExecutor {
   );
 
   readonly executionDetails = this.taskExecutionsService.taskExecutions;
+  readonly executionGroups = this.taskExecutionsService.taskExecutionGroups;
   readonly pendingExecutionCreation = this.taskExecutionsService.pendingExecutionCreation;
 
-  readonly executions = computed<TaskExecutionListItem[]>(() =>
-    this.executionDetails().map((execution) => ({
-      id: execution.id,
-      title: execution.name,
-      flowName: execution.name,
-      status: normalizeExecutionStatus(execution.context.status),
-      startedAt: this.formatDateTime(execution.creationTime),
-      duration: this.formatDuration(execution.context.startTime ?? null, execution.context.endTime ?? null),
-      simulated: execution.interactionSimulationEnabled === true
-    }))
+  readonly groups = computed<TaskExecutionGroupListItem[]>(() =>
+    this.executionGroups().map((group) => this.toGroupListItem(group))
   );
 
   readonly selectedExecutionId = signal<string | null>(null);
@@ -88,8 +82,8 @@ export class TasksExecutor {
     effect(() => {
       if (this.requestedExecutionId()) return;
       if (this.selectedExecutionId()) return;
-      const first = this.executions()[0];
-      if (first) this.selectedExecutionId.set(first.id);
+      const first = this.groups()[0];
+      if (first?.latestExecutionId) this.selectedExecutionId.set(first.latestExecutionId);
     });
   }
 
@@ -116,6 +110,50 @@ export class TasksExecutor {
       },
       error: (err) => console.error('Error deleting execution:', err)
     });
+  }
+
+  rerunExecution(id: string) {
+    this.taskExecutionsService.rerunExecution(id).subscribe({
+      next: (execution) => this.selectExecution(execution.id),
+      error: (err) => console.error('Error rerunning execution:', err)
+    });
+  }
+
+  private toGroupListItem(group: TaskExecutionGroup): TaskExecutionGroupListItem {
+    const executions = (group.executions ?? []).map((execution, index) =>
+      this.toExecutionListItem(execution, index + 1)
+    );
+    const latestExecution = executions.find((execution) => execution.id === group.latestExecutionId)
+      ?? executions[executions.length - 1]
+      ?? null;
+
+    return {
+      id: group.id,
+      sourceFlowId: group.sourceFlowId,
+      name: group.name,
+      executionCount: group.executionCount,
+      lastExecutionTime: group.lastExecutionTime,
+      lastExecutionTimeLabel: this.formatDateTime(group.lastExecutionTime),
+      latestExecutionId: group.latestExecutionId || latestExecution?.id || '',
+      latestStatus: latestExecution?.status ?? 'CREATED',
+      latestRunNumber: latestExecution?.runNumber ?? null,
+      executions
+    };
+  }
+
+  private toExecutionListItem(execution: TaskExecution, fallbackRunNumber: number): TaskExecutionListItem {
+    return {
+      id: execution.id,
+      title: execution.name,
+      flowName: String(execution.sourceFlowId ?? execution.flowId ?? execution.name ?? ''),
+      status: normalizeExecutionStatus(execution.context.status),
+      startedAt: this.formatDateTime(execution.creationTime),
+      creationTime: execution.creationTime,
+      runNumber: typeof execution.runNumber === 'number' ? execution.runNumber : fallbackRunNumber,
+      rerunOfExecutionId: execution.rerunOfExecutionId ?? null,
+      duration: this.formatDuration(execution.context.startTime ?? null, execution.context.endTime ?? null),
+      simulated: execution.interactionSimulationEnabled === true
+    };
   }
 
   private formatDateTime(timestamp: number): string {

@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { environment } from '@environment';
 import { LLMDescriptor } from '@models/flow';
-import { ExecutionEventLogEntry, TaskExecution } from '@models/task-execution';
+import { ExecutionEventLogEntry, TaskExecution, TaskExecutionGroup } from '@models/task-execution';
 import { map, Observable } from 'rxjs';
 import { TaskExecutionsCallServiceBase } from './task-executions-call.base';
 
@@ -15,12 +15,24 @@ export class TaskExecutionsCallService extends TaskExecutionsCallServiceBase {
     );
   }
 
+  override retrieveTaskExecutionGroups(): Observable<TaskExecutionGroup[]> {
+    return this.http.get<unknown>(`${environment.apiUrl}/executions/groups`).pipe(
+      map((raw) => Array.isArray(raw) ? raw.map((item) => this.mapExecutionGroup(item)) : [])
+    );
+  }
+
   override retrieveExecutionEvents(executionId: string): Observable<ExecutionEventLogEntry[]> {
     return this.http.get<ExecutionEventLogEntry[]>(`${environment.apiUrl}/executions/${encodeURIComponent(executionId)}/events`);
   }
 
   override createTaskExecution(flowId: string): Observable<TaskExecution> {
     return this.http.post<unknown>(`${environment.apiUrl}/executions`, flowId).pipe(
+      map((raw) => this.mapExecution(raw))
+    );
+  }
+
+  override rerunTaskExecution(executionId: string): Observable<TaskExecution> {
+    return this.http.post<unknown>(`${environment.apiUrl}/executions/${encodeURIComponent(executionId)}/rerun`, null).pipe(
       map((raw) => this.mapExecution(raw))
     );
   }
@@ -191,6 +203,36 @@ export class TaskExecutionsCallService extends TaskExecutionsCallServiceBase {
     };
   }
 
+  private mapExecutionGroup(raw: unknown): TaskExecutionGroup {
+    const group = (raw ?? {}) as Partial<TaskExecutionGroup> & Record<string, unknown>;
+    const executions = Array.isArray(group['executions'])
+      ? group['executions'].map((item) => this.mapExecution(item))
+      : [];
+    const latestExecution = executions.find((execution) => execution.id === group['latestExecutionId'])
+      ?? executions[executions.length - 1]
+      ?? null;
+    const firstExecution = executions.find((execution) => execution.id === group['firstExecutionId'])
+      ?? executions[0]
+      ?? null;
+    const sourceFlowId = this.toNonEmptyString(group['sourceFlowId'])
+      ?? this.toNonEmptyString(latestExecution?.sourceFlowId)
+      ?? this.toNonEmptyString(latestExecution?.flowId)
+      ?? this.toNonEmptyString(group['id'])
+      ?? '';
+
+    return {
+      id: this.toNonEmptyString(group['id']) ?? sourceFlowId,
+      sourceFlowId,
+      name: this.toNonEmptyString(group['name']) ?? latestExecution?.name ?? sourceFlowId,
+      firstExecutionId: this.toNonEmptyString(group['firstExecutionId']) ?? firstExecution?.id ?? '',
+      latestExecutionId: this.toNonEmptyString(group['latestExecutionId']) ?? latestExecution?.id ?? '',
+      creationTime: this.toTimestamp(group['creationTime'], firstExecution?.creationTime ?? 0),
+      lastExecutionTime: this.toTimestamp(group['lastExecutionTime'], latestExecution?.creationTime ?? 0),
+      executionCount: this.toNumber(group['executionCount'], executions.length),
+      executions
+    };
+  }
+
   private normalizeGlobalInputValues(raw: unknown): Record<string, unknown> {
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
     return { ...(raw as Record<string, unknown>) };
@@ -216,5 +258,19 @@ export class TaskExecutionsCallService extends TaskExecutionsCallServiceBase {
         };
         return acc;
       }, {});
+  }
+
+  private toNonEmptyString(value: unknown): string | null {
+    return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
+  }
+
+  private toTimestamp(value: unknown, fallback: number): number {
+    const timestamp = typeof value === 'number' ? value : Number(value);
+    return Number.isFinite(timestamp) ? timestamp : fallback;
+  }
+
+  private toNumber(value: unknown, fallback: number): number {
+    const number = typeof value === 'number' ? value : Number(value);
+    return Number.isFinite(number) ? number : fallback;
   }
 }

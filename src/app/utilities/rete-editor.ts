@@ -26,6 +26,7 @@ import { GenericNodeComponent } from "@shared/nodes/generic-node/generic-node";
 import { TaskStepNodeComponent } from "@shared/nodes/task-step-node/task-step-node";
 import { CustomSocket } from "@shared/custom-socket/custom-socket";
 import { CustomConnectionComponent } from "@shared/custom-connection/custom-connection";
+import { deleteSchemaValueByPath, setSchemaValueByPath } from "@shared/nodes/schema-driven-fields";
 import { firstValueFrom } from "rxjs";
 
 type AreaExtra = AngularArea2D<HFSchemes>;
@@ -218,13 +219,13 @@ export async function addBlockToEditor(
 
     await editor.removeNode(node.id);
   };
-  const clearContainerSubflow = async () => {
+  const clearContainerSubflow = async (targetPath = "subFlow") => {
     const currentNode = editor.getNode(node.id) as HFNode | undefined;
     if (!currentNode?.data) return;
     const nextConfiguration = {
       ...cloneValue(currentNode.data.specificConfiguration ?? {})
     };
-    delete (nextConfiguration as Record<string, unknown>)["subFlow"];
+    deleteSchemaValueByPath(nextConfiguration as Record<string, unknown>, targetPath);
     const replacement = {
       ...cloneValue(currentNode.data),
       inputs: [],
@@ -252,7 +253,7 @@ export async function addBlockToEditor(
   };
   const applyContainerSubflow = async (
     candidateSubFlow: FlowData,
-    options?: { selectedIds?: Set<string>; validationUrl?: string | null; preValidate?: boolean; source?: 'drag' | 'import' }
+    options?: { selectedIds?: Set<string>; targetPath?: string; validationUrl?: string | null; preValidate?: boolean; source?: 'drag' | 'import' }
   ) => {
     if (!resolvedRuntime) return;
 
@@ -288,11 +289,12 @@ export async function addBlockToEditor(
       }
 
       const currentConfiguration = cloneValue(currentLiveNode.data.specificConfiguration ?? {}) as Record<string, unknown>;
+      const targetPath = options?.targetPath ?? 'subFlow';
       const nextConfiguration: Record<string, unknown> = {
         ...currentConfiguration,
-        name: String(currentConfiguration['name'] ?? currentLiveNode.data['name'] ?? 'Container'),
-        subFlow: candidateSubFlow
+        name: String(currentConfiguration['name'] ?? currentLiveNode.data['name'] ?? 'Container')
       };
+      setSchemaValueByPath(nextConfiguration, targetPath, candidateSubFlow);
       const nextPosition = cloneValue(currentLiveNode.data['position'] ?? null);
 
       const containerId = String(currentLiveNode.data['id'] ?? '');
@@ -304,7 +306,7 @@ export async function addBlockToEditor(
         })
       );
       if (options?.source === 'import') {
-        console.log('Container create response after subFlow import:', replacementFromServer);
+        console.log(`Container create response after ${targetPath} import:`, replacementFromServer);
       }
 
       const selectedIds = options?.selectedIds ?? new Set<string>();
@@ -361,7 +363,11 @@ export async function addBlockToEditor(
       await area.update("node", node.id);
     }
   };
-  const assignSelectedBlocksToContainer = async (selectedBlockIds?: string[]) => {
+  const assignSelectedBlocksToContainer = async (
+    selectedBlockIds?: string[],
+    targetPath = 'subFlow',
+    validationUrl?: string | null
+  ) => {
     if (!resolvedRuntime) return;
 
     const currentNode = editor.getNode(node.id) as HFNode | undefined;
@@ -403,10 +409,10 @@ export async function addBlockToEditor(
         )
       )
     };
-    await applyContainerSubflow(candidateSubFlow, { selectedIds, preValidate: true });
+    await applyContainerSubflow(candidateSubFlow, { selectedIds, targetPath, validationUrl, preValidate: true });
   };
-  const assignImportedSubflow = async (subFlow: FlowData, validationUrl?: string | null) => {
-    await applyContainerSubflow(cloneValue(subFlow), { validationUrl, source: 'import' });
+  const assignImportedSubflow = async (subFlow: FlowData, targetPath = 'subFlow', validationUrl?: string | null) => {
+    await applyContainerSubflow(cloneValue(subFlow), { targetPath, validationUrl, preValidate: true, source: 'import' });
   };
   const replaceWithCreatedNode = async (createdBlock: FlowNode) => {
     if (!editor.getNode(node.id)) return;

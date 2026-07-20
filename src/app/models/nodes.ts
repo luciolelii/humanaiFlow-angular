@@ -4,9 +4,9 @@ import { FlowData, FlowNode } from "./flow";
 export type HFNodeData = FlowNode & {
   deleteNode?: () => Promise<void>;
   replaceWithCreatedNode?: (block: FlowNode) => Promise<void>;
-  assignSelectedBlocksToContainer?: (blockIds?: string[]) => Promise<void>;
-  assignImportedSubflow?: (subFlow: FlowData, validationUrl?: string | null) => Promise<void>;
-  clearContainerSubflow?: () => Promise<void>;
+  assignSelectedBlocksToContainer?: (blockIds?: string[], targetPath?: string, validationUrl?: string | null) => Promise<void>;
+  assignImportedSubflow?: (subFlow: FlowData, targetPath?: string, validationUrl?: string | null) => Promise<void>;
+  clearContainerSubflow?: (targetPath?: string) => Promise<void>;
   cloneNode?: () => Promise<void>;
   __readonly?: boolean;
   __needsServerCreate?: boolean;
