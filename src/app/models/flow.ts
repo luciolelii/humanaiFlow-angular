@@ -86,8 +86,38 @@ export type FlowNodeBase = {
   nodeFamily?: NodeFamily;
 };
 
+export type BiasAnnotation = Record<string, unknown> & {
+  id?: string;
+  category?: string;
+  severity?: string;
+  issue?: string;
+  rationale?: string;
+  mitigation?: string;
+  status?: string;
+  source?: string;
+  analysisId?: string;
+};
+
+export type BiasAnnotationOption = {
+  value: string;
+  label: string;
+  description?: string;
+};
+
+export type BiasAnnotationsDescriptor = {
+  type: string;
+  blockProperty: string;
+  multiple: boolean;
+  maxItems: number | null;
+  schema: Record<string, unknown>;
+  options: Record<string, BiasAnnotationOption[]>;
+  defaults: Record<string, unknown>;
+  serverGeneratedFields: string[];
+};
+
 export type FlowBlock = FlowNodeBase & {
   nodeFamily?: 'block';
+  biasAnnotations?: BiasAnnotation[];
 };
 
 export type FlowContainer = FlowNodeBase & {

@@ -1,0 +1,28 @@
+:host { display: block; }
+.bias-section { margin: 12px; padding: 12px; border: 1px solid #d8dee9; border-radius: 10px; background: #fff; color: #263244; }
+.bias-header, .bias-actions, .bias-modal-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.bias-title { font-size: 13px; font-weight: 700; }
+.bias-counter { color: #64748b; font-size: 11px; }
+button { border: 1px solid #cbd5e1; border-radius: 6px; background: white; padding: 5px 8px; cursor: pointer; }
+button:disabled { cursor: not-allowed; opacity: .5; }
+.bias-add, button.primary { color: white; border-color: #2563eb; background: #2563eb; }
+.bias-empty { margin-top: 10px; color: #64748b; font-size: 12px; }
+.bias-list { display: grid; gap: 8px; margin-top: 10px; }
+.bias-card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 9px; background: #f8fafc; }
+.bias-badges { display: flex; flex-wrap: wrap; gap: 4px; }
+.bias-badge { border-radius: 999px; padding: 2px 7px; background: #e2e8f0; font-size: 10px; font-weight: 650; }
+.bias-badge.severity { background: #fee2e2; color: #991b1b; }
+.bias-badge.status { background: #dbeafe; color: #1e40af; }
+.bias-issue { margin: 7px 0; font-size: 12px; white-space: pre-wrap; }
+.bias-actions { justify-content: flex-end; }
+.bias-actions .danger { color: #b91c1c; }
+.bias-error, label.invalid em { margin-top: 5px; color: #b91c1c; font-size: 11px; font-style: normal; }
+.bias-modal-backdrop { position: fixed; inset: 0; z-index: 10020; display: grid; place-items: center; background: rgb(15 23 42 / 55%); }
+.bias-modal { width: min(620px, 92vw); max-height: 86vh; overflow: auto; border-radius: 14px; background: white; padding: 20px; box-shadow: 0 20px 60px rgb(0 0 0 / 25%); }
+.bias-modal h3 { margin: 0 0 14px; font-size: 18px; }
+.bias-form { display: grid; gap: 12px; }
+.bias-form label { display: grid; gap: 5px; font-size: 12px; font-weight: 650; }
+.bias-form input, .bias-form select, .bias-form textarea { width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 7px; padding: 8px; font: inherit; font-weight: 400; }
+.bias-form label.invalid input, .bias-form label.invalid select, .bias-form label.invalid textarea { border-color: #dc2626; }
+.bias-form small { color: #64748b; font-weight: 400; }
+.bias-modal-actions { justify-content: flex-end; margin-top: 16px; }

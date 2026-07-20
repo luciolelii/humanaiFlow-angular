@@ -1,4 +1,4 @@
-import { BlockType, FlowBlock } from "@models/flow";
+import { BiasAnnotationOption, BiasAnnotationsDescriptor, BlockType, FlowBlock } from "@models/flow";
 import { HttpClient, HttpParams } from "@angular/common/http";
 import { inject } from "@angular/core";
 import { environment } from "@environment";
@@ -19,6 +19,12 @@ export class BlocksCallService extends BlocksCallServiceBase {
           return types;
         })
       );
+  }
+
+  override retrieveBiasAnnotationsDescriptor(): Observable<BiasAnnotationsDescriptor> {
+    return this.http
+      .get<unknown>(`${environment.apiUrl}/blocks/bias-annotations/descriptor`)
+      .pipe(map((raw) => this.biasAnnotationsDescriptorFromApi(raw)));
   }
 
   override createEmptyBlock(blockType: string, context?: BlockDraftContext): Observable<FlowBlock> {
@@ -142,7 +148,41 @@ export class BlocksCallService extends BlocksCallServiceBase {
       outputs: this.toPorts(value["outputs"], io.outputs),
       specificConfiguration,
       typeName,
-      nodeFamily: 'block'
+      nodeFamily: 'block',
+      biasAnnotations: Array.isArray(value["biasAnnotations"])
+        ? value["biasAnnotations"] as FlowBlock["biasAnnotations"]
+        : []
+    };
+  }
+
+  private biasAnnotationsDescriptorFromApi(raw: unknown): BiasAnnotationsDescriptor {
+    const value = this.toRecord(raw);
+    const rawOptions = this.toRecord(value["options"]);
+    const options: Record<string, BiasAnnotationOption[]> = {};
+    for (const [field, entries] of Object.entries(rawOptions)) {
+      if (!Array.isArray(entries)) continue;
+      options[field] = entries
+        .map((entry) => this.toRecord(entry))
+        .filter((entry) => typeof entry["value"] === "string")
+        .map((entry) => ({
+          value: String(entry["value"]),
+          label: String(entry["label"] ?? entry["value"]),
+          description: typeof entry["description"] === "string" ? entry["description"] : undefined
+        }));
+    }
+
+    const maxItems = Number(value["maxItems"]);
+    return {
+      type: String(value["type"] ?? ""),
+      blockProperty: String(value["blockProperty"] ?? "biasAnnotations"),
+      multiple: value["multiple"] !== false,
+      maxItems: Number.isFinite(maxItems) && maxItems >= 0 ? maxItems : null,
+      schema: this.toRecord(value["schema"]),
+      options,
+      defaults: this.toRecord(value["defaults"]),
+      serverGeneratedFields: Array.isArray(value["serverGeneratedFields"])
+        ? value["serverGeneratedFields"].map(String)
+        : []
     };
   }
 

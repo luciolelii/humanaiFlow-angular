@@ -131,6 +131,9 @@ export class FlowEditor {
   activeTourStep = computed(() => this.tourSteps()[this.tourStepIndex()] ?? null);
 
   constructor() {
+    void this.blocksService.getBiasAnnotationsDescriptor().catch((error) => {
+      console.error('Retrieve bias annotations descriptor failed', error);
+    });
     effect(() => {
       const username = this.authorization.loggedInUser()?.username ?? null;
       if (!username || this.tourBootstrapped) return;

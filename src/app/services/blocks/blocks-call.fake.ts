@@ -1,4 +1,4 @@
-import { BlockType, FlowBlock } from "@models/flow";
+import { BiasAnnotationsDescriptor, BlockType, FlowBlock } from "@models/flow";
 import { Observable, of } from "rxjs";
 import { BlockDraftContext, BlocksCallServiceBase } from "./block-call.base";
 
@@ -145,6 +145,38 @@ export class BlocksCallServiceFake extends BlocksCallServiceBase {
 
   override retrieveAllBlocksTypes(): Observable<BlockType[]> {
     return of(this.blockTypes);
+  }
+
+  override retrieveBiasAnnotationsDescriptor(): Observable<BiasAnnotationsDescriptor> {
+    return of({
+      type: 'BiasAnnotation',
+      blockProperty: 'biasAnnotations',
+      multiple: true,
+      maxItems: 20,
+      schema: {
+        type: 'object',
+        required: ['category', 'severity', 'issue'],
+        properties: {
+          id: { type: 'string' },
+          category: { type: 'string', 'x-ui-label': 'Category', 'x-ui-order': 1 },
+          severity: { type: 'string', 'x-ui-label': 'Severity', 'x-ui-order': 2 },
+          issue: { type: 'string', maxLength: 2000, 'x-ui-widget': 'textarea', 'x-ui-order': 3 },
+          rationale: { type: 'string', maxLength: 4000, 'x-ui-widget': 'textarea', 'x-ui-order': 4 },
+          mitigation: { type: 'string', maxLength: 4000, 'x-ui-widget': 'textarea', 'x-ui-order': 5 },
+          status: { type: 'string', 'x-ui-order': 6 },
+          source: { type: 'string', 'x-ui-order': 7 },
+          analysisId: { type: 'string', maxLength: 255, 'x-ui-order': 8 }
+        }
+      },
+      options: {
+        category: [{ value: 'AUTOMATION_BIAS', label: 'Automation bias', description: 'Over-reliance on automated decisions.' }],
+        severity: [{ value: 'HIGH', label: 'High' }],
+        status: [{ value: 'PROPOSED', label: 'Proposed' }],
+        source: [{ value: 'MANUAL', label: 'Manual' }]
+      },
+      defaults: { status: 'PROPOSED', source: 'MANUAL' },
+      serverGeneratedFields: ['id']
+    });
   }
 
   override createEmptyBlock(blockType: string, _context?: BlockDraftContext): Observable<FlowBlock> {

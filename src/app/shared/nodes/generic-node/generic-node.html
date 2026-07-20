@@ -510,6 +510,12 @@
     }
   </div>
 
+  <app-bias-annotations
+    [blockId]="blockId ?? ''"
+    [annotations]="biasAnnotations"
+    [readonly]="isReadonly"
+    (annotationsChange)="updateBiasAnnotations($event)" />
+
   @if (localEditorOpen) {
   <div class="llm-modal-backdrop" (pointerdown)="$event.stopPropagation()" (click)="closeSimpleParamEditor($event)">
     <div class="llm-modal" (pointerdown)="$event.stopPropagation()" (click)="$event.stopPropagation()">

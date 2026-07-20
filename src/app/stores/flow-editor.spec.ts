@@ -25,7 +25,7 @@ describe('EditorStateHolder', () => {
   let service: EditorStateHolder;
   let confirmSpy: { open: ReturnType<typeof vi.fn> };
   let authSpy: { loggedInUser: ReturnType<typeof vi.fn> };
-  let flowsServiceSpy: { getFlowValidation: ReturnType<typeof vi.fn> };
+  let flowsServiceSpy: { getFlowValidation: ReturnType<typeof vi.fn>; updateFlow: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
     confirmSpy = {
@@ -35,7 +35,8 @@ describe('EditorStateHolder', () => {
       loggedInUser: vi.fn().mockReturnValue({ username: 'testuser', email: null, role: 'USER' })
     };
     flowsServiceSpy = {
-      getFlowValidation: vi.fn()
+      getFlowValidation: vi.fn(),
+      updateFlow: vi.fn()
     };
 
     TestBed.configureTestingModule({
@@ -153,6 +154,31 @@ describe('EditorStateHolder', () => {
 
       expect(service.isDirty()).toBe(false);
     });
+  });
+
+  it('saves annotations in the full flow payload and adopts server-generated ids', async () => {
+    const flow = makeFlow({
+      data: {
+        blocks: [{
+          id: 'block-1', name: 'Block', typeName: 'LLMBlock', inputs: [], outputs: [],
+          specificConfiguration: {}, biasAnnotations: [{ category: 'DYNAMIC', severity: 'HIGH', issue: 'Issue' }]
+        }],
+        containers: [], connections: [], dependencies: []
+      }
+    });
+    await service.openDocument(flow);
+    const saved = structuredClone(flow);
+    saved.data.blocks[0].biasAnnotations = [{
+      id: 'bias-server-1', category: 'DYNAMIC', severity: 'HIGH', issue: 'Issue'
+    }];
+    flowsServiceSpy.updateFlow.mockReturnValue(of(saved));
+
+    await new Promise<void>((resolve, reject) => service.save().subscribe({ next: () => resolve(), error: reject }));
+
+    expect(flowsServiceSpy.updateFlow).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ blocks: [expect.objectContaining({ biasAnnotations: [expect.objectContaining({ issue: 'Issue' })] })] })
+    }));
+    expect(service.currentFlow()?.data.blocks[0].biasAnnotations?.[0].id).toBe('bias-server-1');
   });
 
   describe('isCurrentFlowReadOnly', () => {

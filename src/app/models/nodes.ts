@@ -17,6 +17,7 @@ export type HFNodeData = FlowNode & {
   __containerValidationErrors?: unknown[];
   __containerAssignmentError?: string | null;
   __containerAssigning?: boolean;
+  __biasAnnotationsProperty?: string;
 };
 
 export type HFNode = ClassicPreset.Node & {

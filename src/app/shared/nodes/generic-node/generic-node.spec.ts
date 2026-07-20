@@ -4,6 +4,7 @@ import { NodeSettingsDialogService } from '@services/dialogs/node-settings-dialo
 import { FieldRetriever } from '@services/retriever/field-retriever';
 import { EditorStateHolder } from '@stores/flow-editor';
 import { vi } from 'vitest';
+import { of } from 'rxjs';
 
 import { GenericNodeComponent } from './generic-node';
 
@@ -25,6 +26,7 @@ describe('GenericNodeComponent', () => {
           provide: EditorStateHolder,
           useValue: {
             currentFlow: vi.fn().mockReturnValue(null),
+            flowValidationErrors: vi.fn().mockReturnValue([]),
             isBlockSelected: vi.fn().mockReturnValue(false),
             isValidationNodeHighlighted: vi.fn().mockReturnValue(false),
             updateData: vi.fn(),
@@ -43,7 +45,9 @@ describe('GenericNodeComponent', () => {
           provide: BlocksService,
           useValue: {
             peekBlockType: vi.fn().mockReturnValue(null),
-            getBlockType: vi.fn().mockResolvedValue(null)
+            getBlockType: vi.fn().mockResolvedValue(null),
+            biasAnnotationsDescriptor: vi.fn().mockReturnValue(null),
+            updateBlock: vi.fn()
           }
         }
       ]
@@ -88,5 +92,27 @@ describe('GenericNodeComponent', () => {
     component.toggleFocus();
     expect(component.focusOpen).toBe(false);
     expect(nodeData['__focusOpen']).toBe(false);
+  });
+
+  it('preserves id, position and bias annotations during block regeneration', async () => {
+    const blocks = TestBed.inject(BlocksService) as any;
+    const replacement = vi.fn().mockResolvedValue(undefined);
+    component.data.data = {
+      ...component.data.data,
+      id: 'old-id', typeName: 'LLMBlock', position: { x: 10, y: 20 },
+      biasAnnotations: [{ id: 'bias-1', category: 'DYNAMIC', issue: 'keep me' }],
+      __needsServerCreate: true, replaceWithCreatedNode: replacement
+    };
+    blocks.updateBlock.mockReturnValue(of({
+      id: 'generated-id', name: 'Generated', typeName: 'LLMBlock', inputs: [], outputs: [],
+      specificConfiguration: {}, position: { x: 99, y: 99 }, biasAnnotations: []
+    }));
+
+    (component as any).maybeCreateBlockOnServer();
+    await fixture.whenStable();
+    expect(replacement).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'old-id', position: { x: 10, y: 20 },
+      biasAnnotations: [{ id: 'bias-1', category: 'DYNAMIC', issue: 'keep me' }]
+    }));
   });
 });

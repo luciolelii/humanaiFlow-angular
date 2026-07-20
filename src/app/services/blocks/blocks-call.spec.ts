@@ -99,4 +99,21 @@ describe('BlocksCallService', () => {
       'Invalid block catalog response: expected reduced catalog format with a descriptors array'
     );
   });
+
+  it('loads and normalizes the dynamic bias annotations descriptor', async () => {
+    const request = firstValueFrom(service.retrieveBiasAnnotationsDescriptor());
+    const httpRequest = httpMock.expectOne(`${environment.apiUrl}/blocks/bias-annotations/descriptor`);
+    expect(httpRequest.request.method).toBe('GET');
+    httpRequest.flush({
+      type: 'BiasAnnotation', blockProperty: 'biasAnnotations', multiple: true, maxItems: 3,
+      schema: { type: 'object', required: ['category'], properties: { category: { type: 'string' } } },
+      options: { category: [{ value: 'DYNAMIC_VALUE', label: 'Dynamic label', description: 'Dynamic description' }] },
+      defaults: { status: 'DYNAMIC_DEFAULT' }, serverGeneratedFields: ['id']
+    });
+
+    await expect(request).resolves.toEqual(expect.objectContaining({
+      blockProperty: 'biasAnnotations', maxItems: 3,
+      options: { category: [{ value: 'DYNAMIC_VALUE', label: 'Dynamic label', description: 'Dynamic description' }] }
+    }));
+  });
 });

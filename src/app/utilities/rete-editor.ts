@@ -152,11 +152,16 @@ export function exportGraph(editor: NodeEditor<HFSchemes>) {
   const nodeIdToBlockId = new Map<string, string>();
   const nodes: FlowNode[] = editor.getNodes().map((node) => {
     const blockData = node.data;
+    const blockRecord = blockData as unknown as Record<string, unknown> | undefined;
     const blockId = blockData?.id ?? node.id;
     nodeIdToBlockId.set(node.id, blockId);
 
     const inputs = cloneValue(blockData?.inputs ?? []);
     const outputs = cloneValue(blockData?.outputs ?? []);
+
+    const biasAnnotationsProperty = typeof blockRecord?.['__biasAnnotationsProperty'] === 'string'
+      ? String(blockRecord['__biasAnnotationsProperty'])
+      : 'biasAnnotations';
 
     return {
       id: blockId,
@@ -165,6 +170,9 @@ export function exportGraph(editor: NodeEditor<HFSchemes>) {
       inputs,
       outputs,
       specificConfiguration: cloneValue(blockData?.specificConfiguration ?? {}),
+      ...(blockData?.nodeFamily === 'container'
+        ? {}
+        : { [biasAnnotationsProperty]: cloneValue(blockRecord?.[biasAnnotationsProperty] ?? []) }),
       typeName: blockData?.typeName ?? "LLMBlock",
       nodeFamily: blockData?.nodeFamily === 'container' ? 'container' : 'block'
     };

@@ -1,4 +1,4 @@
-import { BlockType, BlockTypeName, FlowBlock } from "@models/flow";
+import { BiasAnnotationsDescriptor, BlockType, BlockTypeName, FlowBlock } from "@models/flow";
 import { Observable } from "rxjs";
 
 export type BlockDraftContext = {
@@ -9,6 +9,8 @@ export type BlockDraftContext = {
 export abstract class BlocksCallServiceBase {
 
     abstract retrieveAllBlocksTypes() : Observable<BlockType[]>;
+
+    abstract retrieveBiasAnnotationsDescriptor(): Observable<BiasAnnotationsDescriptor>;
 
     abstract createEmptyBlock(blockType: BlockTypeName, context?: BlockDraftContext) : Observable<FlowBlock>;
 

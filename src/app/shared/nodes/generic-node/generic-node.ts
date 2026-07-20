@@ -1,8 +1,9 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, HostBinding, HostListener, inject, Input, OnDestroy } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, effect, ElementRef, HostBinding, HostListener, inject, Input, OnDestroy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { BlockType, currentFlowPortValueKind, flowValueKindLabel, FlowData, FlowPort, FlowValueKind, FLOW_DEPENDANT_PORT_KEY, FLOW_DEPENDENCY_PORT_KEY, normalizeFlowPortValueKinds } from '@models/flow';
+import { BiasAnnotation, BlockType, currentFlowPortValueKind, flowValueKindLabel, FlowData, FlowPort, FlowValueKind, FLOW_DEPENDANT_PORT_KEY, FLOW_DEPENDENCY_PORT_KEY, normalizeFlowPortValueKinds } from '@models/flow';
+import { BiasAnnotationsComponent } from '../../bias-annotations/bias-annotations';
 import { ClassicPreset } from 'rete';
 import { ReteModule } from 'rete-angular-plugin/21';
 import {
@@ -121,7 +122,7 @@ type RenderedSocketPort = {
 
 @Component({
   selector: 'app-generic-node',
-  imports: [CommonModule, FormsModule, ReteModule, MatTooltipModule],
+  imports: [CommonModule, FormsModule, ReteModule, MatTooltipModule, BiasAnnotationsComponent],
   templateUrl: './generic-node.html',
   styleUrl: './generic-node.css',
   host: {
@@ -208,7 +209,22 @@ export class GenericNodeComponent implements OnDestroy {
   private focusOriginalNextSibling: Node | null = null;
   private pageScrollLocked = false;
 
+  constructor() {
+    effect(() => {
+      const descriptorSignal = (this.blocksService as BlocksService & {
+        biasAnnotationsDescriptor?: () => { blockProperty?: string } | null
+      }).biasAnnotationsDescriptor;
+      const property = typeof descriptorSignal === 'function' ? descriptorSignal()?.blockProperty : null;
+      if (this.data?.data && typeof property === 'string' && property.length) {
+        this.data.data.__biasAnnotationsProperty = property;
+      }
+    });
+  }
+
   ngOnInit() {
+    if (this.data?.data) {
+      this.data.data.__biasAnnotationsProperty = this.biasAnnotationsProperty;
+    }
     this.outputs = [];
     this.inputs = [];
     this.parameterFields = [];
@@ -667,9 +683,23 @@ export class GenericNodeComponent implements OnDestroy {
     return typeof typeName === 'string' && typeName.length > 0 ? typeName : null;
   }
 
-  private get blockId(): string | null {
+  get blockId(): string | null {
     const blockId = this.data?.data?.id;
     return typeof blockId === 'string' && blockId.length > 0 ? blockId : null;
+  }
+
+  get biasAnnotations(): BiasAnnotation[] {
+    const nodeData = this.data?.data as Record<string, unknown> | undefined;
+    const value = nodeData?.[this.biasAnnotationsProperty];
+    return Array.isArray(value) ? value as BiasAnnotation[] : [];
+  }
+
+  private get biasAnnotationsProperty(): string {
+    const descriptorSignal = (this.blocksService as BlocksService & {
+      biasAnnotationsDescriptor?: () => { blockProperty?: string } | null
+    }).biasAnnotationsDescriptor;
+    const property = typeof descriptorSignal === 'function' ? descriptorSignal()?.blockProperty : null;
+    return typeof property === 'string' && property.length ? property : 'biasAnnotations';
   }
 
   private ensureBlockConfiguration(): Record<string, any> {
@@ -686,6 +716,14 @@ export class GenericNodeComponent implements OnDestroy {
     const flow = this.editorState.currentFlow();
     if (!flow) return;
     this.editorState.updateData(this.cloneCurrentFlowWithNodeChanges(flow.data));
+  }
+
+  updateBiasAnnotations(annotations: BiasAnnotation[]) {
+    if (this.isReadonly || !this.data?.data) return;
+    this.data.data[this.biasAnnotationsProperty] = this.cloneFlowData(annotations);
+    this.data.data.__biasAnnotationsProperty = this.biasAnnotationsProperty;
+    this.markFlowDirty();
+    this.refreshView();
   }
 
   private async loadSchemaContext() {
@@ -1851,6 +1889,9 @@ export class GenericNodeComponent implements OnDestroy {
     block.name = configuredName || this.name || block.name;
     block.typeName = this.blockType ?? block.typeName;
     block.specificConfiguration = this.cloneFlowData(this.blockConfiguration ?? {});
+    (block as unknown as Record<string, unknown>)[this.biasAnnotationsProperty] = this.cloneFlowData(
+      Array.isArray(nodeData?.[this.biasAnnotationsProperty]) ? nodeData[this.biasAnnotationsProperty] : []
+    );
 
     return nextFlowData;
   }
@@ -1878,11 +1919,17 @@ export class GenericNodeComponent implements OnDestroy {
     ).subscribe({
       next: (createdBlock) => {
         const current = (this.data?.data ?? {}) as Record<string, unknown>;
+        const annotationsProperty = this.biasAnnotationsProperty;
         const replaceNode = current['replaceWithCreatedNode'];
         if (typeof replaceNode === 'function') {
           void replaceNode({
             ...createdBlock,
+            id: String(current['id'] ?? createdBlock.id),
             position: (current['position'] as { x: number; y: number } | undefined) ?? createdBlock.position,
+            [annotationsProperty]: Array.isArray(current[annotationsProperty])
+              ? this.cloneFlowData(current[annotationsProperty])
+              : [],
+            __biasAnnotationsProperty: annotationsProperty,
             __focusOpen: current['__focusOpen'] === true
           });
           return;
@@ -1891,7 +1938,12 @@ export class GenericNodeComponent implements OnDestroy {
         this.data.data = {
           ...current,
           ...createdBlock,
+          id: String(current['id'] ?? createdBlock.id),
           position: (current['position'] as { x: number; y: number } | undefined) ?? createdBlock.position,
+          [annotationsProperty]: Array.isArray(current[annotationsProperty])
+            ? this.cloneFlowData(current[annotationsProperty])
+            : [],
+          __biasAnnotationsProperty: annotationsProperty,
           __needsServerCreate: false,
           __isCreatingOnServer: false,
           __createdOnServer: true,
