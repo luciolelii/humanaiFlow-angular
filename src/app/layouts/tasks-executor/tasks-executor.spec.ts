@@ -41,9 +41,11 @@ describe('TasksExecutor', () => {
           provide: TaskExecutionsService,
           useValue: {
             taskExecutions: signal([]),
+            taskExecutionGroups: signal([]),
             pendingExecutionCreation: signal(false),
             init: vi.fn(),
-            deleteExecution: vi.fn().mockReturnValue(of(null))
+            deleteExecution: vi.fn().mockReturnValue(of(null)),
+            rerunExecution: vi.fn().mockReturnValue(of(null))
           }
         },
         {
