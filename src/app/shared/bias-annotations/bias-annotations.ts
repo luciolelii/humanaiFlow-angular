@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, EventEmitter, Input, Output, effect, inject, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import {
   BiasAnnotation,
@@ -54,6 +54,32 @@ export class BiasAnnotationsComponent {
   editingIndex: number | null = null;
   draft: BiasAnnotation = {};
   clientErrors: Record<string, string> = {};
+
+  /**
+   * The editor renders inside a node card, which rete.js positions with a CSS
+   * `transform` for pan/zoom. A `transform` on any ancestor turns it into the
+   * containing block for `position: fixed` descendants, so a plain fixed-position
+   * backdrop would be confined to the node's box instead of covering the page.
+   * A native `<dialog>` opened via `showModal()` is promoted to the browser's
+   * top layer, which sits above the whole document regardless of ancestor
+   * transforms — no manual DOM reparenting needed.
+   */
+  private readonly modalDialog = viewChild<ElementRef<HTMLDialogElement>>('biasModalDialog');
+
+  constructor() {
+    effect(() => {
+      const dialog = this.modalDialog()?.nativeElement;
+      if (dialog && typeof dialog.showModal === 'function' && !dialog.open) {
+        dialog.showModal();
+      }
+    });
+  }
+
+  onDialogClick(event: MouseEvent) {
+    if (event.target === this.modalDialog()?.nativeElement) {
+      this.close(event);
+    }
+  }
 
   get descriptor(): BiasAnnotationsDescriptor | null {
     const descriptorSignal = (this.blocks as BlocksService & {

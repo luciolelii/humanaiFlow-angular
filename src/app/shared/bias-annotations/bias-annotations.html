@@ -42,7 +42,7 @@
 </section>
 
 @if (editorOpen) {
-<div class="bias-modal-backdrop" (pointerdown)="$event.stopPropagation()" (click)="close($event)">
+<dialog #biasModalDialog class="bias-modal-backdrop" (pointerdown)="$event.stopPropagation()" (click)="onDialogClick($event)" (cancel)="close($event)">
   <form class="bias-modal" (pointerdown)="$event.stopPropagation()" (click)="$event.stopPropagation()" (submit)="save($event)">
     <h3>{{ editingIndex === null ? 'Add' : 'Edit' }} bias annotation</h3>
     <div class="bias-form">
@@ -75,6 +75,6 @@
       <button type="submit" class="primary">Save</button>
     </div>
   </form>
-</div>
+</dialog>
 }
 }

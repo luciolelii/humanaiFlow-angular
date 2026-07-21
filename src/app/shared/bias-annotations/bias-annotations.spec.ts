@@ -110,6 +110,26 @@ describe('BiasAnnotationsComponent', () => {
     expect(component.serverError(1, 'category')).toBeNull();
   });
 
+  it('renders the editor as a native <dialog> so it escapes the node canvas transform, and closing it via the backdrop click works', () => {
+    (fixture.nativeElement.querySelector('.bias-add') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    const dialog = fixture.nativeElement.querySelector('dialog.bias-modal-backdrop') as HTMLDialogElement;
+    expect(dialog).not.toBeNull();
+
+    component.onDialogClick({ target: dialog, stopPropagation: vi.fn() } as unknown as MouseEvent);
+    expect(component.editorOpen).toBe(false);
+  });
+
+  it('does not close when clicking inside the dialog content', () => {
+    (fixture.nativeElement.querySelector('.bias-add') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    const form = fixture.nativeElement.querySelector('.bias-modal') as HTMLElement;
+    component.onDialogClick({ target: form, stopPropagation: vi.fn() } as unknown as MouseEvent);
+    expect(component.editorOpen).toBe(true);
+  });
+
   it('maps typed mock-output probe errors to nested fields', () => {
     validationErrors.set([{
       code: 'BIAS_PROBE_MOCK_OUTPUT_TYPE_MISMATCH',
