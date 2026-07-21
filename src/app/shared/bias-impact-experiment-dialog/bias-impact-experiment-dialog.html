@@ -1,24 +1,27 @@
 @if (state(); as currentState) {
-  <div class="bias-experiment-dialog__backdrop" (click)="close()"></div>
-  <section class="bias-experiment-dialog" role="dialog" aria-modal="true" aria-label="Measure bias impact">
-    <header><div><h3>Measure bias impact</h3><p>{{ currentState.nodeName }}</p></div><button type="button" mat-stroked-button (click)="close()">Close</button></header>
+  <app-modal-shell
+    title="Measure bias impact"
+    [subtitle]="currentState.nodeName"
+    ariaLabel="Measure bias impact"
+    (backdropClick)="close()"
+    (closeClick)="close()">
     @if (report(); as completedReport) {
-      <div class="bias-experiment-dialog__content"><app-bias-impact-report-viewer [report]="completedReport" (highlightOnCanvas)="highlightOnCanvas()" /></div>
+      <app-bias-impact-report-viewer [report]="completedReport" (highlightOnCanvas)="highlightOnCanvas()" />
     } @else {
-      <div class="bias-experiment-dialog__content">
-        <p>Run the selected probes against this completed execution step.</p>
-        <fieldset [disabled]="submitting() || !!currentJob()"><legend>Executable annotations</legend>
-          @for (annotation of currentState.annotations; track annotation.id) {
-            <label><input type="checkbox" [checked]="selectedAnnotationIds().includes($any(annotation.id))" (change)="toggleAnnotation($any(annotation.id), $any($event.target).checked)"> {{ annotation.category || 'Uncategorized' }} — {{ annotation.issue || annotation.rationale || annotation.id }}</label>
-          }
-        </fieldset>
-        <label>Repetitions <input type="number" min="1" max="10" [ngModel]="repetitions()" (ngModelChange)="updateRepetitions($event)" [disabled]="submitting() || !!currentJob()"></label>
-        <label><input type="checkbox" [ngModel]="includeRawOutputs()" (ngModelChange)="includeRawOutputs.set($event)" [disabled]="submitting() || !!currentJob()"> Include raw outputs in the report</label>
-        <app-side-effect-policy-selector [policy]="policy()" [externalSideEffects]="currentState.capabilities.externalSideEffects" [disabled]="submitting() || !!currentJob()" (policyChange)="policy.set($event)" />
-        @if (currentJob(); as job) { <p class="bias-experiment-dialog__progress">{{ job.status === 'QUEUED' ? 'Experiment queued…' : 'Experiment running…' }}</p> }
-        @if (inlineError(); as error) { <p class="bias-experiment-dialog__error">{{ error }}</p> }
-      </div>
-      <footer><button type="button" mat-stroked-button (click)="close()">Cancel</button><button type="button" mat-flat-button [disabled]="submitting() || !!currentJob()" (click)="submit()">{{ submitting() || currentJob() ? 'Measuring…' : 'Measure impact' }}</button></footer>
+      <p>Run the selected probes against this completed execution step.</p>
+      <fieldset [disabled]="submitting() || !!currentJob()"><legend>Executable annotations</legend>
+        @for (annotation of currentState.annotations; track annotation.id) {
+          <label><input type="checkbox" [checked]="selectedAnnotationIds().includes($any(annotation.id))" (change)="toggleAnnotation($any(annotation.id), $any($event.target).checked)"> {{ annotation.category || 'Uncategorized' }} — {{ annotation.issue || annotation.rationale || annotation.id }}</label>
+        }
+      </fieldset>
+      <label>Repetitions <input type="number" min="1" max="10" [ngModel]="repetitions()" (ngModelChange)="updateRepetitions($event)" [disabled]="submitting() || !!currentJob()"></label>
+      <label><input type="checkbox" [ngModel]="includeRawOutputs()" (ngModelChange)="includeRawOutputs.set($event)" [disabled]="submitting() || !!currentJob()"> Include raw outputs in the report</label>
+      <app-side-effect-policy-selector [policy]="policy()" [externalSideEffects]="currentState.capabilities.externalSideEffects" [disabled]="submitting() || !!currentJob()" (policyChange)="policy.set($event)" />
+      @if (currentJob(); as job) { <p class="bias-experiment-dialog__progress">{{ job.status === 'QUEUED' ? 'Experiment queued…' : 'Experiment running…' }}</p> }
+      @if (inlineError(); as error) { <p class="bias-experiment-dialog__error">{{ error }}</p> }
     }
-  </section>
+    @if (!report()) {
+    <footer><button type="button" mat-stroked-button (click)="close()">Cancel</button><button type="button" mat-flat-button [disabled]="submitting() || !!currentJob()" (click)="submit()">{{ submitting() || currentJob() ? 'Measuring…' : 'Measure impact' }}</button></footer>
+    }
+  </app-modal-shell>
 }

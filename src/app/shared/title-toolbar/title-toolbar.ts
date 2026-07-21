@@ -127,7 +127,6 @@ export class TitleToolbar {
       this.editingTitle.set(false);
       return;
     }
-    console.log('Updating flow title to:', trimmed);
     this.editorState.updateFlowTitle(trimmed );
     this.draftTitle.set(trimmed);
     this.editingTitle.set(false);
@@ -238,7 +237,6 @@ export class TitleToolbar {
       take(1)
     ).subscribe({
       next: (savedFlow) => {
-        console.log('Flow saved');
         if ((savedFlow.validationErrors?.length ?? 0) > 0 && savedFlow.status === 'DRAFT') {
           this.showSnackbar('Flow saved as draft with validation errors', 'error');
         } else {

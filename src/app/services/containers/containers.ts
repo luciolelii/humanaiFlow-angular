@@ -1,118 +1,48 @@
-import { computed, Injectable, signal } from '@angular/core';
+import { Injectable, Signal } from '@angular/core';
 import { environment } from '@environment';
 import { BlockType, BlockTypeName, FlowData, FlowNode } from '@models/flow';
-import { catchError, finalize, firstValueFrom, map, Observable, of, shareReplay, throwError } from 'rxjs';
+import { catchError, Observable, throwError } from 'rxjs';
 import { ContainersCallServiceBase } from './container-call.base';
+import { CatalogStore } from '@services/shared/catalog-store';
+import { EmptyNodeCache } from '@services/shared/empty-node-cache';
+import { PendingSyncCounter } from '@services/shared/pending-sync-counter';
+import { deepClone } from '@services/shared/deep-clone';
 
 @Injectable({
   providedIn: 'root',
 })
-export class ContainersService {
+export class ContainersService extends CatalogStore<BlockType> {
   containersCallService: ContainersCallServiceBase = new environment.containersCallService();
 
-  toInit = true;
-  private loadingPromise: Promise<void> | null = null;
-  private readonly _catalogLoading = signal(false);
-  private readonly emptyContainerCache = new Map<string, FlowNode>();
-  private readonly pendingEmptyContainerRequests = new Map<string, Observable<FlowNode>>();
-  private readonly pendingServerSyncCount = signal(0);
+  protected readonly loadErrorLabel = 'Retrieve container types failed';
 
-  private _containerTypes = signal<BlockType[]>([]);
-  readonly hasPendingServerSync = computed(() => this.pendingServerSyncCount() > 0);
-  readonly containerTypes = this._containerTypes.asReadonly();
-  readonly catalogLoading = this._catalogLoading.asReadonly();
+  private readonly emptyContainerCache = new EmptyNodeCache<FlowNode>();
+  private readonly serverSync = new PendingSyncCounter();
+
+  readonly hasPendingServerSync = this.serverSync.active;
+  readonly containerTypes = this.types;
+  readonly catalogLoading = this.loading;
 
   hasLoadedContainerTypes() {
-    return this._containerTypes().length > 0 || (!this.toInit && !this.loadingPromise);
+    return this.hasLoadedTypes();
   }
 
-  async getAllContainerTypes() {
-    if (this.toInit) {
-      this.toInit = false;
-      await this.refresh();
-    } else if (this.loadingPromise) {
-      await this.loadingPromise;
-    }
-
-    return this._containerTypes.asReadonly();
+  getAllContainerTypes(): Promise<Signal<BlockType[]>> {
+    return this.getAllTypes();
   }
 
-  async refresh(force = false): Promise<void> {
-    if (this.loadingPromise && !force) {
-      return this.loadingPromise;
-    }
-
-    this.loadingPromise = firstValueFrom(this.containersCallService.retrieveAllContainerTypes())
-      .finally(() => {
-        this._catalogLoading.set(false);
-      })
-      .then((containerTypes) => {
-        this._containerTypes.set(containerTypes);
-        this.clearEmptyContainerCache();
-      })
-      .catch((err) => {
-        console.error('Retrieve container types failed', err);
-        throw err;
-      })
-      .finally(() => {
-        this.loadingPromise = null;
-      });
-
-    this._catalogLoading.set(true);
-
-    return this.loadingPromise;
+  async getContainerType(typeName: BlockTypeName): Promise<BlockType | undefined> {
+    return this.getTypeOrFetch((containerType) => containerType.type === typeName);
   }
 
-  async getContainerType(typeName: BlockTypeName) {
-    const current = this._containerTypes().find((containerType) => containerType.type === typeName);
-    if (current) return current;
-
-    if (this.loadingPromise) {
-      await this.loadingPromise;
-      return this._containerTypes().find((containerType) => containerType.type === typeName);
-    }
-
-    this._catalogLoading.set(true);
-    const containerTypes = await firstValueFrom(this.containersCallService.retrieveAllContainerTypes())
-      .finally(() => {
-        this._catalogLoading.set(false);
-      });
-    this._containerTypes.set(containerTypes);
-    this.clearEmptyContainerCache();
-    return containerTypes.find((containerType) => containerType.type === typeName);
-  }
-
-  peekContainerType(typeName: BlockTypeName) {
-    return this._containerTypes().find((containerType) => containerType.type === typeName) ?? null;
+  peekContainerType(typeName: BlockTypeName): BlockType | null {
+    return this.peekType((containerType) => containerType.type === typeName);
   }
 
   createEmptyContainer(containerType: BlockTypeName) {
     const cacheKey = String(containerType);
-    const cached = this.emptyContainerCache.get(cacheKey);
-    if (cached) {
-      return of(this.cloneEmptyNode(cached));
-    }
 
-    const pending = this.pendingEmptyContainerRequests.get(cacheKey);
-    if (pending) {
-      return pending.pipe(map((container) => this.cloneEmptyNode(container)));
-    }
-
-    const request = this.containersCallService.createEmptyContainer(containerType).pipe(
-      map((container) => {
-        this.emptyContainerCache.set(cacheKey, this.cloneEmptyNode(container));
-        return container;
-      }),
-      finalize(() => {
-        this.pendingEmptyContainerRequests.delete(cacheKey);
-      }),
-      shareReplay(1)
-    );
-
-    this.pendingEmptyContainerRequests.set(cacheKey, request);
-
-    return request.pipe(
-      map((container) => this.cloneEmptyNode(container)),
+    return this.emptyContainerCache.getOrCreate(cacheKey, () => this.containersCallService.createEmptyContainer(containerType)).pipe(
       catchError((err) => {
         console.error('Create empty container failed', err);
         return throwError(() => err);
@@ -121,11 +51,7 @@ export class ContainersService {
   }
 
   createContainer(containerId: string, configuration: any) {
-    this.pendingServerSyncCount.update((count) => count + 1);
-    return this.containersCallService.createContainer(containerId, configuration).pipe(
-      finalize(() => {
-        this.pendingServerSyncCount.update((count) => Math.max(0, count - 1));
-      }),
+    return this.serverSync.track(this.containersCallService.createContainer(containerId, configuration)).pipe(
       catchError((err) => {
         console.error('Create container failed', err);
         return throwError(() => err);
@@ -134,7 +60,7 @@ export class ContainersService {
   }
 
   validateContainerSubflow(subFlow: FlowData, validationUrl?: string | null) {
-    return this.containersCallService.validateContainerSubflow(this.deepClone(subFlow), validationUrl).pipe(
+    return this.containersCallService.validateContainerSubflow(deepClone(subFlow), validationUrl).pipe(
       catchError((err) => {
         console.error('Validate container subflow failed', err);
         return throwError(() => err);
@@ -142,28 +68,11 @@ export class ContainersService {
     );
   }
 
-  private clearEmptyContainerCache() {
+  protected fetchAll(): Observable<BlockType[]> {
+    return this.containersCallService.retrieveAllContainerTypes();
+  }
+
+  protected override onLoaded(): void {
     this.emptyContainerCache.clear();
-    this.pendingEmptyContainerRequests.clear();
-  }
-
-  private cloneEmptyNode(node: FlowNode): FlowNode {
-    const clone = this.deepClone(node);
-    return {
-      ...clone,
-      id: globalThis.crypto?.randomUUID?.() ?? `${Date.now()}`,
-      position: undefined
-    };
-  }
-
-  private deepClone<T>(value: T): T {
-    if (typeof globalThis.structuredClone === 'function') {
-      try {
-        return globalThis.structuredClone(value);
-      } catch {
-        // Some cached payloads may carry non-cloneable runtime fields.
-      }
-    }
-    return JSON.parse(JSON.stringify(value)) as T;
   }
 }

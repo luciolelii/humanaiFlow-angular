@@ -43,7 +43,6 @@ export class FlowItem {
   );
 
   async open() {
-    console.log('Opening flow:', this.flow());
     if (this.editorState.isDirty() && this.openedFlowId() !== this.flow().id) {
       const confirmed = await this.confirm.open(
         'You have unsaved changes in the current flow. Open another flow anyway?'
@@ -57,9 +56,6 @@ export class FlowItem {
 
   clone() {
     this.flowsService.cloneFlow(this.flow()).subscribe({
-      next: clonedFlow => {
-        console.log('Flow cloned:', clonedFlow);
-      },
       error: err => console.error('Error cloning flow:', err)
     });
   }
@@ -76,7 +72,6 @@ export class FlowItem {
 
     this.flowsService.deleteFlow(this.flow().id).subscribe({
       next: () => {
-        console.log('Flow deleted:', this.flow().id);
         if (this.openedFlowId() === this.flow().id) {
           this.editorState.closeDocument();
         }

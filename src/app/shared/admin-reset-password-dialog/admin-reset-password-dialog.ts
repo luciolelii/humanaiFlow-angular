@@ -1,12 +1,13 @@
 import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Field, form, minLength, required, validate } from '@angular/forms/signals';
+import { Field, form } from '@angular/forms/signals';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { FormUtility } from '@utilities/form-utility';
-import { hasValidPasswordComplexity, evaluatePasswordChecks, PASSWORD_MIN_LENGTH } from '@utilities/password-validation';
+import { evaluatePasswordChecks } from '@utilities/password-validation';
+import { applyConfirmPasswordValidators, applyNewPasswordValidators } from '@utilities/password-form-validators';
 
 @Component({
   selector: 'app-admin-reset-password-dialog',
@@ -32,27 +33,8 @@ export class AdminResetPasswordDialogComponent extends FormUtility {
   });
 
   readonly passwordForm = form(this.model, (model) => {
-    required(model.newPassword, { message: 'New password is required' });
-    minLength(model.newPassword, PASSWORD_MIN_LENGTH, { message: `Password must be at least ${PASSWORD_MIN_LENGTH} characters long` });
-    validate(model.newPassword, ({ value }) => {
-      const password = value();
-      if (!password || hasValidPasswordComplexity(password)) return null;
-      return {
-        kind: 'passwordComplexity',
-        message: 'Password must include uppercase, lowercase, number and special character, with no spaces.'
-      };
-    });
-
-    required(model.confirmNewPassword, { message: 'Confirm your new password' });
-    validate(model.confirmNewPassword, ({ value, valueOf }) => {
-      if (value() !== valueOf(model.newPassword)) {
-        return {
-          kind: 'passwordMismatch',
-          message: 'Passwords do not match'
-        };
-      }
-      return null;
-    });
+    applyNewPasswordValidators(model.newPassword);
+    applyConfirmPasswordValidators(model.confirmNewPassword, model.newPassword);
   });
 
   readonly canSubmit = computed(() => !this.passwordForm().invalid() && !this.saving());

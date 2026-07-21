@@ -1,30 +1,31 @@
-import { computed, Injectable, signal } from '@angular/core';
+import { Injectable, Signal, signal } from '@angular/core';
 import { environment } from '@environment';
 import { BiasAnnotationsDescriptor, BlockType, BlockTypeName, FlowBlock } from '@models/flow';
 import { BiasCapabilities } from '@models/bias-impact';
 import { BlockDraftContext, BlocksCallServiceBase } from './block-call.base';
-import { catchError, finalize, firstValueFrom, map, Observable, of, shareReplay, tap, throwError } from 'rxjs';
+import { CatalogStore } from '@services/shared/catalog-store';
+import { EmptyNodeCache } from '@services/shared/empty-node-cache';
+import { PendingSyncCounter } from '@services/shared/pending-sync-counter';
+import { catchError, firstValueFrom, Observable, of, tap, throwError } from 'rxjs';
 
 @Injectable({
   providedIn: 'root',
 })
-export class BlocksService {
+export class BlocksService extends CatalogStore<BlockType> {
   blocksCallService: BlocksCallServiceBase = new environment.blocksCallService();
 
-  toInit: boolean = true;
-  private loadingPromise: Promise<void> | null = null;
-  private readonly _catalogLoading = signal(false);
-  private readonly emptyBlockCache = new Map<string, FlowBlock>();
-  private readonly pendingEmptyBlockRequests = new Map<string, Observable<FlowBlock>>();
-  private readonly pendingServerSyncCount = signal(0);
+  protected readonly loadErrorLabel = 'Retrieve blocks types failed';
 
-  private _blockTypes = signal<BlockType[]>([]);
+  private readonly emptyBlockCache = new EmptyNodeCache<FlowBlock>();
+  private readonly serverSync = new PendingSyncCounter();
+
   private readonly _biasAnnotationsDescriptor = signal<BiasAnnotationsDescriptor | null>(null);
   private readonly _biasCapabilities = signal<Record<string, BiasCapabilities>>({});
   private biasDescriptorPromise: Promise<BiasAnnotationsDescriptor> | null = null;
-  readonly hasPendingServerSync = computed(() => this.pendingServerSyncCount() > 0);
-  readonly blockTypes = this._blockTypes.asReadonly();
-  readonly catalogLoading = this._catalogLoading.asReadonly();
+
+  readonly hasPendingServerSync = this.serverSync.active;
+  readonly blockTypes = this.types;
+  readonly catalogLoading = this.loading;
   readonly biasAnnotationsDescriptor = this._biasAnnotationsDescriptor.asReadonly();
   readonly biasCapabilities = this._biasCapabilities.asReadonly();
 
@@ -58,97 +59,26 @@ export class BlocksService {
   }
 
   hasLoadedBlockTypes() {
-    return this._blockTypes().length > 0 || (!this.toInit && !this.loadingPromise);
+    return this.hasLoadedTypes();
   }
 
-  async getAllBlocksTypes() {
-    if (this.toInit) {
-      this.toInit = false;
-      await this.refresh();
-    } else if (this.loadingPromise) {
-      await this.loadingPromise;
-    }
-
-    return this._blockTypes.asReadonly();
+  getAllBlocksTypes(): Promise<Signal<BlockType[]>> {
+    return this.getAllTypes();
   }
 
-  async refresh(force = false): Promise<void> {
-    if (this.loadingPromise && !force) {
-      return this.loadingPromise;
-    }
-
-    this.loadingPromise = firstValueFrom(this.blocksCallService.retrieveAllBlocksTypes())
-      .finally(() => {
-        this._catalogLoading.set(false);
-      })
-      .then((blockTypes) => {
-        this._blockTypes.set(blockTypes);
-        this.clearEmptyBlockCache();
-      })
-      .catch((err) => {
-        console.error('Retrieve blocks types failed', err);
-        throw err;
-      })
-      .finally(() => {
-        this.loadingPromise = null;
-      });
-
-    this._catalogLoading.set(true);
-
-    return this.loadingPromise;
+  async getBlockType(typeName: BlockTypeName): Promise<BlockType | undefined> {
+    return this.getTypeOrFetch((blockType) => blockType.type === typeName);
   }
 
-  async getBlockType(typeName: BlockTypeName) {
-    const current = this._blockTypes().find((blockType) => blockType.type === typeName);
-    if (current) return current;
-
-    if (this.loadingPromise) {
-      await this.loadingPromise;
-      return this._blockTypes().find((blockType) => blockType.type === typeName);
-    }
-
-    this._catalogLoading.set(true);
-    const blockTypes = await firstValueFrom(this.blocksCallService.retrieveAllBlocksTypes())
-      .finally(() => {
-        this._catalogLoading.set(false);
-      });
-    this._blockTypes.set(blockTypes);
-    this.clearEmptyBlockCache();
-    return blockTypes.find((blockType) => blockType.type === typeName);
-  }
-
-  peekBlockType(typeName: BlockTypeName) {
-    return this._blockTypes().find((blockType) => blockType.type === typeName) ?? null;
+  peekBlockType(typeName: BlockTypeName): BlockType | null {
+    return this.peekType((blockType) => blockType.type === typeName);
   }
 
   createEmptyBlock(blockType: BlockTypeName, context?: BlockDraftContext) {
     const flowId = typeof context?.flowId === 'string' && context.flowId.trim().length > 0 ? context.flowId.trim() : '';
     const cacheKey = `${String(blockType)}::${flowId}`;
-    const cached = this.emptyBlockCache.get(cacheKey);
-    if (cached) {
-      return of(this.cloneEmptyBlock(cached));
-    }
 
-    const pending = this.pendingEmptyBlockRequests.get(cacheKey);
-    if (pending) {
-      return pending.pipe(map((block) => this.cloneEmptyBlock(block)));
-    }
-
-    const request = this.blocksCallService.createEmptyBlock(blockType, context).pipe(
-      map((block) => {
-        this.emptyBlockCache.set(cacheKey, this.cloneEmptyBlock(block));
-        return block;
-      }),
-      finalize(() => {
-        this.pendingEmptyBlockRequests.delete(cacheKey);
-      }),
-      shareReplay(1)
-    );
-
-    this.pendingEmptyBlockRequests.set(cacheKey, request);
-
-    return request.pipe(
-      map((block) => this.cloneEmptyBlock(block)),
+    return this.emptyBlockCache.getOrCreate(cacheKey, () => this.blocksCallService.createEmptyBlock(blockType, context)).pipe(
       catchError((err) => {
         console.error('Create empty block failed', err);
         return throwError(() => err);
@@ -157,11 +87,7 @@ export class BlocksService {
   }
 
   updateBlock(blockId: string, configuration: any, context?: BlockDraftContext) {
-    this.pendingServerSyncCount.update((count) => count + 1);
-    return this.blocksCallService.updateBlock(blockId, configuration, context).pipe(
-      finalize(() => {
-        this.pendingServerSyncCount.update((count) => Math.max(0, count - 1));
-      }),
+    return this.serverSync.track(this.blocksCallService.updateBlock(blockId, configuration, context)).pipe(
       catchError((err) => {
         console.error('Update block failed', err);
         return throwError(() => err);
@@ -169,28 +95,11 @@ export class BlocksService {
     );
   }
 
-  private clearEmptyBlockCache() {
+  protected fetchAll(): Observable<BlockType[]> {
+    return this.blocksCallService.retrieveAllBlocksTypes();
+  }
+
+  protected override onLoaded(): void {
     this.emptyBlockCache.clear();
-    this.pendingEmptyBlockRequests.clear();
-  }
-
-  private cloneEmptyBlock(block: FlowBlock): FlowBlock {
-    const clone = this.deepClone(block);
-    return {
-      ...clone,
-      id: globalThis.crypto?.randomUUID?.() ?? `${Date.now()}`,
-      position: undefined
-    };
-  }
-
-  private deepClone<T>(value: T): T {
-    if (typeof globalThis.structuredClone === 'function') {
-      try {
-        return globalThis.structuredClone(value);
-      } catch {
-        // Some cached payloads may carry non-cloneable runtime fields.
-      }
-    }
-    return JSON.parse(JSON.stringify(value)) as T;
   }
 }

@@ -147,7 +147,10 @@ export class EditorStateHolder {
     if (this.isCurrentFlowReadOnly()) {
       return throwError(() => new Error('Read-only flows cannot be saved.'));
     }
-    const flow = this.currentFlow()!;
+    const flow = this.currentFlow();
+    if (!flow) {
+      return throwError(() => new Error('No flow is currently loaded.'));
+    }
     const save$ = flow.id.startsWith(EditorStateHolder.ASSISTANT_DRAFT_PREFIX)
       ? this.flowsService.createFlow({
         name: flow.name,

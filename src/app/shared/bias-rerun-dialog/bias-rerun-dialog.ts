@@ -1,16 +1,18 @@
 import { ChangeDetectionStrategy, Component, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
-import { ExternalSideEffectPolicy, BiasSideEffectError } from '@models/bias-impact';
+import { ExternalSideEffectPolicy } from '@models/bias-impact';
 import { ConfirmDialogService } from '@services/dialogs/confirm-dialog';
 import { BiasRerunDialogService } from '@services/dialogs/bias-rerun-dialog';
+import { extractBiasErrorMessage } from '@services/bias/bias-error.util';
 import { TaskExecutionsService } from '@services/task-executions/task-executions';
 import { SideEffectPolicySelectorComponent } from '@shared/side-effect-policy-selector/side-effect-policy-selector';
+import { ModalShellComponent } from '@shared/modal-shell/modal-shell';
 
 @Component({
   selector: 'app-bias-rerun-dialog-host',
   standalone: true,
-  imports: [FormsModule, MatButtonModule, SideEffectPolicySelectorComponent],
+  imports: [FormsModule, MatButtonModule, SideEffectPolicySelectorComponent, ModalShellComponent],
   templateUrl: './bias-rerun-dialog.html',
   styleUrl: './bias-rerun-dialog.css',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -68,10 +70,7 @@ export class BiasRerunDialogHostComponent {
       next: (execution) => { state.onCreated(execution); this.dialog.close(); },
       error: (error) => {
         this.creating.set(false);
-        const sideEffectError = error as Partial<BiasSideEffectError>;
-        this.inlineError.set(sideEffectError.reason === 'SIDE_EFFECT_BLOCKED' || sideEffectError.reason === 'CONFIRMATION_REQUIRED'
-          ? sideEffectError.message ?? 'External side effect policy prevented the rerun.'
-          : error instanceof Error ? error.message : 'Unable to create the biased rerun.');
+        this.inlineError.set(extractBiasErrorMessage(error, 'Unable to create the biased rerun.'));
       }
     });
   }

@@ -3,18 +3,20 @@ import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { BiasImpactReportViewerComponent } from '@shared/bias-impact-report-viewer/bias-impact-report-viewer';
 import { SideEffectPolicySelectorComponent } from '@shared/side-effect-policy-selector/side-effect-policy-selector';
+import { ModalShellComponent } from '@shared/modal-shell/modal-shell';
 import { ConfirmDialogService } from '@services/dialogs/confirm-dialog';
 import { BiasImpactExperimentDialogService } from '@services/dialogs/bias-impact-experiment-dialog';
 import { BiasComparisonViewStateService } from '@services/bias/bias-comparison-view-state';
+import { extractBiasErrorMessage } from '@services/bias/bias-error.util';
 import { NotificationService } from '@services/notifications/notification';
 import { TaskExecutionsService } from '@services/task-executions/task-executions';
-import { BiasImpactJob, BiasImpactReport, BiasSideEffectError, ExternalSideEffectPolicy } from '@models/bias-impact';
+import { BiasImpactJob, BiasImpactReport, ExternalSideEffectPolicy } from '@models/bias-impact';
 import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-bias-impact-experiment-dialog-host',
   standalone: true,
-  imports: [FormsModule, MatButtonModule, BiasImpactReportViewerComponent, SideEffectPolicySelectorComponent],
+  imports: [FormsModule, MatButtonModule, BiasImpactReportViewerComponent, SideEffectPolicySelectorComponent, ModalShellComponent],
   templateUrl: './bias-impact-experiment-dialog.html',
   styleUrl: './bias-impact-experiment-dialog.css',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -116,25 +118,20 @@ export class BiasImpactExperimentDialogHostComponent {
       error: (error) => {
         this.submitting.set(false);
         this.currentJob.set(null);
-        this.inlineError.set(error instanceof Error ? error.message : 'Unable to retrieve the experiment status.');
+        this.inlineError.set(extractBiasErrorMessage(error, 'Unable to retrieve the experiment status.'));
       }
     });
   }
 
   private handleInitialError(error: unknown) {
     this.submitting.set(false);
-    const sideEffectError = error as Partial<BiasSideEffectError>;
-    if (sideEffectError.reason === 'SIDE_EFFECT_BLOCKED' || sideEffectError.reason === 'CONFIRMATION_REQUIRED') {
-      this.inlineError.set(sideEffectError.message ?? 'External side effects require a different policy.');
-      return;
-    }
     const status = (error as { status?: number })?.status;
     if (status === 404 || status === 400) {
-      this.notifications.show(error instanceof Error ? error.message : 'The execution is no longer eligible for this experiment.', 'error');
+      this.notifications.show(extractBiasErrorMessage(error, 'The execution is no longer eligible for this experiment.'), 'error');
       this.close();
       return;
     }
-    this.inlineError.set(error instanceof Error ? error.message : 'Unable to start the bias impact experiment.');
+    this.inlineError.set(extractBiasErrorMessage(error, 'Unable to start the bias impact experiment.'));
   }
 
   private cancelPolling() {

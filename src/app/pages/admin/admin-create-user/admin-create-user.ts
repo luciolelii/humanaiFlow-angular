@@ -11,7 +11,9 @@ import { MatSelectModule } from '@angular/material/select';
 import { AdminCreateUserRequest, UserRole } from '@models/user';
 import { Router } from '@angular/router';
 import { AdminService } from '@services/admin/admin';
+import { redirectOnAdminAccessDenied } from '@pages/admin/admin-access.util';
 import { FormUtility } from '@utilities/form-utility';
+import { scheduleSignalClear } from '@utilities/temporary-signal';
 import { hasValidPasswordComplexity, evaluatePasswordChecks, initialPasswordChecks, PASSWORD_MIN_LENGTH } from '@utilities/password-validation';
 
 @Component({
@@ -102,10 +104,10 @@ export class AdminCreateUserPage extends FormUtility {
           password: '',
           role: 'USER'
         });
-        setTimeout(() => this.successMessage.set(null), 3000);
+        scheduleSignalClear(this.successMessage);
       },
       error: (error) => {
-        if (this.redirectOnAdminAccessDenied(error)) return;
+        if (redirectOnAdminAccessDenied(error, this.router, () => this.createSaving.set(false))) return;
         this.createSaving.set(false);
         const message = error instanceof Error ? error.message : 'Unable to create user.';
         if (message === 'INVALID_EMAIL') {
@@ -119,14 +121,5 @@ export class AdminCreateUserPage extends FormUtility {
         this.createError.set(message);
       }
     });
-  }
-
-  private redirectOnAdminAccessDenied(error: unknown): boolean {
-    const message = error instanceof Error ? error.message : '';
-    if (message !== 'Admin access required.') return false;
-
-    this.createSaving.set(false);
-    this.router.navigateByUrl('/editor');
-    return true;
   }
 }

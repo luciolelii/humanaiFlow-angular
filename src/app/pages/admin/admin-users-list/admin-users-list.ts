@@ -11,6 +11,8 @@ import { Router } from '@angular/router';
 import { AdminService } from '@services/admin/admin';
 import { ConfirmDialogService } from '@services/dialogs/confirm-dialog';
 import { AdminResetPasswordDialogComponent } from '@shared/admin-reset-password-dialog/admin-reset-password-dialog';
+import { redirectOnAdminAccessDenied } from '@pages/admin/admin-access.util';
+import { scheduleSignalClear } from '@utilities/temporary-signal';
 
 @Component({
   selector: 'app-admin-users-list-page',
@@ -64,7 +66,7 @@ export class AdminUsersListPage {
         this.loading.set(false);
       },
       error: (error) => {
-        if (this.redirectOnAdminAccessDenied(error)) return;
+        if (this.redirectOnAccessDenied(error)) return;
         this.pageError.set(error instanceof Error ? error.message : 'Unable to load users.');
         this.loading.set(false);
       }
@@ -91,10 +93,10 @@ export class AdminUsersListPage {
         this.roleSavingByUser.update((current) => ({ ...current, [user.username]: false }));
         this.successMessage.set(`Role updated for ${user.username}.`);
         this.loadUsers();
-        setTimeout(() => this.successMessage.set(null), 3000);
+        scheduleSignalClear(this.successMessage);
       },
       error: (error) => {
-        if (this.redirectOnAdminAccessDenied(error)) return;
+        if (this.redirectOnAccessDenied(error)) return;
         this.roleSavingByUser.update((current) => ({ ...current, [user.username]: false }));
         this.roleErrorByUser.update((current) => ({
           ...current,
@@ -123,10 +125,10 @@ export class AdminUsersListPage {
         this.resetPasswordSaving.set(false);
         this.resetPasswordDialogUser.set(null);
         this.successMessage.set(`Password updated for ${event.username}.`);
-        setTimeout(() => this.successMessage.set(null), 3000);
+        scheduleSignalClear(this.successMessage);
       },
       error: (error) => {
-        if (this.redirectOnAdminAccessDenied(error)) return;
+        if (this.redirectOnAccessDenied(error)) return;
         this.resetPasswordSaving.set(false);
         this.resetPasswordError.set(error instanceof Error ? error.message : 'Unable to update password.');
       }
@@ -143,10 +145,10 @@ export class AdminUsersListPage {
         this.deleteBusyByUser.update((current) => ({ ...current, [user.username]: false }));
         this.successMessage.set(`User ${user.username} deleted.`);
         this.loadUsers();
-        setTimeout(() => this.successMessage.set(null), 3000);
+        scheduleSignalClear(this.successMessage);
       },
       error: (error) => {
-        if (this.redirectOnAdminAccessDenied(error)) return;
+        if (this.redirectOnAccessDenied(error)) return;
         this.deleteBusyByUser.update((current) => ({ ...current, [user.username]: false }));
         this.roleErrorByUser.update((current) => ({
           ...current,
@@ -156,13 +158,10 @@ export class AdminUsersListPage {
     });
   }
 
-  private redirectOnAdminAccessDenied(error: unknown): boolean {
-    const message = error instanceof Error ? error.message : '';
-    if (message !== 'Admin access required.') return false;
-
-    this.loading.set(false);
-    this.resetPasswordSaving.set(false);
-    this.router.navigateByUrl('/editor');
-    return true;
+  private redirectOnAccessDenied(error: unknown): boolean {
+    return redirectOnAdminAccessDenied(error, this.router, () => {
+      this.loading.set(false);
+      this.resetPasswordSaving.set(false);
+    });
   }
 }

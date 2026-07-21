@@ -72,12 +72,10 @@ export class EditorSidebar {
     }
 
     this.creatingFlow.set(true);
-    console.log('Creating new flow...');
     this.flowService.createNewFlow().pipe(
       finalize(() => this.creatingFlow.set(false))
     ).subscribe({
         next: flow => {
-          console.log('New flow created:', flow);
           this.flowState.openDocument(flow);
         },
         error: err => {
@@ -90,8 +88,4 @@ export class EditorSidebar {
     this.createWithAiRequested.emit();
   }
 
-  createNewBlock() {
-    console.log('Creating new block...');
-  }
- 
 }

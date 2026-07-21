@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { BiasAnnotation, BiasAnnotationsDescriptor, BlockType, currentFlowPortValueKind, flowValueKindLabel, FlowBlock, FlowData, FlowPort, FlowValueKind, FLOW_DEPENDANT_PORT_KEY, FLOW_DEPENDENCY_PORT_KEY, isProbeExecutable, normalizeFlowPortValueKinds } from '@models/flow';
 import { BiasAnnotationsComponent } from '../../bias-annotations/bias-annotations';
+import { NodeFocusModalController } from '../node-focus-modal-controller';
 import { ClassicPreset } from 'rete';
 import { ReteModule } from 'rete-angular-plugin/21';
 import {
@@ -131,15 +132,13 @@ type RenderedSocketPort = {
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class GenericNodeComponent implements OnDestroy {
-  private static readonly BODY_LOCK_CLASS = 'node-focus-modal-open';
-  private static readonly BODY_LOCK_COUNT_ATTR = 'data-node-focus-lock-count';
-
   private settingsDialog = inject(NodeSettingsDialogService);
   private editorState = inject(EditorStateHolder);
   private fieldRetriever = inject(FieldRetriever);
   private blocksService = inject(BlocksService);
   private cdr = inject(ChangeDetectorRef);
   private hostElement = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly focusModal = new NodeFocusModalController(this.hostElement, 'generic-node-focus-placeholder');
 
   @Input() data!: any;
   @Input() emit!: (data: any) => void;
@@ -204,10 +203,6 @@ export class GenericNodeComponent implements OnDestroy {
   private schemaRequirements: SchemaRequirements = { required: [], requiredObjects: [], conditional: [] };
   private conditionalRequiredByPath = new Map<string, boolean>();
   private refreshingConditionalRequirements = false;
-  private focusPlaceholder: Comment | null = null;
-  private focusOriginalParent: Node | null = null;
-  private focusOriginalNextSibling: Node | null = null;
-  private pageScrollLocked = false;
 
   constructor() {
     effect(() => {
@@ -276,8 +271,7 @@ export class GenericNodeComponent implements OnDestroy {
   }
 
   ngOnDestroy() {
-    this.releasePageScrollLock();
-    this.restoreHostFromModalLayer();
+    this.focusModal.close();
   }
 
   ngAfterViewInit() {
@@ -308,13 +302,8 @@ export class GenericNodeComponent implements OnDestroy {
     if (this.focusOpen === value) return;
     this.focusOpen = value;
     this.syncPersistedFocusState();
-    if (value) {
-      this.attachHostToModalLayer();
-      this.applyPageScrollLock();
-    } else {
-      this.releasePageScrollLock();
-      this.restoreHostFromModalLayer();
-    }
+    if (value) this.focusModal.open();
+    else this.focusModal.close();
     this.cdr.markForCheck();
   }
 
@@ -328,62 +317,6 @@ export class GenericNodeComponent implements OnDestroy {
     const nodeData = this.data?.data as Record<string, unknown> | undefined;
     if (!nodeData) return;
     nodeData['__focusOpen'] = this.focusOpen;
-  }
-
-  private applyPageScrollLock() {
-    if (this.pageScrollLocked) return;
-    const body = document.body;
-    const currentCount = Number(body.getAttribute(GenericNodeComponent.BODY_LOCK_COUNT_ATTR) ?? '0');
-    const nextCount = Number.isFinite(currentCount) ? currentCount + 1 : 1;
-    body.setAttribute(GenericNodeComponent.BODY_LOCK_COUNT_ATTR, String(nextCount));
-    body.classList.add(GenericNodeComponent.BODY_LOCK_CLASS);
-    this.pageScrollLocked = true;
-  }
-
-  private releasePageScrollLock() {
-    if (!this.pageScrollLocked) return;
-    const body = document.body;
-    const currentCount = Number(body.getAttribute(GenericNodeComponent.BODY_LOCK_COUNT_ATTR) ?? '0');
-    const nextCount = Number.isFinite(currentCount) ? Math.max(0, currentCount - 1) : 0;
-
-    if (nextCount === 0) {
-      body.removeAttribute(GenericNodeComponent.BODY_LOCK_COUNT_ATTR);
-      body.classList.remove(GenericNodeComponent.BODY_LOCK_CLASS);
-    } else {
-      body.setAttribute(GenericNodeComponent.BODY_LOCK_COUNT_ATTR, String(nextCount));
-    }
-
-    this.pageScrollLocked = false;
-  }
-
-  private attachHostToModalLayer() {
-    const host = this.hostElement.nativeElement;
-    const parent = host.parentNode;
-    if (!parent || host.parentNode === document.body) return;
-
-    this.focusOriginalParent = parent;
-    this.focusOriginalNextSibling = host.nextSibling;
-    this.focusPlaceholder = document.createComment('generic-node-focus-placeholder');
-    parent.insertBefore(this.focusPlaceholder, host);
-    document.body.appendChild(host);
-  }
-
-  private restoreHostFromModalLayer() {
-    const host = this.hostElement.nativeElement;
-    if (!this.focusOriginalParent) return;
-
-    if (this.focusPlaceholder?.parentNode === this.focusOriginalParent) {
-      this.focusOriginalParent.insertBefore(host, this.focusPlaceholder);
-      this.focusOriginalParent.removeChild(this.focusPlaceholder);
-    } else if (this.focusOriginalNextSibling?.parentNode === this.focusOriginalParent) {
-      this.focusOriginalParent.insertBefore(host, this.focusOriginalNextSibling);
-    } else {
-      this.focusOriginalParent.appendChild(host);
-    }
-
-    this.focusPlaceholder = null;
-    this.focusOriginalParent = null;
-    this.focusOriginalNextSibling = null;
   }
 
   async openNameEditor(event?: Event) {

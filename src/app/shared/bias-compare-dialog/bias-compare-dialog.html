@@ -1,23 +1,22 @@
 @if (state()) {
-  <div class="bias-compare-dialog__backdrop" (click)="close()"></div>
-  <section class="bias-compare-dialog" role="dialog" aria-modal="true" aria-label="Compare with baseline">
-    <header>
-      <div><h3>Compare with baseline</h3><p>Baseline vs. biased execution outcome</p></div>
-      <button type="button" mat-stroked-button (click)="close()">Close</button>
-    </header>
-    <div class="bias-compare-dialog__content">
-      @if (loading()) {
-        <p class="bias-compare-dialog__progress">Comparing executions…</p>
-      }
-      @if (inlineError(); as error) {
-        <div class="bias-compare-dialog__error-row">
-          <p class="bias-compare-dialog__error">{{ error }}</p>
-          <button type="button" mat-stroked-button (click)="retry()">Retry</button>
-        </div>
-      }
-      @if (report(); as completedReport) {
-        <app-bias-impact-report-viewer [report]="completedReport" (highlightOnCanvas)="highlightOnCanvas()" />
-      }
-    </div>
-  </section>
+  <app-modal-shell
+    title="Compare with baseline"
+    subtitle="Baseline vs. biased execution outcome"
+    ariaLabel="Compare with baseline"
+    maxWidth="760px"
+    (backdropClick)="close()"
+    (closeClick)="close()">
+    @if (loading()) {
+      <p class="bias-compare-dialog__progress">Comparing executions…</p>
+    }
+    @if (inlineError(); as error) {
+      <div class="bias-compare-dialog__error-row">
+        <p class="bias-compare-dialog__error">{{ error }}</p>
+        <button type="button" mat-stroked-button (click)="retry()">Retry</button>
+      </div>
+    }
+    @if (report(); as completedReport) {
+      <app-bias-impact-report-viewer [report]="completedReport" (highlightOnCanvas)="highlightOnCanvas()" />
+    }
+  </app-modal-shell>
 }

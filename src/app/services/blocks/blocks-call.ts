@@ -5,6 +5,7 @@ import { inject } from "@angular/core";
 import { environment } from "@environment";
 import { catchError, map, Observable, of, switchMap, take, throwError } from "rxjs";
 import { BlockDraftContext, BlocksCallServiceBase } from "./block-call.base";
+import { attachSharedDefinitions, toApiPath, toNullableString, toPorts, toPosition, toRecord, toSchema, toValueKinds } from "@services/shared/flow-node-mapping";
 
 export class BlocksCallService extends BlocksCallServiceBase {
   private readonly http = inject(HttpClient);
@@ -88,7 +89,7 @@ export class BlocksCallService extends BlocksCallServiceBase {
         const descriptor = types.find((type) => type.type === blockType);
         const payload = this.buildBlockConfigurationPayload(
           blockType,
-          this.toRecord(configuration?.specificConfiguration ?? configuration),
+          toRecord(configuration?.specificConfiguration ?? configuration),
           descriptor?.schema ?? null
         );
 
@@ -106,8 +107,8 @@ export class BlocksCallService extends BlocksCallServiceBase {
             map((raw) =>
               this.flowBlockFromApi(
                 {
-                  ...(this.toRecord(raw)),
-                  id: this.toRecord(raw)["id"] ?? blockId
+                  ...(toRecord(raw)),
+                  id: toRecord(raw)["id"] ?? blockId
                 },
                 blockType,
                 payload
@@ -127,20 +128,20 @@ export class BlocksCallService extends BlocksCallServiceBase {
   }
 
   private parseCatalogResponse(raw: unknown): BlockType[] {
-    const value = this.toRecord(raw);
+    const value = toRecord(raw);
     const descriptors = value["descriptors"];
     if (!Array.isArray(descriptors)) {
       throw new Error('Invalid block catalog response: expected reduced catalog format with a descriptors array');
     }
-    const sharedDefinitions = this.toSchema(value["sharedDefinitions"]);
+    const sharedDefinitions = toSchema(value["sharedDefinitions"]);
 
     return descriptors.map((descriptor) => this.blockTypeFromApi(descriptor, sharedDefinitions));
   }
 
   private blockTypeFromApi(raw: unknown, sharedDefinitions?: Record<string, unknown> | null): BlockType {
-    const value = this.toRecord(raw);
-    const schema = this.attachSharedDefinitions(
-      this.toSchema(value["schema"] ?? value["configurationSchema"] ?? null),
+    const value = toRecord(raw);
+    const schema = attachSharedDefinitions(
+      toSchema(value["schema"] ?? value["configurationSchema"] ?? null),
       sharedDefinitions ?? null
     );
 
@@ -151,27 +152,27 @@ export class BlocksCallService extends BlocksCallServiceBase {
       userInteractive: Boolean(value["userInteractive"] ?? value["interactive"] ?? false),
       interactionContract: this.toInteractionContract(value["interactionContract"]),
       hasExampleBlock: Boolean(value["hasExampleBlock"] ?? false),
-      exampleBlockEndpoint: this.toApiPath(value["exampleBlockEndpoint"]),
-      configurationType: this.toNullableString(value["configurationType"]),
-      configurationClass: this.toNullableString(value["configurationClass"]),
+      exampleBlockEndpoint: toApiPath(value["exampleBlockEndpoint"]),
+      configurationType: toNullableString(value["configurationType"]),
+      configurationClass: toNullableString(value["configurationClass"]),
       schema
     };
   }
 
   private flowBlockFromApi(raw: unknown, fallbackTypeName = "LLMBlock", fallbackConfig?: Record<string, unknown>): FlowBlock {
-    const root = this.toRecord(raw);
-    const value = this.toRecord(root["block"] ?? root["node"] ?? root["data"] ?? root);
+    const root = toRecord(raw);
+    const value = toRecord(root["block"] ?? root["node"] ?? root["data"] ?? root);
     const specificConfigurationRaw = value["specificConfiguration"] ?? value["configuration"] ?? value["blockConfiguration"] ?? fallbackConfig ?? {};
-    const specificConfiguration = this.toRecord(specificConfigurationRaw);
+    const specificConfiguration = toRecord(specificConfigurationRaw);
     const typeName = String(value["typeName"] ?? value["blockType"] ?? specificConfiguration["typeName"] ?? fallbackTypeName);
     const io = this.defaultIOForBlockType(typeName);
 
     return {
       id: String(value["id"] ?? crypto.randomUUID()),
       name: String(value["name"] ?? specificConfiguration["name"] ?? typeName),
-      position: this.toPosition(value["position"]),
-      inputs: this.toPorts(value["inputs"], io.inputs),
-      outputs: this.toPorts(value["outputs"], io.outputs),
+      position: toPosition(value["position"]),
+      inputs: toPorts(value["inputs"], io.inputs),
+      outputs: toPorts(value["outputs"], io.outputs),
       specificConfiguration,
       typeName,
       nodeFamily: 'block',
@@ -182,13 +183,13 @@ export class BlocksCallService extends BlocksCallServiceBase {
   }
 
   private biasAnnotationsDescriptorFromApi(raw: unknown): BiasAnnotationsDescriptor {
-    const value = this.toRecord(raw);
-    const rawOptions = this.toRecord(value["options"]);
+    const value = toRecord(raw);
+    const rawOptions = toRecord(value["options"]);
     const options: Record<string, BiasAnnotationOption[]> = {};
     for (const [field, entries] of Object.entries(rawOptions)) {
       if (!Array.isArray(entries)) continue;
       options[field] = entries
-        .map((entry) => this.toRecord(entry))
+        .map((entry) => toRecord(entry))
         .filter((entry) => typeof entry["value"] === "string")
         .map((entry) => ({
           value: String(entry["value"]),
@@ -203,9 +204,9 @@ export class BlocksCallService extends BlocksCallServiceBase {
       blockProperty: String(value["blockProperty"] ?? "biasAnnotations"),
       multiple: value["multiple"] !== false,
       maxItems: Number.isFinite(maxItems) && maxItems >= 0 ? maxItems : null,
-      schema: this.toRecord(value["schema"]),
+      schema: toRecord(value["schema"]),
       options,
-      defaults: this.toRecord(value["defaults"]),
+      defaults: toRecord(value["defaults"]),
       serverGeneratedFields: Array.isArray(value["serverGeneratedFields"])
         ? value["serverGeneratedFields"].map(String)
         : []
@@ -213,7 +214,7 @@ export class BlocksCallService extends BlocksCallServiceBase {
   }
 
   private biasCapabilitiesFromApi(raw: unknown, fallbackBlockType: string): BiasCapabilities {
-    const value = this.toRecord(raw);
+    const value = toRecord(raw);
     const activationModes = Array.isArray(value['activationModes'])
       ? value['activationModes']
         .filter((mode): mode is string => typeof mode === 'string')
@@ -228,69 +229,6 @@ export class BlocksCallService extends BlocksCallServiceBase {
       externalSideEffects: value['externalSideEffects'] === true,
       configurationDependent: value['configurationDependent'] === true,
       activationModes
-    };
-  }
-
-  private toPorts(raw: unknown, fallback: Array<{ name: string; type: string; multiple: boolean }>) {
-    if (!Array.isArray(raw)) return fallback;
-    return raw
-      .map((port) => this.toRecord(port))
-      .filter((port) => typeof port["name"] === "string" && (port["name"] as string).length > 0)
-      .map((port) => {
-        const type = String(port["type"] ?? "TEXT");
-        const multiple = Boolean(port["multiple"] ?? false);
-        return {
-          ...port,
-          name: String(port["name"]),
-          type,
-          multiple,
-          valueKinds: this.toValueKinds(port["valueKinds"], { type, multiple })
-        };
-      });
-  }
-
-  private toValueKinds(raw: unknown, fallback: { type: string; multiple: boolean }) {
-    if (!Array.isArray(raw)) {
-      return [{ type: fallback.type, multiple: fallback.multiple }];
-    }
-
-    const kinds = raw
-      .map((item) => this.toRecord(item))
-      .filter((item) => typeof item["type"] === "string")
-      .map((item) => ({
-        type: String(item["type"] ?? fallback.type),
-        multiple: Boolean(item["multiple"] ?? false)
-      }));
-
-    return kinds.length ? kinds : [{ type: fallback.type, multiple: fallback.multiple }];
-  }
-
-  private toPosition(raw: unknown): { x: number; y: number } | undefined {
-    const value = this.toRecord(raw);
-    const x = value["x"];
-    const y = value["y"];
-    if (typeof x !== "number" || typeof y !== "number") return undefined;
-    return { x, y };
-  }
-
-  private toSchema(raw: unknown): Record<string, unknown> | null {
-    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
-    return raw as Record<string, unknown>;
-  }
-
-  private attachSharedDefinitions(
-    schema: Record<string, unknown> | null,
-    sharedDefinitions: Record<string, unknown> | null
-  ): Record<string, unknown> | null {
-    if (!schema) return null;
-    if (!sharedDefinitions || !Object.keys(sharedDefinitions).length) return schema;
-
-    return {
-      ...schema,
-      sharedDefinitions: {
-        ...sharedDefinitions,
-        ...this.toRecord(schema["sharedDefinitions"])
-      }
     };
   }
 
@@ -313,21 +251,6 @@ export class BlocksCallService extends BlocksCallServiceBase {
       responseField: asNullableString(value["responseField"]),
       supportsPartialResult: value["supportsPartialResult"] === true
     };
-  }
-
-  private toRecord(value: unknown): Record<string, unknown> {
-    if (!value || typeof value !== "object" || Array.isArray(value)) return {};
-    return value as Record<string, unknown>;
-  }
-
-  private toNullableString(value: unknown): string | null {
-    return typeof value === "string" && value.length > 0 ? value : null;
-  }
-
-  private toApiPath(value: unknown): string | null {
-    if (typeof value !== "string" || value.length === 0) return null;
-    if (/^https?:\/\//.test(value)) return value;
-    return `${environment.apiUrl}${value.startsWith("/") ? value : `/${value}`}`;
   }
 
   private buildBlockConfigurationPayload(
@@ -394,8 +317,8 @@ export class BlocksCallService extends BlocksCallServiceBase {
 
   private buildObjectFromSchema(node: unknown, root: unknown): Record<string, unknown> {
     const resolved = this.resolveRef(node, root);
-    const resolvedRecord = this.toRecord(resolved);
-    const properties = this.toRecord(resolvedRecord["properties"]);
+    const resolvedRecord = toRecord(resolved);
+    const properties = toRecord(resolvedRecord["properties"]);
 
     const result: Record<string, unknown> = {};
     for (const [key, propSchema] of Object.entries(properties)) {
@@ -406,7 +329,7 @@ export class BlocksCallService extends BlocksCallServiceBase {
 
   private buildValueFromSchema(node: unknown, root: unknown): unknown {
     const resolved = this.resolveRef(node, root);
-    const value = this.toRecord(resolved);
+    const value = toRecord(resolved);
 
     if (Object.prototype.hasOwnProperty.call(value, "default")) {
       return value["default"];
@@ -437,8 +360,8 @@ export class BlocksCallService extends BlocksCallServiceBase {
     if (!schemaNode || !schemaRoot) return { ...configuration };
 
     const resolved = this.resolveRef(schemaNode, schemaRoot);
-    const schemaRecord = this.toRecord(resolved);
-    const properties = this.toRecord(schemaRecord["properties"]);
+    const schemaRecord = toRecord(resolved);
+    const properties = toRecord(schemaRecord["properties"]);
     if (!Object.keys(properties).length) {
       return { ...configuration };
     }
@@ -446,7 +369,7 @@ export class BlocksCallService extends BlocksCallServiceBase {
     const sanitized: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(configuration)) {
       if (!Object.prototype.hasOwnProperty.call(properties, key)) continue;
-      const propertySchema = this.toRecord(properties[key]);
+      const propertySchema = toRecord(properties[key]);
       sanitized[key] = this.sanitizeSchemaValue(value, propertySchema, schemaRoot);
     }
 
@@ -461,15 +384,15 @@ export class BlocksCallService extends BlocksCallServiceBase {
     if (!schemaNode || !schemaRoot || value == null) return value;
 
     const resolved = this.resolveRef(schemaNode, schemaRoot);
-    const schemaRecord = this.toRecord(resolved);
+    const schemaRecord = toRecord(resolved);
     const type = schemaRecord["type"];
 
     if ((type === "object" || schemaRecord["properties"]) && value && typeof value === "object" && !Array.isArray(value)) {
-      return this.sanitizeConfigurationBySchema(this.toRecord(value), schemaRecord, schemaRoot);
+      return this.sanitizeConfigurationBySchema(toRecord(value), schemaRecord, schemaRoot);
     }
 
     if (type === "array" && Array.isArray(value)) {
-      const itemSchema = this.toRecord(schemaRecord["items"]);
+      const itemSchema = toRecord(schemaRecord["items"]);
       return value.map((item) => this.sanitizeSchemaValue(item, itemSchema, schemaRoot));
     }
 
@@ -477,7 +400,7 @@ export class BlocksCallService extends BlocksCallServiceBase {
   }
 
   private resolveRef(node: unknown, root: unknown): unknown {
-    const value = this.toRecord(node);
+    const value = toRecord(node);
     const ref = value["$ref"];
     if (typeof ref !== "string" || !ref.startsWith("#/")) return node;
 

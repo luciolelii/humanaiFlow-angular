@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, effect, ElementRef, HostListener, Injector, input, OnChanges, OnDestroy, output, signal, SimpleChanges, untracked, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, effect, ElementRef, HostListener, Injector, input, OnChanges, OnDestroy, signal, SimpleChanges, untracked, viewChild } from '@angular/core';
 import { BlockType, FlowData, FlowNode } from '@models/flow';
 import { Drag } from 'rete-area-plugin';
 import { BlocksService } from '@services/blocks/blocks';
@@ -61,9 +61,6 @@ export class ReteEditor implements OnChanges, OnDestroy {
     'connectioncreated',
     'connectionremoved'
   ]);
-
-  flowChanged = output<any>();
-
 
   ngAfterViewInit(): void {
     this.viewReady = true;
@@ -150,7 +147,6 @@ export class ReteEditor implements OnChanges, OnDestroy {
     await addBlockToEditor(this.rete.editor, this.rete.area, newBlock, position);
     const updatedData = exportGraph(this.rete.editor);
     this.flowState.updateData(updatedData);
-    this.flowChanged.emit(updatedData);
   }
 
   onShellPointerDown(event: PointerEvent) {
@@ -351,7 +347,6 @@ export class ReteEditor implements OnChanges, OnDestroy {
     await this.rete.editor.removeConnection(currentConnection.id);
     const updatedData = exportGraph(this.rete.editor);
     this.flowState.updateData(updatedData, { structural: true });
-    this.flowChanged.emit(updatedData);
     this.graphSelection.clearConnectionSelection();
   }
 
@@ -538,7 +533,6 @@ export class ReteEditor implements OnChanges, OnDestroy {
     setEditorGlobalInputs(rete.editor, this.flowData().globalInputs ?? []);
     const updatedData = exportGraph(rete.editor);
     this.flowState.updateData(updatedData, { structural: context?.type !== 'nodetranslated' });
-    this.flowChanged.emit(updatedData);
   }
 
   private isEditorGraphInSync(): boolean {

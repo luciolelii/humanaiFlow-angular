@@ -1,0 +1,14 @@
+<div class="modal-shell__backdrop" (click)="backdropClick.emit()"></div>
+<section class="modal-shell" [style.--modal-shell-max-width]="maxWidth" role="dialog" aria-modal="true" [attr.aria-label]="ariaLabel">
+  <header>
+    <div>
+      <h3>{{ title }}</h3>
+      @if (subtitle) { <p>{{ subtitle }}</p> }
+    </div>
+    <button type="button" mat-stroked-button (click)="closeClick.emit()">{{ closeLabel }}</button>
+  </header>
+  <div class="modal-shell__content">
+    <ng-content></ng-content>
+  </div>
+  <ng-content select="footer"></ng-content>
+</section>

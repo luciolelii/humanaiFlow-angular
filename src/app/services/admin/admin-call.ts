@@ -7,11 +7,12 @@ import {
   UserStatistics,
   UserRole
 } from "@models/user";
-import { HttpClient, HttpErrorResponse } from "@angular/common/http";
+import { HttpClient } from "@angular/common/http";
 import { inject } from "@angular/core";
 import { environment } from "@environment";
-import { catchError, map, Observable, throwError } from "rxjs";
+import { catchError, map, Observable } from "rxjs";
 import { AdminCallServiceBase } from "./admin-call.base";
+import { toHttpError } from "@services/shared/http-error.util";
 
 export class AdminCallService extends AdminCallServiceBase {
   private readonly http = inject(HttpClient);
@@ -21,7 +22,7 @@ export class AdminCallService extends AdminCallServiceBase {
       .get<unknown[]>(`${environment.apiUrl}/auth/admin/users`)
       .pipe(
         map((raw) => Array.isArray(raw) ? raw.map((item) => this.adminUserFromApi(item)) : []),
-        catchError((error: unknown) => this.toHttpError(error, {
+        catchError((error: unknown) => toHttpError(error, {
           403: 'Admin access required.'
         }))
       );
@@ -31,7 +32,7 @@ export class AdminCallService extends AdminCallServiceBase {
     return this.http
       .post<void>(`${environment.apiUrl}/auth/admin/users`, request)
       .pipe(
-        catchError((error: unknown) => this.toHttpError(error, {
+        catchError((error: unknown) => toHttpError(error, {
           400: 'Unable to create user.',
           403: 'Admin access required.'
         }))
@@ -42,7 +43,7 @@ export class AdminCallService extends AdminCallServiceBase {
     return this.http
       .put<void>(`${environment.apiUrl}/auth/admin/users/${encodeURIComponent(username)}/password`, request)
       .pipe(
-        catchError((error: unknown) => this.toHttpError(error, {
+        catchError((error: unknown) => toHttpError(error, {
           400: 'Unable to update password.',
           403: 'Admin access required.',
           404: `User ${username} not found`
@@ -54,7 +55,7 @@ export class AdminCallService extends AdminCallServiceBase {
     return this.http
       .put<void>(`${environment.apiUrl}/auth/admin/users/${encodeURIComponent(username)}/role`, request)
       .pipe(
-        catchError((error: unknown) => this.toHttpError(error, {
+        catchError((error: unknown) => toHttpError(error, {
           400: 'Unable to update role.',
           403: 'Admin access required.',
           404: `User ${username} not found`,
@@ -67,7 +68,7 @@ export class AdminCallService extends AdminCallServiceBase {
     return this.http
       .delete<void>(`${environment.apiUrl}/auth/admin/users/${encodeURIComponent(username)}`)
       .pipe(
-        catchError((error: unknown) => this.toHttpError(error, {
+        catchError((error: unknown) => toHttpError(error, {
           403: 'Admin access required.',
           404: `User ${username} not found`,
           409: 'LAST_ADMIN'
@@ -80,7 +81,7 @@ export class AdminCallService extends AdminCallServiceBase {
       .get<unknown>(`${environment.apiUrl}/stats`)
       .pipe(
         map((raw) => this.operationsStatisticsFromApi(raw)),
-        catchError((error: unknown) => this.toHttpError(error, {
+        catchError((error: unknown) => toHttpError(error, {
           401: 'Unauthenticated',
           403: 'You are not allowed to view user statistics'
         }))
@@ -94,7 +95,7 @@ export class AdminCallService extends AdminCallServiceBase {
         map((raw) => Array.isArray(raw)
           ? raw.filter((item): item is string => typeof item === 'string').map((item) => item.trim()).filter((item) => item.length > 0)
           : []),
-        catchError((error: unknown) => this.toHttpError(error, {
+        catchError((error: unknown) => toHttpError(error, {
           401: 'Unauthenticated',
           403: 'You are not allowed to view user statistics'
         }))
@@ -106,35 +107,12 @@ export class AdminCallService extends AdminCallServiceBase {
       .get<unknown>(`${environment.apiUrl}/stats/users/${encodeURIComponent(username)}`)
       .pipe(
         map((raw) => this.userStatisticsFromApi(raw, username)),
-        catchError((error: unknown) => this.toHttpError(error, {
+        catchError((error: unknown) => toHttpError(error, {
           401: 'Unauthenticated',
           403: 'You are not allowed to view user statistics',
           404: 'User not found'
         }))
       );
-  }
-
-  private extractHttpErrorMessage(error: HttpErrorResponse): string | null {
-    const payload = error.error;
-    if (typeof payload === 'string' && payload.trim().length > 0) {
-      return payload.trim();
-    }
-    if (payload && typeof payload === 'object') {
-      const record = payload as Record<string, unknown>;
-      const directMessage = record['message'];
-      if (typeof directMessage === 'string' && directMessage.trim().length > 0) {
-        return directMessage.trim();
-      }
-      const errorMessage = record['error'];
-      if (typeof errorMessage === 'string' && errorMessage.trim().length > 0) {
-        return errorMessage.trim();
-      }
-      const details = record['details'];
-      if (typeof details === 'string' && details.trim().length > 0) {
-        return details.trim();
-      }
-    }
-    return null;
   }
 
   private normalizeRole(value: unknown): UserRole {
@@ -187,16 +165,4 @@ export class AdminCallService extends AdminCallServiceBase {
     };
   }
 
-  private toHttpError(error: unknown, fallbackByStatus: Record<number, string>): Observable<never> {
-    if (error instanceof HttpErrorResponse) {
-      const message = this.extractHttpErrorMessage(error)
-        ?? fallbackByStatus[error.status]
-        ?? 'Request failed.';
-      return throwError(() => new Error(message));
-    }
-    if (error instanceof Error) {
-      return throwError(() => error);
-    }
-    return throwError(() => new Error('Request failed.'));
-  }
 }

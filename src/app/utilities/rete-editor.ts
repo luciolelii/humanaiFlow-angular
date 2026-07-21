@@ -313,10 +313,6 @@ export async function addBlockToEditor(
           typeName: currentLiveNode.data['typeName']
         })
       );
-      if (options?.source === 'import') {
-        console.log(`Container create response after ${targetPath} import:`, replacementFromServer);
-      }
-
       const selectedIds = options?.selectedIds ?? new Set<string>();
       const selectedNodeIds = editor.getNodes()
         .filter((candidate) => selectedIds.has(String(candidate.data?.id ?? "")))
@@ -467,12 +463,8 @@ export async function addBlockToEditor(
 
       if (!sourceNode || !targetNode) continue;
 
-      const sourceOutput = connection.source === node.id
-        ? connection.sourceOutput
-        : connection.sourceOutput;
-      const targetInput = connection.target === node.id
-        ? connection.targetInput
-        : connection.targetInput;
+      const sourceOutput = connection.sourceOutput;
+      const targetInput = connection.targetInput;
 
       if (connection.source === node.id && !replacementOutputNames.has(sourceOutput)) continue;
       if (connection.target === node.id && !replacementInputNames.has(targetInput)) continue;

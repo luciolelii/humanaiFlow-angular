@@ -181,6 +181,14 @@ describe('EditorStateHolder', () => {
     expect(service.currentFlow()?.data.blocks[0].biasAnnotations?.[0].id).toBe('bias-server-1');
   });
 
+  it('save() surfaces a handled error instead of throwing when no flow is loaded', async () => {
+    expect(service.currentFlow()).toBeNull();
+
+    await expect(new Promise<void>((resolve, reject) => {
+      service.save().subscribe({ next: () => resolve(), error: reject });
+    })).rejects.toThrow('No flow is currently loaded.');
+  });
+
   describe('isCurrentFlowReadOnly', () => {
     it('should return true for finalized flow', async () => {
       await service.openDocument(makeFlow({ finalized: true }));

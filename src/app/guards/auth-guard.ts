@@ -1,20 +1,9 @@
-import { inject } from '@angular/core';
-import { CanActivateFn, Router } from '@angular/router';
-import { Authorization } from '@services/authorization/authorization';
-import { map } from 'rxjs';
+import { CanActivateFn } from '@angular/router';
+import { createSessionGuard } from './session-guard';
 
-export const authGuard: CanActivateFn = (_route, state) => {
-  const authService = inject(Authorization);
-  const router = inject(Router);
-
-  return authService.validateSession().pipe(
-    map((user) => {
-      if (user) {
-        return true;
-      }
-
-      console.warn(`[authGuard] Access denied to ${state.url} — user not logged in, redirecting to /login`);
-      return router.parseUrl('/login');
-    })
-  );
-};
+export const authGuard: CanActivateFn = createSessionGuard(
+  (user) => !!user,
+  '/login',
+  'authGuard',
+  'user not logged in'
+);

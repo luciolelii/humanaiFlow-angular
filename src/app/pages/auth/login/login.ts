@@ -7,6 +7,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { Router, RouterLink } from "@angular/router";
 import { FormUtility } from '@utilities/form-utility';
+import { scheduleSignalClear } from '@utilities/temporary-signal';
 import { Authorization } from '@services/authorization/authorization';
 import { Field, form, required } from '@angular/forms/signals';
 
@@ -40,12 +41,12 @@ export class Login extends FormUtility {
     super();
     effect(() => {
       if (this.error() != null) {
-        setTimeout(() => this.error.set(null), 3000);
+        scheduleSignalClear(this.error, 3000);
       }
     });
     effect(() => {
       if (this.registeredUser() != null) {
-        setTimeout(() => this.registeredUser.set(null), 5000);
+        scheduleSignalClear(this.registeredUser, 5000);
       }
     });
   }

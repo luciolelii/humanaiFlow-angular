@@ -9,7 +9,7 @@ import {
   AssistantValidationIssue
 } from '@models/assistant';
 import { FlowData } from '@models/flow';
-import { Observable, of } from 'rxjs';
+import { defer, Observable, of } from 'rxjs';
 import { AssistantCallServiceBase } from './assistant-call.base';
 
 type FakeCallRecord = {
@@ -62,99 +62,109 @@ export class AssistantCallServiceFake extends AssistantCallServiceBase {
   }
 
   override sendMessage(sessionId: string, request: AssistantSendMessageRequest): Observable<{ callId: string }> {
-    const session = this.sessions.get(sessionId);
-    if (!session) {
-      throw new Error(`Assistant session ${sessionId} not found`);
-    }
-    session.messages = [
-      ...session.messages,
-      {
-        id: crypto.randomUUID(),
-        role: 'user',
-        content: request.message
+    return defer(() => {
+      const session = this.sessions.get(sessionId);
+      if (!session) {
+        throw new Error(`Assistant session ${sessionId} not found`);
       }
-    ];
+      session.messages = [
+        ...session.messages,
+        {
+          id: crypto.randomUUID(),
+          role: 'user',
+          content: request.message
+        }
+      ];
 
-    const callId = crypto.randomUUID();
-    const phases = this.buildPhases(request.message);
-    this.calls.set(callId, {
-      id: callId,
-      sessionId,
-      content: request.message,
-      phaseIndex: 0,
-      phases,
-      completed: false,
-      failed: false,
-      cancelled: false
+      const callId = crypto.randomUUID();
+      const phases = this.buildPhases(request.message);
+      this.calls.set(callId, {
+        id: callId,
+        sessionId,
+        content: request.message,
+        phaseIndex: 0,
+        phases,
+        completed: false,
+        failed: false,
+        cancelled: false
+      });
+      session.lastCallId = callId;
+
+      return of({ callId });
     });
-    session.lastCallId = callId;
-
-    return of({ callId });
   }
 
   override getCall(callId: string): Observable<AssistantCallState> {
-    const call = this.calls.get(callId);
-    if (!call) {
-      throw new Error(`Assistant call ${callId} not found`);
-    }
-
-    if (!call.completed && !call.failed && !call.cancelled) {
-      if (call.phaseIndex < call.phases.length - 1) {
-        call.phaseIndex += 1;
-      } else {
-        call.completed = true;
-        this.applyCallResult(call);
+    return defer(() => {
+      const call = this.calls.get(callId);
+      if (!call) {
+        throw new Error(`Assistant call ${callId} not found`);
       }
-    }
 
-    const phase = call.completed
-      ? 'completed'
-      : call.failed
-        ? 'failed'
-        : call.cancelled
-          ? 'cancelled'
-          : call.phases[call.phaseIndex];
+      if (!call.completed && !call.failed && !call.cancelled) {
+        if (call.phaseIndex < call.phases.length - 1) {
+          call.phaseIndex += 1;
+        } else {
+          call.completed = true;
+          this.applyCallResult(call);
+        }
+      }
 
-    return of({
-      id: call.id,
-      sessionId: call.sessionId,
-      status: call.failed
-        ? 'FAILED'
-        : call.cancelled
-          ? 'CANCELLED'
-        : call.completed
-          ? 'COMPLETED'
-          : call.phaseIndex === 0
-            ? 'QUEUED'
-            : 'RUNNING',
-      phase,
-      progressMessage: call.cancelled ? 'Assistant request cancelled' : undefined,
-      errorMessage: call.failed ? 'Fake assistant call failed.' : undefined
+      const phase = call.completed
+        ? 'completed'
+        : call.failed
+          ? 'failed'
+          : call.cancelled
+            ? 'cancelled'
+            : call.phases[call.phaseIndex];
+
+      const result: AssistantCallState = {
+        id: call.id,
+        sessionId: call.sessionId,
+        status: call.failed
+          ? 'FAILED'
+          : call.cancelled
+            ? 'CANCELLED'
+          : call.completed
+            ? 'COMPLETED'
+            : call.phaseIndex === 0
+              ? 'QUEUED'
+              : 'RUNNING',
+        phase,
+        progressMessage: call.cancelled ? 'Assistant request cancelled' : undefined,
+        errorMessage: call.failed ? 'Fake assistant call failed.' : undefined
+      };
+      return of(result);
     });
   }
 
   override cancelCall(callId: string): Observable<AssistantCallState> {
-    const call = this.calls.get(callId);
-    if (!call) {
-      throw new Error(`Assistant call ${callId} not found`);
-    }
+    return defer(() => {
+      const call = this.calls.get(callId);
+      if (!call) {
+        throw new Error(`Assistant call ${callId} not found`);
+      }
 
-    call.cancelled = true;
-    return of({
-      id: call.id,
-      sessionId: call.sessionId,
-      status: 'CANCELLED',
-      phase: 'cancelled',
-      progressMessage: 'Assistant request cancelled'
+      call.cancelled = true;
+      const result: AssistantCallState = {
+        id: call.id,
+        sessionId: call.sessionId,
+        status: 'CANCELLED',
+        phase: 'cancelled',
+        progressMessage: 'Assistant request cancelled'
+      };
+      return of(result);
     });
   }
 
   override getSession(sessionId: string): Observable<AssistantSessionState> {
-    const session = this.sessions.get(sessionId);
-    if (!session) {
-      throw new Error(`Assistant session ${sessionId} not found`);
-    }
-    return of(structuredClone(session));
+    return defer(() => {
+      const session = this.sessions.get(sessionId);
+      if (!session) {
+        throw new Error(`Assistant session ${sessionId} not found`);
+      }
+      return of(structuredClone(session));
+    });
   }
 
   private buildPhases(content: string): AssistantCallPhase[] {

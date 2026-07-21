@@ -9,6 +9,7 @@ import { catchError, map, Observable, of, throwError } from "rxjs";
 import { HttpClient, HttpErrorResponse } from "@angular/common/http";
 import { inject } from "@angular/core";
 import { environment } from "@environment";
+import { extractHttpErrorMessage, toHttpError } from "@services/shared/http-error.util";
 
 export class AuthorizationCallService extends AuthorizationCallServiceBase {
     private readonly http = inject(HttpClient);
@@ -35,7 +36,7 @@ export class AuthorizationCallService extends AuthorizationCallServiceBase {
         .get<unknown>(`${environment.apiUrl}/auth/me`)
         .pipe(
           map((raw) => this.userFromApi(raw)),
-          catchError((error: unknown) => this.toHttpError(error, {
+          catchError((error: unknown) => toHttpError(error, {
             401: 'Unauthenticated'
           }))
         );
@@ -44,7 +45,7 @@ export class AuthorizationCallService extends AuthorizationCallServiceBase {
     override register(userRegistration: UserRegistration): Observable<void> {
          return this.http.post<void>(`${environment.apiUrl}/auth/register`, userRegistration)
            .pipe(
-             catchError((error: unknown) => this.toHttpError(error, {
+             catchError((error: unknown) => toHttpError(error, {
                400: 'Unable to register user.'
              }))
            );
@@ -57,7 +58,7 @@ export class AuthorizationCallService extends AuthorizationCallServiceBase {
                 map(() => undefined),
                 catchError((error: unknown) => {
                   if (error instanceof HttpErrorResponse) {
-                    const message = this.extractHttpErrorMessage(error)
+                    const message = extractHttpErrorMessage(error)
                       ?? (error.status === 400 ? 'Missing required fields.' : null)
                       ?? (error.status === 401 ? 'Current password is invalid' : null)
                       ?? (error.status === 404 ? 'User not found' : null)
@@ -67,29 +68,6 @@ export class AuthorizationCallService extends AuthorizationCallServiceBase {
                   return throwError(() => error);
                 })
             );
-    }
-
-    private extractHttpErrorMessage(error: HttpErrorResponse): string | null {
-      const payload = error.error;
-      if (typeof payload === 'string' && payload.trim().length > 0) {
-        return payload.trim();
-      }
-      if (payload && typeof payload === 'object') {
-        const record = payload as Record<string, unknown>;
-        const directMessage = record['message'];
-        if (typeof directMessage === 'string' && directMessage.trim().length > 0) {
-          return directMessage.trim();
-        }
-        const errorMessage = record['error'];
-        if (typeof errorMessage === 'string' && errorMessage.trim().length > 0) {
-          return errorMessage.trim();
-        }
-        const details = record['details'];
-        if (typeof details === 'string' && details.trim().length > 0) {
-          return details.trim();
-        }
-      }
-      return null;
     }
 
     private userFromApi(raw: unknown, fallbackUsername?: string): User {
@@ -117,15 +95,5 @@ export class AuthorizationCallService extends AuthorizationCallServiceBase {
           map(() => undefined),
           catchError(() => of(undefined))
         );
-    }
-
-    private toHttpError(error: unknown, fallbackByStatus: Record<number, string>): Observable<never> {
-      if (error instanceof HttpErrorResponse) {
-        const message = this.extractHttpErrorMessage(error)
-          ?? fallbackByStatus[error.status]
-          ?? 'Request failed.';
-        return throwError(() => new Error(message));
-      }
-      return throwError(() => error);
     }
 }

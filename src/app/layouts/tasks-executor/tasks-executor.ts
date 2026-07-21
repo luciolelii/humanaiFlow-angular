@@ -9,6 +9,7 @@ import {
   TasksExecutionsListComponent
 } from '@shared/tasks-executions-list/tasks-executions-list';
 import { TaskExecutionViewerComponent } from '@shared/task-execution-viewer/task-execution-viewer';
+import { formatDuration } from '@shared/task-execution-viewer/execution-viewer.utils';
 import { BlocksService } from '@services/blocks/blocks';
 import { ContainersService } from '@services/containers/containers';
 import { ConfirmDialogService } from '@services/dialogs/confirm-dialog';
@@ -151,7 +152,7 @@ export class TasksExecutor {
       creationTime: execution.creationTime,
       runNumber: typeof execution.runNumber === 'number' ? execution.runNumber : fallbackRunNumber,
       rerunOfExecutionId: execution.rerunOfExecutionId ?? null,
-      duration: this.formatDuration(execution.context.startTime ?? null, execution.context.endTime ?? null),
+      duration: this.formatExecutionDuration(execution.context.startTime ?? null, execution.context.endTime ?? null),
       simulated: execution.interactionSimulationEnabled === true
     };
   }
@@ -166,29 +167,8 @@ export class TasksExecutor {
     return `${yyyy}-${mm}-${dd} ${hh}:${mi}`;
   }
 
-  private formatDuration(startTime: number | null, endTime: number | null): string {
+  private formatExecutionDuration(startTime: number | null, endTime: number | null): string {
     if (!startTime || !endTime) return '0 sec';
-    const diffMs = Math.max(0, endTime - startTime);
-    const totalSeconds = Math.floor(diffMs / 1000);
-    const totalMinutes = Math.floor(totalSeconds / 60);
-    const totalHours = Math.floor(totalMinutes / 60);
-    const totalDays = Math.floor(totalHours / 24);
-
-    if (totalSeconds < 60) {
-      return `${totalSeconds} sec`;
-    }
-
-    if (totalMinutes < 60) {
-      const seconds = totalSeconds % 60;
-      return seconds > 0 ? `${totalMinutes} min ${seconds} sec` : `${totalMinutes} min`;
-    }
-
-    if (totalHours < 24) {
-      const minutes = totalMinutes % 60;
-      return minutes > 0 ? `${totalHours} h ${minutes} min` : `${totalHours} h`;
-    }
-
-    const hours = totalHours % 24;
-    return hours > 0 ? `${totalDays} gg ${hours} h` : `${totalDays} gg`;
+    return formatDuration(startTime, endTime);
   }
 }

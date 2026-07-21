@@ -129,4 +129,26 @@ describe('TaskStepNodeComponent bias canvas highlighting', () => {
       expect(component.measureBiasImpactTooltip()).toBe('Measure bias impact');
     });
   });
+
+  describe('isEmptyDisplayValue', () => {
+    const isEmptyDisplayValue = (value: unknown): boolean => (component as any).isEmptyDisplayValue(value);
+
+    it('treats an array of blank strings as empty, matching the editor-side isMissingValue semantics', () => {
+      expect(isEmptyDisplayValue(['', '', ''])).toBe(true);
+    });
+
+    it('treats an array containing a real value as non-empty', () => {
+      expect(isEmptyDisplayValue(['', 'value', ''])).toBe(false);
+    });
+
+    it('treats an object whose values are all missing as empty', () => {
+      expect(isEmptyDisplayValue({ a: '', b: null })).toBe(true);
+    });
+
+    it('treats null/undefined/blank strings as empty', () => {
+      expect(isEmptyDisplayValue(null)).toBe(true);
+      expect(isEmptyDisplayValue(undefined)).toBe(true);
+      expect(isEmptyDisplayValue('   ')).toBe(true);
+    });
+  });
 });

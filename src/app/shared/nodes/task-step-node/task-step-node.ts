@@ -1057,10 +1057,14 @@ export class TaskStepNodeComponent {
     return isTextarea || label.trim().length >= 18;
   }
 
-  private isEmptyDisplayValue(value: unknown) {
+  private isEmptyDisplayValue(value: unknown): boolean {
     if (value == null) return true;
     if (typeof value === 'string') return value.trim().length === 0;
-    if (Array.isArray(value)) return value.length === 0;
+    if (Array.isArray(value)) return value.length === 0 || value.every((item) => this.isEmptyDisplayValue(item));
+    if (typeof value === 'object') {
+      const entries = Object.values(value as Record<string, unknown>);
+      return entries.length === 0 || entries.every((item) => this.isEmptyDisplayValue(item));
+    }
     return false;
   }
 

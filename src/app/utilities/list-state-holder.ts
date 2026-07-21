@@ -53,8 +53,4 @@ export class ListStateViewHolder<T> {
     return this.state;
   }
 
-  create() {
-    this.state = new ListView<T>();
-  }
-
 }

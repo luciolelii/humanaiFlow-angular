@@ -10,6 +10,7 @@ import { Authorization } from '@services/authorization/authorization';
 import { BlocksService } from '@services/blocks/blocks';
 import { ContainersService } from '@services/containers/containers';
 import { ChangePasswordDialogComponent } from '@shared/change-password-dialog/change-password-dialog';
+import { scheduleSignalClear } from '@utilities/temporary-signal';
 
 @Component({
   selector: 'app-app-layout',
@@ -79,9 +80,7 @@ logout() {
         this.changePasswordOpen.set(false);
         this.changePasswordError.set(null);
         this.changePasswordSuccess.set('Password changed successfully.');
-        setTimeout(() => {
-          this.changePasswordSuccess.set(null);
-        }, 3000);
+        scheduleSignalClear(this.changePasswordSuccess);
       },
       error: (error) => {
         this.changePasswordSaving.set(false);
