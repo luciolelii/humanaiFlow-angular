@@ -1,4 +1,5 @@
 import { FlowBlockConnection, FlowNode, FlowNodeDependency, FlowPort, LLMDescriptor } from './flow';
+import { BiasExecutionContext } from './bias-impact';
 
 export type TaskExecutionStatus = 'CREATED' | 'READY' | 'RUNNING' | 'WAITING' | 'SUSPENDED' | 'SUCCESS' | 'ERROR' | 'CANCELLED';
 export type TaskExecutionStatusGroup = 'INIT' | 'RUNNING' | 'PAUSED' | 'FINAL';
@@ -25,6 +26,7 @@ export type TaskExecution = {
   sourceFlowId?: string | null;
   runNumber?: number | null;
   rerunOfExecutionId?: string | null;
+  biasExecutionContext?: BiasExecutionContext;
   context: TaskExecutionContext;
   interactionSimulationEnabled?: boolean;
   simulationAvailable?: boolean;

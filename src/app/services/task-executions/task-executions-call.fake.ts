@@ -1,9 +1,17 @@
 import { LLMDescriptor } from '@models/flow';
+import {
+  BiasImpactExperimentRequest,
+  BiasImpactJob,
+  BiasImpactReport,
+  BiasRerunRequest
+} from '@models/bias-impact';
 import { ExecutionEventLogEntry, TaskExecution, TaskExecutionGroup } from '@models/task-execution';
-import { Observable, of } from 'rxjs';
+import { map, Observable, of } from 'rxjs';
 import { TaskExecutionsCallServiceBase } from './task-executions-call.base';
 
 export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase {
+  private readonly biasJobs = new Map<string, { polls: number; job: BiasImpactJob }>();
+  private readonly biasReports: BiasImpactReport[] = [];
   private readonly data: TaskExecution[] = [
     {
       id: 'c106be9d-5467-428c-8992-0b5f40a59aac',
@@ -518,6 +526,113 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
     return of(this.withSimulationAvailability(execution));
   }
 
+  override runBiasImpactExperiment(
+    executionId: string,
+    stepId: string,
+    request: BiasImpactExperimentRequest
+  ): Observable<BiasImpactJob> {
+    const job: BiasImpactJob = {
+      id: crypto.randomUUID(),
+      status: 'QUEUED',
+      executionId,
+      stepId,
+      createdAt: new Date().toISOString(),
+      startedAt: null,
+      completedAt: null,
+      reportId: null,
+      report: null,
+      errorCode: null,
+      errorMessage: null,
+      terminal: false
+    };
+    this.biasJobs.set(job.id, { polls: 0, job: { ...job, report: null } });
+    return of(job);
+  }
+
+  override getBiasImpactJob(jobId: string): Observable<BiasImpactJob> {
+    const entry = this.biasJobs.get(jobId);
+    if (!entry) {
+      throw new Error(`Bias impact job not found: ${jobId}`);
+    }
+
+    entry.polls += 1;
+    if (entry.polls === 1) {
+      entry.job = { ...entry.job, status: 'RUNNING', startedAt: new Date().toISOString() };
+    } else if (!entry.job.terminal) {
+      const report = this.createIsolatedReport(entry.job.executionId, entry.job.stepId);
+      this.biasReports.unshift(report);
+      entry.job = {
+        ...entry.job,
+        status: 'COMPLETED',
+        completedAt: new Date().toISOString(),
+        reportId: report.id,
+        report,
+        terminal: true
+      };
+    }
+    return of(entry.job);
+  }
+
+  override createBiasedRerun(executionId: string, request: BiasRerunRequest): Observable<TaskExecution> {
+    return this.rerunTaskExecution(executionId).pipe(
+      map((execution) => {
+        const biasedExecution: TaskExecution = {
+          ...execution,
+          biasExecutionContext: {
+            experimentId: crypto.randomUUID(),
+            mode: 'BIAS_VARIANT',
+            activeAnnotationIdsByNode: Object.fromEntries(
+              request.activations.map((activation) => [activation.nodeId, activation.annotationIds])
+            ),
+            externalSideEffectPolicy: request.externalSideEffectPolicy,
+            externalSideEffectsConfirmed: request.confirmExternalSideEffects
+          }
+        };
+        const index = this.data.findIndex((item) => item.id === biasedExecution.id);
+        if (index >= 0) this.data[index] = biasedExecution;
+        return biasedExecution;
+      })
+    );
+  }
+
+  override compareBiasExecutions(
+    baselineExecutionId: string,
+    biasedExecutionId: string,
+    includeRawOutputs: boolean
+  ): Observable<BiasImpactReport> {
+    const existing = this.biasReports.find((report) =>
+      report.baselineExecutionId === baselineExecutionId
+      && report.biasedExecutionId === biasedExecutionId
+      && report.rawOutputsIncluded === includeRawOutputs
+    );
+    if (existing) return of(existing);
+
+    const report: BiasImpactReport = {
+      ...this.createIsolatedReport(baselineExecutionId, 'biased-node'),
+      id: crypto.randomUUID(),
+      kind: 'FULL_FLOW',
+      biasedExecutionId,
+      nodeId: null,
+      repetitions: 1,
+      rawOutputsIncluded: includeRawOutputs,
+      summary: 'Observed a changed downstream node in the biased rerun.'
+    };
+    this.biasReports.unshift(report);
+    return of(report);
+  }
+
+  override listBiasImpactReports(executionId: string): Observable<BiasImpactReport[]> {
+    return of(this.biasReports.filter((report) =>
+      report.baselineExecutionId === executionId || report.biasedExecutionId === executionId
+    ));
+  }
+
+  override getBiasImpactReport(reportId: string): Observable<BiasImpactReport> {
+    const report = this.biasReports.find((item) => item.id === reportId);
+    if (!report) throw new Error(`Bias impact report not found: ${reportId}`);
+    return of(report);
+  }
+
   override deleteTaskExecution(executionId: string): Observable<void> {
     const index = this.data.findIndex((item) => item.id === executionId);
     if (index >= 0) {
@@ -725,6 +840,33 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
     };
     execution.missingAuthorizationKeys = (execution.missingAuthorizationKeys ?? []).filter((item) => item !== key);
     return of(execution);
+  }
+
+  private createIsolatedReport(baselineExecutionId: string, stepId: string): BiasImpactReport {
+    return {
+      id: crypto.randomUUID(),
+      experimentId: crypto.randomUUID(),
+      kind: 'ISOLATED_STEP',
+      baselineExecutionId,
+      biasedExecutionId: null,
+      nodeId: stepId,
+      annotationIds: ['demo-bias-annotation'],
+      repetitions: 3,
+      createdAt: new Date().toISOString(),
+      rawOutputsIncluded: true,
+      immediateImpact: {
+        outputChanged: true,
+        maximumTextDifference: 0.4,
+        changeRate: 1,
+        baselineOutput: { output: 'Baseline result' },
+        biasedOutputs: [{ output: 'Biased result' }]
+      },
+      downstreamImpact: [],
+      routingChanges: [],
+      mockedSideEffects: [],
+      summary: 'The selected bias changed the observed output.',
+      warnings: ['This comparison can include normal model non-determinism.']
+    };
   }
 
   private findExecution(executionId: string): TaskExecution {

@@ -2,13 +2,16 @@ import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, HostBinding, Input, inject } from '@angular/core';
 import { ClassicPreset } from 'rete';
 import { ReteModule } from 'rete-angular-plugin/21';
-import { BlockInteractionContract, BlockType, FlowData, FlowPort, FLOW_DEPENDANT_PORT_KEY, FLOW_DEPENDENCY_PORT_KEY } from '@models/flow';
+import { BiasAnnotation, BlockInteractionContract, BlockType, FlowData, FlowPort, isProbeExecutable, FLOW_DEPENDANT_PORT_KEY, FLOW_DEPENDENCY_PORT_KEY } from '@models/flow';
+import { BiasCapabilities } from '@models/bias-impact';
 import { BlocksService } from '@services/blocks/blocks';
 import { ContainersService } from '@services/containers/containers';
 import { NodeSettingsDialogService } from '@services/dialogs/node-settings-dialog';
 import { SubflowPreviewDialogService } from '@services/dialogs/subflow-preview-dialog';
 import { HumanInteractionDialogService } from '@services/dialogs/human-interaction-dialog';
 import { TaskExecutionsService } from '@services/task-executions/task-executions';
+import { BiasImpactExperimentDialogService } from '@services/dialogs/bias-impact-experiment-dialog';
+import { take } from 'rxjs';
 import {
   collectSchemaFlowDataFields,
   isFlowDataFieldPath,
@@ -114,6 +117,7 @@ export class TaskStepNodeComponent {
   private cdr = inject(ChangeDetectorRef);
   private humanInteractionDialog = inject(HumanInteractionDialogService);
   private taskExecutionsService = inject(TaskExecutionsService);
+  private biasImpactExperimentDialog = inject(BiasImpactExperimentDialogService);
 
   @Input() data!: any;
   @Input() emit!: (data: any) => void;
@@ -137,6 +141,7 @@ export class TaskStepNodeComponent {
   mainContentFields: MainContentView[] = [];
   interactionSubmitting = false;
   schemaReady = false;
+  biasCapabilities: BiasCapabilities | null = null;
 
   private blockSchema: Record<string, any> | null = null;
   private blockDescriptor: BlockType | null = null;
@@ -170,6 +175,7 @@ export class TaskStepNodeComponent {
 
     this.rebuildDisplayState();
     void this.loadSchemaContext();
+    this.loadBiasCapabilities();
   }
 
   private rebuildDisplayState() {
@@ -423,6 +429,36 @@ export class TaskStepNodeComponent {
     return this.stepStatus() === 'COMPLETED';
   }
 
+  executableBiasAnnotations(): BiasAnnotation[] {
+    const annotations = this.data?.data?.biasAnnotations;
+    return Array.isArray(annotations)
+      ? annotations.filter((annotation): annotation is BiasAnnotation => !!annotation && isProbeExecutable(annotation.behavioralProbe))
+      : [];
+  }
+
+  canMeasureBiasImpact(): boolean {
+    return this.blockConfiguration?.['__executionStatusGroup'] === 'FINAL'
+      && this.executableBiasAnnotations().length > 0
+      && this.biasCapabilities?.isolatedExperimentSupported === true;
+  }
+
+  measureBiasImpact(event: Event) {
+    event.preventDefault();
+    event.stopPropagation();
+    const executionId = this.executionId();
+    const stepId = this.executionNodeId();
+    const capabilities = this.biasCapabilities;
+    if (!executionId || !stepId || !capabilities || !this.canMeasureBiasImpact()) return;
+    this.biasImpactExperimentDialog.open({
+      executionId,
+      stepId,
+      nodeId: String(this.data?.id ?? stepId),
+      nodeName: this.nodeTitle(),
+      annotations: this.executableBiasAnnotations(),
+      capabilities
+    });
+  }
+
   isRunning(): boolean {
     return this.stepStatus() === 'RUNNING';
   }
@@ -483,6 +519,21 @@ export class TaskStepNodeComponent {
 
   private get blockConfiguration(): Record<string, any> | null {
     return this.data?.data?.specificConfiguration ?? null;
+  }
+
+  private loadBiasCapabilities() {
+    const blockType = this.blockType;
+    if (!blockType || this.isContainerNode()) return;
+    this.blocksService.retrieveBiasCapabilities(blockType).pipe(take(1)).subscribe({
+      next: (capabilities) => {
+        this.biasCapabilities = capabilities;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.biasCapabilities = null;
+        this.cdr.markForCheck();
+      }
+    });
   }
 
   private get blockType(): string | null {

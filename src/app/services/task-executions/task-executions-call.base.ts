@@ -1,4 +1,10 @@
 import { LLMDescriptor } from '@models/flow';
+import {
+  BiasImpactExperimentRequest,
+  BiasImpactJob,
+  BiasImpactReport,
+  BiasRerunRequest
+} from '@models/bias-impact';
 import { ExecutionEventLogEntry, TaskExecution, TaskExecutionGroup } from '@models/task-execution';
 import { Observable } from 'rxjs';
 
@@ -8,6 +14,20 @@ export abstract class TaskExecutionsCallServiceBase {
   abstract retrieveExecutionEvents(executionId: string): Observable<ExecutionEventLogEntry[]>;
   abstract createTaskExecution(flowId: string): Observable<TaskExecution>;
   abstract rerunTaskExecution(executionId: string): Observable<TaskExecution>;
+  abstract runBiasImpactExperiment(
+    executionId: string,
+    stepId: string,
+    request: BiasImpactExperimentRequest
+  ): Observable<BiasImpactJob>;
+  abstract getBiasImpactJob(jobId: string): Observable<BiasImpactJob>;
+  abstract createBiasedRerun(executionId: string, request: BiasRerunRequest): Observable<TaskExecution>;
+  abstract compareBiasExecutions(
+    baselineExecutionId: string,
+    biasedExecutionId: string,
+    includeRawOutputs: boolean
+  ): Observable<BiasImpactReport>;
+  abstract listBiasImpactReports(executionId: string): Observable<BiasImpactReport[]>;
+  abstract getBiasImpactReport(reportId: string): Observable<BiasImpactReport>;
   abstract deleteTaskExecution(executionId: string): Observable<void>;
   abstract startTaskExecution(executionId: string): Observable<TaskExecution>;
   abstract simulateTaskExecution(executionId: string, simulator: LLMDescriptor): Observable<TaskExecution>;

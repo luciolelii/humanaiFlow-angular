@@ -1,0 +1,34 @@
+<section class="json-viewer" [attr.aria-label]="label ?? 'JSON value'">
+  @if (label) {
+    <div class="json-viewer__label">{{ label }}</div>
+  }
+
+  <ng-template #renderValue let-value let-path="path">
+    @if (isExpandable(value)) {
+      <details class="json-viewer__group" [open]="isExpanded(path)" (toggle)="onToggle(path, $event)">
+        <summary>{{ summary(value) }}</summary>
+        <div class="json-viewer__children">
+          @if (isArray(value)) {
+            @for (item of value; track $index) {
+              <div class="json-viewer__entry">
+                <span class="json-viewer__key">[{{ $index }}]</span>
+                <ng-container *ngTemplateOutlet="renderValue; context: { $implicit: item, path: path + '[' + $index + ']' }" />
+              </div>
+            }
+          } @else if (isObject(value)) {
+            @for (entry of entries(value); track entry.key) {
+              <div class="json-viewer__entry">
+                <span class="json-viewer__key">{{ entry.key }}</span>
+                <ng-container *ngTemplateOutlet="renderValue; context: { $implicit: entry.value, path: path + '.' + entry.key }" />
+              </div>
+            }
+          }
+        </div>
+      </details>
+    } @else {
+      <code class="json-viewer__primitive">{{ formatPrimitive(value) }}</code>
+    }
+  </ng-template>
+
+  <ng-container *ngTemplateOutlet="renderValue; context: { $implicit: value, path: '$' }" />
+</section>

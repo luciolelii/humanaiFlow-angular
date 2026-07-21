@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, effect, ElementRef, HostBinding, HostListener, inject, Input, OnDestroy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { BiasAnnotation, BlockType, currentFlowPortValueKind, flowValueKindLabel, FlowData, FlowPort, FlowValueKind, FLOW_DEPENDANT_PORT_KEY, FLOW_DEPENDENCY_PORT_KEY, normalizeFlowPortValueKinds } from '@models/flow';
+import { BiasAnnotation, BlockType, currentFlowPortValueKind, flowValueKindLabel, FlowBlock, FlowData, FlowPort, FlowValueKind, FLOW_DEPENDANT_PORT_KEY, FLOW_DEPENDENCY_PORT_KEY, normalizeFlowPortValueKinds } from '@models/flow';
 import { BiasAnnotationsComponent } from '../../bias-annotations/bias-annotations';
 import { ClassicPreset } from 'rete';
 import { ReteModule } from 'rete-angular-plugin/21';
@@ -692,6 +692,24 @@ export class GenericNodeComponent implements OnDestroy {
     const nodeData = this.data?.data as Record<string, unknown> | undefined;
     const value = nodeData?.[this.biasAnnotationsProperty];
     return Array.isArray(value) ? value as BiasAnnotation[] : [];
+  }
+
+  get biasBlock(): FlowBlock | null {
+    const nodeData = this.data?.data as Record<string, unknown> | undefined;
+    const blockId = this.blockId;
+    const typeName = this.blockType;
+    if (!nodeData || !blockId || !typeName) return null;
+    return {
+      id: blockId,
+      name: this.name,
+      position: nodeData['position'] as { x: number; y: number } | undefined,
+      inputs: this.resolvePorts('input').map((port) => ({ ...port })),
+      outputs: this.resolvePorts('output').map((port) => ({ ...port })),
+      specificConfiguration: this.blockConfiguration ?? {},
+      typeName,
+      nodeFamily: 'block',
+      biasAnnotations: this.biasAnnotations
+    };
   }
 
   private get biasAnnotationsProperty(): string {

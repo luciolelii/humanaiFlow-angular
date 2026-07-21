@@ -1,0 +1,107 @@
+<section class="probe-editor">
+  <div class="probe-header">
+    <div>
+      <h4>Behavioral probe</h4>
+      <p>Optional controlled behavior used only by bias experiments.</p>
+    </div>
+  </div>
+
+  @if (loadingCapabilities) {
+  <div class="probe-state">Loading compatible activation modes…</div>
+  } @else if (capabilityError) {
+  <div class="probe-error">{{ capabilityError }}</div>
+  } @else if (capabilities && !supported) {
+  <div class="probe-state">This block can be annotated, but it does not support a bias experiment.</div>
+  } @else {
+  <label>
+    <span>Activation mode</span>
+    <select
+      [ngModel]="currentProbe.activationMode ?? ''"
+      [disabled]="readonly || !activationModes.length"
+      (ngModelChange)="selectActivationMode($event)">
+      <option value="">Select an activation mode</option>
+      @for (mode of activationModes; track mode) {
+      <option [value]="mode">{{ mode }}</option>
+      }
+    </select>
+  </label>
+
+  @if (currentProbe.activationMode === 'PROMPT_DIRECTIVE') {
+  <label>
+    <span>Experimental instruction</span>
+    <textarea [ngModel]="currentProbe.instruction ?? ''" [disabled]="readonly" rows="4" (ngModelChange)="setInstruction($event)"></textarea>
+  </label>
+  }
+
+  @if (currentProbe.activationMode === 'INPUT_TRANSFORMATION') {
+  <label>
+    <span>Transformation template</span>
+    <textarea [ngModel]="currentProbe.instruction ?? ''" [disabled]="readonly" rows="4" (ngModelChange)="setInstruction($event)"></textarea>
+    <small><code>$&#123;original&#125;</code> is the only placeholder. Without it, the instruction is prepended to the original value. Multiple inputs are transformed item by item.</small>
+  </label>
+  <fieldset [disabled]="readonly">
+    <legend>Target inputs <small>Leave all unchecked to target every textual input.</small></legend>
+    @for (input of block?.inputs ?? []; track input.name) {
+    <label class="probe-check">
+      <input type="checkbox" [checked]="selectedTargetInputs.includes(input.name)" (change)="toggleTargetInput(input.name, $any($event.target).checked)" />
+      <span>{{ input.name }} <small>{{ input.type }}{{ input.multiple ? ' · multiple' : '' }}</small></span>
+    </label>
+    }
+  </fieldset>
+  }
+
+  @if (currentProbe.activationMode === 'OUTPUT_TRANSFORMATION') {
+  <label>
+    <span>Transformation template</span>
+    <textarea [ngModel]="currentProbe.instruction ?? ''" [disabled]="readonly" rows="4" (ngModelChange)="setInstruction($event)"></textarea>
+    <small><code>$&#123;original&#125;</code> is the only placeholder. Without it, the instruction is prepended to the original value.</small>
+  </label>
+  }
+
+  @if (currentProbe.activationMode === 'ROUTING_OVERRIDE') {
+  <label>
+    <span>Forced output branch</span>
+    <select [ngModel]="currentProbe.instruction ?? ''" [disabled]="readonly" (ngModelChange)="setRoutingOutput($event)">
+      <option value="">Select an output branch</option>
+      @for (output of block?.outputs ?? []; track output.name) {
+      <option [value]="output.name">{{ output.name }}</option>
+      }
+    </select>
+  </label>
+  }
+
+  @if (isMockResponse) {
+  <div class="probe-note">Mock responses use typed output values. No new mock instruction text is saved.</div>
+  @if (currentProbe.instruction) {
+  <label>
+    <span>Legacy mock instruction</span>
+    <textarea [ngModel]="currentProbe.instruction" rows="2" readonly></textarea>
+    <small>Retained only to display annotations saved before typed mock outputs were introduced.</small>
+  </label>
+  }
+  <div class="mock-output-list">
+    @for (output of block?.outputs ?? []; track output.name) {
+    <label>
+      <span>{{ output.name }} <small>{{ output.type }}{{ output.multiple ? ' · multiple' : '' }}</small></span>
+      @if (output.type === 'BOOLEAN' && !output.multiple) {
+      <input type="checkbox" [checked]="mockBooleanValue(output)" [disabled]="readonly" (change)="setBooleanMockOutput(output, $any($event.target).checked)" />
+      } @else if (output.multiple || output.type === 'ANY') {
+      <textarea [ngModel]="mockValueText(output)" [disabled]="readonly" rows="3" placeholder="Valid JSON value" (ngModelChange)="setJsonMockOutput(output, $event)"></textarea>
+      } @else {
+      <input type="text" [ngModel]="mockValueText(output)" [disabled]="readonly" (ngModelChange)="setTextMockOutput(output, $event)" />
+      }
+      @if (mockValueErrors[output.name]) { <em>{{ mockValueErrors[output.name] }}</em> }
+    </label>
+    }
+  </div>
+  }
+
+  @if (currentProbe.activationMode) {
+  <label>
+    <span>Expected impact</span>
+    <textarea [ngModel]="currentProbe.expectedImpact ?? ''" [disabled]="readonly" rows="3" (ngModelChange)="setExpectedImpact($event)"></textarea>
+    <small>This describes the expected observation; it does not change the execution.</small>
+  </label>
+  }
+  }
+</section>

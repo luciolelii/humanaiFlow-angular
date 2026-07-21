@@ -1,7 +1,18 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { environment } from '@environment';
 import { LLMDescriptor } from '@models/flow';
+import {
+  BiasDownstreamImpactEntry,
+  BiasImpactExperimentRequest,
+  BiasImpactJob,
+  BiasImpactJobStatus,
+  BiasImpactReport,
+  BiasImpactReportKind,
+  BiasMockedSideEffect,
+  BiasRerunRequest,
+  BiasRoutingChangeEntry
+} from '@models/bias-impact';
 import { ExecutionEventLogEntry, TaskExecution, TaskExecutionGroup } from '@models/task-execution';
 import { map, Observable } from 'rxjs';
 import { TaskExecutionsCallServiceBase } from './task-executions-call.base';
@@ -35,6 +46,50 @@ export class TaskExecutionsCallService extends TaskExecutionsCallServiceBase {
     return this.http.post<unknown>(`${environment.apiUrl}/executions/${encodeURIComponent(executionId)}/rerun`, null).pipe(
       map((raw) => this.mapExecution(raw))
     );
+  }
+
+  override runBiasImpactExperiment(
+    executionId: string,
+    stepId: string,
+    request: BiasImpactExperimentRequest
+  ): Observable<BiasImpactJob> {
+    const url = `${environment.apiUrl}/executions/${encodeURIComponent(executionId)}/steps/${encodeURIComponent(stepId)}/bias-impact`;
+    return this.http.post<unknown>(url, request).pipe(map((raw) => this.biasImpactJobFromApi(raw)));
+  }
+
+  override getBiasImpactJob(jobId: string): Observable<BiasImpactJob> {
+    return this.http
+      .get<unknown>(`${environment.apiUrl}/executions/bias-impact-jobs/${encodeURIComponent(jobId)}`)
+      .pipe(map((raw) => this.biasImpactJobFromApi(raw)));
+  }
+
+  override createBiasedRerun(executionId: string, request: BiasRerunRequest): Observable<TaskExecution> {
+    return this.http
+      .post<unknown>(`${environment.apiUrl}/executions/${encodeURIComponent(executionId)}/bias-rerun`, request)
+      .pipe(map((raw) => this.mapExecution(raw)));
+  }
+
+  override compareBiasExecutions(
+    baselineExecutionId: string,
+    biasedExecutionId: string,
+    includeRawOutputs: boolean
+  ): Observable<BiasImpactReport> {
+    const url = `${environment.apiUrl}/executions/${encodeURIComponent(baselineExecutionId)}/bias-compare/${encodeURIComponent(biasedExecutionId)}`;
+    return this.http.post<unknown>(url, null, {
+      params: new HttpParams().set('includeRawOutputs', String(includeRawOutputs))
+    }).pipe(map((raw) => this.biasImpactReportFromApi(raw)));
+  }
+
+  override listBiasImpactReports(executionId: string): Observable<BiasImpactReport[]> {
+    return this.http
+      .get<unknown>(`${environment.apiUrl}/executions/${encodeURIComponent(executionId)}/bias-impact-reports`)
+      .pipe(map((raw) => Array.isArray(raw) ? raw.map((item) => this.biasImpactReportFromApi(item)) : []));
+  }
+
+  override getBiasImpactReport(reportId: string): Observable<BiasImpactReport> {
+    return this.http
+      .get<unknown>(`${environment.apiUrl}/executions/bias-impact-reports/${encodeURIComponent(reportId)}`)
+      .pipe(map((raw) => this.biasImpactReportFromApi(raw)));
   }
 
   override deleteTaskExecution(executionId: string): Observable<void> {
@@ -203,6 +258,114 @@ export class TaskExecutionsCallService extends TaskExecutionsCallServiceBase {
     };
   }
 
+  private biasImpactJobFromApi(raw: unknown): BiasImpactJob {
+    const value = this.toRecord(raw);
+    const status = this.toBiasImpactJobStatus(value['status']);
+    const rawReport = value['report'];
+    return {
+      id: String(value['id'] ?? ''),
+      status,
+      executionId: String(value['executionId'] ?? ''),
+      stepId: String(value['stepId'] ?? ''),
+      createdAt: String(value['createdAt'] ?? ''),
+      startedAt: this.toNullableString(value['startedAt']),
+      completedAt: this.toNullableString(value['completedAt']),
+      reportId: this.toNullableString(value['reportId']),
+      report: rawReport && typeof rawReport === 'object' ? this.biasImpactReportFromApi(rawReport) : null,
+      errorCode: this.toNullableString(value['errorCode']),
+      errorMessage: this.toNullableString(value['errorMessage']),
+      terminal: value['terminal'] === true || status === 'COMPLETED' || status === 'FAILED'
+    };
+  }
+
+  private biasImpactReportFromApi(raw: unknown): BiasImpactReport {
+    const value = this.toRecord(raw);
+    const immediate = this.toRecord(value['immediateImpact']);
+    return {
+      id: String(value['id'] ?? ''),
+      experimentId: String(value['experimentId'] ?? ''),
+      kind: this.toBiasImpactReportKind(value['kind']),
+      baselineExecutionId: String(value['baselineExecutionId'] ?? ''),
+      biasedExecutionId: this.toNullableString(value['biasedExecutionId']),
+      nodeId: this.toNullableString(value['nodeId']),
+      annotationIds: this.toStringArray(value['annotationIds']),
+      repetitions: this.toNumber(value['repetitions'], 0),
+      createdAt: String(value['createdAt'] ?? ''),
+      rawOutputsIncluded: value['rawOutputsIncluded'] === true,
+      immediateImpact: {
+        outputChanged: immediate['outputChanged'] === true,
+        maximumTextDifference: this.toNumber(immediate['maximumTextDifference'], 0),
+        changeRate: this.toNumber(immediate['changeRate'], 0),
+        baselineOutput: immediate['baselineOutput'] ?? {},
+        biasedOutputs: Array.isArray(immediate['biasedOutputs']) ? immediate['biasedOutputs'] : []
+      },
+      downstreamImpact: this.toDownstreamImpact(value['downstreamImpact']),
+      routingChanges: this.toRoutingChanges(value['routingChanges']),
+      mockedSideEffects: this.toMockedSideEffects(value['mockedSideEffects']),
+      summary: String(value['summary'] ?? ''),
+      warnings: this.toStringArray(value['warnings'])
+    };
+  }
+
+  private toDownstreamImpact(raw: unknown): BiasDownstreamImpactEntry[] {
+    if (!Array.isArray(raw)) return [];
+    return raw.map((item) => {
+      const value = this.toRecord(item);
+      return {
+        nodeId: String(value['nodeId'] ?? ''),
+        nodeName: String(value['nodeName'] ?? ''),
+        baselineStatus: String(value['baselineStatus'] ?? ''),
+        biasedStatus: String(value['biasedStatus'] ?? ''),
+        changed: value['changed'] === true,
+        baselineOutputs: value['baselineOutputs'] ?? {},
+        biasedOutputs: value['biasedOutputs'] ?? {}
+      };
+    });
+  }
+
+  private toRoutingChanges(raw: unknown): BiasRoutingChangeEntry[] {
+    if (!Array.isArray(raw)) return [];
+    return raw.map((item) => {
+      const value = this.toRecord(item);
+      return {
+        nodeId: String(value['nodeId'] ?? ''),
+        baselineBranch: String(value['baselineBranch'] ?? ''),
+        biasedBranch: String(value['biasedBranch'] ?? '')
+      };
+    });
+  }
+
+  private toMockedSideEffects(raw: unknown): BiasMockedSideEffect[] {
+    if (!Array.isArray(raw)) return [];
+    return raw.map((item) => {
+      const value = this.toRecord(item);
+      const kind = String(value['kind'] ?? 'EXTERNAL');
+      return {
+        nodeId: String(value['nodeId'] ?? ''),
+        nodeName: String(value['nodeName'] ?? ''),
+        kind: kind === 'HTTP' || kind === 'MCP_AGENT' || kind === 'MCP_AGENT_CHAT' ? kind : 'EXTERNAL'
+      };
+    });
+  }
+
+  private toBiasImpactJobStatus(value: unknown): BiasImpactJobStatus {
+    return value === 'RUNNING' || value === 'COMPLETED' || value === 'FAILED' ? value : 'QUEUED';
+  }
+
+  private toBiasImpactReportKind(value: unknown): BiasImpactReportKind {
+    return value === 'FULL_FLOW' ? value : 'ISOLATED_STEP';
+  }
+
+  private toStringArray(value: unknown): string[] {
+    return Array.isArray(value) ? value.map(String) : [];
+  }
+
+  private toRecord(value: unknown): Record<string, unknown> {
+    return value && typeof value === 'object' && !Array.isArray(value)
+      ? value as Record<string, unknown>
+      : {};
+  }
+
   private mapExecutionGroup(raw: unknown): TaskExecutionGroup {
     const group = (raw ?? {}) as Partial<TaskExecutionGroup> & Record<string, unknown>;
     const executions = Array.isArray(group['executions'])
@@ -262,6 +425,10 @@ export class TaskExecutionsCallService extends TaskExecutionsCallServiceBase {
 
   private toNonEmptyString(value: unknown): string | null {
     return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
+  }
+
+  private toNullableString(value: unknown): string | null {
+    return typeof value === 'string' && value.trim().length > 0 ? value : null;
   }
 
   private toTimestamp(value: unknown, fallback: number): number {

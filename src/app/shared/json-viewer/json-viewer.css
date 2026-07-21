@@ -1,0 +1,8 @@
+.json-viewer { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: .78rem; overflow: auto; }
+.json-viewer__label { color: #475569; font-family: inherit; font-weight: 700; margin-bottom: .35rem; }
+.json-viewer__group { min-width: max-content; }
+.json-viewer__group > summary { cursor: pointer; color: #1e40af; outline-offset: 2px; }
+.json-viewer__children { border-left: 1px solid #cbd5e1; margin: .3rem 0 .2rem .35rem; padding-left: .7rem; }
+.json-viewer__entry { align-items: flex-start; display: flex; gap: .45rem; line-height: 1.55; }
+.json-viewer__key { color: #7c3aed; white-space: nowrap; }
+.json-viewer__primitive { color: #0f172a; font-family: inherit; white-space: pre-wrap; word-break: break-word; }

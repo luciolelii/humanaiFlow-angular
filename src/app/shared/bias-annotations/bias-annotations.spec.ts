@@ -4,6 +4,7 @@ import { BiasAnnotationsDescriptor } from '@models/flow';
 import { BlocksService } from '@services/blocks/blocks';
 import { EditorStateHolder } from '@stores/flow-editor';
 import { vi } from 'vitest';
+import { of } from 'rxjs';
 import { BiasAnnotationsComponent } from './bias-annotations';
 
 const descriptor: BiasAnnotationsDescriptor = {
@@ -33,7 +34,22 @@ describe('BiasAnnotationsComponent', () => {
     await TestBed.configureTestingModule({
       imports: [BiasAnnotationsComponent],
       providers: [
-        { provide: BlocksService, useValue: { biasAnnotationsDescriptor: signal(descriptor) } },
+        {
+          provide: BlocksService,
+          useValue: {
+            biasAnnotationsDescriptor: signal(descriptor),
+            retrieveBiasCapabilities: () => of({
+              blockType: 'LLMBlock', supported: true, isolatedExperimentSupported: true,
+              fullFlowExperimentSupported: true, externalSideEffects: false,
+              configurationDependent: false, activationModes: ['PROMPT_DIRECTIVE']
+            }),
+            retrieveBiasCapabilitiesForInstance: () => of({
+              blockType: 'LLMBlock', supported: true, isolatedExperimentSupported: true,
+              fullFlowExperimentSupported: true, externalSideEffects: false,
+              configurationDependent: false, activationModes: ['PROMPT_DIRECTIVE']
+            })
+          }
+        },
         { provide: EditorStateHolder, useValue: { flowValidationErrors: validationErrors } }
       ]
     }).compileComponents();
@@ -92,5 +108,15 @@ describe('BiasAnnotationsComponent', () => {
     validationErrors.set([{ code: 'BIAS_CATEGORY_REQUIRED', id: 'block-1', field: 'biasAnnotations[0].category', message: 'Category required' }]);
     expect(component.serverError(0, 'category')).toBe('Category required');
     expect(component.serverError(1, 'category')).toBeNull();
+  });
+
+  it('maps typed mock-output probe errors to nested fields', () => {
+    validationErrors.set([{
+      code: 'BIAS_PROBE_MOCK_OUTPUT_TYPE_MISMATCH',
+      id: 'block-1',
+      field: 'biasAnnotations[0].behavioralProbe.mockOutputs.response',
+      message: 'Response must be text'
+    }]);
+    expect(component.serverError(0, 'behavioralProbe.mockOutputs.response')).toBe('Response must be text');
   });
 });

@@ -1,4 +1,5 @@
 import { BiasAnnotationsDescriptor, BlockType, FlowBlock } from "@models/flow";
+import { BiasCapabilities } from '@models/bias-impact';
 import { Observable, of } from "rxjs";
 import { BlockDraftContext, BlocksCallServiceBase } from "./block-call.base";
 
@@ -179,6 +180,20 @@ export class BlocksCallServiceFake extends BlocksCallServiceBase {
     });
   }
 
+  override retrieveBiasCapabilities(blockType: string): Observable<BiasCapabilities> {
+    return of(this.biasCapabilities(blockType, false));
+  }
+
+  override retrieveBiasCapabilitiesForInstance(blockType: string, block: FlowBlock): Observable<BiasCapabilities> {
+    const usesLlm = Boolean((block.specificConfiguration as Record<string, unknown>)['useLlm']);
+    return of({
+      ...this.biasCapabilities(blockType, true),
+      activationModes: usesLlm
+        ? ['PROMPT_DIRECTIVE', 'INPUT_TRANSFORMATION', 'OUTPUT_TRANSFORMATION']
+        : ['INPUT_TRANSFORMATION', 'OUTPUT_TRANSFORMATION']
+    });
+  }
+
   override createEmptyBlock(blockType: string, _context?: BlockDraftContext): Observable<FlowBlock> {
     const descriptor = this.blockTypes.find((b) => b.type === blockType);
     const typeName = descriptor?.type ?? blockType ?? "LLMBlock";
@@ -261,6 +276,28 @@ export class BlocksCallServiceFake extends BlocksCallServiceBase {
     }
 
     return sanitized;
+  }
+
+  private biasCapabilities(blockType: string, instanceSpecific: boolean): BiasCapabilities {
+    const configurationDependent = blockType === 'ConditionalBlock' || blockType === 'SwitchBlock';
+    const externalSideEffects = blockType === 'HTTPServerCallBlock'
+      || blockType === 'MCPAgentBlock'
+      || blockType === 'MCPAgentChatBlock';
+    const activationModes = externalSideEffects
+      ? ['MOCK_RESPONSE']
+      : configurationDependent && !instanceSpecific
+        ? ['INPUT_TRANSFORMATION', 'OUTPUT_TRANSFORMATION']
+        : ['PROMPT_DIRECTIVE', 'INPUT_TRANSFORMATION', 'OUTPUT_TRANSFORMATION'];
+
+    return {
+      blockType,
+      supported: activationModes.length > 0,
+      isolatedExperimentSupported: true,
+      fullFlowExperimentSupported: activationModes.length > 0,
+      externalSideEffects,
+      configurationDependent,
+      activationModes
+    };
   }
 
   private sanitizeSchemaValue(

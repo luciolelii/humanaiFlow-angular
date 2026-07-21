@@ -21,6 +21,8 @@
           <span class="bias-badge category">{{ optionLabel('category', annotation.category) }}</span>
           <span class="bias-badge severity">{{ optionLabel('severity', annotation.severity) }}</span>
           <span class="bias-badge status">{{ optionLabel('status', annotation.status) }}</span>
+          <span class="bias-badge source">{{ optionLabel('source', annotation.source) }}</span>
+          @if (probeExecutable(annotation)) { <span class="bias-badge probe">Executable probe</span> }
         </div>
         <div class="bias-issue">{{ annotation.issue }}</div>
         @if (serverError(index); as error) { <div class="bias-error">{{ error }}</div> }
@@ -62,6 +64,11 @@
         @if (clientErrors[field.key]; as error) { <em>{{ error }}</em> }
       </label>
       }
+      <app-behavioral-probe-editor
+        [block]="block"
+        [probe]="draft.behavioralProbe"
+        [readonly]="readonly"
+        (probeChange)="updateProbe($event)" />
     </div>
     <div class="bias-modal-actions">
       <button type="button" (click)="close($event)">Cancel</button>

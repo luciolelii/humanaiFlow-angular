@@ -1,8 +1,30 @@
 import { DestroyRef, inject, Injectable, signal } from '@angular/core';
 import { environment } from '@environment';
 import { LLMDescriptor } from '@models/flow';
+import {
+  BiasImpactExperimentRequest,
+  BiasImpactJob,
+  BiasImpactReport,
+  BiasRerunRequest,
+  BiasSideEffectError
+} from '@models/bias-impact';
 import { ExecutionEventLogEntry, getExecutionStatusGroup, TaskExecution, TaskExecutionGroup } from '@models/task-execution';
-import { catchError, finalize, Observable, tap, throwError } from 'rxjs';
+import {
+  catchError,
+  defer,
+  EMPTY,
+  expand,
+  filter,
+  finalize,
+  map,
+  Observable,
+  of,
+  switchMap,
+  tap,
+  throwError,
+  timeout,
+  timer
+} from 'rxjs';
 import { TaskExecutionsCallServiceBase } from './task-executions-call.base';
 
 @Injectable({
@@ -18,10 +40,14 @@ export class TaskExecutionsService {
   private _taskExecutions = signal<TaskExecution[]>([]);
   private _taskExecutionGroups = signal<TaskExecutionGroup[]>([]);
   private _pendingExecutionCreation = signal(false);
+  private _biasExperimentInProgress = signal(false);
+  private _biasRerunInProgress = signal(false);
 
   taskExecutions = this._taskExecutions.asReadonly();
   taskExecutionGroups = this._taskExecutionGroups.asReadonly();
   pendingExecutionCreation = this._pendingExecutionCreation.asReadonly();
+  biasExperimentInProgress = this._biasExperimentInProgress.asReadonly();
+  biasRerunInProgress = this._biasRerunInProgress.asReadonly();
 
   init() {
     if (this.initialized) return;
@@ -75,6 +101,86 @@ export class TaskExecutionsService {
         console.error('Rerun execution failed', err);
         return throwError(() => err);
       })
+    );
+  }
+
+  runBiasImpactExperiment(
+    executionId: string,
+    stepId: string,
+    request: BiasImpactExperimentRequest
+  ): Observable<BiasImpactJob> {
+    this._biasExperimentInProgress.set(true);
+    return this.taskExecutionsCallService.runBiasImpactExperiment(executionId, stepId, request).pipe(
+      finalize(() => this._biasExperimentInProgress.set(false)),
+      catchError((error) => throwError(() => this.toBiasOperationError(error)))
+    );
+  }
+
+  getBiasImpactJob(jobId: string): Observable<BiasImpactJob> {
+    return this.taskExecutionsCallService.getBiasImpactJob(jobId).pipe(
+      catchError((error) => throwError(() => this.toBiasOperationError(error)))
+    );
+  }
+
+  pollBiasImpactJob(jobId: string): Observable<BiasImpactJob> {
+    type PollState = { job: BiasImpactJob | null; failures: number };
+    const poll = (failures: number): Observable<PollState> => this.getBiasImpactJob(jobId).pipe(
+      timeout({ first: 15_000 }),
+      map((job) => ({ job, failures: 0 })),
+      catchError((error) => {
+        if (!this.isRetryablePollingError(error)) {
+          return throwError(() => error);
+        }
+        console.warn('Bias impact job polling request failed; retrying', error);
+        return of({ job: null, failures: failures + 1 });
+      })
+    );
+
+    return defer(() => poll(0)).pipe(
+      expand((state) => {
+        if (state.job?.terminal) return EMPTY;
+        const delay = state.job
+          ? 1_500
+          : Math.min(5_000, 1_500 * (2 ** Math.min(state.failures, 2)));
+        return timer(delay).pipe(switchMap(() => poll(state.failures)));
+      }),
+      filter((state): state is { job: BiasImpactJob; failures: number } => state.job !== null),
+      map((state) => state.job)
+    );
+  }
+
+  createBiasedRerun(executionId: string, request: BiasRerunRequest): Observable<TaskExecution> {
+    this._biasRerunInProgress.set(true);
+    this._pendingExecutionCreation.set(true);
+    return this.taskExecutionsCallService.createBiasedRerun(executionId, request).pipe(
+      tap(() => this.refresh()),
+      finalize(() => {
+        this._pendingExecutionCreation.set(false);
+        this._biasRerunInProgress.set(false);
+      }),
+      catchError((error) => throwError(() => this.toBiasOperationError(error)))
+    );
+  }
+
+  compareBiasExecutions(
+    baselineExecutionId: string,
+    biasedExecutionId: string,
+    includeRawOutputs: boolean
+  ): Observable<BiasImpactReport> {
+    return this.taskExecutionsCallService
+      .compareBiasExecutions(baselineExecutionId, biasedExecutionId, includeRawOutputs)
+      .pipe(catchError((error) => throwError(() => this.toBiasOperationError(error))));
+  }
+
+  listBiasImpactReports(executionId: string): Observable<BiasImpactReport[]> {
+    return this.taskExecutionsCallService.listBiasImpactReports(executionId).pipe(
+      catchError((error) => throwError(() => this.toBiasOperationError(error)))
+    );
+  }
+
+  getBiasImpactReport(reportId: string): Observable<BiasImpactReport> {
+    return this.taskExecutionsCallService.getBiasImpactReport(reportId).pipe(
+      catchError((error) => throwError(() => this.toBiasOperationError(error)))
     );
   }
 
@@ -244,5 +350,46 @@ export class TaskExecutionsService {
         return throwError(() => err);
       })
     );
+  }
+
+  private toBiasOperationError(error: unknown): unknown {
+    const response = error as { status?: unknown; error?: unknown };
+    if (response?.status !== 409 || !response.error || typeof response.error !== 'object') {
+      return error;
+    }
+
+    const body = response.error as Record<string, unknown>;
+    const errors = Array.isArray(body['errors']) ? body['errors'] : [];
+    const first = errors[0];
+    if (!first || typeof first !== 'object') return error;
+    const record = first as Record<string, unknown>;
+    const code = record['code'];
+    const message = typeof record['message'] === 'string'
+      ? record['message']
+      : typeof body['detail'] === 'string' ? body['detail'] : 'Bias experiment request was rejected';
+
+    if (code === 'BIAS_SIDE_EFFECT_BLOCKED') {
+      const mapped: BiasSideEffectError = {
+        reason: 'SIDE_EFFECT_BLOCKED',
+        code,
+        message
+      };
+      return mapped;
+    }
+    if (code === 'BIAS_SIDE_EFFECT_CONFIRMATION_REQUIRED') {
+      const mapped: BiasSideEffectError = {
+        reason: 'CONFIRMATION_REQUIRED',
+        code,
+        message
+      };
+      return mapped;
+    }
+    return error;
+  }
+
+  private isRetryablePollingError(error: unknown): boolean {
+    const value = error as { status?: unknown; name?: unknown };
+    const status = typeof value?.status === 'number' ? value.status : null;
+    return value?.name === 'TimeoutError' || status === 0 || (status != null && status >= 500);
   }
 }

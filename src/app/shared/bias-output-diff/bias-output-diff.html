@@ -1,0 +1,26 @@
+<section class="bias-output-diff" aria-label="Output comparison">
+  <div class="bias-output-diff__column bias-output-diff__baseline">
+    <h4>{{ baselineLabel }}</h4>
+    @if (isText(baselineOutput)) {
+      <pre>{{ baselineOutput }}</pre>
+    } @else {
+      <app-json-viewer [value]="baselineOutput" />
+    }
+  </div>
+
+  <div class="bias-output-diff__variants">
+    @if (biasedOutputs.length === 0) {
+      <p class="bias-output-diff__empty">No biased output is available.</p>
+    }
+    @for (output of biasedOutputs; track $index) {
+      <div class="bias-output-diff__column bias-output-diff__biased">
+        <h4>{{ variantLabel }}{{ biasedOutputs.length > 1 ? ' ' + ($index + 1) : '' }}</h4>
+        @if (isText(output)) {
+          <pre>{{ output }}</pre>
+        } @else {
+          <app-json-viewer [value]="output" />
+        }
+      </div>
+    }
+  </div>
+</section>

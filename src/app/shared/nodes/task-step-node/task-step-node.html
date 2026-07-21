@@ -59,6 +59,17 @@
         <span class="llm-subtitle">{{ name }}</span>
       </div>
     </div>
+    @if (canMeasureBiasImpact()) {
+    <button
+      type="button"
+      class="llm-bias-impact-trigger"
+      aria-label="Measure bias impact"
+      title="Measure bias impact"
+      (pointerdown)="$event.stopPropagation()"
+      (click)="measureBiasImpact($event)">
+      <i class="bi bi-bar-chart-line"></i>
+    </button>
+    }
   </div>
 
   <div class="llm-body">

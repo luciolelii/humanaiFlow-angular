@@ -1,0 +1,15 @@
+:host { display: block; }
+.probe-editor { display: grid; gap: 12px; padding: 12px; border: 1px solid #cbd5e1; border-radius: 9px; background: #f8fafc; }
+.probe-header h4 { margin: 0; font-size: 13px; }
+.probe-header p, small { margin: 3px 0 0; color: #64748b; font-size: 11px; font-weight: 400; }
+label { display: grid; gap: 5px; font-size: 12px; font-weight: 650; }
+input[type='text'], select, textarea { width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 7px; padding: 8px; font: inherit; font-weight: 400; background: white; }
+textarea { resize: vertical; }
+fieldset { display: grid; gap: 5px; border: 1px solid #dbe3ee; border-radius: 7px; padding: 8px; }
+legend { padding: 0 4px; font-size: 12px; font-weight: 650; }
+.probe-check { display: flex; align-items: center; gap: 6px; font-weight: 400; }
+.probe-check input { margin: 0; }
+.probe-state, .probe-note { border-radius: 7px; padding: 8px; background: #e0f2fe; color: #075985; font-size: 12px; }
+.probe-error, em { color: #b91c1c; font-size: 11px; font-style: normal; }
+.mock-output-list { display: grid; gap: 8px; }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }

@@ -512,6 +512,7 @@
 
   <app-bias-annotations
     [blockId]="blockId ?? ''"
+    [block]="biasBlock"
     [annotations]="biasAnnotations"
     [readonly]="isReadonly"
     (annotationsChange)="updateBiasAnnotations($event)" />

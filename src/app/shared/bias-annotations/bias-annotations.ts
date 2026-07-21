@@ -1,9 +1,19 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { BiasAnnotation, BiasAnnotationOption, BiasAnnotationsDescriptor, FlowValidationError } from '@models/flow';
+import {
+  BiasAnnotation,
+  BiasAnnotationOption,
+  BiasAnnotationsDescriptor,
+  BehavioralProbe,
+  FlowBlock,
+  FlowValidationError,
+  isProbeExecutable
+} from '@models/flow';
+import { BIAS_PROBE_ERROR_CODES } from '@models/bias-impact';
 import { BlocksService } from '@services/blocks/blocks';
 import { EditorStateHolder } from '@stores/flow-editor';
+import { BehavioralProbeEditorComponent } from '@shared/behavioral-probe-editor/behavioral-probe-editor';
 
 type BiasField = {
   key: string;
@@ -18,13 +28,14 @@ type BiasField = {
 
 const BIAS_ERROR_CODES = new Set([
   'TOO_MANY_BIAS_ANNOTATIONS', 'NULL_BIAS_ANNOTATION', 'DUPLICATE_BIAS_ANNOTATION_ID',
-  'BIAS_CATEGORY_REQUIRED', 'BIAS_SEVERITY_REQUIRED', 'BIAS_ISSUE_REQUIRED', 'BIAS_FIELD_TOO_LONG'
+  'BIAS_CATEGORY_REQUIRED', 'BIAS_SEVERITY_REQUIRED', 'BIAS_ISSUE_REQUIRED', 'BIAS_FIELD_TOO_LONG',
+  ...BIAS_PROBE_ERROR_CODES
 ]);
 
 @Component({
   selector: 'app-bias-annotations',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, BehavioralProbeEditorComponent],
   templateUrl: './bias-annotations.html',
   styleUrl: './bias-annotations.css',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -34,6 +45,7 @@ export class BiasAnnotationsComponent {
   private readonly editorState = inject(EditorStateHolder);
 
   @Input({ required: true }) blockId = '';
+  @Input() block: FlowBlock | null = null;
   @Input() annotations: BiasAnnotation[] = [];
   @Input() readonly = false;
   @Output() annotationsChange = new EventEmitter<BiasAnnotation[]>();
@@ -62,6 +74,7 @@ export class BiasAnnotationsComponent {
 
     return Object.entries(properties)
       .filter(([key]) => !generated.has(key))
+      .filter(([key]) => key !== 'behavioralProbe')
       .map(([key, raw]) => {
         const field = this.record(raw);
         const maxLength = Number(field['maxLength']);
@@ -150,6 +163,14 @@ export class BiasAnnotationsComponent {
   optionDescription(field: BiasField): string | null {
     const value = this.draft[field.key];
     return field.options.find((option) => option.value === value)?.description ?? field.description ?? null;
+  }
+
+  probeExecutable(annotation: BiasAnnotation): boolean {
+    return isProbeExecutable(annotation.behavioralProbe);
+  }
+
+  updateProbe(probe: BehavioralProbe | undefined) {
+    this.draft = { ...this.draft, behavioralProbe: probe };
   }
 
   valueLength(field: string): number {

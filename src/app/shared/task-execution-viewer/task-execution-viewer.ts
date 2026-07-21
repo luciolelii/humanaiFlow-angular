@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, effect, ElementRef, inject, input, OnDestroy, signal, viewChild } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -11,7 +12,7 @@ import {
   FlowData,
   LLMDescriptor,
   FlowNode,
-  FlowNodeDependency,
+  FlowNodeDependency, isProbeExecutable,
   normalizeFlowPortValueKinds
 } from '@models/flow';
 import {
@@ -35,6 +36,8 @@ import { NodeSettingField, NodeSettingsDialogService } from '@services/dialogs/n
 import { FieldRetriever } from '@services/retriever/field-retriever';
 import { TaskExecutionsService } from '@services/task-executions/task-executions';
 import { ContainersService } from '@services/containers/containers';
+import { BlocksService } from '@services/blocks/blocks';
+import { BiasRerunDialogService, BiasRerunCandidate } from '@services/dialogs/bias-rerun-dialog';
 import { firstValueFrom } from 'rxjs';
 import {
   ExecutionOutputEntry,
@@ -79,6 +82,10 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   private settingsDialog = inject(NodeSettingsDialogService);
   private fieldRetriever = inject(FieldRetriever);
   private containersService = inject(ContainersService);
+  private blocksService = inject(BlocksService);
+  private biasRerunDialog = inject(BiasRerunDialogService);
+  private router = inject(Router);
+  private route = inject(ActivatedRoute);
   private lastExecutionId: string | null = null;
   private lastExecutionStatus: string | null = null;
   private static readonly SIMULATOR_PROVIDER_RETRIEVER_URL = '/retriever/LLM/providers';
@@ -88,6 +95,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   readonly activeAsideTab = signal<'inputs' | 'intermediate' | 'logs' | 'output'>('inputs');
   readonly startInProgress = signal(false);
   readonly simulateInProgress = signal(false);
+  readonly biasRerunOpening = signal(false);
   readonly cancelInProgress = signal(false);
   readonly resumeInProgress = signal(false);
   readonly savingInputs = signal<Record<string, boolean>>({});
@@ -404,6 +412,10 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   });
 
   readonly isSimulatedExecution = computed(() => this.execution()?.interactionSimulationEnabled === true);
+  readonly isBiasVariant = computed(() => !!this.execution()?.biasExecutionContext);
+  readonly canCreateBiasedRerun = computed(() =>
+    getExecutionStatusGroup(this.execution()?.context.status) === 'FINAL' && !this.biasRerunOpening()
+  );
   readonly simulationDescriptorLabel = computed(() => {
     const descriptor = this.execution()?.interactionSimulationDescriptor;
     if (!descriptor) return null;
@@ -582,6 +594,30 @@ export class TaskExecutionViewerComponent implements OnDestroy {
       next: () => this.resumeInProgress.set(false),
       error: () => this.resumeInProgress.set(false)
     });
+  }
+
+  async openBiasedRerunDialog() {
+    const execution = this.execution();
+    if (!execution || !this.canCreateBiasedRerun()) return;
+    this.biasRerunOpening.set(true);
+    try {
+      const candidates = await this.biasRerunCandidates();
+      if (!candidates.length) return;
+      this.biasRerunDialog.open({
+        executionId: execution.id,
+        candidates,
+        onCreated: (variant) => {
+          void this.router.navigate([], {
+            relativeTo: this.route,
+            queryParams: { executionId: variant.id },
+            queryParamsHandling: 'merge',
+            replaceUrl: true
+          });
+        }
+      });
+    } finally {
+      this.biasRerunOpening.set(false);
+    }
   }
 
   onTextInputChange(input: EditableExecutionInput, value: string | string[]) {
@@ -957,6 +993,28 @@ export class TaskExecutionViewerComponent implements OnDestroy {
 
   private hasIncomingDependency(stepId: string): boolean {
     return (this.execution()?.stepDependencies ?? []).some((dependency) => String(dependency.targetId) === stepId);
+  }
+
+  private async biasRerunCandidates(): Promise<BiasRerunCandidate[]> {
+    const candidates = this.stepsArray().flatMap((step): Array<{ nodeId: string; nodeName: string; block: FlowBlock }> => {
+      const node = getTaskExecutionStepNode(step);
+      if (!node || node.nodeFamily === 'container') return [];
+      const block = node as FlowBlock;
+      const annotations = (block.biasAnnotations ?? []).filter((annotation) => isProbeExecutable(annotation.behavioralProbe));
+      return annotations.length ? [{ nodeId: step.id, nodeName: block.name || step.id, block: { ...block, biasAnnotations: annotations } }] : [];
+    });
+
+    const resolved = await Promise.all(candidates.map(async (candidate) => {
+      const capabilities = await firstValueFrom(this.blocksService.retrieveBiasCapabilities(candidate.block.typeName));
+      if (!capabilities.fullFlowExperimentSupported) return null;
+      return {
+        nodeId: candidate.nodeId,
+        nodeName: candidate.nodeName,
+        annotations: candidate.block.biasAnnotations ?? [],
+        capabilities
+      } satisfies BiasRerunCandidate;
+    }));
+    return resolved.filter((candidate): candidate is BiasRerunCandidate => candidate !== null);
   }
 
   private hasOutgoingDependency(stepId: string): boolean {

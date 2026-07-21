@@ -1,0 +1,21 @@
+.bias-impact-report { color: #1e293b; display: grid; gap: 1rem; }
+.bias-impact-report__header, .bias-impact-report__section-heading, .bias-impact-report__node-heading, .bias-impact-report__routing { align-items: center; display: flex; gap: .65rem; justify-content: space-between; }
+.bias-impact-report__header h3, .bias-impact-report__section h4 { margin: 0; }
+.bias-impact-report__header time { color: #64748b; font-size: .84rem; }
+.bias-impact-report__kind { background: #e0e7ff; border-radius: 999px; color: #3730a3; font-size: .72rem; font-weight: 700; padding: .2rem .5rem; }
+.bias-impact-report__metadata { display: grid; gap: .55rem; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin: 0; }
+.bias-impact-report__metadata div { background: #f8fafc; border-radius: .4rem; padding: .55rem; }
+dt { color: #64748b; font-size: .73rem; } dd { font-size: .82rem; margin: .15rem 0 0; overflow-wrap: anywhere; }
+.bias-impact-report__summary { background: #eff6ff; border-left: 3px solid #2563eb; margin: 0; padding: .6rem .75rem; }
+.bias-impact-report__section { border-top: 1px solid #e2e8f0; padding-top: .9rem; }
+.bias-impact-report__metrics { display: flex; flex-wrap: wrap; gap: .5rem 1.2rem; font-size: .86rem; margin: .6rem 0; }
+.bias-impact-report__empty { color: #64748b; font-size: .87rem; }
+.bias-impact-report__downstream { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: .45rem; margin-top: .7rem; padding: .7rem; }
+.bias-impact-report__node-heading { justify-content: flex-start; } .bias-impact-report__node-heading span { color: #64748b; font-size: .8rem; } .bias-impact-report__node-heading span.changed { color: #b45309; font-weight: 700; }
+.bias-impact-report__downstream p { font-size: .84rem; margin: .5rem 0; }
+.bias-impact-report__routing { border-bottom: 1px solid #f1f5f9; font-size: .86rem; padding: .45rem 0; justify-content: flex-start; }
+.bias-impact-report__side-effects { margin: .55rem 0 0; padding-left: 1.2rem; } .bias-impact-report__side-effects li { margin: .3rem 0; } .bias-impact-report__side-effects span { color: #7c3aed; font-size: .78rem; font-weight: 700; }
+.bias-impact-report__notice { background: #fffbeb; border-left: 3px solid #f59e0b; font-size: .84rem; margin: 0; padding: .6rem .75rem; }
+.bias-impact-report__warnings { background: #fff7ed; border: 1px solid #fed7aa; border-radius: .45rem; padding: .8rem; }
+code { font-size: .78rem; overflow-wrap: anywhere; }
+@media (max-width: 700px) { .bias-impact-report__header, .bias-impact-report__section-heading { align-items: flex-start; flex-direction: column; } }

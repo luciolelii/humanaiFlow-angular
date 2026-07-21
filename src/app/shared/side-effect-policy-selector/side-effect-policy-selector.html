@@ -1,0 +1,10 @@
+<section class="side-effect-policy-selector">
+  <h4>External side effects</h4>
+  @if (externalSideEffects) {
+    <p class="side-effect-policy-selector__warning">This block can invoke external services. Choose how the experiment handles those calls.</p>
+  }
+  <label><input type="radio" name="side-effect-policy" [checked]="policy === 'BLOCK'" [disabled]="disabled" (change)="select('BLOCK')"> Block external calls</label>
+  <label><input type="radio" name="side-effect-policy" [checked]="policy === 'MOCK'" [disabled]="disabled" (change)="select('MOCK')"> Mock external calls</label>
+  <label><input type="radio" name="side-effect-policy" [checked]="policy === 'REQUIRE_CONFIRMATION'" [disabled]="disabled" (change)="select('REQUIRE_CONFIRMATION')"> Allow after confirmation</label>
+  @if (policy === 'MOCK') { <p class="side-effect-policy-selector__note">HTTP and MCP calls will not be invoked for real.</p> }
+</section>

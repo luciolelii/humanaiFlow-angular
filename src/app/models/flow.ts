@@ -86,6 +86,32 @@ export type FlowNodeBase = {
   nodeFamily?: NodeFamily;
 };
 
+export type BiasActivationMode =
+  | 'PROMPT_DIRECTIVE'
+  | 'INPUT_TRANSFORMATION'
+  | 'OUTPUT_TRANSFORMATION'
+  | 'ROUTING_OVERRIDE'
+  | 'MOCK_RESPONSE'
+  | string;
+
+export type BehavioralProbe = {
+  activationMode?: BiasActivationMode;
+  instruction?: string;
+  targetInputs?: string[];
+  expectedImpact?: string;
+  mockOutputs?: Record<string, unknown>;
+};
+
+export function isProbeExecutable(probe: BehavioralProbe | null | undefined): boolean {
+  if (!probe?.activationMode) return false;
+
+  if (probe.activationMode === 'MOCK_RESPONSE') {
+    return !!probe.mockOutputs && Object.keys(probe.mockOutputs).length > 0;
+  }
+
+  return typeof probe.instruction === 'string' && probe.instruction.trim().length > 0;
+}
+
 export type BiasAnnotation = Record<string, unknown> & {
   id?: string;
   category?: string;
@@ -96,6 +122,7 @@ export type BiasAnnotation = Record<string, unknown> & {
   status?: string;
   source?: string;
   analysisId?: string;
+  behavioralProbe?: BehavioralProbe;
 };
 
 export type BiasAnnotationOption = {

@@ -1,0 +1,18 @@
+@if (state(); as currentState) {
+  <div class="bias-rerun-dialog__backdrop" (click)="close()"></div>
+  <section class="bias-rerun-dialog" role="dialog" aria-modal="true" aria-label="Create biased rerun">
+    <header><div><h3>Create biased rerun</h3><p>Select the executable annotations to activate for the full flow.</p></div><button type="button" mat-stroked-button (click)="close()">Close</button></header>
+    <div class="bias-rerun-dialog__content">
+      @for (candidate of currentState.candidates; track candidate.nodeId) {
+        <fieldset [disabled]="creating()"><legend>{{ candidate.nodeName }}</legend>
+          @for (annotation of candidate.annotations; track annotation.id) {
+            <label><input type="checkbox" [checked]="selectedIds(candidate.nodeId).includes($any(annotation.id))" (change)="toggleAnnotation(candidate.nodeId, $any(annotation.id), $any($event.target).checked)"> {{ annotation.category || 'Uncategorized' }} — {{ annotation.issue || annotation.rationale || annotation.id }}</label>
+          }
+        </fieldset>
+      }
+      <app-side-effect-policy-selector [policy]="policy()" [externalSideEffects]="hasExternalSideEffects()" [disabled]="creating()" (policyChange)="policy.set($event)" />
+      @if (inlineError(); as error) { <p class="bias-rerun-dialog__error">{{ error }}</p> }
+    </div>
+    <footer><button type="button" mat-stroked-button (click)="close()">Cancel</button><button type="button" mat-flat-button [disabled]="creating()" (click)="submit()">{{ creating() ? 'Creating…' : 'Create biased rerun' }}</button></footer>
+  </section>
+}

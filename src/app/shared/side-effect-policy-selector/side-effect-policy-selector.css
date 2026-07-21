@@ -1,0 +1,5 @@
+.side-effect-policy-selector { display: grid; gap: .45rem; }
+.side-effect-policy-selector h4 { font-size: .9rem; margin: 0; }
+.side-effect-policy-selector label { color: #334155; font-size: .86rem; }
+.side-effect-policy-selector__warning { background: #fff7ed; border-left: 3px solid #f97316; color: #9a3412; font-size: .84rem; margin: 0; padding: .55rem .65rem; }
+.side-effect-policy-selector__note { color: #0369a1; font-size: .82rem; margin: 0; }

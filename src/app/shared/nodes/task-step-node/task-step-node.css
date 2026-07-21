@@ -616,3 +616,17 @@
   white-space: pre-wrap;
   word-break: break-word;
 }
+.llm-bias-impact-trigger {
+  align-items: center;
+  background: #eff6ff;
+  border: 1px solid #93c5fd;
+  border-radius: .35rem;
+  color: #1d4ed8;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: .9rem;
+  justify-content: center;
+  margin-left: auto;
+  padding: .3rem .4rem;
+}
+.llm-bias-impact-trigger:hover { background: #dbeafe; }

@@ -11,6 +11,14 @@
           @if (simulationDescriptorLabel(); as simulationDescriptor) {
           <p class="text-xs text-sky-900">Simulator: {{ simulationDescriptor }}</p>
           }
+          @if (execution()!.biasExecutionContext; as biasContext) {
+          <div class="execution-bias-variant-context">
+            <strong>Bias variant</strong>
+            <span>Experiment: {{ biasContext.experimentId }}</span>
+            <span>Baseline: {{ execution()!.rerunOfExecutionId || 'not available' }}</span>
+            <span>Active annotations: {{ biasContext.activeAnnotationIdsByNode | json }}</span>
+          </div>
+          }
           }
         </div>
       </div>
@@ -92,6 +100,15 @@
               <mat-icon fontIcon="science"></mat-icon>
             </button>
             }
+            <button
+              type="button"
+              class="execution-action-button execution-graph-action-button execution-action-button-bias"
+              matTooltip="Create biased rerun"
+              aria-label="Create biased rerun"
+              [disabled]="!canCreateBiasedRerun()"
+              (click)="openBiasedRerunDialog()">
+              <mat-icon fontIcon="account_tree"></mat-icon>
+            </button>
           </div>
           <app-rete-editor
             [flowId]="execution()!.id"

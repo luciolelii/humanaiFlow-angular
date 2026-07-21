@@ -1,8 +1,9 @@
 import { computed, Injectable, signal } from '@angular/core';
 import { environment } from '@environment';
 import { BiasAnnotationsDescriptor, BlockType, BlockTypeName, FlowBlock } from '@models/flow';
+import { BiasCapabilities } from '@models/bias-impact';
 import { BlockDraftContext, BlocksCallServiceBase } from './block-call.base';
-import { catchError, finalize, firstValueFrom, map, Observable, of, shareReplay, throwError } from 'rxjs';
+import { catchError, finalize, firstValueFrom, map, Observable, of, shareReplay, tap, throwError } from 'rxjs';
 
 @Injectable({
   providedIn: 'root',
@@ -19,11 +20,13 @@ export class BlocksService {
 
   private _blockTypes = signal<BlockType[]>([]);
   private readonly _biasAnnotationsDescriptor = signal<BiasAnnotationsDescriptor | null>(null);
+  private readonly _biasCapabilities = signal<Record<string, BiasCapabilities>>({});
   private biasDescriptorPromise: Promise<BiasAnnotationsDescriptor> | null = null;
   readonly hasPendingServerSync = computed(() => this.pendingServerSyncCount() > 0);
   readonly blockTypes = this._blockTypes.asReadonly();
   readonly catalogLoading = this._catalogLoading.asReadonly();
   readonly biasAnnotationsDescriptor = this._biasAnnotationsDescriptor.asReadonly();
+  readonly biasCapabilities = this._biasCapabilities.asReadonly();
 
   async getBiasAnnotationsDescriptor(force = false): Promise<BiasAnnotationsDescriptor> {
     const cached = this._biasAnnotationsDescriptor();
@@ -37,6 +40,21 @@ export class BlocksService {
       })
       .finally(() => { this.biasDescriptorPromise = null; });
     return this.biasDescriptorPromise;
+  }
+
+  retrieveBiasCapabilities(blockType: string, force = false): Observable<BiasCapabilities> {
+    const cached = this._biasCapabilities()[blockType];
+    if (cached && !force) return of(cached);
+
+    return this.blocksCallService.retrieveBiasCapabilities(blockType).pipe(
+      tap((capabilities) => {
+        this._biasCapabilities.update((current) => ({ ...current, [blockType]: capabilities }));
+      })
+    );
+  }
+
+  retrieveBiasCapabilitiesForInstance(blockType: string, block: FlowBlock): Observable<BiasCapabilities> {
+    return this.blocksCallService.retrieveBiasCapabilitiesForInstance(blockType, block);
   }
 
   hasLoadedBlockTypes() {

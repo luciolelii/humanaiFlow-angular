@@ -1,4 +1,5 @@
-import { BiasAnnotationOption, BiasAnnotationsDescriptor, BlockType, FlowBlock } from "@models/flow";
+import { BiasActivationMode, BiasAnnotationOption, BiasAnnotationsDescriptor, BlockType, FlowBlock } from "@models/flow";
+import { BiasCapabilities } from '@models/bias-impact';
 import { HttpClient, HttpParams } from "@angular/common/http";
 import { inject } from "@angular/core";
 import { environment } from "@environment";
@@ -8,6 +9,7 @@ import { BlockDraftContext, BlocksCallServiceBase } from "./block-call.base";
 export class BlocksCallService extends BlocksCallServiceBase {
   private readonly http = inject(HttpClient);
   private blockTypesCache: BlockType[] | null = null;
+  private readonly biasCapabilitiesCache = new Map<string, BiasCapabilities>();
 
   override retrieveAllBlocksTypes(): Observable<BlockType[]> {
     return this.http
@@ -25,6 +27,30 @@ export class BlocksCallService extends BlocksCallServiceBase {
     return this.http
       .get<unknown>(`${environment.apiUrl}/blocks/bias-annotations/descriptor`)
       .pipe(map((raw) => this.biasAnnotationsDescriptorFromApi(raw)));
+  }
+
+  override retrieveBiasCapabilities(blockType: string): Observable<BiasCapabilities> {
+    const cached = this.biasCapabilitiesCache.get(blockType);
+    if (cached) return of(cached);
+
+    return this.http
+      .get<unknown>(`${environment.apiUrl}/blocks/types/${encodeURIComponent(blockType)}/bias-capabilities`)
+      .pipe(
+        map((raw) => this.biasCapabilitiesFromApi(raw, blockType)),
+        map((capabilities) => {
+          this.biasCapabilitiesCache.set(blockType, capabilities);
+          return capabilities;
+        })
+      );
+  }
+
+  override retrieveBiasCapabilitiesForInstance(blockType: string, block: FlowBlock): Observable<BiasCapabilities> {
+    return this.http
+      .post<unknown>(
+        `${environment.apiUrl}/blocks/types/${encodeURIComponent(blockType)}/bias-capabilities`,
+        block
+      )
+      .pipe(map((raw) => this.biasCapabilitiesFromApi(raw, blockType)));
   }
 
   override createEmptyBlock(blockType: string, context?: BlockDraftContext): Observable<FlowBlock> {
@@ -183,6 +209,25 @@ export class BlocksCallService extends BlocksCallServiceBase {
       serverGeneratedFields: Array.isArray(value["serverGeneratedFields"])
         ? value["serverGeneratedFields"].map(String)
         : []
+    };
+  }
+
+  private biasCapabilitiesFromApi(raw: unknown, fallbackBlockType: string): BiasCapabilities {
+    const value = this.toRecord(raw);
+    const activationModes = Array.isArray(value['activationModes'])
+      ? value['activationModes']
+        .filter((mode): mode is string => typeof mode === 'string')
+        .map((mode) => mode as BiasActivationMode)
+      : [];
+
+    return {
+      blockType: String(value['blockType'] ?? fallbackBlockType),
+      supported: value['supported'] === true,
+      isolatedExperimentSupported: value['isolatedExperimentSupported'] === true,
+      fullFlowExperimentSupported: value['fullFlowExperimentSupported'] === true,
+      externalSideEffects: value['externalSideEffects'] === true,
+      configurationDependent: value['configurationDependent'] === true,
+      activationModes
     };
   }
 

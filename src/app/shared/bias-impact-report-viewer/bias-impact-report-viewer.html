@@ -1,0 +1,89 @@
+@if (report; as currentReport) {
+  <article class="bias-impact-report">
+    <header class="bias-impact-report__header">
+      <div>
+        <span class="bias-impact-report__kind">{{ currentReport.kind }}</span>
+        <h3>Bias impact report</h3>
+      </div>
+      <time [attr.datetime]="currentReport.createdAt">{{ currentReport.createdAt | date:'medium' }}</time>
+    </header>
+
+    <dl class="bias-impact-report__metadata">
+      <div><dt>Baseline execution</dt><dd>{{ currentReport.baselineExecutionId }}</dd></div>
+      @if (currentReport.biasedExecutionId) { <div><dt>Biased execution</dt><dd>{{ currentReport.biasedExecutionId }}</dd></div> }
+      <div><dt>Experiment</dt><dd>{{ currentReport.experimentId }}</dd></div>
+      @if (currentReport.nodeId) { <div><dt>Node</dt><dd>{{ currentReport.nodeId }}</dd></div> }
+      <div><dt>Annotations</dt><dd>{{ currentReport.annotationIds.join(', ') || 'None' }}</dd></div>
+      <div><dt>Repetitions</dt><dd>{{ currentReport.repetitions }}</dd></div>
+    </dl>
+
+    <p class="bias-impact-report__summary">{{ currentReport.summary }}</p>
+
+    <section class="bias-impact-report__section">
+      <h4>Immediate impact</h4>
+      <div class="bias-impact-report__metrics">
+        <span>Output changed: <strong>{{ currentReport.immediateImpact.outputChanged ? 'Yes' : 'No' }}</strong></span>
+        <span>Change rate: <strong>{{ percent(currentReport.immediateImpact.changeRate) }}</strong></span>
+        <span>Maximum text difference: <strong>{{ textDifference(currentReport.immediateImpact.maximumTextDifference) }}</strong></span>
+      </div>
+      <app-bias-output-diff
+        [baselineOutput]="currentReport.immediateImpact.baselineOutput"
+        [biasedOutputs]="currentReport.immediateImpact.biasedOutputs"
+      />
+    </section>
+
+    <section class="bias-impact-report__section">
+      <div class="bias-impact-report__section-heading">
+        <h4>Downstream impact</h4>
+        <label><input type="checkbox" [(ngModel)]="changedOnly"> Changed nodes only</label>
+      </div>
+      @if (downstreamEntries.length === 0) {
+        <p class="bias-impact-report__empty">No downstream impact was recorded. This is normal for an isolated step experiment.</p>
+      }
+      @for (entry of downstreamEntries; track entry.nodeId) {
+        <article class="bias-impact-report__downstream">
+          <div class="bias-impact-report__node-heading">
+            <strong>{{ entry.nodeName || entry.nodeId }}</strong>
+            <code>{{ entry.nodeId }}</code>
+            <span [class.changed]="entry.changed">{{ entry.changed ? 'Changed' : 'Unchanged' }}</span>
+          </div>
+          <p>Status: {{ entry.baselineStatus }} → {{ entry.biasedStatus }}</p>
+          <app-bias-output-diff
+            [baselineOutput]="entry.baselineOutputs"
+            [biasedOutputs]="[entry.biasedOutputs]"
+            variantLabel="Biased output"
+          />
+        </article>
+      }
+    </section>
+
+    <section class="bias-impact-report__section">
+      <h4>Routing changes</h4>
+      @if (currentReport.routingChanges.length === 0) { <p class="bias-impact-report__empty">No routing changes recorded.</p> }
+      @for (change of currentReport.routingChanges; track change.nodeId) {
+        <div class="bias-impact-report__routing"><code>{{ change.nodeId }}</code><span>{{ change.baselineBranch }} → {{ change.biasedBranch }}</span></div>
+      }
+    </section>
+
+    @if (currentReport.mockedSideEffects.length > 0) {
+      <section class="bias-impact-report__section">
+        <h4>Mocked side effects</h4>
+        <ul class="bias-impact-report__side-effects">
+          @for (sideEffect of currentReport.mockedSideEffects; track sideEffect.nodeId) {
+            <li><strong>{{ sideEffect.nodeName || sideEffect.nodeId }}</strong> <code>{{ sideEffect.nodeId }}</code> <span>{{ sideEffect.kind }}</span></li>
+          }
+        </ul>
+      </section>
+    }
+
+    @if (!currentReport.rawOutputsIncluded) {
+      <p class="bias-impact-report__notice">Raw output maps and lists were intentionally omitted from this report.</p>
+    }
+
+    <section class="bias-impact-report__section bias-impact-report__warnings">
+      <h4>Warnings</h4>
+      @if (currentReport.warnings.length === 0) { <p class="bias-impact-report__empty">No warnings reported.</p> }
+      @for (warning of currentReport.warnings; track warning) { <p>{{ warning }}</p> }
+    </section>
+  </article>
+}

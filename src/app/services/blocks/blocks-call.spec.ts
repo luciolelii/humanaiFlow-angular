@@ -116,4 +116,56 @@ describe('BlocksCallService', () => {
       options: { category: [{ value: 'DYNAMIC_VALUE', label: 'Dynamic label', description: 'Dynamic description' }] }
     }));
   });
+
+  it('retrieves and caches type-level bias capabilities', async () => {
+    const first = firstValueFrom(service.retrieveBiasCapabilities('LLMBlock'));
+    const request = httpMock.expectOne(`${environment.apiUrl}/blocks/types/LLMBlock/bias-capabilities`);
+    expect(request.request.method).toBe('GET');
+    request.flush({
+      blockType: 'LLMBlock',
+      supported: true,
+      isolatedExperimentSupported: true,
+      fullFlowExperimentSupported: true,
+      externalSideEffects: false,
+      configurationDependent: false,
+      activationModes: ['PROMPT_DIRECTIVE']
+    });
+
+    await expect(first).resolves.toEqual(expect.objectContaining({
+      blockType: 'LLMBlock', activationModes: ['PROMPT_DIRECTIVE']
+    }));
+    await expect(firstValueFrom(service.retrieveBiasCapabilities('LLMBlock'))).resolves.toEqual(expect.objectContaining({
+      supported: true
+    }));
+  });
+
+  it('posts the configured block for instance-specific bias capabilities', async () => {
+    const block = {
+      id: 'conditional-1',
+      name: 'Conditional',
+      inputs: [],
+      outputs: [{ name: 'true', type: 'TEXT', multiple: false }],
+      specificConfiguration: { useLlm: true },
+      typeName: 'ConditionalBlock',
+      nodeFamily: 'block' as const
+    };
+    const response = firstValueFrom(service.retrieveBiasCapabilitiesForInstance('ConditionalBlock', block));
+    const request = httpMock.expectOne(`${environment.apiUrl}/blocks/types/ConditionalBlock/bias-capabilities`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual(block);
+    request.flush({
+      blockType: 'ConditionalBlock',
+      supported: true,
+      isolatedExperimentSupported: true,
+      fullFlowExperimentSupported: true,
+      externalSideEffects: false,
+      configurationDependent: true,
+      activationModes: ['PROMPT_DIRECTIVE', 'INPUT_TRANSFORMATION']
+    });
+
+    await expect(response).resolves.toEqual(expect.objectContaining({
+      configurationDependent: true,
+      activationModes: ['PROMPT_DIRECTIVE', 'INPUT_TRANSFORMATION']
+    }));
+  });
 });
