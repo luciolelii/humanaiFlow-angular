@@ -61,4 +61,14 @@ describe('BiasImpactReportViewerComponent', () => {
     expect(text).toContain('Changed node');
     expect(text).not.toContain('Same node');
   });
+
+  it('emits highlightOnCanvas when the highlight button is clicked', () => {
+    fixture.detectChanges();
+    let emitted = false;
+    fixture.componentInstance.highlightOnCanvas.subscribe(() => { emitted = true; });
+
+    (fixture.nativeElement.querySelector('.bias-impact-report__highlight-btn') as HTMLButtonElement).click();
+
+    expect(emitted).toBe(true);
+  });
 });

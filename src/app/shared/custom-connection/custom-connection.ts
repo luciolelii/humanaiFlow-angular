@@ -2,6 +2,7 @@ import { Component, inject, Input } from '@angular/core';
 import { ClassicPreset } from 'rete';
 import { FLOW_DEPENDANT_PORT_KEY, FLOW_DEPENDENCY_PORT_KEY } from '@models/flow';
 import { GraphSelectionService } from '@services/graph-selection/graph-selection';
+import { BiasComparisonViewStateService } from '@services/bias/bias-comparison-view-state';
 
 @Component({
   selector: 'app-custom-connection',
@@ -83,6 +84,7 @@ import { GraphSelectionService } from '@services/graph-selection/graph-selection
 })
 export class CustomConnectionComponent {
   private readonly graphSelection = inject(GraphSelectionService);
+  private readonly biasComparisonViewState = inject(BiasComparisonViewStateService);
   @Input() data!: ClassicPreset.Connection<ClassicPreset.Node, ClassicPreset.Node>;
   @Input() start!: { x: number; y: number };
   @Input() end!: { x: number; y: number };
@@ -100,13 +102,22 @@ export class CustomConnectionComponent {
     return this.graphSelection.selectedConnectionId() === this.connectionId;
   }
 
+  get isBiasRoutingChange(): boolean {
+    return this.biasComparisonViewState.isBiasedRoutingConnection(
+      this.data?.source != null ? String(this.data.source) : null,
+      this.data?.sourceOutput != null ? String(this.data.sourceOutput) : null
+    );
+  }
+
   get strokeColor(): string {
     if (this.isSelected) return '#f97316';
+    if (this.isBiasRoutingChange) return '#b45309';
     return this.isDependencyConnection ? '#7c8ba1' : '#4682b4';
   }
 
   get strokeWidth(): number {
     if (this.isSelected) return this.isDependencyConnection ? 3.25 : 6;
+    if (this.isBiasRoutingChange) return 6;
     return this.isDependencyConnection ? 2.25 : 5;
   }
 

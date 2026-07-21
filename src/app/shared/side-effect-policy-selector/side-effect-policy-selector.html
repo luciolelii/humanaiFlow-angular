@@ -1,10 +1,14 @@
 <section class="side-effect-policy-selector">
   <h4>External side effects</h4>
   @if (externalSideEffects) {
-    <p class="side-effect-policy-selector__warning">This block can invoke external services. Choose how the experiment handles those calls.</p>
+    <div class="side-effect-policy-selector__alert" role="alert">
+      <div class="side-effect-policy-selector__alert-icon"><i class="bi bi-exclamation-triangle-fill"></i></div>
+      <p class="side-effect-policy-selector__alert-text">This block can invoke external services (HTTP, MCP). Choose how the experiment handles those calls.</p>
+    </div>
   }
   <label><input type="radio" name="side-effect-policy" [checked]="policy === 'BLOCK'" [disabled]="disabled" (change)="select('BLOCK')"> Block external calls</label>
   <label><input type="radio" name="side-effect-policy" [checked]="policy === 'MOCK'" [disabled]="disabled" (change)="select('MOCK')"> Mock external calls</label>
   <label><input type="radio" name="side-effect-policy" [checked]="policy === 'REQUIRE_CONFIRMATION'" [disabled]="disabled" (change)="select('REQUIRE_CONFIRMATION')"> Allow after confirmation</label>
   @if (policy === 'MOCK') { <p class="side-effect-policy-selector__note">HTTP and MCP calls will not be invoked for real.</p> }
+  @if (policy === 'REQUIRE_CONFIRMATION') { <p class="side-effect-policy-selector__note side-effect-policy-selector__note--warn">Real external calls will be made. You will be asked to confirm before the experiment starts.</p> }
 </section>

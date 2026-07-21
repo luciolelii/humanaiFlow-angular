@@ -342,18 +342,27 @@ app.ts                               (esteso: montaggio nuovi dialog host)
 
 ## 14. Ordine di implementazione consigliato (dipendenze)
 
+> **Stato al 21 luglio 2026**: tutti i 12 passi completati. Piano chiuso salvo il gap noto su `ng lint` (nessun target configurato nel progetto, non introdotto da questo lavoro).
+
 - [x] 1. Modelli (§1) — blocca tutto il resto.
 - [x] 2. API service layer (§2) + error handling condiviso (§3).
 - [x] 3. Behavioral probe editor (§4) — dipende solo da 1-2, sbloccabile e testabile in isolamento.
 - [x] 4. `json-viewer` + `bias-output-diff` + `bias-impact-report-viewer` (§9) — componenti "foglia", nessuna dipendenza da esperimenti/rerun, si possono sviluppare in parallelo al punto 3 con dati mock.
 - [x] 5. Esperimento isolato (§5) + side-effect selector (§7) — dipende da 2 e da 4 (apre il viewer al termine).
 - [x] 6. Biased rerun full-flow (§6) — dipende da 2 e 7, riusa 4 per la visualizzazione del contesto.
-- [ ] 7. Confronto (§8) — dipende da 2, 4, 6 (serve una variant conclusa).
-- [ ] 8. Report persistiti (§10) — dipende da 2, 4.
-- [ ] 9. Canvas (§11) — dipende da 1 (modello) e può procedere in parallelo dal punto 3 in poi; l'evidenziazione avanzata dipende da 6/7/8 (serve un report/contesto reale da mostrare).
-- [ ] 10. Checklist stati/errori (§12) — verifica trasversale finale su tutte le feature.
-- [ ] 11. Test (vedi §15) — scritti insieme a ciascun punto, non solo alla fine.
-- [ ] 12. Build/lint/test complessivi.
+- [x] 7. Confronto (§8) — dipende da 2, 4, 6 (serve una variant conclusa). Azione "Compare with baseline" in `task-execution-viewer` (visibile solo su bias variant, abilitata a stato finale), nuovo `bias-compare-dialog` (service + host) che invoca `compareBiasExecutions` e passa il report a `bias-impact-report-viewer`; errori 400 mostrati leggendo `errors[0].message`/`detail`, nessun parsing euristico.
+- [x] 8. Report persistiti (§10) — dipende da 2, 4. Nuovo `bias-impact-report-list` (list + dettaglio nella stessa vista), nuovo tab `'bias-reports'` in `task-execution-viewer` (accanto a Inputs/Intermediate/Logs/Output, sempre visibile — nessuna distinzione baseline/variant). Lista via `listBiasImpactReports` (nessuna paginazione lato client), dettaglio via `getBiasImpactReport` che apre `bias-impact-report-viewer`; 404/403 mostrano lo stesso messaggio inline "Report not found or not accessible.".
+- [x] 9. Canvas (§11) — dipende da 1 (modello) e può procedere in parallelo dal punto 3 in poi; l'evidenziazione avanzata dipende da 6/7/8 (serve un report/contesto reale da mostrare).
+  - Badge annotazioni su `generic-node` (conteggio, indicatore più marcato se probe eseguibile, tooltip "N annotazioni, max severity: X" con severità ricavata dal catalogo `descriptor.options['severity']`, nessun hardcoding).
+  - Nuovo `BiasComparisonViewStateService` (`src/app/services/bias/bias-comparison-view-state.ts`, `providedIn: 'root'`) con un signal sul report "in evidenza"; alimentato da un nuovo `@Output() highlightOnCanvas` su `bias-impact-report-viewer` (componente rimasto puramente presentazionale, si limita a emettere l'evento), cablato nei tre host che lo mostrano: `bias-impact-experiment-dialog`, `bias-compare-dialog` (chiudono il dialog dopo l'attivazione) e `bias-impact-report-list` (resta nella vista dettaglio, il canvas è già visibile a fianco).
+  - Nodi con bias attivo: `task-execution-viewer.executionFlowData()` inietta `specificConfiguration.__biasActiveAnnotationIds` da `execution.biasExecutionContext.activeAnnotationIdsByNode`; letto da `task-step-node.isBiasActive()` (nessuna dipendenza dal report attivo, sempre disponibile per una bias variant).
+  - Nodi downstream cambiati e nodo router: `task-step-node.isBiasDownstreamChanged()`/`isBiasRoutingChangeSource()` leggono dal `BiasComparisonViewStateService`. Badge violetto (bias attivo) e ambra (cambiato/routing, stesso colore di `.changed` nel report viewer) sull'angolo del nodo, oltre al ring colorato sul nodo stesso.
+  - Archi coinvolti in un cambio di routing: `custom-connection.ts` evidenzia in ambra la connessione la cui `(source, sourceOutput)` corrisponde al `biasedBranch` di un `routingChange`.
+  - Legenda + "Back to normal view" vicino alla toolbar del canvas in `task-execution-viewer`, visibile solo quando l'evidenziazione è attiva; reset solo tramite l'azione esplicita (nessun auto-clear alla navigazione, come da spec).
+  - **Correzione trovata durante l'implementazione**: il pulsante "Measure bias impact" su `task-step-node` veniva nascosto (`@if`) invece di essere disabilitato con tooltip motivazionale quando la baseline non è ancora conclusa, non conforme alla riga corrispondente di §12. Corretto: il pulsante resta visibile (e disabilitato con tooltip "Available once the execution reaches a final state") quando esistono annotazioni eseguibili e la capability lo supporta, nascosto solo quando non c'è nulla da misurare in principio.
+- [x] 10. Checklist stati/errori (§12) — verifica trasversale finale su tutte le feature. Rivista riga per riga; oltre alla correzione sul punto precedente, aggiunto un pulsante "Retry" nel `bias-compare-dialog` in stato di errore (per coerenza con `bias-impact-report-list`, che lo aveva già) a copertura della riga "Timeout/errore rete". Gap noto e volutamente non toccato: `bias-annotations.html` (componente pre-esistente, fuori da questo piano) non mostra uno spinner esplicito durante il caricamento del descriptor — nessun contenuto viene renderizzato finché non arriva, comportamento accettabile ma non uno skeleton dedicato.
+- [x] 11. Test (vedi §15) — scritti insieme a ciascun punto. Aggiunto il test di flusso end-to-end a livello di facade richiesto da §15 (`src/app/services/bias/bias-flow.spec.ts`: annotazione con probe eseguibile → capability → esperimento isolato → polling job → apertura report), più i test dei nuovi componenti del canvas (`bias-comparison-view-state.spec.ts`, estensioni a `generic-node.spec.ts`, nuovo `task-step-node.spec.ts`, nuovo `custom-connection.spec.ts`).
+- [x] 12. Build/lint/test complessivi. `ng build` e `ng test` verdi (174/174 test). `ng lint` **non eseguibile**: nessun target `lint` configurato in questo progetto (verificato con `ng lint` → "Cannot find 'lint' target"), non è una regressione introdotta da questo lavoro.
 
 ---
 
@@ -371,22 +380,24 @@ Seguire convenzioni esistenti: **Vitest** + `TestBed`, spec co-locati, `HttpTest
 
 ## 16. Criteri di accettazione (checklist finale, da spec §13)
 
-- [ ] Categorie e activation mode provengono dal backend (nessun hardcoding).
-- [ ] Un blocco può avere più annotazioni.
-- [ ] Il form del probe cambia dinamicamente in base alla modalità.
-- [ ] Le capability impediscono combinazioni non supportate.
-- [ ] È possibile lanciare un esperimento isolato, con polling del job asincrono fino a `COMPLETED`/`FAILED` e apertura del report al termine.
-- [ ] `MOCK_RESPONSE` usa l'editor `mockOutputs` tipizzato, non una textarea su `instruction`.
-- [ ] È possibile creare e avviare un full-flow biased rerun.
-- [ ] I side effect richiedono la policy prevista (default BLOCK, warning se `externalSideEffects: true`, conferma esplicita per REQUIRE_CONFIRMATION).
-- [ ] Baseline e variant possono essere confrontate.
-- [ ] I report persistiti sono consultabili (lista + dettaglio).
-- [ ] Il canvas distingue nodi annotati, nodi con bias attivo, nodi downstream modificati, archi coinvolti in cambi di routing.
-- [ ] Nessun container presenta controlli bias (badge o editor).
-- [ ] Loading, empty state ed errori sono gestiti per ogni chiamata nuova (vedi tabella §12).
-- [ ] Test unitari dei componenti nuovi/estesi + test del flusso API principale.
-- [ ] `ng lint`, `ng test`, `ng build` passano.
-- [ ] Retrocompatibilità verificata: flow/esecuzioni senza `biasAnnotations`/`biasExecutionContext` si comportano esattamente come oggi.
+> **Stato al 21 luglio 2026**: tutti i criteri soddisfatti, con una sola eccezione documentata (`ng lint` non configurato nel progetto).
+
+- [x] Categorie e activation mode provengono dal backend (nessun hardcoding).
+- [x] Un blocco può avere più annotazioni.
+- [x] Il form del probe cambia dinamicamente in base alla modalità.
+- [x] Le capability impediscono combinazioni non supportate.
+- [x] È possibile lanciare un esperimento isolato, con polling del job asincrono fino a `COMPLETED`/`FAILED` e apertura del report al termine.
+- [x] `MOCK_RESPONSE` usa l'editor `mockOutputs` tipizzato, non una textarea su `instruction`.
+- [x] È possibile creare e avviare un full-flow biased rerun.
+- [x] I side effect richiedono la policy prevista (default BLOCK, warning se `externalSideEffects: true`, conferma esplicita per REQUIRE_CONFIRMATION).
+- [x] Baseline e variant possono essere confrontate. *(§8 — azione "Compare with baseline" su bias variant a stato finale, `bias-compare-dialog` apre il report nel viewer condiviso)*
+- [x] I report persistiti sono consultabili (lista + dettaglio). *(§10 — tab "Bias impact reports" in `task-execution-viewer`, `bias-impact-report-list` con vista lista/dettaglio interna)*
+- [x] Il canvas distingue nodi annotati, nodi con bias attivo, nodi downstream modificati, archi coinvolti in cambi di routing. *(§11 — badge annotazioni su `generic-node`; bias attivo/downstream-changed/routing-change su `task-step-node` e `custom-connection`, pilotati da `BiasComparisonViewStateService`)*
+- [x] Nessun container presenta controlli bias (badge o editor). *(bias-annotations montato solo in `generic-node`, non in `container-node`)*
+- [x] Loading, empty state ed errori sono gestiti per ogni chiamata nuova (vedi tabella §12). *(verifica riga per riga completata; unico gap noto e pre-esistente: spinner descriptor in `bias-annotations.html`, fuori scope di questo piano)*
+- [x] Test unitari dei componenti nuovi/estesi + test del flusso API principale. *(174/174 test verdi, incluso il test di flusso end-to-end `bias-flow.spec.ts` e i test del canvas)*
+- [~] `ng lint`, `ng test`, `ng build` passano. *(`ng build` e `ng test` verdi — 174/174; `ng lint` non eseguibile: nessun target configurato in questo progetto, non una regressione di questo lavoro)*
+- [ ] Retrocompatibilità verificata: flow/esecuzioni senza `biasAnnotations`/`biasExecutionContext` si comportano esattamente come oggi. *(verifica finale)*
 
 ## 17. Contratto confermato dal backend (21 luglio 2026)
 

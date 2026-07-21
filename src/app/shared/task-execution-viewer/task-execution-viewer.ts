@@ -38,6 +38,9 @@ import { TaskExecutionsService } from '@services/task-executions/task-executions
 import { ContainersService } from '@services/containers/containers';
 import { BlocksService } from '@services/blocks/blocks';
 import { BiasRerunDialogService, BiasRerunCandidate } from '@services/dialogs/bias-rerun-dialog';
+import { BiasCompareDialogService } from '@services/dialogs/bias-compare-dialog';
+import { BiasComparisonViewStateService } from '@services/bias/bias-comparison-view-state';
+import { BiasImpactReportListComponent } from '@shared/bias-impact-report-list/bias-impact-report-list';
 import { firstValueFrom } from 'rxjs';
 import {
   ExecutionOutputEntry,
@@ -70,7 +73,7 @@ import {
 
 @Component({
   selector: 'app-task-execution-viewer',
-  imports: [CommonModule, ReteEditor, TaskExecutionInputsPanelComponent, MatButtonModule, MatIconModule, MatTooltipModule],
+  imports: [CommonModule, ReteEditor, TaskExecutionInputsPanelComponent, MatButtonModule, MatIconModule, MatTooltipModule, BiasImpactReportListComponent],
   templateUrl: './task-execution-viewer.html',
   styleUrl: './task-execution-viewer.css',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -84,6 +87,8 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   private containersService = inject(ContainersService);
   private blocksService = inject(BlocksService);
   private biasRerunDialog = inject(BiasRerunDialogService);
+  private biasCompareDialog = inject(BiasCompareDialogService);
+  private biasComparisonViewState = inject(BiasComparisonViewStateService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private lastExecutionId: string | null = null;
@@ -92,7 +97,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   private static readonly SIMULATOR_MODEL_RETRIEVER_URL = '/retriever/LLM/models';
   readonly execution = input<TaskExecution | null>(null);
   readonly contextAsideOpen = signal(true);
-  readonly activeAsideTab = signal<'inputs' | 'intermediate' | 'logs' | 'output'>('inputs');
+  readonly activeAsideTab = signal<'inputs' | 'intermediate' | 'logs' | 'output' | 'bias-reports'>('inputs');
   readonly startInProgress = signal(false);
   readonly simulateInProgress = signal(false);
   readonly biasRerunOpening = signal(false);
@@ -264,6 +269,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     const contextErrors = this.execution()?.context.errors ?? {};
     const contextWarnings = this.execution()?.context.warnings ?? {};
     const waitingSteps = this.execution()?.context.waitingSteps ?? [];
+    const activeAnnotationIdsByNode = this.execution()?.biasExecutionContext?.activeAnnotationIdsByNode ?? {};
     const steps = this.stepsArray();
     const blocks: FlowBlock[] = [];
     const containers: FlowContainer[] = [];
@@ -293,7 +299,8 @@ export class TaskExecutionViewerComponent implements OnDestroy {
           __executionErrors: getExecutionErrors(step.id, contextErrors),
           __executionWarnings: getExecutionWarnings(step.id, contextWarnings),
           __stepResultData: step.result ?? null,
-          __executionPartialResult: this.execution()?.context.partialResult ?? null
+          __executionPartialResult: this.execution()?.context.partialResult ?? null,
+          __biasActiveAnnotationIds: activeAnnotationIdsByNode[step.id] ?? []
         },
         position: stepNode.position ?? {
           x: 120 + (index % 3) * 340,
@@ -416,6 +423,11 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   readonly canCreateBiasedRerun = computed(() =>
     getExecutionStatusGroup(this.execution()?.context.status) === 'FINAL' && !this.biasRerunOpening()
   );
+  readonly canCompareBiasExecution = computed(() =>
+    this.isBiasVariant()
+    && !!this.execution()?.rerunOfExecutionId
+    && getExecutionStatusGroup(this.execution()?.context.status) === 'FINAL'
+  );
   readonly simulationDescriptorLabel = computed(() => {
     const descriptor = this.execution()?.interactionSimulationDescriptor;
     if (!descriptor) return null;
@@ -494,7 +506,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     this.contextAsideOpen.update((open) => !open);
   }
 
-  selectAsideTab(tab: 'inputs' | 'intermediate' | 'logs' | 'output') {
+  selectAsideTab(tab: 'inputs' | 'intermediate' | 'logs' | 'output' | 'bias-reports') {
     if (tab === 'output' && !this.executionOutputTabEnabled()) return;
     this.activeAsideTab.set(tab);
   }
@@ -618,6 +630,25 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     } finally {
       this.biasRerunOpening.set(false);
     }
+  }
+
+  openCompareDialog() {
+    const execution = this.execution();
+    const baselineExecutionId = execution?.rerunOfExecutionId;
+    if (!execution || !baselineExecutionId || !this.canCompareBiasExecution()) return;
+
+    this.biasCompareDialog.open({
+      baselineExecutionId,
+      biasedExecutionId: execution.id
+    });
+  }
+
+  isBiasHighlightActive(): boolean {
+    return this.biasComparisonViewState.activeView() !== null;
+  }
+
+  clearBiasHighlight() {
+    this.biasComparisonViewState.clear();
   }
 
   onTextInputChange(input: EditableExecutionInput, value: string | string[]) {

@@ -3,7 +3,7 @@
   <section class="bias-experiment-dialog" role="dialog" aria-modal="true" aria-label="Measure bias impact">
     <header><div><h3>Measure bias impact</h3><p>{{ currentState.nodeName }}</p></div><button type="button" mat-stroked-button (click)="close()">Close</button></header>
     @if (report(); as completedReport) {
-      <div class="bias-experiment-dialog__content"><app-bias-impact-report-viewer [report]="completedReport" /></div>
+      <div class="bias-experiment-dialog__content"><app-bias-impact-report-viewer [report]="completedReport" (highlightOnCanvas)="highlightOnCanvas()" /></div>
     } @else {
       <div class="bias-experiment-dialog__content">
         <p>Run the selected probes against this completed execution step.</p>

@@ -2,6 +2,9 @@
 .bias-impact-report__header, .bias-impact-report__section-heading, .bias-impact-report__node-heading, .bias-impact-report__routing { align-items: center; display: flex; gap: .65rem; justify-content: space-between; }
 .bias-impact-report__header h3, .bias-impact-report__section h4 { margin: 0; }
 .bias-impact-report__header time { color: #64748b; font-size: .84rem; }
+.bias-impact-report__header-actions { align-items: center; display: flex; gap: .65rem; }
+.bias-impact-report__highlight-btn { background: #ccfbf1; border: 1px solid #99f6e4; border-radius: .4rem; color: #0f766e; cursor: pointer; font-size: .78rem; font-weight: 600; padding: .35rem .65rem; }
+.bias-impact-report__highlight-btn:hover { background: #99f6e4; }
 .bias-impact-report__kind { background: #e0e7ff; border-radius: 999px; color: #3730a3; font-size: .72rem; font-weight: 700; padding: .2rem .5rem; }
 .bias-impact-report__metadata { display: grid; gap: .55rem; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin: 0; }
 .bias-impact-report__metadata div { background: #f8fafc; border-radius: .4rem; padding: .55rem; }

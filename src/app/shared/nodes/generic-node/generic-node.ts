@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, effect, ElementRef, HostBinding, HostListener, inject, Input, OnDestroy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { BiasAnnotation, BlockType, currentFlowPortValueKind, flowValueKindLabel, FlowBlock, FlowData, FlowPort, FlowValueKind, FLOW_DEPENDANT_PORT_KEY, FLOW_DEPENDENCY_PORT_KEY, normalizeFlowPortValueKinds } from '@models/flow';
+import { BiasAnnotation, BiasAnnotationsDescriptor, BlockType, currentFlowPortValueKind, flowValueKindLabel, FlowBlock, FlowData, FlowPort, FlowValueKind, FLOW_DEPENDANT_PORT_KEY, FLOW_DEPENDENCY_PORT_KEY, isProbeExecutable, normalizeFlowPortValueKinds } from '@models/flow';
 import { BiasAnnotationsComponent } from '../../bias-annotations/bias-annotations';
 import { ClassicPreset } from 'rete';
 import { ReteModule } from 'rete-angular-plugin/21';
@@ -694,6 +694,16 @@ export class GenericNodeComponent implements OnDestroy {
     return Array.isArray(value) ? value as BiasAnnotation[] : [];
   }
 
+  get biasAnnotationBadge(): { count: number; hasExecutableProbe: boolean; maxSeverityLabel: string | null } | null {
+    const annotations = this.biasAnnotations;
+    if (!annotations.length) return null;
+    return {
+      count: annotations.length,
+      hasExecutableProbe: annotations.some((annotation) => isProbeExecutable(annotation.behavioralProbe)),
+      maxSeverityLabel: this.mostSevereBiasLabel(annotations)
+    };
+  }
+
   get biasBlock(): FlowBlock | null {
     const nodeData = this.data?.data as Record<string, unknown> | undefined;
     const blockId = this.blockId;
@@ -718,6 +728,29 @@ export class GenericNodeComponent implements OnDestroy {
     }).biasAnnotationsDescriptor;
     const property = typeof descriptorSignal === 'function' ? descriptorSignal()?.blockProperty : null;
     return typeof property === 'string' && property.length ? property : 'biasAnnotations';
+  }
+
+  private mostSevereBiasLabel(annotations: BiasAnnotation[]): string | null {
+    const descriptorSignal = (this.blocksService as BlocksService & {
+      biasAnnotationsDescriptor?: () => BiasAnnotationsDescriptor | null
+    }).biasAnnotationsDescriptor;
+    const severityOptions = descriptorSignal?.()?.options?.['severity'] ?? [];
+    const rankByValue = new Map(severityOptions.map((option, index) => [option.value, index]));
+
+    let mostSevereValue: unknown = undefined;
+    let mostSevereRank = -1;
+    for (const annotation of annotations) {
+      const value = annotation.severity;
+      const rank = typeof value === 'string' && rankByValue.has(value) ? rankByValue.get(value)! : -1;
+      if (mostSevereValue === undefined || rank > mostSevereRank) {
+        mostSevereValue = value;
+        mostSevereRank = rank;
+      }
+    }
+
+    if (mostSevereValue == null) return null;
+    return severityOptions.find((option) => option.value === mostSevereValue)?.label
+      ?? (typeof mostSevereValue === 'string' ? mostSevereValue : null);
   }
 
   private ensureBlockConfiguration(): Record<string, any> {

@@ -72,6 +72,22 @@
         </div>
       </div>
       }
+      @if (biasAnnotationBadge; as biasBadge) {
+      <div class="llm-bias-badge-wrap" [class.llm-bias-badge-wrap-probe]="biasBadge.hasExecutableProbe">
+        <div class="llm-bias-badge">
+          <i class="bi bi-clipboard2-pulse-fill"></i>
+          <span>{{ biasBadge.count }}</span>
+        </div>
+        <div class="llm-bias-badge-tooltip">
+          <div class="llm-bias-badge-title">
+            {{ biasBadge.count }} bias annotation{{ biasBadge.count === 1 ? '' : 's' }}@if (biasBadge.maxSeverityLabel) {, max severity: {{ biasBadge.maxSeverityLabel }}}
+          </div>
+          @if (biasBadge.hasExecutableProbe) {
+          <div class="llm-bias-badge-item">Includes an executable behavioral probe</div>
+          }
+        </div>
+      </div>
+      }
       @if (!isReadonly && deleteConfirmOpen) {
       <div class="llm-delete-confirm" (pointerdown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
         <span class="llm-delete-confirm-text">Delete node?</span>

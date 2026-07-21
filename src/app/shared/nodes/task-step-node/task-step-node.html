@@ -5,7 +5,23 @@
   [class.llm-node-completed]="isCompleted() && !needsAttention() && !hasExecutionErrors() && !hasExecutionWarnings()"
   [class.llm-node-attention]="needsAttention()"
   [class.llm-node-error]="hasExecutionErrors()"
-  [class.llm-node-warning]="hasExecutionWarnings() && !hasExecutionErrors()">
+  [class.llm-node-warning]="hasExecutionWarnings() && !hasExecutionErrors()"
+  [class.llm-node-bias-active]="isBiasActive() && !hasExecutionErrors()"
+  [class.llm-node-bias-changed]="(isBiasDownstreamChanged() || isBiasRoutingChangeSource()) && !hasExecutionErrors()">
+  @if (isBiasActive() || isBiasDownstreamChanged() || isBiasRoutingChangeSource()) {
+  <div class="llm-bias-canvas-badge-wrap">
+    @if (isBiasActive()) {
+    <span class="llm-bias-canvas-badge llm-bias-canvas-badge-active" title="Bias annotation active on this node">
+      <i class="bi bi-clipboard2-pulse-fill"></i>
+    </span>
+    }
+    @if (isBiasDownstreamChanged() || isBiasRoutingChangeSource()) {
+    <span class="llm-bias-canvas-badge llm-bias-canvas-badge-changed" title="Output changed by the highlighted bias report">
+      <i class="bi bi-arrow-left-right"></i>
+    </span>
+    }
+  </div>
+  }
   @if (needsAttention() && isHumanNode()) {
   <div class="llm-attention-wrap" (pointerdown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
     <button
@@ -59,12 +75,13 @@
         <span class="llm-subtitle">{{ name }}</span>
       </div>
     </div>
-    @if (canMeasureBiasImpact()) {
+    @if (hasMeasurableBiasAnnotations()) {
     <button
       type="button"
       class="llm-bias-impact-trigger"
       aria-label="Measure bias impact"
-      title="Measure bias impact"
+      [title]="measureBiasImpactTooltip()"
+      [disabled]="!canMeasureBiasImpact()"
       (pointerdown)="$event.stopPropagation()"
       (click)="measureBiasImpact($event)">
       <i class="bi bi-bar-chart-line"></i>

@@ -1,0 +1,40 @@
+@if (detailMode()) {
+  <div class="bias-report-list__detail">
+    <button type="button" mat-stroked-button (click)="closeDetail()">← Back to reports</button>
+    @if (detailLoading()) {
+      <p class="bias-report-list__progress">Loading report…</p>
+    }
+    @if (detailError(); as error) {
+      <p class="bias-report-list__error">{{ error }}</p>
+    }
+    @if (selectedReport(); as report) {
+      <app-bias-impact-report-viewer [report]="report" (highlightOnCanvas)="highlightOnCanvas()" />
+    }
+  </div>
+} @else {
+  <div class="bias-report-list">
+    @if (loading()) {
+      <p class="bias-report-list__progress">Loading bias impact reports…</p>
+    } @else if (listError(); as error) {
+      <div class="bias-report-list__error-row">
+        <p class="bias-report-list__error">{{ error }}</p>
+        <button type="button" mat-stroked-button (click)="retry()">Retry</button>
+      </div>
+    } @else if (!reports().length) {
+      <p class="bias-report-list__empty">No bias impact reports for this execution yet.</p>
+    } @else {
+      @for (report of reports(); track report.id) {
+        <button type="button" class="bias-report-list__row" (click)="openDetail(report.id)">
+          <span class="bias-report-list__kind">{{ report.kind }}</span>
+          <span class="bias-report-list__date">{{ report.createdAt | date:'medium' }}</span>
+          <span class="bias-report-list__summary">{{ report.summary }}</span>
+          @if (report.nodeId) { <code class="bias-report-list__node">{{ report.nodeId }}</code> }
+          <span class="bias-report-list__annotations">{{ annotationCount(report) }} annotation(s)</span>
+          <span class="bias-report-list__changed" [class.changed]="report.immediateImpact.outputChanged">
+            {{ report.immediateImpact.outputChanged ? 'Changed' : 'Unchanged' }}
+          </span>
+        </button>
+      }
+    }
+  </div>
+}

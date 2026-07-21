@@ -1,5 +1,5 @@
 import { CommonModule, DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { BiasDownstreamImpactEntry, BiasImpactReport } from '@models/bias-impact';
 import { BiasOutputDiffComponent } from '../bias-output-diff/bias-output-diff';
@@ -14,6 +14,7 @@ import { BiasOutputDiffComponent } from '../bias-output-diff/bias-output-diff';
 })
 export class BiasImpactReportViewerComponent {
   @Input() report: BiasImpactReport | null = null;
+  @Output() highlightOnCanvas = new EventEmitter<void>();
 
   changedOnly = false;
 

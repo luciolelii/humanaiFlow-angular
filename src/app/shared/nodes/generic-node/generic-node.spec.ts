@@ -94,6 +94,35 @@ describe('GenericNodeComponent', () => {
     expect(nodeData['__focusOpen']).toBe(false);
   });
 
+  it('has no bias annotation badge when the block has no annotations', () => {
+    expect(component.biasAnnotationBadge).toBeNull();
+  });
+
+  it('computes the bias annotation badge from the node annotations and the severity catalog', () => {
+    const blocks = TestBed.inject(BlocksService) as any;
+    blocks.biasAnnotationsDescriptor.mockReturnValue({
+      options: {
+        severity: [
+          { value: 'LOW', label: 'Low' },
+          { value: 'HIGH', label: 'High' }
+        ]
+      }
+    });
+    component.data.data = {
+      ...component.data.data,
+      biasAnnotations: [
+        { id: 'a1', severity: 'LOW' },
+        { id: 'a2', severity: 'HIGH', behavioralProbe: { activationMode: 'PROMPT_DIRECTIVE', instruction: 'do it' } }
+      ]
+    };
+
+    expect(component.biasAnnotationBadge).toEqual({
+      count: 2,
+      hasExecutableProbe: true,
+      maxSeverityLabel: 'High'
+    });
+  });
+
   it('preserves id, position and bias annotations during block regeneration', async () => {
     const blocks = TestBed.inject(BlocksService) as any;
     const replacement = vi.fn().mockResolvedValue(undefined);

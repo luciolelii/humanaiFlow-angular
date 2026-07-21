@@ -1,0 +1,84 @@
+import { ChangeDetectionStrategy, Component, effect, inject, signal } from '@angular/core';
+import { MatButtonModule } from '@angular/material/button';
+import { BiasImpactReportViewerComponent } from '@shared/bias-impact-report-viewer/bias-impact-report-viewer';
+import { BiasCompareDialogService } from '@services/dialogs/bias-compare-dialog';
+import { BiasComparisonViewStateService } from '@services/bias/bias-comparison-view-state';
+import { TaskExecutionsService } from '@services/task-executions/task-executions';
+import { BiasImpactReport } from '@models/bias-impact';
+
+@Component({
+  selector: 'app-bias-compare-dialog-host',
+  standalone: true,
+  imports: [MatButtonModule, BiasImpactReportViewerComponent],
+  templateUrl: './bias-compare-dialog.html',
+  styleUrl: './bias-compare-dialog.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
+})
+export class BiasCompareDialogHostComponent {
+  private readonly dialog = inject(BiasCompareDialogService);
+  private readonly executions = inject(TaskExecutionsService);
+  private readonly comparisonViewState = inject(BiasComparisonViewStateService);
+
+  readonly state = this.dialog.state;
+  readonly loading = signal(false);
+  readonly inlineError = signal<string | null>(null);
+  readonly report = signal<BiasImpactReport | null>(null);
+
+  constructor() {
+    effect(() => {
+      const state = this.state();
+      this.report.set(null);
+      this.inlineError.set(null);
+      this.loading.set(false);
+      if (!state) return;
+
+      this.runCompare(state.baselineExecutionId, state.biasedExecutionId);
+    });
+  }
+
+  retry() {
+    const state = this.state();
+    if (!state) return;
+    this.runCompare(state.baselineExecutionId, state.biasedExecutionId);
+  }
+
+  close() {
+    this.dialog.close();
+  }
+
+  highlightOnCanvas() {
+    const report = this.report();
+    if (!report) return;
+    this.comparisonViewState.show({ report });
+    this.close();
+  }
+
+  private runCompare(baselineExecutionId: string, biasedExecutionId: string) {
+    this.inlineError.set(null);
+    this.loading.set(true);
+    this.executions.compareBiasExecutions(baselineExecutionId, biasedExecutionId, true).subscribe({
+      next: (report) => {
+        this.loading.set(false);
+        this.report.set(report);
+      },
+      error: (error) => {
+        this.loading.set(false);
+        this.inlineError.set(this.extractErrorMessage(error));
+      }
+    });
+  }
+
+  private extractErrorMessage(error: unknown): string {
+    const body = (error as { error?: unknown })?.error;
+    if (body && typeof body === 'object') {
+      const record = body as Record<string, unknown>;
+      const errors = Array.isArray(record['errors']) ? record['errors'] : [];
+      const first = errors[0];
+      if (first && typeof first === 'object' && typeof (first as Record<string, unknown>)['message'] === 'string') {
+        return (first as Record<string, unknown>)['message'] as string;
+      }
+      if (typeof record['detail'] === 'string' && record['detail']) return record['detail'];
+    }
+    return error instanceof Error ? error.message : 'Unable to compare the baseline and biased executions.';
+  }
+}

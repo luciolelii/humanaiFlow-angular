@@ -5,6 +5,7 @@ import { BiasImpactReportViewerComponent } from '@shared/bias-impact-report-view
 import { SideEffectPolicySelectorComponent } from '@shared/side-effect-policy-selector/side-effect-policy-selector';
 import { ConfirmDialogService } from '@services/dialogs/confirm-dialog';
 import { BiasImpactExperimentDialogService } from '@services/dialogs/bias-impact-experiment-dialog';
+import { BiasComparisonViewStateService } from '@services/bias/bias-comparison-view-state';
 import { NotificationService } from '@services/notifications/notification';
 import { TaskExecutionsService } from '@services/task-executions/task-executions';
 import { BiasImpactJob, BiasImpactReport, BiasSideEffectError, ExternalSideEffectPolicy } from '@models/bias-impact';
@@ -23,6 +24,7 @@ export class BiasImpactExperimentDialogHostComponent {
   private readonly executions = inject(TaskExecutionsService);
   private readonly confirmation = inject(ConfirmDialogService);
   private readonly notifications = inject(NotificationService);
+  private readonly comparisonViewState = inject(BiasComparisonViewStateService);
   private readonly destroyRef = inject(DestroyRef);
   private pollSubscription: Subscription | null = null;
 
@@ -91,6 +93,13 @@ export class BiasImpactExperimentDialogHostComponent {
   close() {
     this.cancelPolling();
     this.dialog.close();
+  }
+
+  highlightOnCanvas() {
+    const report = this.report();
+    if (!report) return;
+    this.comparisonViewState.show({ report });
+    this.close();
   }
 
   private startPolling(job: BiasImpactJob) {

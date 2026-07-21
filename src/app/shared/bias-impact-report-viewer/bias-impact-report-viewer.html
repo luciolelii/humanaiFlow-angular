@@ -5,7 +5,12 @@
         <span class="bias-impact-report__kind">{{ currentReport.kind }}</span>
         <h3>Bias impact report</h3>
       </div>
-      <time [attr.datetime]="currentReport.createdAt">{{ currentReport.createdAt | date:'medium' }}</time>
+      <div class="bias-impact-report__header-actions">
+        <button type="button" class="bias-impact-report__highlight-btn" (click)="highlightOnCanvas.emit()">
+          Highlight on canvas
+        </button>
+        <time [attr.datetime]="currentReport.createdAt">{{ currentReport.createdAt | date:'medium' }}</time>
+      </div>
     </header>
 
     <dl class="bias-impact-report__metadata">

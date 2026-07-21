@@ -11,6 +11,7 @@ import { SubflowPreviewDialogService } from '@services/dialogs/subflow-preview-d
 import { HumanInteractionDialogService } from '@services/dialogs/human-interaction-dialog';
 import { TaskExecutionsService } from '@services/task-executions/task-executions';
 import { BiasImpactExperimentDialogService } from '@services/dialogs/bias-impact-experiment-dialog';
+import { BiasComparisonViewStateService } from '@services/bias/bias-comparison-view-state';
 import { take } from 'rxjs';
 import {
   collectSchemaFlowDataFields,
@@ -118,6 +119,7 @@ export class TaskStepNodeComponent {
   private humanInteractionDialog = inject(HumanInteractionDialogService);
   private taskExecutionsService = inject(TaskExecutionsService);
   private biasImpactExperimentDialog = inject(BiasImpactExperimentDialogService);
+  private biasComparisonViewState = inject(BiasComparisonViewStateService);
 
   @Input() data!: any;
   @Input() emit!: (data: any) => void;
@@ -436,10 +438,33 @@ export class TaskStepNodeComponent {
       : [];
   }
 
-  canMeasureBiasImpact(): boolean {
-    return this.blockConfiguration?.['__executionStatusGroup'] === 'FINAL'
-      && this.executableBiasAnnotations().length > 0
+  hasMeasurableBiasAnnotations(): boolean {
+    return this.executableBiasAnnotations().length > 0
       && this.biasCapabilities?.isolatedExperimentSupported === true;
+  }
+
+  canMeasureBiasImpact(): boolean {
+    return this.hasMeasurableBiasAnnotations() && this.blockConfiguration?.['__executionStatusGroup'] === 'FINAL';
+  }
+
+  measureBiasImpactTooltip(): string {
+    if (this.blockConfiguration?.['__executionStatusGroup'] !== 'FINAL') {
+      return 'Available once the execution reaches a final state';
+    }
+    return 'Measure bias impact';
+  }
+
+  isBiasActive(): boolean {
+    const ids = this.blockConfiguration?.['__biasActiveAnnotationIds'];
+    return Array.isArray(ids) && ids.length > 0;
+  }
+
+  isBiasDownstreamChanged(): boolean {
+    return this.biasComparisonViewState.isNodeDownstreamChanged(this.executionNodeId());
+  }
+
+  isBiasRoutingChangeSource(): boolean {
+    return this.biasComparisonViewState.isRoutingChangeSource(this.executionNodeId());
   }
 
   measureBiasImpact(event: Event) {

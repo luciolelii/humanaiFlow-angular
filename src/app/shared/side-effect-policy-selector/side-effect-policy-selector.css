@@ -1,5 +1,32 @@
 .side-effect-policy-selector { display: grid; gap: .45rem; }
 .side-effect-policy-selector h4 { font-size: .9rem; margin: 0; }
 .side-effect-policy-selector label { color: #334155; font-size: .86rem; }
-.side-effect-policy-selector__warning { background: #fff7ed; border-left: 3px solid #f97316; color: #9a3412; font-size: .84rem; margin: 0; padding: .55rem .65rem; }
+
+/* Static banner reusing the .llm-warning visual language from generic-node (icon badge + colored surface). */
+.side-effect-policy-selector__alert {
+  display: flex;
+  align-items: flex-start;
+  gap: .55rem;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: .5rem;
+  padding: .55rem .65rem;
+}
+.side-effect-policy-selector__alert-icon {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  border: 1px solid #fecaca;
+  background: #dc2626;
+  color: #fff7ed;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  box-shadow: 0 0 0 2px rgba(127, 29, 29, 0.18);
+}
+.side-effect-policy-selector__alert-text { color: #9a3412; font-size: .84rem; margin: 0; }
+
 .side-effect-policy-selector__note { color: #0369a1; font-size: .82rem; margin: 0; }
+.side-effect-policy-selector__note--warn { color: #9a3412; }

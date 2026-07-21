@@ -7,10 +7,11 @@ import { NodeSettingsDialogHostComponent } from '@shared/node-settings-dialog/no
 import { SubflowPreviewDialogHostComponent } from '@shared/subflow-preview-dialog/subflow-preview-dialog';
 import { BiasImpactExperimentDialogHostComponent } from '@shared/bias-impact-experiment-dialog/bias-impact-experiment-dialog';
 import { BiasRerunDialogHostComponent } from '@shared/bias-rerun-dialog/bias-rerun-dialog';
+import { BiasCompareDialogHostComponent } from '@shared/bias-compare-dialog/bias-compare-dialog';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, ConfirmDialogHostComponent, GlobalNotificationComponent, HumanInteractionDialogHostComponent, NodeSettingsDialogHostComponent, SubflowPreviewDialogHostComponent, BiasImpactExperimentDialogHostComponent, BiasRerunDialogHostComponent],
+  imports: [RouterOutlet, ConfirmDialogHostComponent, GlobalNotificationComponent, HumanInteractionDialogHostComponent, NodeSettingsDialogHostComponent, SubflowPreviewDialogHostComponent, BiasImpactExperimentDialogHostComponent, BiasRerunDialogHostComponent, BiasCompareDialogHostComponent],
   templateUrl: './app.html',
   styleUrl: './app.css',
   changeDetection: ChangeDetectionStrategy.OnPush

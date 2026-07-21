@@ -11,6 +11,7 @@
           @if (simulationDescriptorLabel(); as simulationDescriptor) {
           <p class="text-xs text-sky-900">Simulator: {{ simulationDescriptor }}</p>
           }
+          }
           @if (execution()!.biasExecutionContext; as biasContext) {
           <div class="execution-bias-variant-context">
             <strong>Bias variant</strong>
@@ -18,7 +19,6 @@
             <span>Baseline: {{ execution()!.rerunOfExecutionId || 'not available' }}</span>
             <span>Active annotations: {{ biasContext.activeAnnotationIdsByNode | json }}</span>
           </div>
-          }
           }
         </div>
       </div>
@@ -102,14 +102,33 @@
             }
             <button
               type="button"
-              class="execution-action-button execution-graph-action-button execution-action-button-bias"
+              class="execution-action-button execution-graph-action-button execution-graph-action-button-bias"
               matTooltip="Create biased rerun"
               aria-label="Create biased rerun"
               [disabled]="!canCreateBiasedRerun()"
               (click)="openBiasedRerunDialog()">
               <mat-icon fontIcon="account_tree"></mat-icon>
             </button>
+            @if (isBiasVariant()) {
+            <button
+              type="button"
+              class="execution-action-button execution-graph-action-button execution-graph-action-button-compare"
+              matTooltip="Compare with baseline"
+              aria-label="Compare with baseline"
+              [disabled]="!canCompareBiasExecution()"
+              (click)="openCompareDialog()">
+              <mat-icon fontIcon="compare_arrows"></mat-icon>
+            </button>
+            }
           </div>
+          @if (isBiasHighlightActive()) {
+          <div class="execution-bias-legend">
+            <span class="execution-bias-legend-title">Bias report highlighted on canvas:</span>
+            <span class="execution-bias-legend-item"><i class="execution-bias-legend-dot execution-bias-legend-dot-active"></i> Bias annotation active</span>
+            <span class="execution-bias-legend-item"><i class="execution-bias-legend-dot execution-bias-legend-dot-changed"></i> Changed by bias / routing changed</span>
+            <button type="button" class="execution-bias-legend-reset" (click)="clearBiasHighlight()">Back to normal view</button>
+          </div>
+          }
           <app-rete-editor
             [flowId]="execution()!.id"
             [flowData]="executionFlowData()"
@@ -158,6 +177,13 @@
             [disabled]="!executionOutputTabEnabled()"
             (click)="selectAsideTab('output')">
             Output
+          </button>
+          <button
+            type="button"
+            class="execution-aside-tab"
+            [class.execution-aside-tab-active]="activeAsideTab() === 'bias-reports'"
+            (click)="selectAsideTab('bias-reports')">
+            Bias impact reports
           </button>
         </div>
 
@@ -253,7 +279,7 @@
               }
             }
           </div>
-          } @else {
+          } @else if (activeAsideTab() === 'output') {
           <div class="p-3 space-y-3">
             @if (!executionOutputGroups().length) {
             <div class="text-xs text-slate-500">No execution output available.</div>
@@ -289,6 +315,8 @@
               }
             }
           </div>
+          } @else {
+          <app-bias-impact-report-list [executionId]="execution()!.id" />
           }
         </div>
       </aside>
