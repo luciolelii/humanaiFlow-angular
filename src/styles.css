@@ -43,6 +43,30 @@
     'Noto Color Emoji';
 }
 
+/* ── Design tokens (dialogs & modals) ─────────────────────────────
+ * Shared across modal-shell and (progressively) the other dialog
+ * components, so a single value change stays consistent everywhere
+ * instead of being copied per-component.
+ * ─────────────────────────────────────────────────────────────── */
+:root {
+  --radius-modal: 1rem;
+  --shadow-modal: 0 25px 50px rgb(15 23 42 / 25%);
+  --color-surface: #ffffff;
+  --color-border: #cbd5e1;
+  --color-divider: #e2e8f0;
+  --color-text-body: #0f172a;
+  --color-text-muted: #64748b;
+  --color-accent: #2563eb;
+  --color-danger: #dc2626;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --z-modal-backdrop: 10020;
+  --z-modal: 10021;
+}
+
 /* ── Semantic surface colours (hard-coded) ──────────────────────
  *  #0f172a  slate-900   — body text, modal text
  *  #1e293b  slate-800   — param text
