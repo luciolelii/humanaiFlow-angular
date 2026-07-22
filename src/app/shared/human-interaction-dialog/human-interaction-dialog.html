@@ -1,8 +1,8 @@
 @if (state(); as currentState) {
-<div class="fixed inset-0 z-9999 flex items-center justify-center p-4">
+<div class="fixed inset-0 z-(--z-modal) flex items-center justify-center p-4">
   <div class="absolute inset-0 bg-black/45" (click)="cancel($event)"></div>
 
-  <div class="relative z-10 flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
+  <div class="relative z-10 flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-(--color-border) bg-white shadow-(--shadow-modal)">
     <div class="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
       <div>
         <h3 class="text-lg font-semibold text-slate-900">{{ currentState.title }}</h3>

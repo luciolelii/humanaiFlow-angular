@@ -1,8 +1,8 @@
 @if (state()) {
-<div class="fixed inset-0" style="z-index: 10010;">
+<div class="fixed inset-0 z-(--z-modal)">
   <div class="absolute inset-0 bg-black/50" (click)="cancel($event)"></div>
 
-  <div class="absolute left-1/2 top-1/2 flex max-h-[min(80vh,720px)] w-[min(92vw,560px)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
+  <div class="absolute left-1/2 top-1/2 flex max-h-[min(80vh,720px)] w-[min(92vw,560px)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 overflow-hidden rounded-2xl border border-(--color-border) bg-white p-6 shadow-(--shadow-modal)">
     <div class="flex items-center justify-between">
       <h3 class="text-lg font-semibold text-slate-900">{{ state()!.title }}</h3>
       <button type="button" mat-stroked-button (click)="cancel($event)">Close</button>

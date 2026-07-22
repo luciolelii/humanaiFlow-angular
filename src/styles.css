@@ -65,6 +65,7 @@
   --space-5: 20px;
   --z-modal-backdrop: 10020;
   --z-modal: 10021;
+  --z-confirm: 10031;
 }
 
 /* ── Semantic surface colours (hard-coded) ──────────────────────
