@@ -1,5 +1,5 @@
-import { ChangeDetectionStrategy, Component, effect, ElementRef, HostListener, Injector, input, OnChanges, OnDestroy, signal, SimpleChanges, untracked, viewChild } from '@angular/core';
-import { BlockType, FlowData, FlowNode } from '@models/flow';
+import { ChangeDetectionStrategy, Component, computed, effect, ElementRef, HostListener, Injector, input, OnChanges, OnDestroy, signal, SimpleChanges, untracked, viewChild } from '@angular/core';
+import { BlockType, FlowData, FlowLane, FlowNode } from '@models/flow';
 import { Drag } from 'rete-area-plugin';
 import { BlocksService } from '@services/blocks/blocks';
 import { ContainersService } from '@services/containers/containers';
@@ -7,7 +7,7 @@ import { BLOCK_TYPE_DRAG_MIME } from '@shared/blocks-list/block-drag';
 import { CONTAINER_SUBFLOW_DRAG_MIME } from '@shared/nodes/container-node/container-node-drag';
 import { GraphSelectionService } from '@services/graph-selection/graph-selection';
 import { EditorStateHolder } from '@stores/flow-editor';
-import { addBlockToEditor, createEditor, exportGraph, ReteEditorInstance, setEditorGlobalInputs } from '@utilities/rete-editor';
+import { addBlockToEditor, createEditor, exportGraph, isProgrammaticNodeTranslation, ReteEditorInstance, setEditorGlobalInputs, setEditorLanes } from '@utilities/rete-editor';
 import { firstValueFrom } from 'rxjs';
 
 @Component({
@@ -53,6 +53,21 @@ export class ReteEditor implements OnChanges, OnDestroy {
   initialTypesLoading = signal(false);
   editorMode = signal<'standard' | 'select'>('standard');
   selectionBox = signal<{ left: number; top: number; width: number; height: number } | null>(null);
+
+  private static readonly LANE_BAND_HEIGHT = 320;
+  private static readonly LANE_BAND_WIDTH = 20000;
+  private static readonly LANE_BAND_LEFT = -6000;
+  private static readonly LANE_LABEL_LEFT = 24;
+
+  readonly laneTransform = signal({ x: 0, y: 0, k: 1 });
+  readonly sortedLanes = computed(() => [...(this.flowData().lanes ?? [])].sort((a, b) => a.order - b.order));
+  readonly laneContentTransform = computed(() => {
+    const { x, y, k } = this.laneTransform();
+    return `translate(${x}px, ${y}px) scale(${k})`;
+  });
+  readonly laneBandWidth = ReteEditor.LANE_BAND_WIDTH;
+  readonly laneBandLeft = ReteEditor.LANE_BAND_LEFT;
+  readonly laneLabelLeft = ReteEditor.LANE_LABEL_LEFT;
   private selectionPointerId: number | null = null;
   private selectionStart: { x: number; y: number } | null = null;
   private readonly dirtyEventTypes = new Set([
@@ -75,6 +90,7 @@ export class ReteEditor implements OnChanges, OnDestroy {
     }
     if (changes['flowData'] && this.rete) {
       setEditorGlobalInputs(this.rete.editor, this.flowData().globalInputs ?? []);
+      setEditorLanes(this.rete.editor, this.flowData().lanes ?? []);
       if (!this.readonly() && !this.isEditorGraphInSync()) {
         void this.reloadEditor();
         return;
@@ -306,7 +322,9 @@ export class ReteEditor implements OnChanges, OnDestroy {
 
     this.rete = rete;
     setEditorGlobalInputs(rete.editor, this.flowData().globalInputs ?? []);
+    setEditorLanes(rete.editor, this.flowData().lanes ?? []);
     this.syncAreaDragMode();
+    this.syncLaneTransform();
     const loadedFlowId = this.flowId();
     const normalizedData = exportGraph(rete.editor);
     if (this.flowState.currentFlow()?.id === loadedFlowId) {
@@ -323,6 +341,15 @@ export class ReteEditor implements OnChanges, OnDestroy {
       rete.area.addPipe((context: any) => {
         if (context?.type === 'nodetranslated') {
           this.markFlowChanged(rete, context, loadedFlowId, currentVersion);
+        } else if (context?.type === 'translated' || context?.type === 'zoomed' || context?.type === 'resized') {
+          this.syncLaneTransform();
+        }
+        return context;
+      });
+    } else {
+      rete.area.addPipe((context: any) => {
+        if (context?.type === 'translated' || context?.type === 'zoomed' || context?.type === 'resized') {
+          this.syncLaneTransform();
         }
         return context;
       });
@@ -360,6 +387,7 @@ export class ReteEditor implements OnChanges, OnDestroy {
 
     const nextFlowData = this.flowData();
     setEditorGlobalInputs(rete.editor, nextFlowData.globalInputs ?? []);
+    setEditorLanes(rete.editor, nextFlowData.lanes ?? []);
     if (!this.canPatchReadonlyFlowData(rete, nextFlowData)) {
       await this.reloadEditor();
       return;
@@ -437,7 +465,17 @@ export class ReteEditor implements OnChanges, OnDestroy {
       .sort();
 
     if (currentGlobalInputs.length !== nextGlobalInputs.length) return false;
-    return currentGlobalInputs.every((input, index) => input === nextGlobalInputs[index]);
+    if (!currentGlobalInputs.every((input, index) => input === nextGlobalInputs[index])) return false;
+
+    const currentLanes = [...(currentFlowData.lanes ?? [])]
+      .map((lane) => `${lane.id}:${lane.name}:${lane.order}:${lane.color ?? ''}`)
+      .sort();
+    const nextLanes = [...(nextFlowData.lanes ?? [])]
+      .map((lane) => `${lane.id}:${lane.name}:${lane.order}:${lane.color ?? ''}`)
+      .sort();
+
+    if (currentLanes.length !== nextLanes.length) return false;
+    return currentLanes.every((lane, index) => lane === nextLanes[index]);
   }
 
   private async patchReadonlyNodes(rete: ReteEditorInstance, nextFlowData: FlowData) {
@@ -479,6 +517,7 @@ export class ReteEditor implements OnChanges, OnDestroy {
       typeName: currentNode.typeName,
       userInteractive: currentNode['userInteractive'],
       nodeFamily: currentNode.nodeFamily,
+      laneId: currentNode.laneId ?? null,
       __readonly: currentNode['__readonly']
     }) === JSON.stringify({
       id: nextNode.id,
@@ -491,6 +530,7 @@ export class ReteEditor implements OnChanges, OnDestroy {
       typeName: nextNode.typeName,
       userInteractive: nextNode['userInteractive'],
       nodeFamily: nextNode.nodeFamily,
+      laneId: nextNode.laneId ?? null,
       __readonly: nextNode['__readonly']
     });
   }
@@ -512,13 +552,51 @@ export class ReteEditor implements OnChanges, OnDestroy {
     const pos = context?.data?.position;
     if (!movedNode?.data || !pos) return;
 
+    // Only a real pointer drag re-derives the lane from the drop position; programmatic
+    // moves (initial load, clone, server-side recreate) must keep whatever laneId they already carry.
+    const isUserDrag = !isProgrammaticNodeTranslation(rete.area, movedNode.id);
+    const laneId = isUserDrag ? this.resolveLaneIdForWorldY(pos.y) : (movedNode.data.laneId ?? null);
+
     movedNode.data = {
       ...movedNode.data,
-      position: { x: pos.x, y: pos.y }
+      position: { x: pos.x, y: pos.y },
+      laneId
     };
 
     // Keep socket anchors and connection paths visually in sync while dragging.
     void rete.area.update('node', movedNode.id);
+  }
+
+  laneBandTop(index: number): number {
+    return index * ReteEditor.LANE_BAND_HEIGHT;
+  }
+
+  laneBandHeight(): number {
+    return ReteEditor.LANE_BAND_HEIGHT;
+  }
+
+  laneBandBackground(color: string | null | undefined, index: number): string {
+    const hex = (color || '#94a3b8').replace('#', '');
+    const parsed = hex.length === 6
+      ? [hex.slice(0, 2), hex.slice(2, 4), hex.slice(4, 6)].map((part) => parseInt(part, 16))
+      : [148, 163, 184];
+    const alpha = index % 2 === 0 ? 0.09 : 0.16;
+    return `rgba(${parsed[0]}, ${parsed[1]}, ${parsed[2]}, ${alpha})`;
+  }
+
+  private resolveLaneIdForWorldY(y: number): string | null {
+    const lanes = this.sortedLanes();
+    if (!lanes.length) return null;
+    const index = Math.floor(y / ReteEditor.LANE_BAND_HEIGHT);
+    if (index < 0 || index >= lanes.length) return null;
+    return lanes[index].id;
+  }
+
+  private syncLaneTransform() {
+    const area = this.rete?.area?.area;
+    if (!area) return;
+    const { x, y, k } = area.transform;
+    this.laneTransform.set({ x, y, k });
   }
 
   private markFlowChanged(rete: ReteEditorInstance, context: any, loadedFlowId: string, loadedVersion: number) {
@@ -531,6 +609,7 @@ export class ReteEditor implements OnChanges, OnDestroy {
     if (this.flowState.currentFlow()?.id !== loadedFlowId) return;
 
     setEditorGlobalInputs(rete.editor, this.flowData().globalInputs ?? []);
+    setEditorLanes(rete.editor, this.flowData().lanes ?? []);
     const updatedData = exportGraph(rete.editor);
     this.flowState.updateData(updatedData, { structural: context?.type !== 'nodetranslated' });
   }

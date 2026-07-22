@@ -213,6 +213,7 @@ export class BehavioralProbeEditorComponent implements OnChanges {
   private defaultMockValue(port: FlowPort): unknown {
     if (port.multiple) return [];
     if (port.type === 'BOOLEAN') return false;
+    if (port.type === 'JSON') return {};
     return '';
   }
 

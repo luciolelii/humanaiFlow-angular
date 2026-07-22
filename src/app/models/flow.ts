@@ -24,12 +24,22 @@ export type FlowData = {
   connections: FlowBlockConnection[];
   dependencies: FlowNodeDependency[];
   globalInputs?: FlowGlobalInput[];
+  lanes?: FlowLane[];
+};
+
+export type FlowLane = {
+  id: string;
+  name: string;
+  description?: string | null;
+  order: number;
+  color?: string | null;
 };
 
 export type FlowGlobalInput = {
   name: string;
   type: string;
   multiple: boolean;
+  valueSchema?: Record<string, unknown> | null;
 };
 
 export type FlowSubflowValidationError = {
@@ -84,6 +94,7 @@ export type FlowNodeBase = {
   specificConfiguration: FlowBlockConfiguration;
   typeName: BlockTypeName;
   nodeFamily?: NodeFamily;
+  laneId?: string | null;
 };
 
 export type BiasActivationMode =
@@ -164,6 +175,7 @@ export type FlowPort = {
   type: string;
   multiple: boolean;
   valueKinds?: FlowValueKind[];
+  valueSchema?: Record<string, unknown> | null;
 };
 
 export type FlowBlockConnection = {

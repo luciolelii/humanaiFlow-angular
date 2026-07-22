@@ -1,4 +1,4 @@
-import { Flow, FlowBlock, FlowContainer, FlowData, FlowGlobalInput, FlowStatus, FlowVisibility, normalizeFlowValidationErrors } from '@models/flow';
+import { Flow, FlowBlock, FlowContainer, FlowData, FlowGlobalInput, FlowLane, FlowStatus, FlowVisibility, normalizeFlowValidationErrors } from '@models/flow';
 
 function parseDate(value: unknown, fallback: Date): Date {
   if (typeof value !== 'string' || !value) return fallback;
@@ -36,7 +36,8 @@ export function flowFromApi(raw: unknown): Flow {
       containers: normalizeNodes(data.containers, 'container') as FlowContainer[],
       connections: Array.isArray(data.connections) ? data.connections : [],
       dependencies: Array.isArray(data.dependencies) ? data.dependencies : [],
-      globalInputs: normalizeGlobalInputs(data.globalInputs)
+      globalInputs: normalizeGlobalInputs(data.globalInputs),
+      lanes: normalizeLanes(data.lanes)
     }
   };
 }
@@ -51,7 +52,8 @@ export function toFlowCreateRequest(name: string, description?: string, flow?: F
       containers: [],
       connections: [],
       dependencies: [],
-      globalInputs: []
+      globalInputs: [],
+      lanes: []
     }
   };
 }
@@ -64,8 +66,26 @@ function normalizeGlobalInputs(raw: unknown): FlowGlobalInput[] {
     .map((item) => ({
       name: String(item['name'] ?? '').trim(),
       type: String(item['type'] ?? 'TEXT').toUpperCase() || 'TEXT',
-      multiple: Boolean(item['multiple'])
+      multiple: Boolean(item['multiple']),
+      valueSchema: item['valueSchema'] && typeof item['valueSchema'] === 'object' && !Array.isArray(item['valueSchema'])
+        ? item['valueSchema'] as Record<string, unknown>
+        : null
     }));
+}
+
+function normalizeLanes(raw: unknown): FlowLane[] {
+  if (!Array.isArray(raw)) return [];
+
+  return raw
+    .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object' && !Array.isArray(item))
+    .map((item, index) => ({
+      id: String(item['id'] ?? crypto.randomUUID()),
+      name: String(item['name'] ?? '').trim(),
+      description: typeof item['description'] === 'string' ? item['description'] : null,
+      order: Number.isFinite(Number(item['order'])) ? Number(item['order']) : index,
+      color: typeof item['color'] === 'string' && item['color'].trim().length > 0 ? item['color'] : null
+    }))
+    .sort((a, b) => a.order - b.order);
 }
 
 function normalizeNodes(raw: unknown, nodeFamily: 'block' | 'container'): Array<FlowBlock | FlowContainer> {

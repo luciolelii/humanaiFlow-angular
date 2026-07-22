@@ -12,6 +12,7 @@ import {
   FlowBlock,
   FlowData,
   FlowGlobalInput,
+  FlowLane,
   FLOW_DEPENDANT_PORT_KEY,
   FLOW_DEPENDENCY_PORT_KEY,
   FLOW_DEPENDENCY_SOCKET_TYPE,
@@ -47,6 +48,7 @@ type ReteRuntimeContext = {
   flowState: EditorStateHolder;
   readonly: boolean;
   globalInputs: FlowGlobalInput[];
+  lanes: FlowLane[];
 };
 
 export async function createEditor(
@@ -69,7 +71,8 @@ export async function createEditor(
     containersService: injector.get(ContainersService),
     flowState: injector.get(EditorStateHolder),
     readonly,
-    globalInputs: cloneValue(flowData.globalInputs ?? [])
+    globalInputs: cloneValue(flowData.globalInputs ?? []),
+    lanes: cloneValue(flowData.lanes ?? [])
   };
   editorRuntime.set(editor, runtime);
 
@@ -172,7 +175,8 @@ export function exportGraph(editor: NodeEditor<HFSchemes>) {
       specificConfiguration: cloneValue(blockData?.specificConfiguration ?? {}),
       [biasAnnotationsProperty]: cloneValue(blockRecord?.[biasAnnotationsProperty] ?? []),
       typeName: blockData?.typeName ?? "LLMBlock",
-      nodeFamily: blockData?.nodeFamily === 'container' ? 'container' : 'block'
+      nodeFamily: blockData?.nodeFamily === 'container' ? 'container' : 'block',
+      laneId: typeof blockRecord?.['laneId'] === 'string' ? blockRecord['laneId'] : null
     };
   });
 
@@ -194,7 +198,8 @@ export function exportGraph(editor: NodeEditor<HFSchemes>) {
     dependencies: allConnections
       .filter((connection) => connection.kind === 'dependency')
       .map(({ sourceId, targetId }) => ({ sourceId, targetId })),
-    globalInputs: cloneValue(runtime?.globalInputs ?? [])
+    globalInputs: cloneValue(runtime?.globalInputs ?? []),
+    lanes: cloneValue(runtime?.lanes ?? [])
   };
 }
 
@@ -202,6 +207,20 @@ export function setEditorGlobalInputs(editor: NodeEditor<HFSchemes>, globalInput
   const runtime = editorRuntime.get(editor);
   if (!runtime) return;
   runtime.globalInputs = cloneValue(globalInputs ?? []);
+}
+
+export function setEditorLanes(editor: NodeEditor<HFSchemes>, lanes: FlowLane[]) {
+  const runtime = editorRuntime.get(editor);
+  if (!runtime) return;
+  runtime.lanes = cloneValue(lanes ?? []);
+}
+
+export function getEditorLanes(editor: NodeEditor<HFSchemes>): FlowLane[] {
+  return editorRuntime.get(editor)?.lanes ?? [];
+}
+
+export function isProgrammaticNodeTranslation(area: AreaPlugin<HFSchemes, AreaExtra>, nodeId: string): boolean {
+  return areaProgrammaticTranslations.get(area)?.has(nodeId) === true;
 }
 
 export async function addBlockToEditor(

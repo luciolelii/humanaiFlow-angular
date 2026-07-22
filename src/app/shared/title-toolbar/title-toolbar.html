@@ -166,6 +166,7 @@
           (ngModelChange)="updateGlobalInput($index, { type: $event })">
           <option value="TEXT">TEXT</option>
           <option value="FILE">FILE</option>
+          <option value="JSON">JSON</option>
         </select>
       </label>
 
@@ -199,6 +200,78 @@
   }
   }
 </div>
+
+<div class="title-toolbar-lanes">
+  <div class="title-toolbar-lanes-header-row">
+    <button type="button" class="title-toolbar-global-inputs-toggle" (click)="toggleLanes()">
+      <mat-icon [fontIcon]="lanesOpen() ? 'expand_less' : 'expand_more'"></mat-icon>
+      <span class="title-toolbar-global-inputs-title">Lanes</span>
+      <span class="title-toolbar-global-count">{{ lanes().length }}</span>
+    </button>
+    <div class="title-toolbar-global-inputs-actions">
+      @if (!readOnly()) {
+      <button
+        type="button"
+        class="title-toolbar-global-inputs-action"
+        matTooltip="Add lane"
+        aria-label="Add lane"
+        (click)="addLane()">
+        <mat-icon fontIcon="add"></mat-icon>
+      </button>
+      }
+    </div>
+  </div>
+
+  @if (lanesOpen()) {
+  @if (!lanes().length) {
+  <div class="title-toolbar-global-inputs-empty">No lanes defined. Nodes without a lane are shown as unassigned.</div>
+  } @else {
+  @for (lane of lanes(); track lane.id; let laneIndex = $index) {
+  <div class="title-toolbar-lane-row">
+    <span class="title-toolbar-lane-swatch" [style.background]="lane.color || '#94a3b8'"></span>
+    <mat-form-field appearance="outline">
+      <mat-label>Name</mat-label>
+      <input
+        matInput
+        [readonly]="readOnly()"
+        [ngModel]="lane.name"
+        (ngModelChange)="updateLane(laneIndex, { name: $event })"
+        placeholder="Hiring Manager" />
+    </mat-form-field>
+
+    <input
+      type="color"
+      class="title-toolbar-lane-color-input"
+      [disabled]="readOnly()"
+      [ngModel]="lane.color || '#94a3b8'"
+      (ngModelChange)="updateLane(laneIndex, { color: $event })" />
+
+    @if (!readOnly()) {
+    <div class="title-toolbar-lane-reorder">
+      <button type="button" mat-icon-button matTooltip="Move up" [disabled]="laneIndex === 0" (click)="moveLane(laneIndex, -1)">
+        <mat-icon fontIcon="arrow_upward"></mat-icon>
+      </button>
+      <button type="button" mat-icon-button matTooltip="Move down" [disabled]="laneIndex === lanes().length - 1" (click)="moveLane(laneIndex, 1)">
+        <mat-icon fontIcon="arrow_downward"></mat-icon>
+      </button>
+    </div>
+    <button
+      type="button"
+      mat-icon-button
+      class="title-toolbar-global-delete"
+      matTooltip="Delete lane"
+      (click)="removeLane(laneIndex)">
+      <mat-icon fontIcon="delete"></mat-icon>
+    </button>
+    }
+  </div>
+  @if (laneValidationErrors()[laneIndex]; as laneError) {
+  <div class="title-toolbar-global-error">{{ laneError }}</div>
+  }
+  }
+  }
+  }
+</div>
 }
 
 @if (creatingGlobalInput()) {
@@ -222,6 +295,7 @@
       (ngModelChange)="updateDraftGlobalInput({ type: $event })">
       <option value="TEXT">TEXT</option>
       <option value="FILE">FILE</option>
+      <option value="JSON">JSON</option>
     </select>
   </label>
 
@@ -246,6 +320,45 @@
   <div class="title-toolbar-global-modal-actions">
     <button type="button" mat-stroked-button (click)="cancelNewGlobalInput()">Cancel</button>
     <button type="button" mat-flat-button [disabled]="!canSaveDraftGlobalInput()" (click)="saveNewGlobalInput()">Save</button>
+  </div>
+</div>
+}
+
+@if (creatingLane()) {
+<div class="title-toolbar-global-modal-backdrop" (click)="cancelNewLane()"></div>
+<div class="title-toolbar-global-modal" role="dialog" aria-modal="true" aria-labelledby="lane-modal-title">
+  <div class="title-toolbar-global-modal-title" id="lane-modal-title">Add Lane</div>
+
+  <mat-form-field appearance="outline" class="title-toolbar-global-modal-field">
+    <mat-label>Name</mat-label>
+    <input
+      matInput
+      [ngModel]="draftLane().name"
+      (ngModelChange)="updateDraftLane({ name: $event })"
+      placeholder="Hiring Manager" />
+  </mat-form-field>
+
+  <label class="title-toolbar-global-select title-toolbar-global-modal-select">
+    <span>Color</span>
+    <input
+      type="color"
+      [ngModel]="draftLane().color || '#94a3b8'"
+      (ngModelChange)="updateDraftLane({ color: $event })" />
+  </label>
+
+  @if (!draftLane().name.trim()) {
+  <div class="title-toolbar-global-error">Name is required</div>
+  } @else if (!canSaveDraftLane()) {
+  <div class="title-toolbar-global-error">Name must be unique</div>
+  }
+
+  <div class="title-toolbar-global-modal-help">
+    Lanes are presentation metadata: they group nodes by actor/responsibility and do not affect routing or execution.
+  </div>
+
+  <div class="title-toolbar-global-modal-actions">
+    <button type="button" mat-stroked-button (click)="cancelNewLane()">Cancel</button>
+    <button type="button" mat-flat-button [disabled]="!canSaveDraftLane()" (click)="saveNewLane()">Save</button>
   </div>
 </div>
 }

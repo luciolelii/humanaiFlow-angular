@@ -6,6 +6,7 @@ import { NodeSettingsDialogService } from '@services/dialogs/node-settings-dialo
 import { FieldRetriever } from '@services/retriever/field-retriever';
 import { BlocksService } from '@services/blocks/blocks';
 import { ContainersService } from '@services/containers/containers';
+import { EditorStateHolder } from '@stores/flow-editor';
 import { ContainerNodeComponent } from './container-node';
 
 describe('ContainerNodeComponent', () => {
@@ -194,6 +195,26 @@ describe('ContainerNodeComponent', () => {
         model: ''
       }
     });
+  });
+
+  it('has no lane badge when the container has no laneId', () => {
+    component.data = { data: { id: 'container-1', specificConfiguration: {}, inputs: [], outputs: [] } };
+    expect(component.laneBadge).toBeNull();
+  });
+
+  it('resolves the lane badge from the current flow lanes', () => {
+    const editorState = TestBed.inject(EditorStateHolder);
+    editorState.currentFlow.set({
+      id: 'flow-1', name: 'Test', visibility: 'PRIVATE', author: 'tester',
+      createdAt: new Date(), status: 'DRAFT', updatedAt: new Date(),
+      data: {
+        blocks: [], containers: [], connections: [], dependencies: [],
+        lanes: [{ id: 'lane-hr', name: 'HR', order: 0, color: '#F59F00' }]
+      }
+    });
+    component.data = { data: { id: 'container-1', specificConfiguration: {}, inputs: [], outputs: [], laneId: 'lane-hr' } };
+
+    expect(component.laneBadge).toEqual({ name: 'HR', color: '#F59F00' });
   });
 
   it('has no bias annotation badge when the container has no annotations', () => {

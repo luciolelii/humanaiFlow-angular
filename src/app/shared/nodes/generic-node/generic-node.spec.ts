@@ -98,6 +98,20 @@ describe('GenericNodeComponent', () => {
     expect(component.biasAnnotationBadge).toBeNull();
   });
 
+  it('has no lane badge when the block has no laneId', () => {
+    expect(component.laneBadge).toBeNull();
+  });
+
+  it('resolves the lane badge from the current flow lanes', () => {
+    const editorState = TestBed.inject(EditorStateHolder) as any;
+    editorState.currentFlow.mockReturnValue({
+      data: { lanes: [{ id: 'lane-hr', name: 'HR', order: 0, color: '#F59F00' }] }
+    });
+    component.data.data = { ...component.data.data, laneId: 'lane-hr' };
+
+    expect(component.laneBadge).toEqual({ name: 'HR', color: '#F59F00' });
+  });
+
   it('computes the bias annotation badge from the node annotations and the severity catalog', () => {
     const blocks = TestBed.inject(BlocksService) as any;
     blocks.biasAnnotationsDescriptor.mockReturnValue({

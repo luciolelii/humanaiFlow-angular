@@ -37,6 +37,12 @@
         </button>
         }
       </div>
+      @if (laneBadge; as lane) {
+      <div class="container-node__lane-chip" [style.border-color]="lane.color || '#94a3b8'">
+        <i class="bi bi-diagram-3"></i>
+        <span>{{ lane.name }}</span>
+      </div>
+      }
     </div>
     <div class="container-node__header-actions">
       @if (missingRequiredParams.length) {

@@ -368,6 +368,13 @@ export class ContainerNodeComponent implements OnDestroy {
     return this.richContentFields.length > 0;
   }
 
+  get laneBadge(): { name: string; color: string | null } | null {
+    const laneId = (this.data?.data as Record<string, unknown> | undefined)?.['laneId'];
+    if (typeof laneId !== 'string' || !laneId) return null;
+    const lane = this.editorState.currentFlow()?.data.lanes?.find((candidate) => candidate.id === laneId);
+    return lane ? { name: lane.name, color: lane.color ?? null } : null;
+  }
+
   get biasAnnotations(): BiasAnnotation[] {
     const nodeData = this.data?.data as Record<string, unknown> | undefined;
     const value = nodeData?.[this.biasAnnotationsProperty];

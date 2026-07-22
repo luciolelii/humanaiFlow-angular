@@ -85,7 +85,7 @@
       <span>{{ output.name }} <small>{{ output.type }}{{ output.multiple ? ' · multiple' : '' }}</small></span>
       @if (output.type === 'BOOLEAN' && !output.multiple) {
       <input type="checkbox" [checked]="mockBooleanValue(output)" [disabled]="readonly" (change)="setBooleanMockOutput(output, $any($event.target).checked)" />
-      } @else if (output.multiple || output.type === 'ANY') {
+      } @else if (output.multiple || output.type === 'ANY' || output.type === 'JSON') {
       <textarea [ngModel]="mockValueText(output)" [disabled]="readonly" rows="3" placeholder="Valid JSON value" (ngModelChange)="setJsonMockOutput(output, $event)"></textarea>
       } @else {
       <input type="text" [ngModel]="mockValueText(output)" [disabled]="readonly" (ngModelChange)="setTextMockOutput(output, $event)" />

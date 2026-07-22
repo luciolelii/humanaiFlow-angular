@@ -8,7 +8,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Router } from '@angular/router';
-import { FlowGlobalInput } from '@models/flow';
+import { FlowGlobalInput, FlowLane } from '@models/flow';
 import { BlocksService } from '@services/blocks/blocks';
 import { Authorization } from '@services/authorization/authorization';
 import { FlowsService } from '@services/flows/flows';
@@ -25,6 +25,7 @@ import { EditorStateHolder } from '@stores/flow-editor';
 })
 export class TitleToolbar {
   private static readonly GLOBAL_INPUTS_HELP_COMPACT_HEIGHT_BREAKPOINT = 900;
+  private static readonly LANE_COLOR_PALETTE = ['#4C6EF5', '#12B886', '#F59F00', '#E64980', '#7048E8', '#0CA678', '#F76707', '#1098AD'];
   private snackTimeout: ReturnType<typeof setTimeout> | null = null;
 
   readonly titleInputRef = viewChild<ElementRef>('titleInput');
@@ -96,6 +97,26 @@ export class TitleToolbar {
   globalInputsOpen = signal(false);
   creatingGlobalInput = signal(false);
   draftGlobalInput = signal<FlowGlobalInput>({ name: '', type: 'TEXT', multiple: false });
+
+  lanesOpen = signal(false);
+  creatingLane = signal(false);
+  draftLane = signal<FlowLane>({ id: '', name: '', order: 0, color: null });
+  lanes = computed(() => [...(this.flow()?.data.lanes ?? [])].sort((a, b) => a.order - b.order));
+  laneValidationErrors = computed(() => {
+    const lanes = this.lanes();
+    const nameCounts = new Map<string, number>();
+    for (const lane of lanes) {
+      const normalized = lane.name.trim().toLowerCase();
+      if (!normalized) continue;
+      nameCounts.set(normalized, (nameCounts.get(normalized) ?? 0) + 1);
+    }
+    return lanes.map((lane) => {
+      const name = lane.name.trim();
+      if (!name) return 'Name is required';
+      if ((nameCounts.get(name.toLowerCase()) ?? 0) > 1) return 'Name must be unique';
+      return null;
+    });
+  });
 
   startEditingTitle() {
     const flow = this.flow();
@@ -225,6 +246,96 @@ export class TitleToolbar {
     const name = draft.name.trim();
     if (!flow || !name) return false;
     return !(flow.data.globalInputs ?? []).some((input) => input.name.trim().toLowerCase() === name.toLowerCase());
+  }
+
+  toggleLanes() {
+    this.lanesOpen.update((open) => !open);
+  }
+
+  addLane() {
+    if (this.readOnly()) return;
+    const nextOrder = this.lanes().length;
+    this.draftLane.set({
+      id: crypto.randomUUID(),
+      name: '',
+      order: nextOrder,
+      color: TitleToolbar.LANE_COLOR_PALETTE[nextOrder % TitleToolbar.LANE_COLOR_PALETTE.length]
+    });
+    this.creatingLane.set(true);
+  }
+
+  updateDraftLane(patch: Partial<FlowLane>) {
+    this.draftLane.update((current) => ({ ...current, ...patch }));
+  }
+
+  canSaveDraftLane(): boolean {
+    const flow = this.flow();
+    const draft = this.draftLane();
+    const name = draft.name.trim();
+    if (!flow || !name) return false;
+    return !this.lanes().some((lane) => lane.name.trim().toLowerCase() === name.toLowerCase());
+  }
+
+  saveNewLane() {
+    const flow = this.flow();
+    if (!flow || this.readOnly()) return;
+
+    const draft = this.draftLane();
+    const name = draft.name.trim();
+    if (!name || !this.canSaveDraftLane()) return;
+
+    this.editorState.updateData({
+      ...flow.data,
+      lanes: [...this.lanes(), { ...draft, name }]
+    });
+    this.creatingLane.set(false);
+    this.lanesOpen.set(true);
+  }
+
+  cancelNewLane() {
+    this.creatingLane.set(false);
+  }
+
+  updateLane(index: number, patch: Partial<FlowLane>) {
+    const flow = this.flow();
+    if (!flow || this.readOnly()) return;
+
+    const lanes = [...this.lanes()];
+    if (!lanes[index]) return;
+    lanes[index] = { ...lanes[index], ...patch };
+
+    this.editorState.updateData({ ...flow.data, lanes });
+  }
+
+  removeLane(index: number) {
+    const flow = this.flow();
+    if (!flow || this.readOnly()) return;
+
+    const lanes = [...this.lanes()];
+    const removed = lanes[index];
+    if (!removed) return;
+    lanes.splice(index, 1);
+
+    this.editorState.updateData({
+      ...flow.data,
+      lanes,
+      blocks: flow.data.blocks.map((block) => block.laneId === removed.id ? { ...block, laneId: null } : block),
+      containers: flow.data.containers.map((container) => container.laneId === removed.id ? { ...container, laneId: null } : container)
+    });
+  }
+
+  moveLane(index: number, direction: -1 | 1) {
+    const flow = this.flow();
+    if (!flow || this.readOnly()) return;
+
+    const lanes = [...this.lanes()];
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= lanes.length) return;
+
+    [lanes[index], lanes[targetIndex]] = [lanes[targetIndex], lanes[index]];
+    const reordered = lanes.map((lane, position) => ({ ...lane, order: position }));
+
+    this.editorState.updateData({ ...flow.data, lanes: reordered });
   }
 
   private shouldUseCompactGlobalInputsHelp(): boolean {

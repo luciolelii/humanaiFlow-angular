@@ -6,6 +6,27 @@
   (pointermove)="onShellPointerMove($event)"
   (pointerup)="onShellPointerUp($event)"
   (pointercancel)="onShellPointerUp($event)">
+  @if (sortedLanes().length) {
+  <div class="rete-lanes-layer" aria-hidden="true">
+    <div class="rete-lanes-content" [style.transform]="laneContentTransform()">
+      @for (lane of sortedLanes(); track lane.id; let laneIndex = $index) {
+      <div
+        class="rete-lane-band"
+        [style.top.px]="laneBandTop(laneIndex)"
+        [style.height.px]="laneBandHeight()"
+        [style.left.px]="laneBandLeft"
+        [style.width.px]="laneBandWidth"
+        [style.background]="laneBandBackground(lane.color, laneIndex)"
+        [style.border-top-color]="lane.color || '#94a3b8'">
+        <div class="rete-lane-label" [style.left.px]="laneLabelLeft - laneBandLeft">
+          <span class="rete-lane-label-swatch" [style.background]="lane.color || '#94a3b8'"></span>
+          <span>{{ lane.name }}</span>
+        </div>
+      </div>
+      }
+    </div>
+  </div>
+  }
   @if (!readonly()) {
   <div class="rete-editor-toolbar">
     <section class="rete-editor-toolbar-group" aria-label="Editor mode controls">
@@ -48,7 +69,7 @@
   </div>
   }
 
-  <div class="h-full w-full" #editor (dragover)="onDragOver($event)" (drop)="onDrop($event)">
+  <div class="h-full w-full rete-editor-canvas" #editor (dragover)="onDragOver($event)" (drop)="onDrop($event)">
   </div>
 
   @if (hasSelectedBlocks) {

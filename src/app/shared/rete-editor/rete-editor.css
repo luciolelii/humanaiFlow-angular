@@ -12,6 +12,55 @@
   overflow: hidden;
 }
 
+.rete-editor-canvas {
+  position: relative;
+  z-index: 1;
+}
+
+.rete-lanes-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.rete-lanes-content {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+}
+
+.rete-lane-band {
+  position: absolute;
+  border-top: 2px solid transparent;
+  box-sizing: border-box;
+}
+
+.rete-lane-label {
+  position: absolute;
+  top: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1);
+  font-size: 12px;
+  font-weight: 700;
+  color: #334155;
+  white-space: nowrap;
+}
+
+.rete-lane-label-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
 .rete-editor-toolbar {
   position: absolute;
   top: 12px;

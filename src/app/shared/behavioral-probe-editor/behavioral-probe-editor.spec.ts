@@ -72,6 +72,20 @@ describe('BehavioralProbeEditorComponent', () => {
     }));
   });
 
+  it('defaults a JSON-typed output to an empty object in mock outputs', () => {
+    fixture.componentRef.setInput('block', { ...block, outputs: [...block.outputs, { name: 'dossier', type: 'JSON', multiple: false }] });
+    fixture.detectChanges();
+
+    const changed = vi.fn();
+    component.probeChange.subscribe(changed);
+
+    component.selectActivationMode('MOCK_RESPONSE');
+
+    expect(changed).toHaveBeenLastCalledWith(expect.objectContaining({
+      mockOutputs: expect.objectContaining({ dossier: {} })
+    }));
+  });
+
   it('updates templates, target inputs and routing branch for the selected mode', () => {
     const changed = vi.fn();
     component.probeChange.subscribe(changed);
