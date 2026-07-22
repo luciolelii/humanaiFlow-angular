@@ -4,6 +4,8 @@ import { vi } from 'vitest';
 
 import { NodeSettingsDialogService } from '@services/dialogs/node-settings-dialog';
 import { FieldRetriever } from '@services/retriever/field-retriever';
+import { BlocksService } from '@services/blocks/blocks';
+import { ContainersService } from '@services/containers/containers';
 import { ContainerNodeComponent } from './container-node';
 
 describe('ContainerNodeComponent', () => {
@@ -14,7 +16,15 @@ describe('ContainerNodeComponent', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [ContainerNodeComponent]
+      imports: [ContainerNodeComponent],
+      providers: [
+        {
+          provide: BlocksService,
+          useValue: {
+            biasAnnotationsDescriptor: vi.fn().mockReturnValue(null)
+          }
+        }
+      ]
     }).compileComponents();
 
     fixture = TestBed.createComponent(ContainerNodeComponent);
@@ -184,5 +194,64 @@ describe('ContainerNodeComponent', () => {
         model: ''
       }
     });
+  });
+
+  it('has no bias annotation badge when the container has no annotations', () => {
+    component.data = { data: { id: 'container-1', specificConfiguration: {}, inputs: [], outputs: [] } };
+    expect(component.biasAnnotationBadge).toBeNull();
+  });
+
+  it('computes the bias annotation badge from the container annotations and the severity catalog', () => {
+    const blocks = TestBed.inject(BlocksService) as any;
+    blocks.biasAnnotationsDescriptor.mockReturnValue({
+      options: {
+        severity: [
+          { value: 'LOW', label: 'Low' },
+          { value: 'HIGH', label: 'High' }
+        ]
+      }
+    });
+    component.data = {
+      data: {
+        id: 'container-1',
+        specificConfiguration: {},
+        inputs: [],
+        outputs: [],
+        biasAnnotations: [
+          { id: 'a1', severity: 'LOW' },
+          { id: 'a2', severity: 'HIGH', behavioralProbe: { activationMode: 'INPUT_TRANSFORMATION', instruction: 'do it' } }
+        ]
+      }
+    };
+
+    expect(component.biasAnnotationBadge).toEqual({
+      count: 2,
+      hasExecutableProbe: true,
+      maxSeverityLabel: 'High'
+    });
+  });
+
+  it('preserves id, position and bias annotations during container regeneration', async () => {
+    const containers = TestBed.inject(ContainersService);
+    const replacement = vi.fn().mockResolvedValue(undefined);
+    component.data = {
+      data: {
+        id: 'old-id', typeName: 'GenericContainer', position: { x: 10, y: 20 },
+        specificConfiguration: { name: 'Container' }, inputs: [], outputs: [],
+        biasAnnotations: [{ id: 'bias-1', category: 'DYNAMIC', issue: 'keep me' }],
+        replaceWithCreatedNode: replacement
+      }
+    };
+    vi.spyOn(containers, 'createContainer').mockReturnValue(of({
+      id: 'old-id', name: 'Generated', typeName: 'GenericContainer', inputs: [], outputs: [],
+      specificConfiguration: { name: 'Container' }, position: { x: 99, y: 99 }, nodeFamily: 'container'
+    }));
+
+    await (component as any).recreateContainer({ name: 'Container' });
+
+    expect(replacement).toHaveBeenCalledWith(expect.objectContaining({
+      position: { x: 10, y: 20 },
+      biasAnnotations: [{ id: 'bias-1', category: 'DYNAMIC', issue: 'keep me' }]
+    }));
   });
 });

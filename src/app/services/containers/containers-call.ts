@@ -2,18 +2,21 @@ import { HttpClient } from "@angular/common/http";
 import { inject } from "@angular/core";
 import { environment } from "@environment";
 import {
+  BiasActivationMode,
   BlockType,
   FlowContainer,
   FlowData,
   FlowSubflowValidationResult
 } from "@models/flow";
-import { map, Observable } from "rxjs";
+import { BiasCapabilities } from "@models/bias-impact";
+import { map, Observable, of } from "rxjs";
 import { ContainersCallServiceBase } from "./container-call.base";
 import { attachSharedDefinitions, toApiPath, toNullableString, toPorts, toPosition, toRecord, toSchema, toValueKinds } from "@services/shared/flow-node-mapping";
 
 export class ContainersCallService extends ContainersCallServiceBase {
   private readonly http = inject(HttpClient);
   private containerTypesCache: BlockType[] | null = null;
+  private readonly biasCapabilitiesCache = new Map<string, BiasCapabilities>();
 
   override retrieveAllContainerTypes(): Observable<BlockType[]> {
     return this.http
@@ -25,6 +28,30 @@ export class ContainersCallService extends ContainersCallServiceBase {
           return types;
         })
       );
+  }
+
+  override retrieveBiasCapabilities(containerType: string): Observable<BiasCapabilities> {
+    const cached = this.biasCapabilitiesCache.get(containerType);
+    if (cached) return of(cached);
+
+    return this.http
+      .get<unknown>(`${environment.apiUrl}/containers/types/${encodeURIComponent(containerType)}/bias-capabilities`)
+      .pipe(
+        map((raw) => this.biasCapabilitiesFromApi(raw, containerType)),
+        map((capabilities) => {
+          this.biasCapabilitiesCache.set(containerType, capabilities);
+          return capabilities;
+        })
+      );
+  }
+
+  override retrieveBiasCapabilitiesForInstance(containerType: string, container: FlowContainer): Observable<BiasCapabilities> {
+    return this.http
+      .post<unknown>(
+        `${environment.apiUrl}/containers/types/${encodeURIComponent(containerType)}/bias-capabilities`,
+        container
+      )
+      .pipe(map((raw) => this.biasCapabilitiesFromApi(raw, containerType)));
   }
 
   override createEmptyContainer(containerType: string): Observable<FlowContainer> {
@@ -120,7 +147,29 @@ export class ContainersCallService extends ContainersCallServiceBase {
       outputs: toPorts(value["outputs"]),
       specificConfiguration,
       typeName,
-      nodeFamily: 'container'
+      nodeFamily: 'container',
+      biasAnnotations: Array.isArray(value["biasAnnotations"])
+        ? value["biasAnnotations"] as FlowContainer["biasAnnotations"]
+        : []
+    };
+  }
+
+  private biasCapabilitiesFromApi(raw: unknown, fallbackContainerType: string): BiasCapabilities {
+    const value = toRecord(raw);
+    const activationModes = Array.isArray(value['activationModes'])
+      ? value['activationModes']
+        .filter((mode): mode is string => typeof mode === 'string')
+        .map((mode) => mode as BiasActivationMode)
+      : [];
+
+    return {
+      blockType: String(value['containerType'] ?? fallbackContainerType),
+      supported: value['supported'] === true,
+      isolatedExperimentSupported: value['isolatedExperimentSupported'] === true,
+      fullFlowExperimentSupported: value['fullFlowExperimentSupported'] === true,
+      externalSideEffects: value['externalSideEffects'] === true,
+      configurationDependent: value['configurationDependent'] === true,
+      activationModes
     };
   }
 

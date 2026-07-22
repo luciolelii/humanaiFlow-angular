@@ -1,4 +1,5 @@
 import { BlockType, FlowContainer, FlowData, FlowSubflowValidationResult } from "@models/flow";
+import { BiasCapabilities } from "@models/bias-impact";
 import { Observable, of } from "rxjs";
 import { ContainersCallServiceBase } from "./container-call.base";
 
@@ -47,6 +48,14 @@ export class ContainersCallServiceFake extends ContainersCallServiceBase {
 
   override retrieveAllContainerTypes(): Observable<BlockType[]> {
     return of(this.containerTypes);
+  }
+
+  override retrieveBiasCapabilities(containerType: string): Observable<BiasCapabilities> {
+    return of(this.biasCapabilities(containerType));
+  }
+
+  override retrieveBiasCapabilitiesForInstance(containerType: string, _container: FlowContainer): Observable<BiasCapabilities> {
+    return of(this.biasCapabilities(containerType));
   }
 
   override createEmptyContainer(containerType: string): Observable<FlowContainer> {
@@ -129,6 +138,18 @@ export class ContainersCallServiceFake extends ContainersCallServiceBase {
       openInputs: [],
       openOutputs: []
     });
+  }
+
+  private biasCapabilities(containerType: string): BiasCapabilities {
+    return {
+      blockType: containerType,
+      supported: true,
+      isolatedExperimentSupported: false,
+      fullFlowExperimentSupported: true,
+      externalSideEffects: false,
+      configurationDependent: false,
+      activationModes: ['INPUT_TRANSFORMATION', 'OUTPUT_TRANSFORMATION']
+    };
   }
 
   private resolveConfigurationType(containerType: string, configuration: Record<string, unknown>) {

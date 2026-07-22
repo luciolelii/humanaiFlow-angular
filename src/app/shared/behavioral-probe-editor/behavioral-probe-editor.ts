@@ -2,9 +2,10 @@ import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, Input, OnChanges, Output, EventEmitter, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { BiasCapabilities } from '@models/bias-impact';
-import { BehavioralProbe, BiasActivationMode, FlowBlock, FlowPort } from '@models/flow';
+import { BehavioralProbe, BiasActivationMode, FlowBlock, FlowContainer, FlowNode, FlowPort } from '@models/flow';
 import { BlocksService } from '@services/blocks/blocks';
-import { take } from 'rxjs';
+import { ContainersService } from '@services/containers/containers';
+import { Observable, take } from 'rxjs';
 
 @Component({
   selector: 'app-behavioral-probe-editor',
@@ -16,10 +17,11 @@ import { take } from 'rxjs';
 })
 export class BehavioralProbeEditorComponent implements OnChanges {
   private readonly blocks = inject(BlocksService);
+  private readonly containers = inject(ContainersService);
   private capabilityRequestVersion = 0;
   private capabilityKey: string | null = null;
 
-  @Input() block: FlowBlock | null = null;
+  @Input() block: FlowNode | null = null;
   @Input() probe: BehavioralProbe | undefined;
   @Input() readonly = false;
   @Output() probeChange = new EventEmitter<BehavioralProbe | undefined>();
@@ -153,7 +155,7 @@ export class BehavioralProbeEditorComponent implements OnChanges {
     const requestVersion = ++this.capabilityRequestVersion;
     this.loadingCapabilities = true;
     this.capabilityError = null;
-    this.blocks.retrieveBiasCapabilities(blockType).pipe(take(1)).subscribe({
+    this.retrieveCapabilities(blockType).pipe(take(1)).subscribe({
       next: (capabilities) => {
         if (requestVersion !== this.capabilityRequestVersion) return;
         if (!capabilities.configurationDependent || !this.block) {
@@ -161,7 +163,7 @@ export class BehavioralProbeEditorComponent implements OnChanges {
           this.loadingCapabilities = false;
           return;
         }
-        this.blocks.retrieveBiasCapabilitiesForInstance(blockType, this.block).pipe(take(1)).subscribe({
+        this.retrieveCapabilitiesForInstance(blockType).pipe(take(1)).subscribe({
           next: (instanceCapabilities) => {
             if (requestVersion !== this.capabilityRequestVersion) return;
             this.capabilities = instanceCapabilities;
@@ -180,6 +182,18 @@ export class BehavioralProbeEditorComponent implements OnChanges {
         this.loadingCapabilities = false;
       }
     });
+  }
+
+  private retrieveCapabilities(nodeType: string): Observable<BiasCapabilities> {
+    return this.block?.nodeFamily === 'container'
+      ? this.containers.retrieveBiasCapabilities(nodeType)
+      : this.blocks.retrieveBiasCapabilities(nodeType);
+  }
+
+  private retrieveCapabilitiesForInstance(nodeType: string): Observable<BiasCapabilities> {
+    return this.block?.nodeFamily === 'container'
+      ? this.containers.retrieveBiasCapabilitiesForInstance(nodeType, this.block as FlowContainer)
+      : this.blocks.retrieveBiasCapabilitiesForInstance(nodeType, this.block as FlowBlock);
   }
 
   private setMockOutput(name: string, value: unknown) {

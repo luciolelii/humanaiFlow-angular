@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { FlowBlock } from '@models/flow';
+import { FlowBlock, FlowContainer } from '@models/flow';
 import { BlocksService } from '@services/blocks/blocks';
+import { ContainersService } from '@services/containers/containers';
 import { of } from 'rxjs';
 import { vi } from 'vitest';
 
@@ -85,5 +86,65 @@ describe('BehavioralProbeEditorComponent', () => {
     fixture.detectChanges();
     component.setRoutingOutput('accepted');
     expect(changed).toHaveBeenLastCalledWith(expect.objectContaining({ instruction: 'accepted' }));
+  });
+});
+
+describe('BehavioralProbeEditorComponent (container nodes)', () => {
+  let fixture: ComponentFixture<BehavioralProbeEditorComponent>;
+  let component: BehavioralProbeEditorComponent;
+
+  const container: FlowContainer = {
+    id: 'container-1',
+    name: 'Candidate review',
+    inputs: [{ name: 'candidateData', type: 'TEXT', multiple: false }],
+    outputs: [{ name: 'decision', type: 'TEXT', multiple: false }],
+    specificConfiguration: { name: 'Candidate review' },
+    typeName: 'GenericContainer',
+    nodeFamily: 'container'
+  };
+
+  const blocksRetrieveBiasCapabilities = vi.fn();
+  const containersRetrieveBiasCapabilities = vi.fn();
+
+  beforeEach(async () => {
+    blocksRetrieveBiasCapabilities.mockReset();
+    containersRetrieveBiasCapabilities.mockReset();
+    containersRetrieveBiasCapabilities.mockReturnValue(of({
+      blockType: 'GenericContainer', supported: true, isolatedExperimentSupported: false,
+      fullFlowExperimentSupported: true, externalSideEffects: false,
+      configurationDependent: false, activationModes: ['INPUT_TRANSFORMATION', 'OUTPUT_TRANSFORMATION']
+    }));
+
+    await TestBed.configureTestingModule({
+      imports: [BehavioralProbeEditorComponent],
+      providers: [
+        { provide: BlocksService, useValue: { retrieveBiasCapabilities: blocksRetrieveBiasCapabilities } },
+        { provide: ContainersService, useValue: { retrieveBiasCapabilities: containersRetrieveBiasCapabilities } }
+      ]
+    }).compileComponents();
+    fixture = TestBed.createComponent(BehavioralProbeEditorComponent);
+    component = fixture.componentInstance;
+    fixture.componentRef.setInput('block', container);
+    fixture.detectChanges();
+  });
+
+  it('loads capabilities from the containers service, not the blocks service, for container nodes', () => {
+    expect(containersRetrieveBiasCapabilities).toHaveBeenCalledWith('GenericContainer');
+    expect(blocksRetrieveBiasCapabilities).not.toHaveBeenCalled();
+    expect(component.activationModes).toEqual(['INPUT_TRANSFORMATION', 'OUTPUT_TRANSFORMATION']);
+  });
+
+  it('lists target inputs from the container public inputs', () => {
+    fixture.componentRef.setInput('probe', { activationMode: 'INPUT_TRANSFORMATION' });
+    fixture.detectChanges();
+
+    const checkboxLabels = Array.from(fixture.nativeElement.querySelectorAll('.probe-check span') as NodeListOf<Element>)
+      .map((el) => el.textContent?.trim());
+    expect(checkboxLabels.some((label) => label?.startsWith('candidateData'))).toBe(true);
+
+    const changed = vi.fn();
+    component.probeChange.subscribe(changed);
+    component.toggleTargetInput('candidateData', true);
+    expect(changed).toHaveBeenLastCalledWith(expect.objectContaining({ targetInputs: ['candidateData'] }));
   });
 });

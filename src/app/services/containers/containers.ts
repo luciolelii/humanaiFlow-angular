@@ -1,7 +1,8 @@
-import { Injectable, Signal } from '@angular/core';
+import { Injectable, Signal, signal } from '@angular/core';
 import { environment } from '@environment';
-import { BlockType, BlockTypeName, FlowData, FlowNode } from '@models/flow';
-import { catchError, Observable, throwError } from 'rxjs';
+import { BlockType, BlockTypeName, FlowContainer, FlowData, FlowNode } from '@models/flow';
+import { BiasCapabilities } from '@models/bias-impact';
+import { catchError, Observable, of, tap, throwError } from 'rxjs';
 import { ContainersCallServiceBase } from './container-call.base';
 import { CatalogStore } from '@services/shared/catalog-store';
 import { EmptyNodeCache } from '@services/shared/empty-node-cache';
@@ -19,9 +20,27 @@ export class ContainersService extends CatalogStore<BlockType> {
   private readonly emptyContainerCache = new EmptyNodeCache<FlowNode>();
   private readonly serverSync = new PendingSyncCounter();
 
+  private readonly _biasCapabilities = signal<Record<string, BiasCapabilities>>({});
+
   readonly hasPendingServerSync = this.serverSync.active;
   readonly containerTypes = this.types;
   readonly catalogLoading = this.loading;
+  readonly biasCapabilities = this._biasCapabilities.asReadonly();
+
+  retrieveBiasCapabilities(containerType: string, force = false): Observable<BiasCapabilities> {
+    const cached = this._biasCapabilities()[containerType];
+    if (cached && !force) return of(cached);
+
+    return this.containersCallService.retrieveBiasCapabilities(containerType).pipe(
+      tap((capabilities) => {
+        this._biasCapabilities.update((current) => ({ ...current, [containerType]: capabilities }));
+      })
+    );
+  }
+
+  retrieveBiasCapabilitiesForInstance(containerType: string, container: FlowContainer): Observable<BiasCapabilities> {
+    return this.containersCallService.retrieveBiasCapabilitiesForInstance(containerType, container);
+  }
 
   hasLoadedContainerTypes() {
     return this.hasLoadedTypes();

@@ -149,6 +149,7 @@ export type FlowBlock = FlowNodeBase & {
 
 export type FlowContainer = FlowNodeBase & {
   nodeFamily: 'container';
+  biasAnnotations?: BiasAnnotation[];
 };
 
 export type FlowNode = FlowBlock | FlowContainer;

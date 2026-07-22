@@ -6,7 +6,7 @@ import {
   BiasAnnotationOption,
   BiasAnnotationsDescriptor,
   BehavioralProbe,
-  FlowBlock,
+  FlowNode,
   FlowValidationError,
   isProbeExecutable
 } from '@models/flow';
@@ -45,7 +45,7 @@ export class BiasAnnotationsComponent {
   private readonly editorState = inject(EditorStateHolder);
 
   @Input({ required: true }) blockId = '';
-  @Input() block: FlowBlock | null = null;
+  @Input() block: FlowNode | null = null;
   @Input() annotations: BiasAnnotation[] = [];
   @Input() readonly = false;
   @Output() annotationsChange = new EventEmitter<BiasAnnotation[]>();

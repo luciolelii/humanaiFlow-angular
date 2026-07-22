@@ -1027,21 +1027,24 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   }
 
   private async biasRerunCandidates(): Promise<BiasRerunCandidate[]> {
-    const candidates = this.stepsArray().flatMap((step): Array<{ nodeId: string; nodeName: string; block: FlowBlock }> => {
+    const candidates = this.stepsArray().flatMap((step): Array<{ nodeId: string; nodeName: string; node: FlowNode }> => {
       const node = getTaskExecutionStepNode(step);
-      if (!node || node.nodeFamily === 'container') return [];
-      const block = node as FlowBlock;
-      const annotations = (block.biasAnnotations ?? []).filter((annotation) => isProbeExecutable(annotation.behavioralProbe));
-      return annotations.length ? [{ nodeId: step.id, nodeName: block.name || step.id, block: { ...block, biasAnnotations: annotations } }] : [];
+      if (!node) return [];
+      const annotations = (node.biasAnnotations ?? []).filter((annotation) => isProbeExecutable(annotation.behavioralProbe));
+      return annotations.length ? [{ nodeId: step.id, nodeName: node.name || step.id, node: { ...node, biasAnnotations: annotations } }] : [];
     });
 
     const resolved = await Promise.all(candidates.map(async (candidate) => {
-      const capabilities = await firstValueFrom(this.blocksService.retrieveBiasCapabilities(candidate.block.typeName));
+      const capabilities = await firstValueFrom(
+        candidate.node.nodeFamily === 'container'
+          ? this.containersService.retrieveBiasCapabilities(candidate.node.typeName)
+          : this.blocksService.retrieveBiasCapabilities(candidate.node.typeName)
+      );
       if (!capabilities.fullFlowExperimentSupported) return null;
       return {
         nodeId: candidate.nodeId,
         nodeName: candidate.nodeName,
-        annotations: candidate.block.biasAnnotations ?? [],
+        annotations: candidate.node.biasAnnotations ?? [],
         capabilities
       } satisfies BiasRerunCandidate;
     }));
