@@ -80,6 +80,44 @@ describe('GenericNodeComponent', () => {
     expect(component).toBeTruthy();
   });
 
+  it('renders every input and output after the Rete node payload is updated', () => {
+    fixture.componentRef.setInput('data', {
+      ...component.data,
+      inputs: {
+        existing: { socket: { name: 'ANY' } },
+        new: { socket: { name: 'ANY' } }
+      },
+      outputs: {
+        noAssessment: { socket: { name: 'ANY' } },
+        excluded: { socket: { name: 'ANY' } },
+        continued: { socket: { name: 'ANY' } }
+      },
+      data: {
+        ...component.data.data,
+        inputs: [
+          { name: 'existing', type: 'ANY', multiple: false },
+          { name: 'new', type: 'ANY', multiple: false }
+        ],
+        outputs: [
+          { name: 'noAssessment', type: 'ANY', multiple: false },
+          { name: 'excluded', type: 'ANY', multiple: false },
+          { name: 'continued', type: 'ANY', multiple: false }
+        ]
+      }
+    });
+
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    const inputLabels = Array.from(host.querySelectorAll('.llm-row-input .llm-pill-name'))
+      .map((element) => element.textContent?.trim());
+    const outputLabels = Array.from(host.querySelectorAll('.llm-row-output .llm-pill-name'))
+      .map((element) => element.textContent?.trim());
+
+    expect(inputLabels).toEqual(['existing', 'new']);
+    expect(outputLabels).toEqual(['noAssessment', 'excluded', 'continued']);
+  });
+
   it('restores and syncs persisted expanded-mode state', () => {
     const nodeData = component.data.data as Record<string, unknown>;
     nodeData['__focusOpen'] = true;
@@ -102,14 +140,14 @@ describe('GenericNodeComponent', () => {
     expect(component.laneBadge).toBeNull();
   });
 
-  it('resolves the lane badge from the current flow lanes', () => {
+  it('does not render a lane badge while swimlanes are disabled', () => {
     const editorState = TestBed.inject(EditorStateHolder) as any;
     editorState.currentFlow.mockReturnValue({
       data: { lanes: [{ id: 'lane-hr', name: 'HR', order: 0, color: '#F59F00' }] }
     });
     component.data.data = { ...component.data.data, laneId: 'lane-hr' };
 
-    expect(component.laneBadge).toEqual({ name: 'HR', color: '#F59F00' });
+    expect(component.laneBadge).toBeNull();
   });
 
   it('computes the bias annotation badge from the node annotations and the severity catalog', () => {

@@ -26,6 +26,7 @@ import { CONTAINER_SUBFLOW_DRAG_MIME } from './container-node-drag';
 import { NodeFocusModalController } from '../node-focus-modal-controller';
 import { BiasAnnotationsComponent } from '@shared/bias-annotations/bias-annotations';
 import { firstValueFrom } from 'rxjs';
+import { SWIMLANES_ENABLED } from '@shared/feature-flags';
 import { extractSchemaRequirements, SchemaRequirements } from '../schema-requirements';
 import { evaluateUiConditionRule, getValueByPath, parentPath, pathToLabel, resolveNodeIcon, resolveSchemaPath, splitTemplatedTextParts, valueToDisplayString } from '../node-utility';
 import {
@@ -369,6 +370,7 @@ export class ContainerNodeComponent implements OnDestroy {
   }
 
   get laneBadge(): { name: string; color: string | null } | null {
+    if (!SWIMLANES_ENABLED) return null;
     const laneId = (this.data?.data as Record<string, unknown> | undefined)?.['laneId'];
     if (typeof laneId !== 'string' || !laneId) return null;
     const lane = this.editorState.currentFlow()?.data.lanes?.find((candidate) => candidate.id === laneId);

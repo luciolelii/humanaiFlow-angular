@@ -410,6 +410,16 @@
   min-width: 0;
 }
 
+.title-toolbar-lanes-help {
+  padding: 8px 10px;
+  border-left: 3px solid #0f766e;
+  border-radius: 0 8px 8px 0;
+  background: #ecfdf5;
+  color: #315c58;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
 .title-toolbar-lane-row {
   display: grid;
   grid-template-columns: 16px minmax(180px, 1fr) 40px auto auto;

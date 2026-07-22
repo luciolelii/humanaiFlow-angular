@@ -35,30 +35,84 @@
 .rete-lane-band {
   position: absolute;
   border-top: 2px solid transparent;
+  border-bottom: 1px solid rgba(100, 116, 139, 0.42);
   box-sizing: border-box;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 
-.rete-lane-label {
+.rete-lane-headers {
   position: absolute;
-  top: 10px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1);
-  font-size: 12px;
-  font-weight: 700;
-  color: #334155;
+  inset: 0 auto 0 0;
+  z-index: 3;
+  width: 190px;
+  overflow: hidden;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(248, 250, 252, 0.82) 0%, rgba(248, 250, 252, 0.54) 72%, transparent 100%);
+}
+
+.rete-lane-header {
+  position: absolute;
+  left: 12px;
+  width: 158px;
+  min-height: 68px;
+  padding: 9px 11px 8px;
+  border: 1px solid rgba(148, 163, 184, 0.7);
+  border-left: 6px solid #94a3b8;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.14);
+  color: #0f172a;
+  overflow: hidden;
+}
+
+.rete-lane-header-kicker {
+  color: #64748b;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.rete-lane-header-name {
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.rete-lane-label-swatch {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  flex-shrink: 0;
+.rete-lane-header-meta,
+.rete-lane-header-description {
+  margin-top: 3px;
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.rete-lane-header-description {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rete-lane-header--compact {
+  min-height: 38px;
+  padding-top: 7px;
+  padding-bottom: 6px;
+}
+
+.rete-lane-header--compact .rete-lane-header-kicker,
+.rete-lane-header--compact .rete-lane-header-meta,
+.rete-lane-header--compact .rete-lane-header-description {
+  display: none;
+}
+
+.rete-lane-header--compact .rete-lane-header-name {
+  margin-top: 0;
 }
 
 .rete-editor-toolbar {
@@ -71,6 +125,10 @@
   gap: 10px;
   align-items: flex-start;
   pointer-events: none;
+}
+
+.rete-editor-toolbar--with-lanes {
+  left: 202px;
 }
 
 .rete-editor-toolbar-group {

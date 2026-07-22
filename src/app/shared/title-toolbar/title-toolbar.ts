@@ -15,6 +15,7 @@ import { FlowsService } from '@services/flows/flows';
 import { TaskExecutionsService } from '@services/task-executions/task-executions';
 import { take } from 'rxjs';
 import { EditorStateHolder } from '@stores/flow-editor';
+import { SWIMLANES_ENABLED } from '@shared/feature-flags';
 
 @Component({
   selector: 'app-title-toolbar',
@@ -24,6 +25,7 @@ import { EditorStateHolder } from '@stores/flow-editor';
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class TitleToolbar {
+  readonly swimlanesEnabled = SWIMLANES_ENABLED;
   private static readonly GLOBAL_INPUTS_HELP_COMPACT_HEIGHT_BREAKPOINT = 900;
   private static readonly LANE_COLOR_PALETTE = ['#4C6EF5', '#12B886', '#F59F00', '#E64980', '#7048E8', '#0CA678', '#F76707', '#1098AD'];
   private snackTimeout: ReturnType<typeof setTimeout> | null = null;

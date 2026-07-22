@@ -17,6 +17,7 @@ import { EditorStateHolder } from '@stores/flow-editor';
 import { FieldRetriever } from '@services/retriever/field-retriever';
 import { BlocksService } from '@services/blocks/blocks';
 import { firstValueFrom, take } from 'rxjs';
+import { SWIMLANES_ENABLED } from '@shared/feature-flags';
 import { ConditionalRequiredField, extractSchemaRequirements, SchemaRequirements } from '../schema-requirements';
 import {
   type UiConditionRule,
@@ -160,10 +161,6 @@ export class GenericNodeComponent implements OnDestroy {
     return this.isReadonly;
   }
 
-  outputs: { key: string; socket: ClassicPreset.Socket }[] = [];
-  inputs: { key: string; socket: ClassicPreset.Socket }[] = [];
-  dependantOutput: RenderedSocketPort | null = null;
-  dependencyInput: RenderedSocketPort | null = null;
   parameterFields: EditableFieldView[] = [];
   parameterFieldGroups: EditableFieldGroupView[] = [];
   richContentFields: RichContentView[] = [];
@@ -193,6 +190,38 @@ export class GenericNodeComponent implements OnDestroy {
 
   get isSchemaLoading() {
     return this.schemaLoading;
+  }
+
+  get outputs(): RenderedSocketPort[] {
+    return Object.entries(this.data?.outputs ?? {})
+      .filter(([key]) => key !== FLOW_DEPENDANT_PORT_KEY)
+      .map(([key, output]) => ({
+        key,
+        socket: (output as any).socket as ClassicPreset.Socket
+      }));
+  }
+
+  get inputs(): RenderedSocketPort[] {
+    return Object.entries(this.data?.inputs ?? {})
+      .filter(([key]) => key !== FLOW_DEPENDENCY_PORT_KEY)
+      .map(([key, input]) => ({
+        key,
+        socket: (input as any).socket as ClassicPreset.Socket
+      }));
+  }
+
+  get dependantOutput(): RenderedSocketPort | null {
+    const output = this.data?.outputs?.[FLOW_DEPENDANT_PORT_KEY];
+    return output
+      ? { key: FLOW_DEPENDANT_PORT_KEY, socket: (output as any).socket as ClassicPreset.Socket }
+      : null;
+  }
+
+  get dependencyInput(): RenderedSocketPort | null {
+    const input = this.data?.inputs?.[FLOW_DEPENDENCY_PORT_KEY];
+    return input
+      ? { key: FLOW_DEPENDENCY_PORT_KEY, socket: (input as any).socket as ClassicPreset.Socket }
+      : null;
   }
 
   missingRequiredParams: string[] = [];
@@ -241,32 +270,12 @@ export class GenericNodeComponent implements OnDestroy {
     if (this.data?.data) {
       this.data.data.__biasAnnotationsProperty = this.biasAnnotationsProperty;
     }
-    this.outputs = [];
-    this.inputs = [];
     this.parameterFields = [];
     this.parameterFieldGroups = [];
     this.richContentFields = [];
     this.parameterDisplayItems = [];
     this.parameterDisplaySections = [];
     this.arrayFields = [];
-
-    Object.entries(this.data.outputs).forEach(([key, output]) => {
-      const entry = { key, socket: (output as any).socket };
-      if (key === FLOW_DEPENDANT_PORT_KEY) {
-        this.dependantOutput = entry;
-        return;
-      }
-      this.outputs.push(entry);
-    });
-
-    Object.entries(this.data.inputs).forEach(([key, input]) => {
-      const entry = { key, socket: (input as any).socket };
-      if (key === FLOW_DEPENDENCY_PORT_KEY) {
-        this.dependencyInput = entry;
-        return;
-      }
-      this.inputs.push(entry);
-    });
 
     const config = this.ensureBlockConfiguration();
 
@@ -649,6 +658,7 @@ export class GenericNodeComponent implements OnDestroy {
   }
 
   get laneBadge(): { name: string; color: string | null } | null {
+    if (!SWIMLANES_ENABLED) return null;
     const laneId = (this.data?.data as Record<string, unknown> | undefined)?.['laneId'];
     if (typeof laneId !== 'string' || !laneId) return null;
     const lane = this.editorState.currentFlow()?.data.lanes?.find((candidate) => candidate.id === laneId);

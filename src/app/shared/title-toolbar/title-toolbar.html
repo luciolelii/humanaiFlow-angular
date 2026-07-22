@@ -201,11 +201,12 @@
   }
 </div>
 
+@if (swimlanesEnabled) {
 <div class="title-toolbar-lanes">
   <div class="title-toolbar-lanes-header-row">
     <button type="button" class="title-toolbar-global-inputs-toggle" (click)="toggleLanes()">
       <mat-icon [fontIcon]="lanesOpen() ? 'expand_less' : 'expand_more'"></mat-icon>
-      <span class="title-toolbar-global-inputs-title">Lanes</span>
+      <span class="title-toolbar-global-inputs-title">Swimlanes</span>
       <span class="title-toolbar-global-count">{{ lanes().length }}</span>
     </button>
     <div class="title-toolbar-global-inputs-actions">
@@ -223,8 +224,11 @@
   </div>
 
   @if (lanesOpen()) {
+  <div class="title-toolbar-lanes-help">
+    Each horizontal band represents an owner or role. Drag a node vertically into a band to assign it.
+  </div>
   @if (!lanes().length) {
-  <div class="title-toolbar-global-inputs-empty">No lanes defined. Nodes without a lane are shown as unassigned.</div>
+  <div class="title-toolbar-global-inputs-empty">No swimlanes defined. Nodes outside a band remain unassigned.</div>
   } @else {
   @for (lane of lanes(); track lane.id; let laneIndex = $index) {
   <div class="title-toolbar-lane-row">
@@ -272,6 +276,7 @@
   }
   }
 </div>
+}
 }
 
 @if (creatingGlobalInput()) {

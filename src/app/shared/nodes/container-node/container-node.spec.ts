@@ -202,7 +202,7 @@ describe('ContainerNodeComponent', () => {
     expect(component.laneBadge).toBeNull();
   });
 
-  it('resolves the lane badge from the current flow lanes', () => {
+  it('does not render a lane badge while swimlanes are disabled', () => {
     const editorState = TestBed.inject(EditorStateHolder);
     editorState.currentFlow.set({
       id: 'flow-1', name: 'Test', visibility: 'PRIVATE', author: 'tester',
@@ -214,7 +214,7 @@ describe('ContainerNodeComponent', () => {
     });
     component.data = { data: { id: 'container-1', specificConfiguration: {}, inputs: [], outputs: [], laneId: 'lane-hr' } };
 
-    expect(component.laneBadge).toEqual({ name: 'HR', color: '#F59F00' });
+    expect(component.laneBadge).toBeNull();
   });
 
   it('has no bias annotation badge when the container has no annotations', () => {

@@ -9,6 +9,7 @@ import { GraphSelectionService } from '@services/graph-selection/graph-selection
 import { EditorStateHolder } from '@stores/flow-editor';
 import { addBlockToEditor, createEditor, exportGraph, isProgrammaticNodeTranslation, ReteEditorInstance, setEditorGlobalInputs, setEditorLanes } from '@utilities/rete-editor';
 import { firstValueFrom } from 'rxjs';
+import { SWIMLANES_ENABLED } from '@shared/feature-flags';
 
 @Component({
   selector: 'app-rete-editor',
@@ -18,6 +19,7 @@ import { firstValueFrom } from 'rxjs';
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class ReteEditor implements OnChanges, OnDestroy {
+  readonly swimlanesEnabled = SWIMLANES_ENABLED;
   readonly flowData = input.required<FlowData>();
   readonly flowId = input.required<string>();
   readonly readonly = input<boolean>(false);
@@ -57,7 +59,6 @@ export class ReteEditor implements OnChanges, OnDestroy {
   private static readonly LANE_BAND_HEIGHT = 320;
   private static readonly LANE_BAND_WIDTH = 20000;
   private static readonly LANE_BAND_LEFT = -6000;
-  private static readonly LANE_LABEL_LEFT = 24;
 
   readonly laneTransform = signal({ x: 0, y: 0, k: 1 });
   readonly sortedLanes = computed(() => [...(this.flowData().lanes ?? [])].sort((a, b) => a.order - b.order));
@@ -67,7 +68,15 @@ export class ReteEditor implements OnChanges, OnDestroy {
   });
   readonly laneBandWidth = ReteEditor.LANE_BAND_WIDTH;
   readonly laneBandLeft = ReteEditor.LANE_BAND_LEFT;
-  readonly laneLabelLeft = ReteEditor.LANE_LABEL_LEFT;
+  readonly laneNodeCounts = computed(() => {
+    const counts = new Map<string, number>();
+    const nodes = [...(this.flowData().blocks ?? []), ...(this.flowData().containers ?? [])];
+    for (const node of nodes) {
+      if (!node.laneId) continue;
+      counts.set(node.laneId, (counts.get(node.laneId) ?? 0) + 1);
+    }
+    return counts;
+  });
   private selectionPointerId: number | null = null;
   private selectionStart: { x: number; y: number } | null = null;
   private readonly dirtyEventTypes = new Set([
@@ -555,7 +564,11 @@ export class ReteEditor implements OnChanges, OnDestroy {
     // Only a real pointer drag re-derives the lane from the drop position; programmatic
     // moves (initial load, clone, server-side recreate) must keep whatever laneId they already carry.
     const isUserDrag = !isProgrammaticNodeTranslation(rete.area, movedNode.id);
-    const laneId = isUserDrag ? this.resolveLaneIdForWorldY(pos.y) : (movedNode.data.laneId ?? null);
+    const laneId = !this.swimlanesEnabled
+      ? (movedNode.data.laneId ?? null)
+      : isUserDrag
+        ? this.resolveLaneIdForWorldY(pos.y)
+        : (movedNode.data.laneId ?? null);
 
     movedNode.data = {
       ...movedNode.data,
@@ -580,8 +593,29 @@ export class ReteEditor implements OnChanges, OnDestroy {
     const parsed = hex.length === 6
       ? [hex.slice(0, 2), hex.slice(2, 4), hex.slice(4, 6)].map((part) => parseInt(part, 16))
       : [148, 163, 184];
-    const alpha = index % 2 === 0 ? 0.09 : 0.16;
-    return `rgba(${parsed[0]}, ${parsed[1]}, ${parsed[2]}, ${alpha})`;
+    const strongAlpha = index % 2 === 0 ? 0.16 : 0.22;
+    const softAlpha = index % 2 === 0 ? 0.07 : 0.11;
+    return `linear-gradient(90deg, rgba(${parsed[0]}, ${parsed[1]}, ${parsed[2]}, ${strongAlpha}) 0%, rgba(${parsed[0]}, ${parsed[1]}, ${parsed[2]}, ${softAlpha}) 30%, rgba(${parsed[0]}, ${parsed[1]}, ${parsed[2]}, ${softAlpha}) 100%)`;
+  }
+
+  laneNodeCount(laneId: string): number {
+    return this.laneNodeCounts().get(laneId) ?? 0;
+  }
+
+  laneHeaderCompact(): boolean {
+    return this.laneTransform().k * ReteEditor.LANE_BAND_HEIGHT < 96;
+  }
+
+  laneHeaderTop(index: number): number {
+    const { y, k } = this.laneTransform();
+    const bandTop = y + this.laneBandTop(index) * k;
+    const bandHeight = ReteEditor.LANE_BAND_HEIGHT * k;
+    const compact = this.laneHeaderCompact();
+    const headerHeight = compact ? 38 : 68;
+    const padding = compact ? 5 : 10;
+    const naturalTop = bandTop + padding;
+    const lastTopInsideBand = bandTop + bandHeight - headerHeight - padding;
+    return Math.min(Math.max(12, naturalTop), lastTopInsideBand);
   }
 
   private resolveLaneIdForWorldY(y: number): string | null {

@@ -63,4 +63,23 @@ describe('ReteEditor', () => {
   it('should create', () => {
     expect(component).toBeTruthy();
   });
+
+  it('does not render the dormant swimlane UI', () => {
+    fixture.componentRef.setInput('flowData', {
+      blocks: [
+        { id: 'b1', name: 'Review', inputs: [], outputs: [], specificConfiguration: {}, typeName: 'LLMBlock', laneId: 'hr' },
+        { id: 'b2', name: 'Approve', inputs: [], outputs: [], specificConfiguration: {}, typeName: 'HumanInteractionBlock', laneId: 'hr' }
+      ],
+      containers: [],
+      connections: [],
+      dependencies: [],
+      lanes: [{ id: 'hr', name: 'HR', order: 0, color: '#0f766e' }]
+    });
+    component.laneTransform.set({ x: -900, y: 40, k: 0.75 });
+    fixture.detectChanges();
+
+    expect(component.swimlanesEnabled).toBe(false);
+    expect((fixture.nativeElement as HTMLElement).querySelector('.rete-lanes-layer')).toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.rete-lane-headers')).toBeNull();
+  });
 });

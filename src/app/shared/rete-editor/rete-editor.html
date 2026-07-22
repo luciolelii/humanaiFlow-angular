@@ -6,7 +6,7 @@
   (pointermove)="onShellPointerMove($event)"
   (pointerup)="onShellPointerUp($event)"
   (pointercancel)="onShellPointerUp($event)">
-  @if (sortedLanes().length) {
+  @if (swimlanesEnabled && sortedLanes().length) {
   <div class="rete-lanes-layer" aria-hidden="true">
     <div class="rete-lanes-content" [style.transform]="laneContentTransform()">
       @for (lane of sortedLanes(); track lane.id; let laneIndex = $index) {
@@ -18,17 +18,31 @@
         [style.width.px]="laneBandWidth"
         [style.background]="laneBandBackground(lane.color, laneIndex)"
         [style.border-top-color]="lane.color || '#94a3b8'">
-        <div class="rete-lane-label" [style.left.px]="laneLabelLeft - laneBandLeft">
-          <span class="rete-lane-label-swatch" [style.background]="lane.color || '#94a3b8'"></span>
-          <span>{{ lane.name }}</span>
-        </div>
       </div>
       }
     </div>
   </div>
+  <div class="rete-lane-headers" aria-hidden="true">
+    @for (lane of sortedLanes(); track lane.id; let laneIndex = $index) {
+    <div
+      class="rete-lane-header"
+      [class.rete-lane-header--compact]="laneHeaderCompact()"
+      [style.top.px]="laneHeaderTop(laneIndex)"
+      [style.border-left-color]="lane.color || '#94a3b8'">
+      <div class="rete-lane-header-kicker">Swimlane {{ laneIndex + 1 }}</div>
+      <div class="rete-lane-header-name">{{ lane.name }}</div>
+      <div class="rete-lane-header-meta">
+        {{ laneNodeCount(lane.id) }} {{ laneNodeCount(lane.id) === 1 ? 'node' : 'nodes' }}
+      </div>
+      @if (lane.description) {
+      <div class="rete-lane-header-description">{{ lane.description }}</div>
+      }
+    </div>
+    }
+  </div>
   }
   @if (!readonly()) {
-  <div class="rete-editor-toolbar">
+  <div class="rete-editor-toolbar" [class.rete-editor-toolbar--with-lanes]="swimlanesEnabled && sortedLanes().length">
     <section class="rete-editor-toolbar-group" aria-label="Editor mode controls">
       <div class="rete-editor-toolbar-legend">Mode</div>
       <button
