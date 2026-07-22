@@ -534,7 +534,7 @@
     (annotationsChange)="updateBiasAnnotations($event)" />
 
   @if (localEditorOpen) {
-  <div class="llm-modal-backdrop" (pointerdown)="$event.stopPropagation()" (click)="closeSimpleParamEditor($event)">
+  <dialog #simpleEditorDialog class="llm-modal-backdrop" (pointerdown)="$event.stopPropagation()" (click)="onSimpleEditorDialogClick($event)" (cancel)="closeSimpleParamEditor($event)">
     <div class="llm-modal" (pointerdown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
       <div class="llm-modal-title">Edit {{ localEditorLabel }}</div>
       @if (localEditorBindableAsInput && localEditorPath !== 'name') {
@@ -605,7 +605,7 @@
         <button type="button" class="llm-btn llm-btn-primary" [disabled]="!canSaveLocalEditor()" (pointerdown)="$event.stopPropagation()" (click)="saveSimpleParamEditor($event)">Save</button>
       </div>
     </div>
-  </div>
+  </dialog>
   }
 
 </div>

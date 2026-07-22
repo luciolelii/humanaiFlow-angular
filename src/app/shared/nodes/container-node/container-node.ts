@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, HostBinding, HostListener, Input, OnDestroy, inject } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, HostBinding, HostListener, Input, OnDestroy, effect, inject, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { currentFlowPortValueKind, flowValueKindLabel, FlowData, FLOW_DEPENDANT_PORT_KEY, FLOW_DEPENDENCY_PORT_KEY } from '@models/flow';
@@ -108,6 +108,29 @@ export class ContainerNodeComponent implements OnDestroy {
   private schemaLoading = false;
   nameEditorOpen = false;
   draftName = '';
+
+  /**
+   * This template renders inside a node card, which rete.js positions with a
+   * CSS `transform` for pan/zoom, so a plain fixed-position backdrop would be
+   * confined to the node's box. A native `<dialog>` shown via `showModal()`
+   * escapes that via the browser's top layer, same fix as bias-annotations.
+   */
+  private readonly nameEditorDialog = viewChild<ElementRef<HTMLDialogElement>>('nameEditorDialog');
+
+  constructor() {
+    effect(() => {
+      const dialog = this.nameEditorDialog()?.nativeElement;
+      if (dialog && typeof dialog.showModal === 'function' && !dialog.open) {
+        dialog.showModal();
+      }
+    });
+  }
+
+  onNameEditorDialogClick(event: MouseEvent) {
+    if (event.target === this.nameEditorDialog()?.nativeElement) {
+      this.cancelNameEditor(event);
+    }
+  }
 
   get isSchemaLoading() {
     return this.schemaLoading;

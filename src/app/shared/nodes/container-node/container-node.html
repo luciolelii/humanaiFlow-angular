@@ -76,7 +76,7 @@
   </div>
 
   @if (nameEditorOpen) {
-  <div class="llm-modal-backdrop" (pointerdown)="$event.stopPropagation()" (click)="cancelNameEditor($event)">
+  <dialog #nameEditorDialog class="llm-modal-backdrop" (pointerdown)="$event.stopPropagation()" (click)="onNameEditorDialogClick($event)" (cancel)="cancelNameEditor($event)">
     <div class="llm-modal" (pointerdown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
       <div class="llm-modal-title">Edit Name</div>
       <div class="llm-modal-field">
@@ -94,7 +94,7 @@
         <button type="button" class="llm-btn llm-btn-primary" [disabled]="!draftName.trim()" (pointerdown)="$event.stopPropagation()" (click)="saveNameEditor($event)">Save</button>
       </div>
     </div>
-  </div>
+  </dialog>
   }
 
   <div class="container-node__ports">
