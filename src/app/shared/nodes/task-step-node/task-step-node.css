@@ -81,7 +81,6 @@
 
 .llm-node-capability-badge,
 .llm-node-bias-summary,
-.llm-node-bias-capability,
 .llm-node-skip-reason {
   display: inline-flex;
   align-items: center;
@@ -98,11 +97,15 @@
   white-space: nowrap;
 }
 
-.llm-node-bias-summary,
-.llm-node-bias-capability {
+.llm-node-bias-summary {
   border-color: #c4b5fd;
   color: #6d28d9;
   background: #f5f3ff;
+}
+
+button.llm-node-bias-summary {
+  font-family: inherit;
+  cursor: pointer !important;
 }
 
 .llm-node-bias-summary-active {

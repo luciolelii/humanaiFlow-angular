@@ -79,18 +79,16 @@
           {{ visualRoleLabel() }}
         </span>
         @if (allBiasAnnotations().length) {
-        <span
+        <button
+          type="button"
           class="llm-node-bias-summary"
           [class.llm-node-bias-summary-active]="activeBiasAnnotationCount() > 0"
-          [title]="allBiasAnnotations().length + ' bias annotations; ' + activeBiasAnnotationCount() + ' active in this execution'">
+          [title]="'View ' + biasAnnotationBadgeLabel()"
+          (pointerdown)="$event.stopPropagation()"
+          (click)="openBiasAnnotations($event)">
           <i class="bi bi-clipboard2-pulse-fill"></i>
-          {{ activeBiasAnnotationCount() }}/{{ allBiasAnnotations().length }}
-        </span>
-        }
-        @if (isBiasCapable()) {
-        <span class="llm-node-bias-capability" title="Bias annotations supported by this node type">
-          Bias capable
-        </span>
+          {{ biasAnnotationBadgeLabel() }}
+        </button>
         }
         @if (stepSkipReason(); as skipReason) {
         <span class="llm-node-skip-reason" [title]="skipReason">
@@ -112,6 +110,15 @@
     </button>
     }
   </div>
+
+  @if (allBiasAnnotations().length) {
+  <app-bias-annotations
+    [blockId]="data?.data?.id ?? ''"
+    [block]="biasAnnotationsBlock()"
+    [annotations]="allBiasAnnotations()"
+    [readonly]="true"
+    [hideTrigger]="true" />
+  }
 
   <div class="llm-body">
     <div class="llm-column">

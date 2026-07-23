@@ -1,3 +1,4 @@
+import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { vi } from 'vitest';
 import { of } from 'rxjs';
@@ -34,6 +35,25 @@ const REPORT: BiasImpactReport = {
   warnings: []
 };
 
+const BIAS_DESCRIPTOR = {
+  type: 'BiasAnnotation',
+  blockProperty: 'biasAnnotations',
+  multiple: true,
+  maxItems: 10,
+  schema: {
+    type: 'object',
+    properties: {
+      category: { type: 'string', 'x-ui-label': 'Category' },
+      severity: { type: 'string', 'x-ui-label': 'Severity' },
+      issue: { type: 'string', 'x-ui-label': 'Issue' },
+      rationale: { type: 'string', 'x-ui-label': 'Rationale' }
+    }
+  },
+  options: {},
+  defaults: {},
+  serverGeneratedFields: []
+};
+
 describe('TaskStepNodeComponent bias canvas highlighting', () => {
   let fixture: ComponentFixture<TaskStepNodeComponent>;
   let component: TaskStepNodeComponent;
@@ -43,7 +63,16 @@ describe('TaskStepNodeComponent bias canvas highlighting', () => {
     await TestBed.configureTestingModule({
       imports: [TaskStepNodeComponent],
       providers: [
-        { provide: BlocksService, useValue: { peekBlockType: vi.fn().mockReturnValue(null), getBlockType: vi.fn().mockResolvedValue(null), retrieveBiasCapabilities: vi.fn().mockReturnValue(of(null)) } },
+        {
+          provide: BlocksService,
+          useValue: {
+            peekBlockType: vi.fn().mockReturnValue(null),
+            getBlockType: vi.fn().mockResolvedValue(null),
+            retrieveBiasCapabilities: vi.fn().mockReturnValue(of(null)),
+            getBiasAnnotationsDescriptor: vi.fn().mockResolvedValue(BIAS_DESCRIPTOR),
+            biasAnnotationsDescriptor: signal(BIAS_DESCRIPTOR)
+          }
+        },
         { provide: ContainersService, useValue: { peekContainerType: vi.fn().mockReturnValue(null), getContainerType: vi.fn().mockResolvedValue(null) } },
         { provide: NodeSettingsDialogService, useValue: { open: vi.fn().mockResolvedValue(null) } },
         { provide: SubflowPreviewDialogService, useValue: { open: vi.fn() } },
@@ -121,6 +150,53 @@ describe('TaskStepNodeComponent bias canvas highlighting', () => {
     expect(component.activeBiasAnnotationCount()).toBe(1);
     expect(component.capabilitiesTooltip()).toContain('Bias annotations: allowed');
     expect(component.isBiasCapable()).toBe(true);
+  });
+
+  it('shows a readable bias count and opens the readonly annotations detail from the badge', () => {
+    fixture.componentRef.setInput('data', {
+      ...component.data,
+      data: {
+        ...component.data.data,
+        biasAnnotations: [
+          {
+            id: 'annotation-1',
+            category: 'SELECTION_BIAS',
+            severity: 'HIGH',
+            issue: 'First issue',
+            rationale: 'First rationale',
+            behavioralProbe: {
+              activationMode: 'INPUT_TRANSFORMATION',
+              instruction: 'Transform the candidate profile'
+            }
+          },
+          { id: 'annotation-2', category: 'ACCESSIBILITY_BIAS', severity: 'MEDIUM', issue: 'Second issue' }
+        ]
+      }
+    });
+    fixture.detectChanges();
+
+    const badge = fixture.nativeElement.querySelector('.llm-node-bias-summary') as HTMLButtonElement;
+    expect(badge.textContent).toContain('2 bias annotations');
+    expect(badge.textContent).not.toContain('0/2');
+
+    badge.click();
+    fixture.detectChanges();
+
+    const dialog = fixture.nativeElement.querySelector('dialog.bias-modal-backdrop');
+    expect(dialog).not.toBeNull();
+    expect(dialog.textContent).toContain('First issue');
+    expect(dialog.textContent).toContain('Second issue');
+    expect(dialog.textContent).toContain('First rationale');
+    expect(dialog.textContent).toContain('Transform the candidate profile');
+  });
+
+  it('uses the singular label and hides the annotation badge when no annotations exist', () => {
+    component.data.data.biasAnnotations = [{ id: 'annotation-1' }];
+    expect(component.biasAnnotationBadgeLabel()).toBe('1 bias annotation');
+
+    component.data.data.biasAnnotations = [];
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.llm-node-bias-summary')).toBeNull();
   });
 
   it('does not mark EndBlock as bias capable when the catalog forbids bias annotations', () => {

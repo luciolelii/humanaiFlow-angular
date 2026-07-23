@@ -1,8 +1,8 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, HostBinding, Input, inject } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, HostBinding, Input, inject, viewChild } from '@angular/core';
 import { ClassicPreset } from 'rete';
 import { ReteModule } from 'rete-angular-plugin/21';
-import { BiasAnnotation, BlockInteractionContract, BlockType, DEFAULT_NODE_CAPABILITIES, FlowData, FlowPort, isProbeExecutable, FLOW_DEPENDANT_PORT_KEY, FLOW_DEPENDENCY_PORT_KEY, NodeTypeCapabilities } from '@models/flow';
+import { BiasAnnotation, BlockInteractionContract, BlockType, DEFAULT_NODE_CAPABILITIES, FlowData, FlowNode, FlowPort, isProbeExecutable, FLOW_DEPENDANT_PORT_KEY, FLOW_DEPENDENCY_PORT_KEY, NodeTypeCapabilities } from '@models/flow';
 import { BiasCapabilities } from '@models/bias-impact';
 import { BlocksService } from '@services/blocks/blocks';
 import { ContainersService } from '@services/containers/containers';
@@ -12,6 +12,7 @@ import { HumanInteractionDialogService } from '@services/dialogs/human-interacti
 import { TaskExecutionsService } from '@services/task-executions/task-executions';
 import { BiasImpactExperimentDialogService } from '@services/dialogs/bias-impact-experiment-dialog';
 import { BiasComparisonViewStateService } from '@services/bias/bias-comparison-view-state';
+import { BiasAnnotationsComponent } from '@shared/bias-annotations/bias-annotations';
 import { take } from 'rxjs';
 import {
   collectSchemaFlowDataFields,
@@ -98,7 +99,7 @@ type FieldUiMeta = {
 
 @Component({
   selector: 'app-task-step-node',
-  imports: [CommonModule, ReteModule],
+  imports: [CommonModule, ReteModule, BiasAnnotationsComponent],
   templateUrl: './task-step-node.html',
   styleUrl: './task-step-node.css',
   host: {
@@ -120,6 +121,7 @@ export class TaskStepNodeComponent {
   private taskExecutionsService = inject(TaskExecutionsService);
   private biasImpactExperimentDialog = inject(BiasImpactExperimentDialogService);
   private biasComparisonViewState = inject(BiasComparisonViewStateService);
+  private readonly biasAnnotationsViewer = viewChild(BiasAnnotationsComponent);
 
   @Input() data!: any;
   @Input() emit!: (data: any) => void;
@@ -179,6 +181,7 @@ export class TaskStepNodeComponent {
 
     this.rebuildDisplayState();
     void this.loadSchemaContext();
+    void this.loadBiasAnnotationsDescriptor();
     this.loadBiasCapabilities();
   }
 
@@ -450,6 +453,22 @@ export class TaskStepNodeComponent {
     return Array.isArray(ids) ? ids.length : 0;
   }
 
+  biasAnnotationBadgeLabel(): string {
+    const count = this.allBiasAnnotations().length;
+    return `${count} bias ${count === 1 ? 'annotation' : 'annotations'}`;
+  }
+
+  openBiasAnnotations(event?: Event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+    this.biasAnnotationsViewer()?.openList(event);
+  }
+
+  biasAnnotationsBlock(): FlowNode | null {
+    const node = this.data?.data;
+    return node && typeof node === 'object' ? node as FlowNode : null;
+  }
+
   typeCapabilities(): NodeTypeCapabilities {
     return this.resolvedTypeCapabilities()
       ?? DEFAULT_NODE_CAPABILITIES;
@@ -606,6 +625,15 @@ export class TaskStepNodeComponent {
         this.cdr.markForCheck();
       }
     });
+  }
+
+  private async loadBiasAnnotationsDescriptor() {
+    try {
+      await this.blocksService.getBiasAnnotationsDescriptor();
+      this.cdr.markForCheck();
+    } catch {
+      // The annotations remain available in the execution payload even if their descriptor cannot be loaded.
+    }
   }
 
   private get blockType(): string | null {

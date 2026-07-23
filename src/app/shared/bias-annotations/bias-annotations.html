@@ -1,10 +1,12 @@
 @if (descriptor; as descriptor) {
+@if (!hideTrigger) {
 <section class="bias-section" (pointerdown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
   <button type="button" class="bias-open-trigger" (click)="openList($event)">
     <span class="bias-title">Bias annotations</span>
     <span class="bias-counter">{{ annotations.length }}{{ countSuffix }}</span>
   </button>
 </section>
+}
 
 @if (listOpen) {
 <dialog #biasListDialog class="bias-modal-backdrop" (pointerdown)="$event.stopPropagation()" (wheel)="$event.stopPropagation()" (click)="onListDialogClick($event)" (cancel)="closeList($event)">
@@ -34,6 +36,29 @@
             @if (probeExecutable(annotation)) { <span class="bias-badge probe">Executable probe</span> }
           </div>
           <div class="bias-issue">{{ annotation.issue }}</div>
+          @if (annotationDetailFields(annotation).length) {
+          <dl class="bias-details">
+            @for (field of annotationDetailFields(annotation); track field.label) {
+            <div>
+              <dt>{{ field.label }}</dt>
+              <dd>{{ field.value }}</dd>
+            </div>
+            }
+          </dl>
+          }
+          @if (probeDetailFields(annotation.behavioralProbe).length) {
+          <div class="bias-probe-details">
+            <div class="bias-probe-title">Behavioral probe</div>
+            <dl class="bias-details">
+              @for (field of probeDetailFields(annotation.behavioralProbe); track field.label) {
+              <div>
+                <dt>{{ field.label }}</dt>
+                <dd>{{ field.value }}</dd>
+              </div>
+              }
+            </dl>
+          </div>
+          }
           @if (serverError(index); as error) { <div class="bias-error">{{ error }}</div> }
           @for (field of fields; track field.key) {
             @if (serverError(index, field.key); as error) { <div class="bias-error">{{ field.label }}: {{ error }}</div> }

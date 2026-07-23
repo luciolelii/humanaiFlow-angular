@@ -26,6 +26,11 @@ type BiasField = {
   options: BiasAnnotationOption[];
 };
 
+type BiasDetailField = {
+  label: string;
+  value: string;
+};
+
 const BIAS_ERROR_CODES = new Set([
   'TOO_MANY_BIAS_ANNOTATIONS', 'NULL_BIAS_ANNOTATION', 'DUPLICATE_BIAS_ANNOTATION_ID',
   'BIAS_CATEGORY_REQUIRED', 'BIAS_SEVERITY_REQUIRED', 'BIAS_ISSUE_REQUIRED', 'BIAS_FIELD_TOO_LONG',
@@ -48,6 +53,7 @@ export class BiasAnnotationsComponent {
   @Input() block: FlowNode | null = null;
   @Input() annotations: BiasAnnotation[] = [];
   @Input() readonly = false;
+  @Input() hideTrigger = false;
   @Output() annotationsChange = new EventEmitter<BiasAnnotation[]>();
 
   listOpen = false;
@@ -227,6 +233,26 @@ export class BiasAnnotationsComponent {
     return isProbeExecutable(annotation.behavioralProbe);
   }
 
+  annotationDetailFields(annotation: BiasAnnotation): BiasDetailField[] {
+    const summaryFields = new Set(['category', 'severity', 'status', 'source', 'issue', 'behavioralProbe']);
+    return this.fields.flatMap((field) => {
+      if (summaryFields.has(field.key)) return [];
+      const value = this.displayValue(annotation[field.key]);
+      return value ? [{ label: field.label, value }] : [];
+    });
+  }
+
+  probeDetailFields(probe: BehavioralProbe | null | undefined): BiasDetailField[] {
+    if (!probe) return [];
+    return [
+      { label: 'Activation mode', value: this.displayValue(probe.activationMode) },
+      { label: 'Instruction', value: this.displayValue(probe.instruction) },
+      { label: 'Target inputs', value: this.displayValue(probe.targetInputs) },
+      { label: 'Expected impact', value: this.displayValue(probe.expectedImpact) },
+      { label: 'Mock outputs', value: this.displayValue(probe.mockOutputs) }
+    ].filter((field) => field.value.length > 0);
+  }
+
   updateProbe(probe: BehavioralProbe | undefined) {
     this.draft = { ...this.draft, behavioralProbe: probe };
   }
@@ -284,6 +310,23 @@ export class BiasAnnotationsComponent {
 
   private humanize(value: string): string {
     return value.replace(/([A-Z])/g, ' $1').replace(/^./, (char) => char.toUpperCase()).trim();
+  }
+
+  private displayValue(value: unknown): string {
+    if (value == null) return '';
+    if (typeof value === 'string') return value.trim();
+    if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+    if (Array.isArray(value)) {
+      return value.map((entry) => this.displayValue(entry)).filter(Boolean).join(', ');
+    }
+    if (typeof value === 'object') {
+      try {
+        return JSON.stringify(value, null, 2);
+      } catch {
+        return String(value);
+      }
+    }
+    return String(value);
   }
 
   private clone<T>(value: T): T {
