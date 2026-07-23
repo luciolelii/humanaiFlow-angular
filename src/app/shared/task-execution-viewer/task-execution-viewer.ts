@@ -250,6 +250,11 @@ export class TaskExecutionViewerComponent implements OnDestroy {
       }
 
       const step = execution.context.steps?.[dialogState.nodeId];
+      const stepStatus = String(step?.status ?? '').toUpperCase();
+      if (dialogState.kind !== 'chat-session' && stepStatus !== 'WAITING_FOR_INTERACTION') {
+        this.humanInteractionDialog.close(null);
+        return;
+      }
       const stepResult = step?.result && typeof step.result === 'object' ? step.result as Record<string, unknown> : {};
       const finalResult = execution.context.result ?? {};
       const partialResult = execution.context.partialResult ?? {};
@@ -272,7 +277,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
 
       const nextHistory = this.toDialogHistory(rawHistory);
       const nextLatestResponse = typeof rawResponse === 'string' ? rawResponse : '';
-      const nextIsRunning = String(step?.status ?? '').toUpperCase() === 'RUNNING';
+      const nextIsRunning = stepStatus === 'RUNNING';
       const historyHasPendingUser = !!dialogState.pendingUserMessage
         && nextHistory.some((message) =>
           message.role === 'user' && String(message.content ?? '').trim() === String(dialogState.pendingUserMessage ?? '').trim()

@@ -816,14 +816,21 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
     value: string
   ): Observable<TaskExecution> {
     const execution = this.findExecution(executionId);
-    execution.context.result[`${nodeId}:${fieldName}`] = value;
-    execution.context.waitingSteps = execution.context.waitingSteps.filter((stepId) => stepId !== nodeId);
-
     const step = execution.context.steps[nodeId];
-    if (step) {
-      step.status = 'COMPLETED';
+    const isPartialField = fieldName === 'message' || fieldName === 'rationale';
+    if (isPartialField) {
+      execution.context.partialResult = {
+        ...(execution.context.partialResult ?? {}),
+        [`${nodeId}:${fieldName}`]: value
+      };
+      if (step) step.status = 'WAITING_FOR_INTERACTION';
+      execution.context.status = 'WAITING';
+      return of(execution);
     }
 
+    execution.context.result[`${nodeId}:${fieldName}`] = value;
+    execution.context.waitingSteps = execution.context.waitingSteps.filter((stepId) => stepId !== nodeId);
+    if (step) step.status = 'COMPLETED';
     execution.context.status = execution.context.waitingSteps.length ? 'WAITING' : 'RUNNING';
     return of(execution);
   }

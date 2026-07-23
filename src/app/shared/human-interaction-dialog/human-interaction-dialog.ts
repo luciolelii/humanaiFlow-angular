@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, effect, ElementRef, inject, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, ElementRef, inject, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -7,11 +7,20 @@ import {
   HumanInteractionDialogResult,
   HumanInteractionDialogService
 } from '@services/dialogs/human-interaction-dialog';
+import { HumanDecisionInteractionComponent } from '@shared/human-decision-interaction/human-decision-interaction';
+import { HumanTextInteractionComponent } from '@shared/human-text-interaction/human-text-interaction';
 
 @Component({
   selector: 'app-human-interaction-dialog-host',
   standalone: true,
-  imports: [FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule],
+  imports: [
+    FormsModule,
+    MatButtonModule,
+    MatFormFieldModule,
+    MatInputModule,
+    HumanDecisionInteractionComponent,
+    HumanTextInteractionComponent
+  ],
   templateUrl: './human-interaction-dialog.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
@@ -22,7 +31,6 @@ export class HumanInteractionDialogHostComponent {
   private readonly messagesContainer = viewChild<ElementRef<HTMLElement>>('messagesContainer');
 
   readonly state = this.dialog.state;
-  readonly editing = signal(false);
   readonly displayMessages = computed(() => {
     const state = this.state();
     if (!state) return [];
@@ -68,7 +76,6 @@ export class HumanInteractionDialogHostComponent {
       const dialogKey = `${state.executionId ?? ''}:${state.nodeId ?? ''}:${state.kind}`;
       if (dialogKey !== this.lastDialogKey) {
         this.lastDialogKey = dialogKey;
-        this.editing.set(state.kind !== 'chat-session');
         this.draftValue = '';
       }
       queueMicrotask(() => {
@@ -95,38 +102,8 @@ export class HumanInteractionDialogHostComponent {
     this.dialog.close(null);
   }
 
-  startEditing(event?: Event) {
-    event?.preventDefault();
-    event?.stopPropagation();
-    this.editing.set(true);
-    queueMicrotask(() => {
-      const target = this.host.nativeElement.querySelector('[data-autofocus="true"]') as HTMLElement | null;
-      target?.focus();
-    });
-  }
-
-  backToConfirm(event?: Event) {
-    event?.preventDefault();
-    event?.stopPropagation();
-    this.editing.set(false);
-  }
-
   setDraftValue(value: string) {
     this.draftValue = value;
-  }
-
-  confirmInput(event?: Event) {
-    event?.preventDefault();
-    event?.stopPropagation();
-    this.dialog.submit({ mode: 'complete', value: this.state()?.currentInput ?? '' });
-  }
-
-  sendEditedOutput(event?: Event) {
-    event?.preventDefault();
-    event?.stopPropagation();
-    const value = this.draftValue.trim();
-    if (!value) return;
-    this.dialog.submit({ mode: 'complete', value: this.draftValue });
   }
 
   sendChatMessage(event?: Event) {
@@ -145,6 +122,14 @@ export class HumanInteractionDialogHostComponent {
     if (!value) return;
     this.dialog.submit({ mode: 'complete', value: this.draftValue });
     this.draftValue = '';
+  }
+
+  submitTextResponse(value: string) {
+    this.dialog.submit({ mode: 'complete', value });
+  }
+
+  submitHumanDecision(result: Extract<HumanInteractionDialogResult, { mode: 'decision' }>) {
+    this.dialog.submit(result);
   }
 
   canSendEditedOutput(): boolean {

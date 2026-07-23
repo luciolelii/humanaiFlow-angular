@@ -8,7 +8,12 @@ import { BlocksService } from '@services/blocks/blocks';
 import { ContainersService } from '@services/containers/containers';
 import { NodeSettingsDialogService } from '@services/dialogs/node-settings-dialog';
 import { SubflowPreviewDialogService } from '@services/dialogs/subflow-preview-dialog';
-import { HumanInteractionDialogService } from '@services/dialogs/human-interaction-dialog';
+import {
+  HumanDecisionOption,
+  HumanInteractionDialogResult,
+  HumanInteractionDialogService,
+  HumanInteractionRuntimeInput
+} from '@services/dialogs/human-interaction-dialog';
 import { TaskExecutionsService } from '@services/task-executions/task-executions';
 import { BiasImpactExperimentDialogService } from '@services/dialogs/bias-impact-experiment-dialog';
 import { BiasComparisonViewStateService } from '@services/bias/bias-comparison-view-state';
@@ -429,7 +434,7 @@ export class TaskStepNodeComponent {
   }
 
   needsAttention(): boolean {
-    return this.blockConfiguration?.['__isWaitingStep'] === true;
+    return this.stepStatus() === 'WAITING_FOR_INTERACTION';
   }
 
   isCompleted(): boolean {
@@ -566,6 +571,7 @@ export class TaskStepNodeComponent {
     if (this.interactionSubmitting) return;
     if (this.executionStatus() === 'SUSPENDED') return;
     if (this.isInteractionSimulationEnabled()) return;
+    if (this.stepStatus() !== 'WAITING_FOR_INTERACTION') return;
 
     const executionId = this.executionId();
     const executionNodeId = this.executionNodeId();
@@ -778,6 +784,9 @@ export class TaskStepNodeComponent {
     if (contract.kind === 'chat-session') {
       return `Chat with ${this.name || 'Interaction Step'}`;
     }
+    if (contract.kind === 'human-decision') {
+      return `Decision: ${this.name || 'Human Decision'}`;
+    }
     return `Send response for ${this.name || 'Interaction Step'}`;
   }
 
@@ -893,6 +902,7 @@ export class TaskStepNodeComponent {
       kind: contract.kind,
       actionDescription: this.actionDescriptionValue(),
       currentInput: this.currentInputValue(),
+      runtimeInputs: this.interactionRuntimeInputs(),
       history: this.chatHistory(contract),
       latestResponse: this.latestInteractionResponse(contract),
       historyField: contract.historyField,
@@ -904,7 +914,11 @@ export class TaskStepNodeComponent {
       assistantResponseBaseline: this.latestInteractionResponse(contract),
       isRunning: this.isRunning(),
       isSubmitting: this.interactionSubmitting,
-      submitError: null
+      submitError: null,
+      question: this.decisionQuestion(),
+      decisionOptions: this.decisionOptions(),
+      rationaleRequired: this.blockConfiguration?.['rationaleRequired'] === true,
+      rationaleLabel: this.decisionRationaleLabel()
     };
   }
 
@@ -912,9 +926,18 @@ export class TaskStepNodeComponent {
     executionId: string,
     executionNodeId: string,
     contract: BlockInteractionContract,
-    result: { mode: 'message' | 'complete'; value: string }
+    result: HumanInteractionDialogResult
   ) {
     if (this.isInteractionSimulationEnabled()) return;
+    if (this.stepStatus() !== 'WAITING_FOR_INTERACTION') {
+      this.humanInteractionDialog.close(null);
+      this.taskExecutionsService.refresh();
+      return;
+    }
+    if (result.mode === 'decision') {
+      this.submitHumanDecision(executionId, executionNodeId, contract, result);
+      return;
+    }
 
     const interactionFieldName = result.mode === 'message'
       ? contract.messageField
@@ -955,6 +978,124 @@ export class TaskStepNodeComponent {
         console.error('Submit interaction output failed', error);
       }
     });
+  }
+
+  private submitHumanDecision(
+    executionId: string,
+    executionNodeId: string,
+    contract: BlockInteractionContract,
+    result: Extract<HumanInteractionDialogResult, { mode: 'decision' }>
+  ) {
+    const options = this.decisionOptions();
+    if (!options.some((option) => option.name === result.choice)) {
+      this.humanInteractionDialog.update({
+        submitError: 'Select one of the available decision options.'
+      });
+      return;
+    }
+
+    const rationale = result.rationale.trim();
+    if (this.blockConfiguration?.['rationaleRequired'] === true && !rationale) {
+      this.humanInteractionDialog.update({
+        submitError: `${this.decisionRationaleLabel()} is required.`
+      });
+      return;
+    }
+
+    const rationaleField = contract.messageField;
+    const choiceField = contract.completionField;
+    if (rationale && !rationaleField) {
+      this.humanInteractionDialog.update({
+        submitError: 'The decision contract has no rationale field.'
+      });
+      return;
+    }
+    if (!choiceField) {
+      this.humanInteractionDialog.update({
+        submitError: 'The decision contract has no completion field.'
+      });
+      return;
+    }
+
+    this.interactionSubmitting = true;
+    this.humanInteractionDialog.update({ isSubmitting: true, submitError: null });
+
+    const submitChoice = () => {
+      this.taskExecutionsService.submitInteractionText(
+        executionId,
+        executionNodeId,
+        choiceField,
+        result.choice
+      ).subscribe({
+        next: () => {
+          this.interactionSubmitting = false;
+          this.humanInteractionDialog.close(result);
+        },
+        error: (error) => {
+          this.handleDecisionSubmitError(error);
+          this.taskExecutionsService.refresh();
+        }
+      });
+    };
+
+    if (rationale && rationaleField) {
+      this.taskExecutionsService.submitInteractionText(
+        executionId,
+        executionNodeId,
+        rationaleField,
+        rationale
+      ).subscribe({
+        next: submitChoice,
+        error: (error) => this.handleDecisionSubmitError(error)
+      });
+      return;
+    }
+
+    submitChoice();
+  }
+
+  private handleDecisionSubmitError(error: unknown) {
+    this.interactionSubmitting = false;
+    const errorBody = (error as { error?: unknown })?.error;
+    const serialized = typeof errorBody === 'string'
+      ? errorBody
+      : JSON.stringify(errorBody ?? {});
+    const invalidChoice = serialized.includes('HUMAN_DECISION_INVALID_CHOICE');
+    this.humanInteractionDialog.update({
+      isSubmitting: false,
+      submitError: invalidChoice
+        ? 'The selected option is no longer valid. Reload the execution and choose again.'
+        : 'Unable to submit the decision. Your choice and rationale have been preserved.'
+    });
+  }
+
+  private interactionRuntimeInputs(): HumanInteractionRuntimeInput[] {
+    return this.resolvePorts('input').map((input) => ({
+      name: input.name,
+      value: this.executionInputTooltip(input.name) ?? 'Not available'
+    }));
+  }
+
+  private decisionQuestion(): string {
+    const question = this.blockConfiguration?.['question'];
+    return typeof question === 'string' ? question : '';
+  }
+
+  private decisionRationaleLabel(): string {
+    const label = this.blockConfiguration?.['rationaleLabel'];
+    return typeof label === 'string' && label.trim().length > 0 ? label.trim() : 'Rationale';
+  }
+
+  private decisionOptions(): HumanDecisionOption[] {
+    const options = this.blockConfiguration?.['options'];
+    if (!Array.isArray(options)) return [];
+    return options.flatMap((option) => {
+      if (!option || typeof option !== 'object' || Array.isArray(option)) return [];
+      const record = option as Record<string, unknown>;
+      const name = typeof record['name'] === 'string' ? record['name'].trim() : '';
+      const label = typeof record['label'] === 'string' ? record['label'].trim() : '';
+      return name ? [{ name, label: label || name }] : [];
+    }).slice(0, 10);
   }
 
   private parseChatHistoryLine(rawLine: string): { role: 'user' | 'assistant' | 'system'; content: string } | null {

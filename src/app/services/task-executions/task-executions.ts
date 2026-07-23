@@ -296,7 +296,9 @@ export class TaskExecutionsService {
     }
 
     return this.withRefreshAndErrorHandling(
-      this.taskExecutionsCallService.submitInteractionText(executionId, nodeId, fieldName, value),
+      this.taskExecutionsCallService.submitInteractionText(executionId, nodeId, fieldName, value).pipe(
+        tap((updatedExecution) => this.replaceExecution(updatedExecution))
+      ),
       'Submit interaction text failed'
     );
   }
@@ -319,6 +321,31 @@ export class TaskExecutionsService {
     }
 
     this.stopPolling();
+  }
+
+  private replaceExecution(updatedExecution: TaskExecution) {
+    this._taskExecutions.update((executions) => {
+      const index = executions.findIndex((execution) => execution.id === updatedExecution.id);
+      if (index < 0) return [updatedExecution, ...executions];
+      return executions.map((execution) =>
+        execution.id === updatedExecution.id ? updatedExecution : execution
+      );
+    });
+
+    this._taskExecutionGroups.update((groups) =>
+      groups.map((group) => {
+        if (!(group.executions ?? []).some((execution) => execution.id === updatedExecution.id)) {
+          return group;
+        }
+        return {
+          ...group,
+          executions: group.executions.map((execution) =>
+            execution.id === updatedExecution.id ? updatedExecution : execution
+          ),
+          lastExecutionTime: Math.max(group.lastExecutionTime, updatedExecution.creationTime)
+        };
+      })
+    );
   }
 
   private flattenGroups(groups: TaskExecutionGroup[]): TaskExecution[] {

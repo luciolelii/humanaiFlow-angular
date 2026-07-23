@@ -267,14 +267,20 @@ export function getExecutionInputValues(
   contextInputs: Record<string, unknown>
 ): Record<string, unknown> {
   const result: Record<string, unknown> = {};
-  for (const input of step.inputs ?? []) {
-    const inputName = input.descriptor?.name;
+  const runtimeInputs = step.inputs ?? [];
+  const inputDescriptors = runtimeInputs.length
+    ? runtimeInputs.map((input) => input.descriptor)
+    : getTaskExecutionStepNode(step)?.inputs ?? [];
+  for (const descriptor of inputDescriptors) {
+    const inputName = descriptor?.name;
     if (!inputName) continue;
     const key = `${step.id}:${inputName}`;
     if (Object.prototype.hasOwnProperty.call(contextInputs, key)) {
       result[inputName] = contextInputs[key];
       continue;
     }
+    const input = runtimeInputs.find((candidate) => candidate.descriptor?.name === inputName);
+    if (!input) continue;
     if (input.set || input.registered || input.value != null) {
       result[inputName] = input.value;
     }
@@ -287,8 +293,12 @@ export function getExecutionOutputValues(
   contextResults: Record<string, unknown>
 ): Record<string, unknown> {
   const result: Record<string, unknown> = {};
-  for (const output of step.outputs ?? []) {
-    const outputName = output.descriptor?.name;
+  const runtimeOutputs = step.outputs ?? [];
+  const outputDescriptors = runtimeOutputs.length
+    ? runtimeOutputs.map((output) => output.descriptor)
+    : getTaskExecutionStepNode(step)?.outputs ?? [];
+  for (const descriptor of outputDescriptors) {
+    const outputName = descriptor?.name;
     if (!outputName) continue;
     const key = `${step.id}:${outputName}`;
     if (Object.prototype.hasOwnProperty.call(contextResults, key)) {

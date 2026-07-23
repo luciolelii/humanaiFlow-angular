@@ -61,7 +61,11 @@ export type NodeFamily = 'block' | 'container';
 
 export type BlockTypeSchema = Record<string, unknown> | null;
 
-export type BlockInteractionContractKind = 'chat-session' | 'single-response' | string;
+export type BlockInteractionContractKind =
+  | 'chat-session'
+  | 'single-response'
+  | 'human-decision'
+  | string;
 
 export type BlockInteractionContract = {
   kind: BlockInteractionContractKind;

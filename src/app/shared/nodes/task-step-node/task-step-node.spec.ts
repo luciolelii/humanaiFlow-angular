@@ -77,7 +77,7 @@ describe('TaskStepNodeComponent bias canvas highlighting', () => {
         { provide: NodeSettingsDialogService, useValue: { open: vi.fn().mockResolvedValue(null) } },
         { provide: SubflowPreviewDialogService, useValue: { open: vi.fn() } },
         { provide: HumanInteractionDialogService, useValue: { open: vi.fn(), close: vi.fn(), update: vi.fn(), state: vi.fn().mockReturnValue(null) } },
-        { provide: TaskExecutionsService, useValue: { submitInteractionText: vi.fn().mockReturnValue(of(null)) } },
+        { provide: TaskExecutionsService, useValue: { submitInteractionText: vi.fn().mockReturnValue(of(null)), refresh: vi.fn() } },
         { provide: BiasImpactExperimentDialogService, useValue: { open: vi.fn() } }
       ]
     }).compileComponents();
@@ -197,6 +197,99 @@ describe('TaskStepNodeComponent bias canvas highlighting', () => {
     component.data.data.biasAnnotations = [];
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.llm-node-bias-summary')).toBeNull();
+  });
+
+  describe('human interaction contracts', () => {
+    function configureInteraction(kind: 'single-response' | 'human-decision') {
+      component.data.data.specificConfiguration = {
+        ...component.data.data.specificConfiguration,
+        __executionId: 'execution-1',
+        __executionNodeId: 'node-1',
+        __executionStatus: 'WAITING',
+        __stepStatus: 'WAITING_FOR_INTERACTION',
+        question: 'Should the candidate proceed?',
+        options: [
+          { name: 'approve', label: 'Approve' },
+          { name: 'reject', label: 'Reject' }
+        ],
+        rationaleRequired: true,
+        rationaleLabel: 'Evidence-based rationale'
+      };
+      (component as any).blockDescriptor = {
+        interactionContract: {
+          kind,
+          messageField: kind === 'human-decision' ? 'rationale' : null,
+          completionField: kind === 'human-decision' ? 'choice' : 'output',
+          historyField: null,
+          responseField: kind === 'human-decision' ? 'choice' : 'output',
+          supportsPartialResult: kind === 'human-decision'
+        }
+      };
+    }
+
+    it('dispatches a human decision with dynamic options from the node configuration', () => {
+      configureInteraction('human-decision');
+      const dialog = TestBed.inject(HumanInteractionDialogService) as any;
+
+      component.openInteractionModal();
+
+      expect(dialog.open).toHaveBeenCalledWith(expect.objectContaining({
+        kind: 'human-decision',
+        question: 'Should the candidate proceed?',
+        decisionOptions: [
+          { name: 'approve', label: 'Approve' },
+          { name: 'reject', label: 'Reject' }
+        ],
+        rationaleRequired: true,
+        rationaleLabel: 'Evidence-based rationale'
+      }));
+    });
+
+    it('submits rationale first and the technical choice last', () => {
+      configureInteraction('human-decision');
+      const dialog = TestBed.inject(HumanInteractionDialogService) as any;
+      const executions = TestBed.inject(TaskExecutionsService) as any;
+      component.openInteractionModal();
+      const input = dialog.open.mock.calls.at(-1)[0];
+
+      input.onSubmit({
+        mode: 'decision',
+        choice: 'approve',
+        rationale: 'Documented evidence'
+      });
+
+      expect(executions.submitInteractionText.mock.calls).toEqual([
+        ['execution-1', 'node-1', 'rationale', 'Documented evidence'],
+        ['execution-1', 'node-1', 'choice', 'approve']
+      ]);
+    });
+
+    it('uses the single-response completion field and never confirms the runtime input', () => {
+      configureInteraction('single-response');
+      const dialog = TestBed.inject(HumanInteractionDialogService) as any;
+      const executions = TestBed.inject(TaskExecutionsService) as any;
+      component.openInteractionModal();
+      const input = dialog.open.mock.calls.at(-1)[0];
+
+      input.onSubmit({ mode: 'complete', value: 'Human response' });
+
+      expect(executions.submitInteractionText).toHaveBeenCalledWith(
+        'execution-1',
+        'node-1',
+        'output',
+        'Human response'
+      );
+    });
+
+    it('does not open a form unless the authoritative step status is WAITING_FOR_INTERACTION', () => {
+      configureInteraction('single-response');
+      component.data.data.specificConfiguration.__stepStatus = 'WAITING_FOR_INPUT';
+      const dialog = TestBed.inject(HumanInteractionDialogService) as any;
+
+      component.openInteractionModal();
+
+      expect(dialog.open).not.toHaveBeenCalled();
+    });
   });
 
   it('does not mark EndBlock as bias capable when the catalog forbids bias annotations', () => {

@@ -9,8 +9,12 @@
         <p class="mt-1 text-sm text-slate-500">
           @if (currentState.kind === 'chat-session') {
           Continue the chat session or send the final completion value.
+          } @else if (currentState.kind === 'human-decision') {
+          Select one option and document the rationale for the decision.
+          } @else if (currentState.kind === 'single-response') {
+          Provide the requested response to complete this activity.
           } @else {
-          Confirm the input as node output or edit it before sending.
+          This interaction type is not supported.
           }
         </p>
       </div>
@@ -91,50 +95,31 @@
         }
       </div>
     </div>
+    } @else if (currentState.kind === 'human-decision') {
+    <div class="flex-1 overflow-y-auto px-5 py-4">
+      <app-human-decision-interaction
+        [state]="currentState"
+        (submitDecision)="submitHumanDecision($event)" />
+    </div>
+    } @else if (currentState.kind === 'single-response') {
+    <div class="flex-1 overflow-y-auto px-5 py-4">
+      <app-human-text-interaction
+        [state]="currentState"
+        (submitResponse)="submitTextResponse($event)" />
+    </div>
     } @else {
-    <div class="grid flex-1 gap-4 overflow-y-auto px-5 py-4">
-      <fieldset class="rounded-lg border border-slate-200 bg-slate-50 p-3">
-        <legend class="px-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Action Description</legend>
-        <div class="max-h-32 overflow-y-auto whitespace-pre-wrap break-words text-sm text-slate-800">{{ currentState.actionDescription || '-' }}</div>
-      </fieldset>
-
-      <fieldset class="rounded-lg border border-slate-200 bg-slate-50 p-3">
-        <legend class="px-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Current Input</legend>
-        <div class="max-h-56 overflow-y-auto whitespace-pre-wrap break-words font-mono text-sm text-slate-800">{{ currentState.currentInput || '-' }}</div>
-      </fieldset>
-
-      @if (editing()) {
-      <mat-form-field appearance="outline">
-        <mat-label>
-          Edit Response
-        </mat-label>
-        <textarea
-          matInput
-          class="min-h-40"
-          rows="7"
-          [ngModel]="draftValue"
-          [disabled]="currentState.isSubmitting || currentState.isRunning"
-          [attr.data-autofocus]="'true'"
-          (ngModelChange)="setDraftValue($event)">
-        </textarea>
-      </mat-form-field>
-      }
+    <div class="flex-1 px-5 py-8 text-center text-sm text-slate-600">
+      Unsupported interaction contract: {{ currentState.kind }}
     </div>
     }
 
+    @if (currentState.kind === 'chat-session') {
     <div class="flex justify-end gap-2 border-t border-slate-200 px-5 py-4">
       <button type="button" mat-stroked-button (click)="cancel($event)">Cancel</button>
-      @if (currentState.kind === 'chat-session') {
       <button type="button" mat-stroked-button [disabled]="!canSendEditedOutput()" (click)="sendChatMessage($event)">Send</button>
       <button type="button" mat-flat-button [disabled]="!canSendEditedOutput()" (click)="completeChatSession($event)">Send Final Response</button>
-      } @else if (!editing()) {
-      <button type="button" mat-stroked-button (click)="startEditing($event)">Edit Response</button>
-      <button type="button" mat-flat-button (click)="confirmInput($event)">Confirm Input</button>
-      } @else {
-      <button type="button" mat-stroked-button (click)="backToConfirm($event)">Back</button>
-      <button type="button" mat-flat-button [disabled]="!canSendEditedOutput()" (click)="sendEditedOutput($event)">Send Output</button>
-      }
     </div>
+    }
   </div>
 </div>
 }

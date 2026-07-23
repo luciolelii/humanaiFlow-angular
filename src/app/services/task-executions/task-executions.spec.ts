@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { BiasImpactJob } from '@models/bias-impact';
+import { TaskExecution } from '@models/task-execution';
 import { lastValueFrom, of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 
@@ -83,5 +84,44 @@ describe('TaskExecutionsService bias operations', () => {
     await expect(terminalJob).resolves.toEqual(expect.objectContaining({ status: 'COMPLETED' }));
     expect(getBiasImpactJob).toHaveBeenCalledTimes(3);
     vi.useRealTimers();
+  });
+
+  it('replaces the local execution immediately with the interaction response', async () => {
+    const baseline: TaskExecution = {
+      id: 'execution-1',
+      name: 'Human flow',
+      creationTime: 1,
+      context: {
+        inputs: {},
+        result: {},
+        errors: {},
+        warnings: [],
+        steps: {},
+        status: 'WAITING',
+        waitingSteps: ['decision-1']
+      }
+    };
+    const updated: TaskExecution = {
+      ...baseline,
+      context: {
+        ...baseline.context,
+        status: 'SUCCESS',
+        waitingSteps: []
+      }
+    };
+    (service as any)._taskExecutions.set([baseline]);
+    vi.spyOn(service, 'refresh').mockImplementation(() => undefined);
+    service.taskExecutionsCallService = {
+      submitInteractionText: vi.fn().mockReturnValue(of(updated))
+    } as unknown as typeof service.taskExecutionsCallService;
+
+    await lastValueFrom(service.submitInteractionText(
+      'execution-1',
+      'decision-1',
+      'choice',
+      'approve'
+    ));
+
+    expect(service.taskExecutions()[0].context.status).toBe('SUCCESS');
   });
 });
