@@ -120,10 +120,49 @@ describe('TaskStepNodeComponent bias canvas highlighting', () => {
     expect(component.allBiasAnnotations()).toHaveLength(2);
     expect(component.activeBiasAnnotationCount()).toBe(1);
     expect(component.capabilitiesTooltip()).toContain('Bias annotations: allowed');
+    expect(component.isBiasCapable()).toBe(true);
+  });
+
+  it('does not mark EndBlock as bias capable when the catalog forbids bias annotations', () => {
+    component.data.data.typeName = 'EndBlock';
+    component.data.data.capabilities = undefined;
+    (component as any).blockDescriptor = {
+      capabilities: {
+        visualRole: 'END',
+        terminal: true,
+        biasAnnotationsAllowed: false,
+        allowsIncomingConnections: true,
+        allowsOutgoingConnections: false,
+        canDependOnOtherNodes: true,
+        canHaveDependentNodes: false
+      }
+    };
+    fixture.detectChanges();
+
+    expect(component.isBiasCapable()).toBe(false);
+    expect(fixture.nativeElement.querySelector('.llm-node-bias-capability')).toBeNull();
+  });
+
+  it('waits for catalog capabilities instead of using permissive defaults for the badge', () => {
+    component.data.data.capabilities = undefined;
+    (component as any).blockDescriptor = null;
+    fixture.detectChanges();
+
+    expect(component.isBiasCapable()).toBe(false);
+    expect(fixture.nativeElement.querySelector('.llm-node-bias-capability')).toBeNull();
   });
 
   describe('Measure bias impact availability', () => {
     beforeEach(() => {
+      component.data.data.capabilities = {
+        visualRole: 'PROCESS',
+        terminal: false,
+        biasAnnotationsAllowed: true,
+        allowsIncomingConnections: true,
+        allowsOutgoingConnections: true,
+        canDependOnOtherNodes: true,
+        canHaveDependentNodes: true
+      };
       component.data.data.biasAnnotations = [
         { id: 'annotation-1', behavioralProbe: { activationMode: 'PROMPT_DIRECTIVE', instruction: 'Nudge it' } }
       ];

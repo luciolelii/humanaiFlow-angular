@@ -451,9 +451,12 @@ export class TaskStepNodeComponent {
   }
 
   typeCapabilities(): NodeTypeCapabilities {
-    return this.data?.data?.capabilities
-      ?? this.blockDescriptor?.capabilities
+    return this.resolvedTypeCapabilities()
       ?? DEFAULT_NODE_CAPABILITIES;
+  }
+
+  isBiasCapable(): boolean {
+    return this.resolvedTypeCapabilities()?.biasAnnotationsAllowed === true;
   }
 
   visualRoleLabel(): string {
@@ -474,7 +477,7 @@ export class TaskStepNodeComponent {
   }
 
   hasMeasurableBiasAnnotations(): boolean {
-    return this.typeCapabilities().biasAnnotationsAllowed
+    return this.isBiasCapable()
       && this.executableBiasAnnotations().length > 0
       && this.biasCapabilities?.isolatedExperimentSupported === true;
   }
@@ -608,6 +611,12 @@ export class TaskStepNodeComponent {
   private get blockType(): string | null {
     const typeName = this.data?.data?.typeName;
     return typeof typeName === 'string' && typeName.length > 0 ? typeName : null;
+  }
+
+  private resolvedTypeCapabilities(): NodeTypeCapabilities | null {
+    return this.data?.data?.capabilities
+      ?? this.blockDescriptor?.capabilities
+      ?? null;
   }
 
   private actionDescriptionValue(): string {
