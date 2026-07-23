@@ -106,6 +106,24 @@
 button.llm-node-bias-summary {
   font-family: inherit;
   cursor: pointer !important;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    transform 140ms ease;
+}
+
+button.llm-node-bias-summary:hover {
+  border-color: #7c3aed;
+  background: #ede9fe;
+  color: #5b21b6;
+  box-shadow: 0 3px 8px rgba(109, 40, 217, 0.2);
+  transform: translateY(-1px);
+}
+
+button.llm-node-bias-summary:focus-visible {
+  outline: 2px solid #7c3aed;
+  outline-offset: 2px;
 }
 
 .llm-node-bias-summary-active {
