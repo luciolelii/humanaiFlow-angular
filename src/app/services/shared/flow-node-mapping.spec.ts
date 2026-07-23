@@ -1,4 +1,5 @@
-import { attachSharedDefinitions, toApiPath, toNullableString, toPorts, toPosition, toRecord, toSchema, toValueKinds } from './flow-node-mapping';
+import { DEFAULT_NODE_CAPABILITIES } from '@models/flow';
+import { attachSharedDefinitions, toApiPath, toNodeCapabilities, toNullableString, toPorts, toPosition, toRecord, toSchema, toValueKinds } from './flow-node-mapping';
 
 describe('toRecord', () => {
   it('returns the object as-is', () => {
@@ -109,5 +110,40 @@ describe('toPorts', () => {
     expect(toPorts(null, [{ name: 'fallback', type: 'TEXT', multiple: false }])).toEqual([
       { name: 'fallback', type: 'TEXT', multiple: false }
     ]);
+  });
+});
+
+describe('toNodeCapabilities', () => {
+  it('falls back to DEFAULT_NODE_CAPABILITIES when raw is missing/not an object', () => {
+    expect(toNodeCapabilities(null)).toEqual(DEFAULT_NODE_CAPABILITIES);
+    expect(toNodeCapabilities(undefined)).toEqual(DEFAULT_NODE_CAPABILITIES);
+    expect(toNodeCapabilities('x')).toEqual(DEFAULT_NODE_CAPABILITIES);
+  });
+
+  it('reads a fully specified capabilities object, e.g. a terminal EndBlock', () => {
+    expect(toNodeCapabilities({
+      visualRole: 'END',
+      terminal: true,
+      biasAnnotationsAllowed: false,
+      allowsIncomingConnections: true,
+      allowsOutgoingConnections: false,
+      canDependOnOtherNodes: false,
+      canHaveDependentNodes: false
+    })).toEqual({
+      visualRole: 'END',
+      terminal: true,
+      biasAnnotationsAllowed: false,
+      allowsIncomingConnections: true,
+      allowsOutgoingConnections: false,
+      canDependOnOtherNodes: false,
+      canHaveDependentNodes: false
+    });
+  });
+
+  it('falls back per-field for missing booleans and an unknown visualRole', () => {
+    expect(toNodeCapabilities({ visualRole: 'NOT_A_ROLE', terminal: true })).toEqual({
+      ...DEFAULT_NODE_CAPABILITIES,
+      terminal: true
+    });
   });
 });

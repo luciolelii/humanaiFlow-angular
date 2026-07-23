@@ -439,10 +439,12 @@
   </div>
   }
 
+  @if (biasAnnotationsAllowed) {
   <app-bias-annotations
     [blockId]="blockId ?? ''"
     [block]="biasContainer"
     [annotations]="biasAnnotations"
     [readonly]="isReadonly"
     (annotationsChange)="updateBiasAnnotations($event)" />
+  }
 </div>

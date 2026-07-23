@@ -554,7 +554,7 @@ export class GenericNodeComponent implements OnDestroy {
 
   canTogglePortMultiplicity(kind: 'input' | 'output', key: string): boolean {
     const port = this.resolvePorts(kind).find((candidate) => candidate.name === key);
-    return !!port && this.portSelectableKinds(port).length > 1;
+    return !!port && this.portSelectableKinds(kind, key, port).length > 1;
   }
 
   portCurrentKindLabel(kind: 'input' | 'output', key: string): string {
@@ -567,17 +567,18 @@ export class GenericNodeComponent implements OnDestroy {
     if (!port) return '';
 
     const current = currentFlowPortValueKind(port);
-    const exact = this.portSelectableKinds(port).find((kindOption) =>
+    const selectableKinds = this.portSelectableKinds(kind, key, port);
+    const exact = selectableKinds.find((kindOption) =>
       kindOption.type === current.type && kindOption.multiple === current.multiple
     );
-    const selected = exact ?? this.portSelectableKinds(port)[0];
+    const selected = exact ?? selectableKinds[0];
     return selected ? this.flowValueKindValue(selected) : '';
   }
 
   portSelectableKindOptions(kind: 'input' | 'output', key: string): Array<{ value: string; label: string }> {
     const port = this.resolvePorts(kind).find((candidate) => candidate.name === key);
     if (!port) return [];
-    return this.portSelectableKinds(port).map((kindOption) => ({
+    return this.portSelectableKinds(kind, key, port).map((kindOption) => ({
       value: this.flowValueKindValue(kindOption),
       label: flowValueKindLabel(kindOption)
     }));
@@ -593,7 +594,7 @@ export class GenericNodeComponent implements OnDestroy {
     if (index < 0) return;
 
     const port = ports[index];
-    const nextKind = this.portSelectableKinds(port).find(
+    const nextKind = this.portSelectableKinds(kind, key, port).find(
       (kindOption) => this.flowValueKindValue(kindOption) === nextValue
     );
     if (!nextKind) return;
@@ -665,7 +666,12 @@ export class GenericNodeComponent implements OnDestroy {
     return lane ? { name: lane.name, color: lane.color ?? null } : null;
   }
 
+  get biasAnnotationsAllowed(): boolean {
+    return this.blockDescriptor?.capabilities?.biasAnnotationsAllowed !== false;
+  }
+
   get biasAnnotationBadge(): { count: number; hasExecutableProbe: boolean; maxSeverityLabel: string | null } | null {
+    if (!this.biasAnnotationsAllowed) return null;
     const annotations = this.biasAnnotations;
     if (!annotations.length) return null;
     return {
@@ -896,19 +902,32 @@ export class GenericNodeComponent implements OnDestroy {
     return normalizeFlowPortValueKinds(port);
   }
 
-  private portSelectableKinds(port: FlowPort): FlowValueKind[] {
+  /**
+   * Once a port is discovered to be kind-flexible (declared as ANY), that fact is
+   * remembered here by port key. Picking a concrete kind narrows `port.type`/`multiple`
+   * for connection-compatibility purposes, which would otherwise make the port look
+   * like a fixed single-kind port on the next read and permanently hide the selector.
+   */
+  private flexiblePortKeys = new Set<string>();
+
+  private portSelectableKinds(kindSide: 'input' | 'output', key: string, port: FlowPort): FlowValueKind[] {
     const expanded = new Map<string, FlowValueKind>();
+    const portKey = `${kindSide}:${key}`;
+    const valueKinds = this.portValueKinds(port);
+    const isFlexible = valueKinds.some((kind) => String(kind.type ?? 'ANY').toUpperCase() === 'ANY')
+      || this.flexiblePortKeys.has(portKey);
 
-    for (const kind of this.portValueKinds(port)) {
-      const type = String(kind.type ?? 'ANY').toUpperCase();
-      if (type === 'ANY') {
-        for (const concreteType of ['TEXT', 'FILE', 'JSON']) {
-          const concreteKind = { type: concreteType, multiple: Boolean(kind.multiple) };
-          expanded.set(this.flowValueKindValue(concreteKind), concreteKind);
-        }
-        continue;
+    if (isFlexible) {
+      this.flexiblePortKeys.add(portKey);
+      const multiple = Boolean(valueKinds[0]?.multiple ?? port.multiple);
+      for (const concreteType of ['TEXT', 'FILE', 'JSON']) {
+        const concreteKind = { type: concreteType, multiple };
+        expanded.set(this.flowValueKindValue(concreteKind), concreteKind);
       }
+      return Array.from(expanded.values());
+    }
 
+    for (const kind of valueKinds) {
       expanded.set(this.flowValueKindValue(kind), kind);
     }
 

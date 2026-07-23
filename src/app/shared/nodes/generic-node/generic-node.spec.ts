@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { DEFAULT_NODE_CAPABILITIES } from '@models/flow';
 import { BlocksService } from '@services/blocks/blocks';
 import { NodeSettingsDialogService } from '@services/dialogs/node-settings-dialog';
 import { FieldRetriever } from '@services/retriever/field-retriever';
@@ -118,6 +119,33 @@ describe('GenericNodeComponent', () => {
     expect(outputLabels).toEqual(['noAssessment', 'excluded', 'continued']);
   });
 
+  it('keeps a flexible port kind-selectable after narrowing it once', () => {
+    fixture.componentRef.setInput('data', {
+      ...component.data,
+      outputs: {
+        output: { socket: { name: 'ANY' } }
+      },
+      data: {
+        ...component.data.data,
+        outputs: [{ name: 'output', type: 'ANY', multiple: false }]
+      }
+    });
+    fixture.detectChanges();
+
+    expect(component.canTogglePortMultiplicity('output', 'output')).toBe(true);
+    expect(component.portSelectableKindOptions('output', 'output').map((option) => option.label)).toEqual(
+      expect.arrayContaining(['TEXT', 'FILE', 'JSON'])
+    );
+
+    component.onPortKindChange('output', 'output', 'TEXT::single');
+
+    expect(component.portCurrentKindLabel('output', 'output')).toBe('TEXT');
+    expect(component.canTogglePortMultiplicity('output', 'output')).toBe(true);
+    expect(component.portSelectableKindOptions('output', 'output').map((option) => option.label)).toEqual(
+      expect.arrayContaining(['TEXT', 'FILE', 'JSON'])
+    );
+  });
+
   it('restores and syncs persisted expanded-mode state', () => {
     const nodeData = component.data.data as Record<string, unknown>;
     nodeData['__focusOpen'] = true;
@@ -134,6 +162,30 @@ describe('GenericNodeComponent', () => {
 
   it('has no bias annotation badge when the block has no annotations', () => {
     expect(component.biasAnnotationBadge).toBeNull();
+  });
+
+  it('allows bias annotations by default when no descriptor capabilities are known', () => {
+    expect(component.biasAnnotationsAllowed).toBe(true);
+  });
+
+  it('hides the bias badge and the annotations panel when biasAnnotationsAllowed is false', async () => {
+    const blocks = TestBed.inject(BlocksService) as any;
+    blocks.peekBlockType.mockReturnValue({
+      type: 'EndBlock',
+      capabilities: { ...DEFAULT_NODE_CAPABILITIES, biasAnnotationsAllowed: false }
+    });
+    component.data.data = {
+      ...component.data.data,
+      typeName: 'EndBlock',
+      biasAnnotations: [{ id: 'a1', severity: 'HIGH' }]
+    };
+
+    await (component as any).loadSchemaContext();
+    fixture.detectChanges();
+
+    expect(component.biasAnnotationsAllowed).toBe(false);
+    expect(component.biasAnnotationBadge).toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector('app-bias-annotations')).toBeNull();
   });
 
   it('has no lane badge when the block has no laneId', () => {

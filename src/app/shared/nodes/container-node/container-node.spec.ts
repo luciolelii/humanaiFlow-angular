@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { DEFAULT_NODE_CAPABILITIES } from '@models/flow';
 import { of } from 'rxjs';
 import { vi } from 'vitest';
 
@@ -219,6 +220,27 @@ describe('ContainerNodeComponent', () => {
 
   it('has no bias annotation badge when the container has no annotations', () => {
     component.data = { data: { id: 'container-1', specificConfiguration: {}, inputs: [], outputs: [] } };
+    expect(component.biasAnnotationBadge).toBeNull();
+  });
+
+  it('allows bias annotations by default when no descriptor capabilities are known', () => {
+    component.data = { data: { id: 'container-1', specificConfiguration: {}, inputs: [], outputs: [] } };
+    expect(component.biasAnnotationsAllowed).toBe(true);
+  });
+
+  it('hides the bias badge when biasAnnotationsAllowed is false', () => {
+    component.data = {
+      data: {
+        id: 'container-1', specificConfiguration: {}, inputs: [], outputs: [],
+        biasAnnotations: [{ id: 'a1', severity: 'HIGH' }]
+      }
+    };
+    (component as any).containerDescriptor = {
+      type: 'RestrictedContainer',
+      capabilities: { ...DEFAULT_NODE_CAPABILITIES, biasAnnotationsAllowed: false }
+    };
+
+    expect(component.biasAnnotationsAllowed).toBe(false);
     expect(component.biasAnnotationBadge).toBeNull();
   });
 

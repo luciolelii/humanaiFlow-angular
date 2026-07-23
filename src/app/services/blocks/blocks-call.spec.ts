@@ -2,6 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { environment } from '@environment';
+import { DEFAULT_NODE_CAPABILITIES } from '@models/flow';
 import { firstValueFrom } from 'rxjs';
 
 import { BlocksCallService } from './blocks-call';
@@ -84,6 +85,49 @@ describe('BlocksCallService', () => {
         }
       }
     }));
+  });
+
+  it('parses a terminal EndBlock descriptor capabilities and falls back to defaults when absent', async () => {
+    const request = firstValueFrom(service.retrieveAllBlocksTypes());
+
+    httpMock.expectOne(`${environment.apiUrl}/blocks/types/catalog`).flush({
+      descriptors: [
+        {
+          type: 'EndBlock',
+          description: 'Terminal outcome',
+          userInteractive: false,
+          schema: { type: 'object', properties: {} },
+          capabilities: {
+            visualRole: 'END',
+            terminal: true,
+            biasAnnotationsAllowed: false,
+            allowsIncomingConnections: true,
+            allowsOutgoingConnections: false,
+            canDependOnOtherNodes: false,
+            canHaveDependentNodes: false
+          }
+        },
+        {
+          type: 'LLMBlock',
+          description: 'LLM node',
+          userInteractive: false,
+          schema: { type: 'object', properties: {} }
+        }
+      ]
+    });
+
+    const blockTypes = await request;
+
+    expect(blockTypes.find((type) => type.type === 'EndBlock')?.capabilities).toEqual({
+      visualRole: 'END',
+      terminal: true,
+      biasAnnotationsAllowed: false,
+      allowsIncomingConnections: true,
+      allowsOutgoingConnections: false,
+      canDependOnOtherNodes: false,
+      canHaveDependentNodes: false
+    });
+    expect(blockTypes.find((type) => type.type === 'LLMBlock')?.capabilities).toEqual(DEFAULT_NODE_CAPABILITIES);
   });
 
   it('rejects the legacy block catalog array format', async () => {

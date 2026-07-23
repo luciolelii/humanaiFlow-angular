@@ -2,6 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { environment } from '@environment';
+import { DEFAULT_NODE_CAPABILITIES } from '@models/flow';
 import { firstValueFrom } from 'rxjs';
 
 import { ContainersCallService } from './containers-call';
@@ -79,6 +80,25 @@ describe('ContainersCallService', () => {
         }
       }
     }));
+  });
+
+  it('falls back to DEFAULT_NODE_CAPABILITIES when a descriptor has no capabilities field', async () => {
+    const request = firstValueFrom(service.retrieveAllContainerTypes());
+
+    httpMock.expectOne(`${environment.apiUrl}/containers/types/catalog`).flush({
+      descriptors: [
+        {
+          type: 'GenericContainer',
+          description: 'Container node',
+          userInteractive: false,
+          schema: { type: 'object', properties: {} }
+        }
+      ]
+    });
+
+    const containerTypes = await request;
+
+    expect(containerTypes[0].capabilities).toEqual(DEFAULT_NODE_CAPABILITIES);
   });
 
   it('uses the example endpoint exposed by the catalog when creating an empty container', async () => {

@@ -5,7 +5,7 @@ import { inject } from "@angular/core";
 import { environment } from "@environment";
 import { catchError, map, Observable, of, switchMap, take, throwError } from "rxjs";
 import { BlockDraftContext, BlocksCallServiceBase } from "./block-call.base";
-import { attachSharedDefinitions, toApiPath, toNullableString, toPorts, toPosition, toRecord, toSchema, toValueKinds } from "@services/shared/flow-node-mapping";
+import { attachSharedDefinitions, toApiPath, toNodeCapabilities, toNullableString, toPorts, toPosition, toRecord, toSchema, toValueKinds } from "@services/shared/flow-node-mapping";
 
 export class BlocksCallService extends BlocksCallServiceBase {
   private readonly http = inject(HttpClient);
@@ -155,7 +155,8 @@ export class BlocksCallService extends BlocksCallServiceBase {
       exampleBlockEndpoint: toApiPath(value["exampleBlockEndpoint"]),
       configurationType: toNullableString(value["configurationType"]),
       configurationClass: toNullableString(value["configurationClass"]),
-      schema
+      schema,
+      capabilities: toNodeCapabilities(value["capabilities"])
     };
   }
 

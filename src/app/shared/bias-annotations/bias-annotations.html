@@ -1,48 +1,63 @@
 @if (descriptor; as descriptor) {
 <section class="bias-section" (pointerdown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
-  <div class="bias-header">
-    <div>
-      <div class="bias-title">Bias annotations</div>
-      <div class="bias-counter">{{ annotations.length }}{{ descriptor.maxItems !== null ? ' / ' + descriptor.maxItems : '' }}</div>
-    </div>
-    @if (!readonly) {
-    <button type="button" class="bias-add" [disabled]="!canAdd" (click)="add($event)">Add bias annotation</button>
-    }
-  </div>
-
-  @if (listError(); as error) { <div class="bias-error">{{ error }}</div> }
-  @if (!annotations.length) {
-    <div class="bias-empty">No bias annotations.</div>
-  } @else {
-    <div class="bias-list">
-      @for (annotation of annotations; track annotation.id ?? $index; let index = $index) {
-      <article class="bias-card">
-        <div class="bias-badges">
-          <span class="bias-badge category">{{ optionLabel('category', annotation.category) }}</span>
-          <span class="bias-badge severity">{{ optionLabel('severity', annotation.severity) }}</span>
-          <span class="bias-badge status">{{ optionLabel('status', annotation.status) }}</span>
-          <span class="bias-badge source">{{ optionLabel('source', annotation.source) }}</span>
-          @if (probeExecutable(annotation)) { <span class="bias-badge probe">Executable probe</span> }
-        </div>
-        <div class="bias-issue">{{ annotation.issue }}</div>
-        @if (serverError(index); as error) { <div class="bias-error">{{ error }}</div> }
-        @for (field of fields; track field.key) {
-          @if (serverError(index, field.key); as error) { <div class="bias-error">{{ field.label }}: {{ error }}</div> }
-        }
-        @if (!readonly) {
-        <div class="bias-actions">
-          <button type="button" (click)="edit(index, $event)">Edit</button>
-          <button type="button" class="danger" (click)="remove(index, $event)">Remove</button>
-        </div>
-        }
-      </article>
-      }
-    </div>
-  }
+  <button type="button" class="bias-open-trigger" (click)="openList($event)">
+    <span class="bias-title">Bias annotations</span>
+    <span class="bias-counter">{{ annotations.length }}{{ countSuffix }}</span>
+  </button>
 </section>
 
+@if (listOpen) {
+<dialog #biasListDialog class="bias-modal-backdrop" (pointerdown)="$event.stopPropagation()" (wheel)="$event.stopPropagation()" (click)="onListDialogClick($event)" (cancel)="closeList($event)">
+  <div class="bias-modal" (pointerdown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
+    <div class="bias-header">
+      <div>
+        <div class="bias-title">Bias annotations</div>
+        <div class="bias-counter">{{ annotations.length }}{{ countSuffix }}</div>
+      </div>
+      @if (!readonly) {
+      <button type="button" class="bias-add" [disabled]="!canAdd" (click)="add($event)">Add bias annotation</button>
+      }
+    </div>
+
+    @if (listError(); as error) { <div class="bias-error">{{ error }}</div> }
+    @if (!annotations.length) {
+      <div class="bias-empty">No bias annotations.</div>
+    } @else {
+      <div class="bias-list">
+        @for (annotation of annotations; track annotation.id ?? $index; let index = $index) {
+        <article class="bias-card">
+          <div class="bias-badges">
+            <span class="bias-badge category">{{ optionLabel('category', annotation.category) }}</span>
+            <span class="bias-badge severity">{{ optionLabel('severity', annotation.severity) }}</span>
+            <span class="bias-badge status">{{ optionLabel('status', annotation.status) }}</span>
+            <span class="bias-badge source">{{ optionLabel('source', annotation.source) }}</span>
+            @if (probeExecutable(annotation)) { <span class="bias-badge probe">Executable probe</span> }
+          </div>
+          <div class="bias-issue">{{ annotation.issue }}</div>
+          @if (serverError(index); as error) { <div class="bias-error">{{ error }}</div> }
+          @for (field of fields; track field.key) {
+            @if (serverError(index, field.key); as error) { <div class="bias-error">{{ field.label }}: {{ error }}</div> }
+          }
+          @if (!readonly) {
+          <div class="bias-actions">
+            <button type="button" (click)="edit(index, $event)">Edit</button>
+            <button type="button" class="danger" (click)="remove(index, $event)">Remove</button>
+          </div>
+          }
+        </article>
+        }
+      </div>
+    }
+
+    <div class="bias-modal-actions">
+      <button type="button" (click)="closeList($event)">Close</button>
+    </div>
+  </div>
+</dialog>
+}
+
 @if (editorOpen) {
-<dialog #biasModalDialog class="bias-modal-backdrop" (pointerdown)="$event.stopPropagation()" (click)="onDialogClick($event)" (cancel)="close($event)">
+<dialog #biasModalDialog class="bias-modal-backdrop" (pointerdown)="$event.stopPropagation()" (wheel)="$event.stopPropagation()" (click)="onDialogClick($event)" (cancel)="close($event)">
   <form class="bias-modal" (pointerdown)="$event.stopPropagation()" (click)="$event.stopPropagation()" (submit)="save($event)">
     <h3>{{ editingIndex === null ? 'Add' : 'Edit' }} bias annotation</h3>
     <div class="bias-form">

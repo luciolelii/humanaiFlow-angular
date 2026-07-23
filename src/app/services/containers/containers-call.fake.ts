@@ -1,4 +1,4 @@
-import { BlockType, FlowContainer, FlowData, FlowSubflowValidationResult } from "@models/flow";
+import { BlockType, DEFAULT_NODE_CAPABILITIES, FlowContainer, FlowData, FlowSubflowValidationResult } from "@models/flow";
 import { BiasCapabilities } from "@models/bias-impact";
 import { Observable, of } from "rxjs";
 import { ContainersCallServiceBase } from "./container-call.base";
@@ -10,6 +10,7 @@ export class ContainersCallServiceFake extends ContainersCallServiceBase {
       family: "container",
       description: "Container node with an embedded validated subflow",
       userInteractive: false,
+      capabilities: { ...DEFAULT_NODE_CAPABILITIES, visualRole: "CONTAINER" },
       configurationType: "GenericContainerConfiguration",
       configurationClass: "it.cnr.isti.workflow.manager.blocks.configurations.GenericContainerConfiguration",
       schema: {

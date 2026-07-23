@@ -63,6 +63,7 @@
   padding: 0 !important;
   margin-bottom: 10px;
   overflow: visible !important;
+  min-width: 0;
 }
 
 .flows-list-list-item:last-child {
@@ -72,4 +73,5 @@
 :host ::ng-deep .flows-list-list-item .mdc-list-item__content,
 :host ::ng-deep .flows-list-list-item .mat-mdc-list-item-unscoped-content {
   overflow: visible !important;
+  min-width: 0;
 }

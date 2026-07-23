@@ -11,7 +11,7 @@ import {
 import { BiasCapabilities } from "@models/bias-impact";
 import { map, Observable, of } from "rxjs";
 import { ContainersCallServiceBase } from "./container-call.base";
-import { attachSharedDefinitions, toApiPath, toNullableString, toPorts, toPosition, toRecord, toSchema, toValueKinds } from "@services/shared/flow-node-mapping";
+import { attachSharedDefinitions, toApiPath, toNodeCapabilities, toNullableString, toPorts, toPosition, toRecord, toSchema, toValueKinds } from "@services/shared/flow-node-mapping";
 
 export class ContainersCallService extends ContainersCallServiceBase {
   private readonly http = inject(HttpClient);
@@ -128,7 +128,8 @@ export class ContainersCallService extends ContainersCallServiceBase {
       exampleBlockEndpoint: toApiPath(value["exampleBlockEndpoint"] ?? value["exampleContainerEndpoint"]),
       configurationType: toNullableString(value["configurationType"]),
       configurationClass: toNullableString(value["configurationClass"]),
-      schema
+      schema,
+      capabilities: toNodeCapabilities(value["capabilities"])
     };
   }
 

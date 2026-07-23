@@ -1,4 +1,5 @@
 import { environment } from '@environment';
+import { DEFAULT_NODE_CAPABILITIES, NodeTypeCapabilities, NodeVisualRole } from '@models/flow';
 
 /**
  * Response-mapping helpers shared by `blocks-call.ts` and `containers-call.ts`
@@ -86,4 +87,30 @@ export function toPorts(
         valueKinds: toValueKinds(port['valueKinds'], { type, multiple })
       };
     });
+}
+
+const NODE_VISUAL_ROLES: NodeVisualRole[] = ['ACTIVITY', 'DECISION', 'MERGE', 'END', 'CONTAINER'];
+
+function toVisualRole(value: unknown): NodeVisualRole {
+  const candidate = typeof value === 'string' ? value.toUpperCase() : '';
+  return (NODE_VISUAL_ROLES as string[]).includes(candidate)
+    ? candidate as NodeVisualRole
+    : DEFAULT_NODE_CAPABILITIES.visualRole;
+}
+
+function toBooleanCapability(value: unknown, fallback: boolean): boolean {
+  return typeof value === 'boolean' ? value : fallback;
+}
+
+export function toNodeCapabilities(raw: unknown): NodeTypeCapabilities {
+  const value = toRecord(raw);
+  return {
+    visualRole: toVisualRole(value['visualRole']),
+    terminal: toBooleanCapability(value['terminal'], DEFAULT_NODE_CAPABILITIES.terminal),
+    biasAnnotationsAllowed: toBooleanCapability(value['biasAnnotationsAllowed'], DEFAULT_NODE_CAPABILITIES.biasAnnotationsAllowed),
+    allowsIncomingConnections: toBooleanCapability(value['allowsIncomingConnections'], DEFAULT_NODE_CAPABILITIES.allowsIncomingConnections),
+    allowsOutgoingConnections: toBooleanCapability(value['allowsOutgoingConnections'], DEFAULT_NODE_CAPABILITIES.allowsOutgoingConnections),
+    canDependOnOtherNodes: toBooleanCapability(value['canDependOnOtherNodes'], DEFAULT_NODE_CAPABILITIES.canDependOnOtherNodes),
+    canHaveDependentNodes: toBooleanCapability(value['canHaveDependentNodes'], DEFAULT_NODE_CAPABILITIES.canHaveDependentNodes)
+  };
 }

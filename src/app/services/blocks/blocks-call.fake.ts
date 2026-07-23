@@ -1,4 +1,4 @@
-import { BiasAnnotationsDescriptor, BlockType, FlowBlock } from "@models/flow";
+import { BiasAnnotationsDescriptor, BlockType, DEFAULT_NODE_CAPABILITIES, FlowBlock } from "@models/flow";
 import { BiasCapabilities } from '@models/bias-impact';
 import { Observable, of } from "rxjs";
 import { BlockDraftContext, BlocksCallServiceBase } from "./block-call.base";
@@ -18,6 +18,7 @@ export class BlocksCallServiceFake extends BlocksCallServiceBase {
       "responseField": "output",
       "supportsPartialResult": false
     },
+    "capabilities": DEFAULT_NODE_CAPABILITIES,
     "configurationType": "HumanInteractiveBlockConfiguration",
     "configurationClass": "it.cnr.isti.workflow.manager.blocks.configurations.HumanInteractiveBlockConfiguration",
     "schema": {
@@ -82,6 +83,7 @@ export class BlocksCallServiceFake extends BlocksCallServiceBase {
     "family": "block",
     "description": "This type represents a LLM node in the workflow manager",
     "userInteractive": false,
+    "capabilities": DEFAULT_NODE_CAPABILITIES,
     "configurationType": "LLMBlockConfiguration",
     "configurationClass": "it.cnr.isti.workflow.manager.blocks.configurations.LLMBlockConfiguration",
     "schema": {
@@ -140,6 +142,70 @@ export class BlocksCallServiceFake extends BlocksCallServiceBase {
           }
         }
       }
+    }
+  },
+  {
+    "type": "EndBlock",
+    "family": "block",
+    "description": "Records a terminal outcome for the selected workflow path",
+    "userInteractive": false,
+    "capabilities": {
+      "visualRole": "END",
+      "terminal": true,
+      "biasAnnotationsAllowed": false,
+      "allowsIncomingConnections": true,
+      "allowsOutgoingConnections": false,
+      "canDependOnOtherNodes": false,
+      "canHaveDependentNodes": false
+    },
+    "configurationType": "EndBlockConfiguration",
+    "configurationClass": "it.cnr.isti.workflow.manager.blocks.configurations.EndBlockConfiguration",
+    "schema": {
+      "$schema": "http://json-schema.org/draft-04/schema#",
+      "title": "EndBlockConfiguration",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "EndBlockConfiguration"
+          ],
+          "default": "EndBlockConfiguration"
+        },
+        "name": {
+          "type": "string"
+        },
+        "outcomeLabel": {
+          "type": "string",
+          "x-ui-placeholder": "Outcome label"
+        },
+        "outcomeCode": {
+          "type": "string",
+          "x-ui-visible-when": {
+            "field": "mode",
+            "equals": "__never__"
+          }
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "PATH_END"
+          ],
+          "default": "PATH_END",
+          "x-ui-visible-when": {
+            "field": "mode",
+            "equals": "__never__"
+          }
+        }
+      },
+      "required": [
+        "type",
+        "name",
+        "outcomeLabel",
+        "outcomeCode",
+        "mode"
+      ]
     }
   },
 ];
@@ -339,6 +405,13 @@ export class BlocksCallServiceFake extends BlocksCallServiceBase {
       return {
         inputs: [{ name: "input", type: "TEXT", multiple: false }],
         outputs: [{ name: "output", type: "TEXT", multiple: false }]
+      };
+    }
+
+    if (typeName === "EndBlock") {
+      return {
+        inputs: [{ name: "input", type: "TEXT", multiple: false }],
+        outputs: []
       };
     }
 

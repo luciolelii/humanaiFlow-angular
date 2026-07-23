@@ -9,6 +9,7 @@ import { AngularPlugin, Presets, AngularArea2D } from "rete-angular-plugin/21";
 import { HFNode, HFSchemes } from "@models/nodes";
 import {
   areFlowValueKindsCompatible,
+  DEFAULT_NODE_CAPABILITIES,
   FlowBlock,
   FlowData,
   FlowGlobalInput,
@@ -17,6 +18,7 @@ import {
   FLOW_DEPENDENCY_PORT_KEY,
   FLOW_DEPENDENCY_SOCKET_TYPE,
   FlowNode,
+  NodeTypeCapabilities,
   normalizeFlowPortValueKinds
 } from "@models/flow";
 import { BlocksService } from "@services/blocks/blocks";
@@ -42,7 +44,7 @@ export type ReteEditorInstance = {
 
 type GraphConnectionKind = "data" | "dependency";
 
-type ReteRuntimeContext = {
+export type ReteRuntimeContext = {
   blocksService: BlocksService;
   containersService: ContainersService;
   flowState: EditorStateHolder;
@@ -104,14 +106,20 @@ export async function createEditor(
   editor.addPipe((context) => {
     if (context.type !== "connectioncreate") return context;
 
+    const sourceNode = editor.getNode(context.data.source) as HFNode | undefined;
+    const targetNode = editor.getNode(context.data.target) as HFNode | undefined;
+    const sourceCapabilities = resolveNodeCapabilities(runtime, sourceNode);
+    const targetCapabilities = resolveNodeCapabilities(runtime, targetNode);
+
     const connectionKind = getGraphConnectionKind(context.data.sourceOutput, context.data.targetInput);
     if (connectionKind === "dependency") {
       if (context.data.source === context.data.target) return;
+      if (!sourceCapabilities.canHaveDependentNodes || !targetCapabilities.canDependOnOtherNodes) return;
       return context;
     }
 
-    const sourceNode = editor.getNode(context.data.source) as HFNode | undefined;
-    const targetNode = editor.getNode(context.data.target) as HFNode | undefined;
+    if (!sourceCapabilities.allowsOutgoingConnections || !targetCapabilities.allowsIncomingConnections) return;
+
     const sourcePort = resolveNodePort(sourceNode, "output", context.data.sourceOutput);
     const targetPort = resolveNodePort(targetNode, "input", context.data.targetInput);
 
@@ -543,8 +551,13 @@ export async function addBlockToEditor(
     __containerAssigning: false
   };
 
-  node.addOutput(FLOW_DEPENDANT_PORT_KEY, new ClassicPreset.Output(getSocket(editor, FLOW_DEPENDENCY_SOCKET_TYPE)));
-  node.addInput(FLOW_DEPENDENCY_PORT_KEY, new ClassicPreset.Input(getSocket(editor, FLOW_DEPENDENCY_SOCKET_TYPE), undefined, true));
+  const capabilities = resolveNodeCapabilities(resolvedRuntime, node);
+  if (capabilities.canHaveDependentNodes) {
+    node.addOutput(FLOW_DEPENDANT_PORT_KEY, new ClassicPreset.Output(getSocket(editor, FLOW_DEPENDENCY_SOCKET_TYPE)));
+  }
+  if (capabilities.canDependOnOtherNodes) {
+    node.addInput(FLOW_DEPENDENCY_PORT_KEY, new ClassicPreset.Input(getSocket(editor, FLOW_DEPENDENCY_SOCKET_TYPE), undefined, true));
+  }
 
   for (const output of block.outputs ?? []) {
     node.addOutput(output.name, new ClassicPreset.Output(getSocket(editor, output.type ?? "ANY")));
@@ -622,6 +635,17 @@ function getSocket(editor: NodeEditor<HFSchemes>, type: string) {
     map.set(type, socket);
   }
   return map.get(type)!;
+}
+
+export function resolveNodeCapabilities(runtime: ReteRuntimeContext | undefined, node: HFNode | undefined): NodeTypeCapabilities {
+  const typeName = node?.data?.typeName;
+  if (!runtime || typeof typeName !== "string" || !typeName) return DEFAULT_NODE_CAPABILITIES;
+
+  const descriptor = node?.data?.nodeFamily === "container"
+    ? runtime.containersService.peekContainerType(typeName)
+    : runtime.blocksService.peekBlockType(typeName);
+
+  return descriptor?.capabilities ?? DEFAULT_NODE_CAPABILITIES;
 }
 
 function resolveNodePort(node: HFNode | undefined, kind: "input" | "output", portName: string) {

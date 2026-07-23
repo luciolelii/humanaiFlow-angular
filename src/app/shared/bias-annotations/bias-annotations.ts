@@ -50,23 +50,34 @@ export class BiasAnnotationsComponent {
   @Input() readonly = false;
   @Output() annotationsChange = new EventEmitter<BiasAnnotation[]>();
 
+  listOpen = false;
   editorOpen = false;
   editingIndex: number | null = null;
   draft: BiasAnnotation = {};
   clientErrors: Record<string, string> = {};
 
   /**
-   * The editor renders inside a node card, which rete.js positions with a CSS
+   * Both dialogs render inside a node card, which rete.js positions with a CSS
    * `transform` for pan/zoom. A `transform` on any ancestor turns it into the
    * containing block for `position: fixed` descendants, so a plain fixed-position
    * backdrop would be confined to the node's box instead of covering the page.
    * A native `<dialog>` opened via `showModal()` is promoted to the browser's
    * top layer, which sits above the whole document regardless of ancestor
-   * transforms — no manual DOM reparenting needed.
+   * transforms — no manual DOM reparenting needed. The list dialog and the
+   * add/edit dialog are independent `<dialog>` elements, so opening the editor
+   * from within the list simply layers a second top-layer dialog on top.
    */
+  private readonly listDialog = viewChild<ElementRef<HTMLDialogElement>>('biasListDialog');
   private readonly modalDialog = viewChild<ElementRef<HTMLDialogElement>>('biasModalDialog');
 
   constructor() {
+    effect(() => {
+      const dialog = this.listDialog()?.nativeElement;
+      if (dialog && typeof dialog.showModal === 'function' && !dialog.open) {
+        dialog.showModal();
+      }
+    });
+
     effect(() => {
       const dialog = this.modalDialog()?.nativeElement;
       if (dialog && typeof dialog.showModal === 'function' && !dialog.open) {
@@ -75,10 +86,31 @@ export class BiasAnnotationsComponent {
     });
   }
 
+  onListDialogClick(event: MouseEvent) {
+    if (event.target === this.listDialog()?.nativeElement) {
+      this.closeList(event);
+    }
+  }
+
   onDialogClick(event: MouseEvent) {
     if (event.target === this.modalDialog()?.nativeElement) {
       this.close(event);
     }
+  }
+
+  get countSuffix(): string {
+    const max = this.descriptor?.maxItems;
+    return max != null ? ` / ${max}` : '';
+  }
+
+  openList(event?: Event) {
+    event?.stopPropagation();
+    this.listOpen = true;
+  }
+
+  closeList(event?: Event) {
+    event?.stopPropagation();
+    this.listOpen = false;
   }
 
   get descriptor(): BiasAnnotationsDescriptor | null {

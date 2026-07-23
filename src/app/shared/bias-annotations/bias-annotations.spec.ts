@@ -61,6 +61,8 @@ describe('BiasAnnotationsComponent', () => {
   });
 
   it('renders API options and applies defaults without generating an id', () => {
+    (fixture.nativeElement.querySelector('.bias-open-trigger') as HTMLButtonElement).click();
+    fixture.detectChanges();
     (fixture.nativeElement.querySelector('.bias-add') as HTMLButtonElement).click();
     fixture.detectChanges();
     expect(component.draft).toEqual({ status: 'NEW' });
@@ -100,6 +102,7 @@ describe('BiasAnnotationsComponent', () => {
     fixture.componentRef.setInput('readonly', true);
     component.remove(0);
     expect(emitted).toHaveBeenCalledTimes(1);
+    (fixture.nativeElement.querySelector('.bias-open-trigger') as HTMLButtonElement).click();
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).not.toContain('Add bias annotation');
   });
@@ -111,10 +114,13 @@ describe('BiasAnnotationsComponent', () => {
   });
 
   it('renders the editor as a native <dialog> so it escapes the node canvas transform, and closing it via the backdrop click works', () => {
+    (fixture.nativeElement.querySelector('.bias-open-trigger') as HTMLButtonElement).click();
+    fixture.detectChanges();
     (fixture.nativeElement.querySelector('.bias-add') as HTMLButtonElement).click();
     fixture.detectChanges();
 
-    const dialog = fixture.nativeElement.querySelector('dialog.bias-modal-backdrop') as HTMLDialogElement;
+    const dialogs = fixture.nativeElement.querySelectorAll('dialog.bias-modal-backdrop');
+    const dialog = dialogs[dialogs.length - 1] as HTMLDialogElement;
     expect(dialog).not.toBeNull();
 
     component.onDialogClick({ target: dialog, stopPropagation: vi.fn() } as unknown as MouseEvent);
@@ -122,12 +128,31 @@ describe('BiasAnnotationsComponent', () => {
   });
 
   it('does not close when clicking inside the dialog content', () => {
+    (fixture.nativeElement.querySelector('.bias-open-trigger') as HTMLButtonElement).click();
+    fixture.detectChanges();
     (fixture.nativeElement.querySelector('.bias-add') as HTMLButtonElement).click();
     fixture.detectChanges();
 
-    const form = fixture.nativeElement.querySelector('.bias-modal') as HTMLElement;
+    const forms = fixture.nativeElement.querySelectorAll('.bias-modal');
+    const form = forms[forms.length - 1] as HTMLElement;
     component.onDialogClick({ target: form, stopPropagation: vi.fn() } as unknown as MouseEvent);
     expect(component.editorOpen).toBe(true);
+  });
+
+  it('opens the annotations list in its own dialog, separate from the add/edit dialog', () => {
+    fixture.componentRef.setInput('annotations', [{ issue: 'one' }]);
+    expect(fixture.nativeElement.querySelector('dialog.bias-modal-backdrop')).toBeNull();
+
+    (fixture.nativeElement.querySelector('.bias-open-trigger') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    expect(component.listOpen).toBe(true);
+    const dialog = fixture.nativeElement.querySelector('dialog.bias-modal-backdrop') as HTMLDialogElement;
+    expect(dialog).not.toBeNull();
+    expect(dialog.textContent).toContain('one');
+
+    component.onListDialogClick({ target: dialog, stopPropagation: vi.fn() } as unknown as MouseEvent);
+    expect(component.listOpen).toBe(false);
   });
 
   it('maps typed mock-output probe errors to nested fields', () => {

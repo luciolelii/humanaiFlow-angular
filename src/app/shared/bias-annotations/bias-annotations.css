@@ -1,5 +1,18 @@
 :host { display: block; }
-.bias-section { margin: 12px; padding: 12px; border: 1px solid #d8dee9; border-radius: 10px; background: #fff; color: #263244; }
+.bias-section { margin: 12px; color: #263244; }
+.bias-open-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #d8dee9;
+  border-radius: 10px;
+  background: #fff;
+  font: inherit;
+  text-align: left;
+}
 .bias-header, .bias-actions, .bias-modal-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .bias-title { font-size: 13px; font-weight: 700; }
 .bias-counter { color: #64748b; font-size: 11px; }

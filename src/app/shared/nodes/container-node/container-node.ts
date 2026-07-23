@@ -5,6 +5,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import {
   BiasAnnotation,
   BiasAnnotationsDescriptor,
+  BlockType,
   currentFlowPortValueKind,
   flowValueKindLabel,
   FlowContainer,
@@ -106,6 +107,7 @@ export class ContainerNodeComponent implements OnDestroy {
   private blocksService = inject(BlocksService);
   private settingsDialog = inject(NodeSettingsDialogService);
   private containerSchema: Record<string, any> | null = null;
+  private containerDescriptor: BlockType | null = null;
   private schemaRequirements: SchemaRequirements = { required: [], requiredObjects: [], conditional: [] };
   private containerFieldDefinitions: ContainerFieldDefinition[] = [];
   private containerFlowFieldDefinitions: SchemaFlowDataFieldDefinition[] = [];
@@ -383,7 +385,12 @@ export class ContainerNodeComponent implements OnDestroy {
     return Array.isArray(value) ? value as BiasAnnotation[] : [];
   }
 
+  get biasAnnotationsAllowed(): boolean {
+    return this.containerDescriptor?.capabilities?.biasAnnotationsAllowed !== false;
+  }
+
   get biasAnnotationBadge(): { count: number; hasExecutableProbe: boolean; maxSeverityLabel: string | null } | null {
+    if (!this.biasAnnotationsAllowed) return null;
     const annotations = this.biasAnnotations;
     if (!annotations.length) return null;
     return {
@@ -922,6 +929,7 @@ export class ContainerNodeComponent implements OnDestroy {
     this.schemaReady = false;
     try {
       const containerType = this.containersService.peekContainerType(this.typeName) ?? await this.containersService.getContainerType(this.typeName);
+      this.containerDescriptor = containerType ?? null;
       this.containerSchema = (containerType?.schema ?? null) as Record<string, any> | null;
       this.schemaRequirements = extractSchemaRequirements(this.containerSchema);
       this.containerFlowFieldDefinitions = collectSchemaFlowDataFields(this.containerSchema);

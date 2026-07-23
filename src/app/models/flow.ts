@@ -72,6 +72,28 @@ export type BlockInteractionContract = {
   supportsPartialResult: boolean;
 };
 
+export type NodeVisualRole = 'ACTIVITY' | 'DECISION' | 'MERGE' | 'END' | 'CONTAINER';
+
+export type NodeTypeCapabilities = {
+  visualRole: NodeVisualRole;
+  terminal: boolean;
+  biasAnnotationsAllowed: boolean;
+  allowsIncomingConnections: boolean;
+  allowsOutgoingConnections: boolean;
+  canDependOnOtherNodes: boolean;
+  canHaveDependentNodes: boolean;
+};
+
+export const DEFAULT_NODE_CAPABILITIES: NodeTypeCapabilities = {
+  visualRole: 'ACTIVITY',
+  terminal: false,
+  biasAnnotationsAllowed: true,
+  allowsIncomingConnections: true,
+  allowsOutgoingConnections: true,
+  canDependOnOtherNodes: true,
+  canHaveDependentNodes: true,
+};
+
 export type BlockType = {
   type: BlockTypeName;
   family: NodeFamily;
@@ -83,6 +105,7 @@ export type BlockType = {
   configurationType: string | null;
   configurationClass: string | null;
   schema: BlockTypeSchema;
+  capabilities?: NodeTypeCapabilities;
 };
 
 export type FlowNodeBase = {
