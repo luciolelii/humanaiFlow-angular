@@ -181,6 +181,7 @@ export function exportGraph(editor: NodeEditor<HFSchemes>) {
       inputs,
       outputs,
       specificConfiguration: cloneValue(blockData?.specificConfiguration ?? {}),
+      capabilities: cloneValue(blockData?.capabilities),
       [biasAnnotationsProperty]: cloneValue(blockRecord?.[biasAnnotationsProperty] ?? []),
       typeName: blockData?.typeName ?? "LLMBlock",
       nodeFamily: blockData?.nodeFamily === 'container' ? 'container' : 'block',
@@ -638,6 +639,8 @@ function getSocket(editor: NodeEditor<HFSchemes>, type: string) {
 }
 
 export function resolveNodeCapabilities(runtime: ReteRuntimeContext | undefined, node: HFNode | undefined): NodeTypeCapabilities {
+  if (node?.data?.capabilities) return node.data.capabilities;
+
   const typeName = node?.data?.typeName;
   if (!runtime || typeof typeName !== "string" || !typeName) return DEFAULT_NODE_CAPABILITIES;
 

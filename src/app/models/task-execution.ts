@@ -1,4 +1,4 @@
-import { FlowBlockConnection, FlowNode, FlowNodeDependency, FlowPort, LLMDescriptor } from './flow';
+import { FlowBlockConnection, FlowData, FlowNode, FlowNodeDependency, FlowPort, LLMDescriptor } from './flow';
 import { BiasExecutionContext } from './bias-impact';
 
 export type TaskExecutionStatus = 'CREATED' | 'READY' | 'RUNNING' | 'WAITING' | 'SUSPENDED' | 'SUCCESS' | 'ERROR' | 'CANCELLED';
@@ -31,9 +31,10 @@ export type TaskExecution = {
   interactionSimulationEnabled?: boolean;
   simulationAvailable?: boolean;
   interactionSimulationDescriptor?: LLMDescriptor;
+  flowSnapshot?: FlowData;
   stepConnections?: FlowBlockConnection[];
   stepDependencies?: FlowNodeDependency[];
-  requiredAuthorizations?: Record<string, TaskExecutionAuthorizationRequirement>;
+  requiredAuthorizations?: Record<string, TaskExecutionAuthorizationRequirement> | TaskExecutionAuthorizationRequirement[];
   providedAuthorizations?: Record<string, unknown>;
   missingAuthorizationKeys?: string[];
   missingGlobalInputKeys?: string[];
@@ -68,10 +69,15 @@ export type TaskExecutionContext = {
   startTime?: number | null;
   endTime?: number | null;
   errors: Record<string, string>;
-  warnings: Record<string, string>;
+  warnings: Record<string, string> | unknown[];
   steps: Record<string, TaskExecutionStep>;
   status: TaskExecutionStatus;
   waitingSteps: string[];
+  authorizations?: Record<string, unknown>;
+  executionVariables?: Record<string, unknown>;
+  executionVariableDescriptors?: Record<string, unknown>;
+  errorCodes?: Record<string, unknown>;
+  outcomes?: unknown[];
 };
 
 export type TaskExecutionGlobalInputDescriptor = {
@@ -86,11 +92,12 @@ export type TaskExecutionGlobalInputDescriptor = {
 export type TaskExecutionStep = {
   node?: FlowNode;
   id: string;
-  inputs: TaskExecutionStepInput[];
-  outputs: TaskExecutionStepOutput[];
+  inputs?: TaskExecutionStepInput[];
+  outputs?: TaskExecutionStepOutput[];
   result?: Record<string, unknown>;
   status: StepStatus;
-  started: boolean;
+  started?: boolean;
+  skipReason?: string | null;
   simulated: boolean;
 };
 

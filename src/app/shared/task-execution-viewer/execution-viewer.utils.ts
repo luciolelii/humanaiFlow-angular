@@ -321,7 +321,24 @@ export function getExecutionErrors(stepId: string, contextErrors: Record<string,
   return [];
 }
 
-export function getExecutionWarnings(stepId: string, contextWarnings: Record<string, string>): string[] {
-  const raw = contextWarnings[stepId];
-  return raw && raw.trim().length > 0 ? [raw] : [];
+export function getExecutionWarnings(stepId: string, contextWarnings: unknown): string[] {
+  if (!contextWarnings || typeof contextWarnings !== 'object') return [];
+  if (Array.isArray(contextWarnings)) {
+    return contextWarnings.flatMap((warning) => {
+      if (typeof warning === 'string') return [warning];
+      if (!warning || typeof warning !== 'object') return [];
+      const value = warning as Record<string, unknown>;
+      const warningStepId = value['stepId'] ?? value['nodeId'];
+      const message = value['message'] ?? value['warning'];
+      return String(warningStepId ?? '') === stepId && typeof message === 'string' && message.trim()
+        ? [message]
+        : [];
+    });
+  }
+  const raw = (contextWarnings as Record<string, unknown>)[stepId];
+  if (typeof raw === 'string' && raw.trim().length > 0) return [raw];
+  if (Array.isArray(raw)) {
+    return raw.filter((value): value is string => typeof value === 'string' && value.trim().length > 0);
+  }
+  return [];
 }

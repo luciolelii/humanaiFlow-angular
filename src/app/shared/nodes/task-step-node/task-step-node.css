@@ -71,6 +71,55 @@
   box-shadow: 0 0 0 3px rgba(180, 83, 9, 0.22), 0 10px 24px rgba(15, 23, 42, 0.12);
 }
 
+.llm-node-metadata {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 5px;
+}
+
+.llm-node-capability-badge,
+.llm-node-bias-summary,
+.llm-node-bias-capability,
+.llm-node-skip-reason {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-height: 18px;
+  padding: 2px 6px;
+  border: 1px solid rgba(148, 163, 184, 0.72);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #475569;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.llm-node-bias-summary,
+.llm-node-bias-capability {
+  border-color: #c4b5fd;
+  color: #6d28d9;
+  background: #f5f3ff;
+}
+
+.llm-node-bias-summary-active {
+  border-color: #7c3aed;
+  background: #7c3aed;
+  color: #fff;
+}
+
+.llm-node-skip-reason {
+  max-width: 190px;
+  overflow: hidden;
+  border-color: #cbd5e1;
+  background: #f1f5f9;
+  color: #475569;
+  text-overflow: ellipsis;
+}
+
 .llm-bias-canvas-badge-wrap {
   position: absolute;
   top: -10px;

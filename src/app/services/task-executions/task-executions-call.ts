@@ -1,7 +1,7 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { environment } from '@environment';
-import { LLMDescriptor } from '@models/flow';
+import { FlowBlockConnection, FlowData, FlowNodeDependency, LLMDescriptor } from '@models/flow';
 import {
   BiasDownstreamImpactEntry,
   BiasImpactExperimentRequest,
@@ -247,15 +247,101 @@ export class TaskExecutionsCallService extends TaskExecutionsCallServiceBase {
       context['globalInputDescriptors']
       ?? execution['globalInputDescriptors']
     );
+    const flowSnapshot = this.normalizeFlowSnapshot(
+      execution['flowSnapshot']
+      ?? execution['flowData']
+      ?? context['flowSnapshot']
+      ?? context['flowData']
+      ?? (execution['flow'] && typeof execution['flow'] === 'object' ? execution['flow'] : null)
+    );
+    const rawStepConnections =
+      execution['stepConnections']
+      ?? execution['connections']
+      ?? context['stepConnections']
+      ?? context['connections']
+      ?? flowSnapshot?.connections;
+    const stepConnections = rawStepConnections === undefined
+      ? undefined
+      : this.normalizeStepConnections(rawStepConnections);
+    const rawStepDependencies =
+      execution['stepDependencies']
+      ?? execution['dependencies']
+      ?? context['stepDependencies']
+      ?? context['dependencies']
+      ?? flowSnapshot?.dependencies;
+    const stepDependencies = rawStepDependencies === undefined
+      ? undefined
+      : this.normalizeStepDependencies(rawStepDependencies);
 
     return {
       ...execution,
+      flowSnapshot,
+      stepConnections,
+      stepDependencies,
       context: {
         ...(context as TaskExecution['context']),
         globalInputs,
         globalInputDescriptors
       } as TaskExecution['context']
     };
+  }
+
+  private normalizeFlowSnapshot(raw: unknown): FlowData | undefined {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+    const root = raw as Record<string, unknown>;
+    const nested = root['flow'] && typeof root['flow'] === 'object' && !Array.isArray(root['flow'])
+      ? root['flow'] as Record<string, unknown>
+      : root;
+    if (!Array.isArray(nested['blocks']) && !Array.isArray(nested['containers'])) return undefined;
+    const blocks = Array.isArray(nested['blocks'])
+      ? nested['blocks'].filter((node): node is FlowData['blocks'][number] => !!node && typeof node === 'object')
+        .map((node) => ({ ...node, nodeFamily: 'block' as const }))
+      : [];
+    const containers = Array.isArray(nested['containers'])
+      ? nested['containers'].filter((node): node is FlowData['containers'][number] => !!node && typeof node === 'object')
+        .map((node) => ({ ...node, nodeFamily: 'container' as const }))
+      : [];
+
+    return {
+      blocks,
+      containers,
+      connections: this.normalizeStepConnections(nested['connections']),
+      dependencies: this.normalizeStepDependencies(nested['dependencies']),
+      globalInputs: Array.isArray(nested['globalInputs']) ? nested['globalInputs'] as FlowData['globalInputs'] : [],
+      lanes: Array.isArray(nested['lanes']) ? nested['lanes'] as FlowData['lanes'] : []
+    };
+  }
+
+  private normalizeStepConnections(raw: unknown): FlowBlockConnection[] {
+    if (!Array.isArray(raw)) return [];
+    return raw.flatMap((item, index) => {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) return [];
+      const value = item as Record<string, unknown>;
+      const sourceId = value['sourceId'] ?? value['sourceNodeId'] ?? value['sourceBlockId'];
+      const sourceName = value['sourceName'] ?? value['sourceOutput'] ?? value['outputName'];
+      const targetId = value['targetId'] ?? value['targetNodeId'] ?? value['targetBlockId'];
+      const targetName = value['targetName'] ?? value['targetInput'] ?? value['inputName'];
+      if ([sourceId, sourceName, targetId, targetName].some((part) => typeof part !== 'string' || !part)) return [];
+      return [{
+        id: String(value['id'] ?? `${sourceId}:${sourceName}->${targetId}:${targetName}:${index}`),
+        sourceId: String(sourceId),
+        sourceName: String(sourceName),
+        targetId: String(targetId),
+        targetName: String(targetName)
+      }];
+    });
+  }
+
+  private normalizeStepDependencies(raw: unknown): FlowNodeDependency[] {
+    if (!Array.isArray(raw)) return [];
+    return raw.flatMap((item) => {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) return [];
+      const value = item as Record<string, unknown>;
+      const sourceId = value['sourceId'] ?? value['sourceNodeId'];
+      const targetId = value['targetId'] ?? value['targetNodeId'];
+      if (typeof sourceId !== 'string' || !sourceId || typeof targetId !== 'string' || !targetId) return [];
+      return [{ sourceId, targetId }];
+    });
   }
 
   private biasImpactJobFromApi(raw: unknown): BiasImpactJob {

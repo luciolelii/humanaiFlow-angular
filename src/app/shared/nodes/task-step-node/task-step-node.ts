@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, HostBinding, Input, inject } from '@angular/core';
 import { ClassicPreset } from 'rete';
 import { ReteModule } from 'rete-angular-plugin/21';
-import { BiasAnnotation, BlockInteractionContract, BlockType, FlowData, FlowPort, isProbeExecutable, FLOW_DEPENDANT_PORT_KEY, FLOW_DEPENDENCY_PORT_KEY } from '@models/flow';
+import { BiasAnnotation, BlockInteractionContract, BlockType, DEFAULT_NODE_CAPABILITIES, FlowData, FlowPort, isProbeExecutable, FLOW_DEPENDANT_PORT_KEY, FLOW_DEPENDENCY_PORT_KEY, NodeTypeCapabilities } from '@models/flow';
 import { BiasCapabilities } from '@models/bias-impact';
 import { BlocksService } from '@services/blocks/blocks';
 import { ContainersService } from '@services/containers/containers';
@@ -131,10 +131,6 @@ export class TaskStepNodeComponent {
 
   @HostBinding('class.llm-node-readonly') readonlyClass = true;
 
-  outputs: { key: string; socket: ClassicPreset.Socket }[] = [];
-  inputs: { key: string; socket: ClassicPreset.Socket }[] = [];
-  dependantOutput: { key: string; socket: ClassicPreset.Socket } | null = null;
-  dependencyInput: { key: string; socket: ClassicPreset.Socket } | null = null;
   parameterFields: DisplayField[] = [];
   parameterFieldGroups: DisplayFieldGroup[] = [];
   arrayFields: ArrayFieldView[] = [];
@@ -150,30 +146,36 @@ export class TaskStepNodeComponent {
   private arrayFieldDefinitions: ArrayFieldDefinition[] = [];
   private flowFieldDefinitions: SchemaFlowDataFieldDefinition[] = [];
 
+  get outputs(): { key: string; socket: ClassicPreset.Socket }[] {
+    return Object.entries(this.data?.outputs ?? {})
+      .filter(([key]) => key !== FLOW_DEPENDANT_PORT_KEY)
+      .map(([key, output]) => ({ key, socket: (output as any).socket as ClassicPreset.Socket }));
+  }
+
+  get inputs(): { key: string; socket: ClassicPreset.Socket }[] {
+    return Object.entries(this.data?.inputs ?? {})
+      .filter(([key]) => key !== FLOW_DEPENDENCY_PORT_KEY)
+      .map(([key, input]) => ({ key, socket: (input as any).socket as ClassicPreset.Socket }));
+  }
+
+  get dependantOutput(): { key: string; socket: ClassicPreset.Socket } | null {
+    const output = this.data?.outputs?.[FLOW_DEPENDANT_PORT_KEY];
+    return output
+      ? { key: FLOW_DEPENDANT_PORT_KEY, socket: (output as any).socket as ClassicPreset.Socket }
+      : null;
+  }
+
+  get dependencyInput(): { key: string; socket: ClassicPreset.Socket } | null {
+    const input = this.data?.inputs?.[FLOW_DEPENDENCY_PORT_KEY];
+    return input
+      ? { key: FLOW_DEPENDENCY_PORT_KEY, socket: (input as any).socket as ClassicPreset.Socket }
+      : null;
+  }
+
   ngOnInit() {
-    this.outputs = [];
-    this.inputs = [];
     this.parameterFields = [];
     this.parameterFieldGroups = [];
     this.arrayFields = [];
-
-    Object.entries(this.data.outputs).forEach(([key, output]) => {
-      const entry = { key, socket: (output as any).socket };
-      if (key === FLOW_DEPENDANT_PORT_KEY) {
-        this.dependantOutput = entry;
-        return;
-      }
-      this.outputs.push(entry);
-    });
-
-    Object.entries(this.data.inputs).forEach(([key, input]) => {
-      const entry = { key, socket: (input as any).socket };
-      if (key === FLOW_DEPENDENCY_PORT_KEY) {
-        this.dependencyInput = entry;
-        return;
-      }
-      this.inputs.push(entry);
-    });
 
     this.rebuildDisplayState();
     void this.loadSchemaContext();
@@ -432,14 +434,48 @@ export class TaskStepNodeComponent {
   }
 
   executableBiasAnnotations(): BiasAnnotation[] {
+    return this.allBiasAnnotations()
+      .filter((annotation) => isProbeExecutable(annotation.behavioralProbe));
+  }
+
+  allBiasAnnotations(): BiasAnnotation[] {
     const annotations = this.data?.data?.biasAnnotations;
     return Array.isArray(annotations)
-      ? annotations.filter((annotation): annotation is BiasAnnotation => !!annotation && isProbeExecutable(annotation.behavioralProbe))
+      ? annotations.filter((annotation): annotation is BiasAnnotation => !!annotation)
       : [];
   }
 
+  activeBiasAnnotationCount(): number {
+    const ids = this.blockConfiguration?.['__biasActiveAnnotationIds'];
+    return Array.isArray(ids) ? ids.length : 0;
+  }
+
+  typeCapabilities(): NodeTypeCapabilities {
+    return this.data?.data?.capabilities
+      ?? this.blockDescriptor?.capabilities
+      ?? DEFAULT_NODE_CAPABILITIES;
+  }
+
+  visualRoleLabel(): string {
+    const role = this.typeCapabilities().visualRole.toLowerCase();
+    return role.charAt(0).toUpperCase() + role.slice(1);
+  }
+
+  capabilitiesTooltip(): string {
+    const capabilities = this.typeCapabilities();
+    return [
+      `Role: ${this.visualRoleLabel()}`,
+      `Terminal: ${capabilities.terminal ? 'yes' : 'no'}`,
+      `Incoming connections: ${capabilities.allowsIncomingConnections ? 'allowed' : 'blocked'}`,
+      `Outgoing connections: ${capabilities.allowsOutgoingConnections ? 'allowed' : 'blocked'}`,
+      `Dependencies: ${capabilities.canDependOnOtherNodes || capabilities.canHaveDependentNodes ? 'supported' : 'blocked'}`,
+      `Bias annotations: ${capabilities.biasAnnotationsAllowed ? 'allowed' : 'blocked'}`
+    ].join('\n');
+  }
+
   hasMeasurableBiasAnnotations(): boolean {
-    return this.executableBiasAnnotations().length > 0
+    return this.typeCapabilities().biasAnnotationsAllowed
+      && this.executableBiasAnnotations().length > 0
       && this.biasCapabilities?.isolatedExperimentSupported === true;
   }
 
@@ -497,6 +533,11 @@ export class TaskStepNodeComponent {
     return typeof status === 'string' ? status.toUpperCase() : '';
   }
 
+  stepSkipReason(): string | null {
+    const reason = this.blockConfiguration?.['__stepSkipReason'];
+    return typeof reason === 'string' && reason.trim().length > 0 ? reason.trim() : null;
+  }
+
   async openInteractionModal(event?: Event) {
     event?.preventDefault();
     event?.stopPropagation();
@@ -548,8 +589,11 @@ export class TaskStepNodeComponent {
 
   private loadBiasCapabilities() {
     const blockType = this.blockType;
-    if (!blockType || this.isContainerNode()) return;
-    this.blocksService.retrieveBiasCapabilities(blockType).pipe(take(1)).subscribe({
+    if (!blockType) return;
+    const capabilities$ = this.isContainerNode()
+      ? this.containersService.retrieveBiasCapabilities(blockType)
+      : this.blocksService.retrieveBiasCapabilities(blockType);
+    capabilities$.pipe(take(1)).subscribe({
       next: (capabilities) => {
         this.biasCapabilities = capabilities;
         this.cdr.markForCheck();

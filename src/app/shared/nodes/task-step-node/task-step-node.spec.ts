@@ -101,6 +101,27 @@ describe('TaskStepNodeComponent bias canvas highlighting', () => {
     expect(component.isBiasRoutingChangeSource()).toBe(true);
   });
 
+  it('represents node capabilities and bias annotation counts in the execution node', () => {
+    component.data.data.capabilities = {
+      visualRole: 'DECISION',
+      terminal: false,
+      biasAnnotationsAllowed: true,
+      allowsIncomingConnections: true,
+      allowsOutgoingConnections: true,
+      canDependOnOtherNodes: false,
+      canHaveDependentNodes: false
+    };
+    component.data.data.biasAnnotations = [
+      { id: 'annotation-1', behavioralProbe: { activationMode: 'PROMPT_DIRECTIVE', instruction: 'Nudge it' } },
+      { id: 'annotation-2' }
+    ];
+
+    expect(component.visualRoleLabel()).toBe('Decision');
+    expect(component.allBiasAnnotations()).toHaveLength(2);
+    expect(component.activeBiasAnnotationCount()).toBe(1);
+    expect(component.capabilitiesTooltip()).toContain('Bias annotations: allowed');
+  });
+
   describe('Measure bias impact availability', () => {
     beforeEach(() => {
       component.data.data.biasAnnotations = [

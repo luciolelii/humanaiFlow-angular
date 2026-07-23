@@ -118,6 +118,8 @@ export type FlowNodeBase = {
   typeName: BlockTypeName;
   nodeFamily?: NodeFamily;
   laneId?: string | null;
+  capabilities?: NodeTypeCapabilities;
+  userInteractive?: boolean;
 };
 
 export type BiasActivationMode =

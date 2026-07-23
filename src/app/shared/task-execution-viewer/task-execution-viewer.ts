@@ -35,13 +35,14 @@ import {
 import { NodeSettingField, NodeSettingsDialogService } from '@services/dialogs/node-settings-dialog';
 import { FieldRetriever } from '@services/retriever/field-retriever';
 import { TaskExecutionsService } from '@services/task-executions/task-executions';
+import { FlowsService } from '@services/flows/flows';
 import { ContainersService } from '@services/containers/containers';
 import { BlocksService } from '@services/blocks/blocks';
 import { BiasRerunDialogService, BiasRerunCandidate } from '@services/dialogs/bias-rerun-dialog';
 import { BiasCompareDialogService } from '@services/dialogs/bias-compare-dialog';
 import { BiasComparisonViewStateService } from '@services/bias/bias-comparison-view-state';
 import { BiasImpactReportListComponent } from '@shared/bias-impact-report-list/bias-impact-report-list';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, take } from 'rxjs';
 import {
   ExecutionOutputEntry,
   ExecutionOutputGroup,
@@ -70,6 +71,11 @@ import {
   getExecutionErrors,
   getExecutionWarnings,
 } from './execution-viewer.utils';
+import {
+  mergeExecutionStepNode,
+  resolveExecutionConnections,
+  resolveExecutionDependencies
+} from './execution-graph';
 
 @Component({
   selector: 'app-task-execution-viewer',
@@ -81,6 +87,7 @@ import {
 export class TaskExecutionViewerComponent implements OnDestroy {
   private static readonly EVENTS_POLL_INTERVAL_MS = 5000;
   private taskExecutionsService = inject(TaskExecutionsService);
+  private flowsService = inject(FlowsService);
   private humanInteractionDialog = inject(HumanInteractionDialogService);
   private settingsDialog = inject(NodeSettingsDialogService);
   private fieldRetriever = inject(FieldRetriever);
@@ -112,9 +119,13 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   readonly outputPreviewModal = signal<ExecutionOutputEntry | null>(null);
   readonly intermediateInputPreviewModal = signal<ExecutionIntermediateInputEntry | null>(null);
   readonly executionLogs = signal<ExecutionEventLogEntry[]>([]);
+  readonly sourceFlowData = signal<FlowData | null>(null);
+  readonly sourceFlowLoading = signal(false);
   readonly logsLoading = signal(false);
   readonly logsError = signal<string | null>(null);
   private readonly logsScrollViewport = viewChild<ElementRef<HTMLDivElement>>('logsScrollViewport');
+  private sourceFlowRequestVersion = 0;
+  private readonly sourceFlowCache = new Map<string, FlowData>();
 
   constructor() {
     effect(() => {
@@ -131,6 +142,53 @@ export class TaskExecutionViewerComponent implements OnDestroy {
       this.executionLogs.set([]);
       this.logsError.set(null);
       this.logsLoading.set(false);
+    });
+
+    effect(() => {
+      const execution = this.execution();
+      const requestVersion = ++this.sourceFlowRequestVersion;
+      const embeddedFlow = execution?.flowSnapshot ?? null;
+      if (embeddedFlow) {
+        this.sourceFlowData.set(embeddedFlow);
+        this.sourceFlowLoading.set(false);
+        return;
+      }
+
+      if (Array.isArray(execution?.stepConnections)) {
+        this.sourceFlowData.set(null);
+        this.sourceFlowLoading.set(false);
+        return;
+      }
+
+      const flowId = String(execution?.sourceFlowId ?? execution?.flowId ?? '').trim();
+      if (!flowId) {
+        this.sourceFlowData.set(null);
+        this.sourceFlowLoading.set(false);
+        return;
+      }
+
+      const cached = this.sourceFlowCache.get(flowId);
+      if (cached) {
+        this.sourceFlowData.set(cached);
+        this.sourceFlowLoading.set(false);
+        return;
+      }
+
+      this.sourceFlowData.set(null);
+      this.sourceFlowLoading.set(true);
+      this.flowsService.getFlowById(flowId).pipe(take(1)).subscribe({
+        next: (flow) => {
+          if (requestVersion !== this.sourceFlowRequestVersion) return;
+          this.sourceFlowCache.set(flowId, flow.data);
+          this.sourceFlowData.set(flow.data);
+          this.sourceFlowLoading.set(false);
+        },
+        error: () => {
+          if (requestVersion !== this.sourceFlowRequestVersion) return;
+          this.sourceFlowData.set(null);
+          this.sourceFlowLoading.set(false);
+        }
+      });
     });
 
     effect(() => {
@@ -271,12 +329,30 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     const waitingSteps = this.execution()?.context.waitingSteps ?? [];
     const activeAnnotationIdsByNode = this.execution()?.biasExecutionContext?.activeAnnotationIdsByNode ?? {};
     const steps = this.stepsArray();
+    const execution = this.execution();
+    const sourceFlow = execution?.flowSnapshot ?? this.sourceFlowData();
+    const useSourceGraphFallback = !Array.isArray(execution?.stepConnections);
+    const connections = this.getExecutionConnections(steps, sourceFlow);
+    const dependencies = this.getExecutionDependencies(steps, sourceFlow);
     const blocks: FlowBlock[] = [];
     const containers: FlowContainer[] = [];
+    const renderedNodeIds = new Set<string>();
 
     for (const [index, step] of steps.entries()) {
-      const stepNode = getTaskExecutionStepNode(step);
+      const stepNode = mergeExecutionStepNode(step, sourceFlow);
       if (!stepNode) continue;
+      const connectedInputs = Array.from(new Set([
+        ...getConnectedInputs(step),
+        ...connections
+          .filter((connection) => connection.targetId === stepNode.id)
+          .map((connection) => connection.targetName)
+      ]));
+      const connectedOutputs = Array.from(new Set([
+        ...getConnectedOutputs(step),
+        ...connections
+          .filter((connection) => connection.sourceId === stepNode.id)
+          .map((connection) => connection.sourceName)
+      ]));
 
       const executionNode: FlowNode = {
         ...stepNode,
@@ -288,14 +364,21 @@ export class TaskExecutionViewerComponent implements OnDestroy {
           __executionStatus: this.execution()?.context.status ?? null,
           __interactionSimulationEnabled: this.execution()?.interactionSimulationEnabled === true,
           __stepStatus: step.status,
+          __stepSkipReason: step.skipReason ?? null,
+          __stepSimulated: step.simulated === true,
+          __stepUserInteractive: stepNode.userInteractive === true,
           __executionStatusGroup: executionStatusGroup,
           __isWaitingStep: waitingSteps.includes(step.id),
           __executionInputs: getExecutionInputValues(step, contextInputs),
-          __connectedInputs: getConnectedInputs(step),
+          __connectedInputs: connectedInputs,
           __executionOutputs: getExecutionOutputValues(step, contextResults),
-          __connectedOutputs: getConnectedOutputs(step),
-          __hasDependencyInputConnection: this.hasIncomingDependency(step.id),
-          __hasDependantOutputConnection: this.hasOutgoingDependency(step.id),
+          __connectedOutputs: connectedOutputs,
+          __hasDependencyInputConnection: dependencies.some(
+            (dependency) => dependency.targetId === stepNode.id
+          ),
+          __hasDependantOutputConnection: dependencies.some(
+            (dependency) => dependency.sourceId === stepNode.id
+          ),
           __executionErrors: getExecutionErrors(step.id, contextErrors),
           __executionWarnings: getExecutionWarnings(step.id, contextWarnings),
           __stepResultData: step.result ?? null,
@@ -307,6 +390,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
           y: 100 + Math.floor(index / 3) * 220
         }
       };
+      renderedNodeIds.add(executionNode.id);
 
       if (executionNode.nodeFamily === 'container') {
         containers.push(executionNode);
@@ -315,14 +399,55 @@ export class TaskExecutionViewerComponent implements OnDestroy {
       }
     }
 
-    const connections = this.getExecutionConnections(steps);
-    const dependencies = this.getExecutionDependencies();
+    for (const sourceNode of useSourceGraphFallback
+      ? [...(sourceFlow?.blocks ?? []), ...(sourceFlow?.containers ?? [])]
+      : []) {
+      if (renderedNodeIds.has(sourceNode.id)) continue;
+
+      const connectedInputs = (sourceFlow?.connections ?? [])
+        .filter((connection) => connection.targetId === sourceNode.id)
+        .map((connection) => connection.targetName);
+      const connectedOutputs = (sourceFlow?.connections ?? [])
+        .filter((connection) => connection.sourceId === sourceNode.id)
+        .map((connection) => connection.sourceName);
+      const executionNode: FlowNode = {
+        ...sourceNode,
+        specificConfiguration: {
+          ...(sourceNode.specificConfiguration ?? {}),
+          __executionId: this.execution()?.id ?? null,
+          __executionNodeId: sourceNode.id,
+          __executionStatus: this.execution()?.context.status ?? null,
+          __executionStatusGroup: executionStatusGroup,
+          __stepStatus: 'SKIPPED',
+          __isWaitingStep: false,
+          __executionInputs: {},
+          __connectedInputs: connectedInputs,
+          __executionOutputs: {},
+          __connectedOutputs: connectedOutputs,
+          __hasDependencyInputConnection: this.hasIncomingDependency(sourceNode.id),
+          __hasDependantOutputConnection: this.hasOutgoingDependency(sourceNode.id),
+          __executionErrors: [],
+          __executionWarnings: [],
+          __stepResultData: null,
+          __executionPartialResult: this.execution()?.context.partialResult ?? null,
+          __biasActiveAnnotationIds: activeAnnotationIdsByNode[sourceNode.id] ?? []
+        }
+      };
+
+      if (executionNode.nodeFamily === 'container') {
+        containers.push(executionNode);
+      } else {
+        blocks.push(executionNode);
+      }
+    }
+
     return {
       blocks,
       containers,
       connections,
       dependencies,
-      globalInputs: []
+      globalInputs: sourceFlow?.globalInputs ?? [],
+      lanes: sourceFlow?.lanes ?? []
     };
   });
 
@@ -1000,30 +1125,27 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     return connections;
   }
 
-  private getExecutionConnections(steps: TaskExecutionStep[]): FlowBlockConnection[] {
-    const explicitConnections = this.execution()?.stepConnections;
-    if (explicitConnections?.length) {
-      return explicitConnections.map((connection) => ({
-        id: String(connection.id),
-        sourceId: String(connection.sourceId),
-        sourceName: String(connection.sourceName),
-        targetId: String(connection.targetId),
-        targetName: String(connection.targetName)
-      }));
-    }
-
-    return this.inferConnections(steps);
+  private getExecutionConnections(
+    steps: TaskExecutionStep[],
+    sourceFlow: FlowData | null
+  ): FlowBlockConnection[] {
+    return resolveExecutionConnections(
+      this.execution(),
+      steps,
+      sourceFlow,
+      this.inferConnections(steps)
+    );
   }
 
-  private getExecutionDependencies(): FlowNodeDependency[] {
-    return (this.execution()?.stepDependencies ?? []).map((dependency) => ({
-      sourceId: String(dependency.sourceId),
-      targetId: String(dependency.targetId)
-    }));
+  private getExecutionDependencies(
+    steps = this.stepsArray(),
+    sourceFlow = this.execution()?.flowSnapshot ?? this.sourceFlowData()
+  ): FlowNodeDependency[] {
+    return resolveExecutionDependencies(this.execution(), steps, sourceFlow);
   }
 
   private hasIncomingDependency(stepId: string): boolean {
-    return (this.execution()?.stepDependencies ?? []).some((dependency) => String(dependency.targetId) === stepId);
+    return this.getExecutionDependencies().some((dependency) => String(dependency.targetId) === stepId);
   }
 
   private async biasRerunCandidates(): Promise<BiasRerunCandidate[]> {
@@ -1052,7 +1174,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   }
 
   private hasOutgoingDependency(stepId: string): boolean {
-    return (this.execution()?.stepDependencies ?? []).some((dependency) => String(dependency.sourceId) === stepId);
+    return this.getExecutionDependencies().some((dependency) => String(dependency.sourceId) === stepId);
   }
 
   private pickBestConnectionCandidate(

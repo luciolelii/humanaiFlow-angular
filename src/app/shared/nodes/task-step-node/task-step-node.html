@@ -74,6 +74,30 @@
       <div class="llm-subtitle-row">
         <span class="llm-subtitle">{{ name }}</span>
       </div>
+      <div class="llm-node-metadata">
+        <span class="llm-node-capability-badge" [title]="capabilitiesTooltip()">
+          {{ visualRoleLabel() }}
+        </span>
+        @if (allBiasAnnotations().length) {
+        <span
+          class="llm-node-bias-summary"
+          [class.llm-node-bias-summary-active]="activeBiasAnnotationCount() > 0"
+          [title]="allBiasAnnotations().length + ' bias annotations; ' + activeBiasAnnotationCount() + ' active in this execution'">
+          <i class="bi bi-clipboard2-pulse-fill"></i>
+          {{ activeBiasAnnotationCount() }}/{{ allBiasAnnotations().length }}
+        </span>
+        }
+        @if (biasCapabilities?.supported) {
+        <span class="llm-node-bias-capability" title="Bias impact capabilities available">
+          Bias capable
+        </span>
+        }
+        @if (stepSkipReason(); as skipReason) {
+        <span class="llm-node-skip-reason" [title]="skipReason">
+          Skipped: {{ skipReason }}
+        </span>
+        }
+      </div>
     </div>
     @if (hasMeasurableBiasAnnotations()) {
     <button

@@ -177,6 +177,7 @@ export class BlocksCallService extends BlocksCallServiceBase {
       specificConfiguration,
       typeName,
       nodeFamily: 'block',
+      ...(value["capabilities"] == null ? {} : { capabilities: toNodeCapabilities(value["capabilities"]) }),
       biasAnnotations: Array.isArray(value["biasAnnotations"])
         ? value["biasAnnotations"] as FlowBlock["biasAnnotations"]
         : []

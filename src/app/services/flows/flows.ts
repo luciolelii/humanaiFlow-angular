@@ -2,7 +2,7 @@ import { Injectable, signal } from '@angular/core';
 import { environment } from '@environment';
 import { Flow } from '@models/flow';
 import { FlowsCallServiceBase } from './flows-call.base';
-import { catchError, firstValueFrom, Observable, tap, throwError } from 'rxjs';
+import { catchError, firstValueFrom, Observable, of, tap, throwError } from 'rxjs';
 
 @Injectable({
   providedIn: 'root',
@@ -32,6 +32,23 @@ export class FlowsService {
     }
 
     return this.flows;
+  }
+
+  getFlowById(flowId: string): Observable<Flow> {
+    const cached = this._flows().find((flow) => flow.id === flowId);
+    if (cached) return of(cached);
+
+    return this.flowsCallService.getFlowById(flowId).pipe(
+      tap((flow) => {
+        this._flows.update((flows) => {
+          const index = flows.findIndex((candidate) => candidate.id === flow.id);
+          if (index < 0) return [flow, ...flows];
+          const next = [...flows];
+          next[index] = flow;
+          return next;
+        });
+      })
+    );
   }
 
   async refresh(force = false): Promise<void> {
