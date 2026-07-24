@@ -1,12 +1,23 @@
 <div class="tasks-executor-shell flex flex-col flex-1 h-full">
   <div class="flex flex-row flex-1 overflow-hidden gap-2">
-    <app-tasks-executions-list
-      class="w-[360px] shrink-0"
-      [groups]="groups()"
-      [selectedExecutionId]="selectedExecutionId()"
-      (executionSelected)="selectExecution($event)"
-      (executionDeleteRequested)="removeExecution($event)">
-    </app-tasks-executions-list>
+    <div class="tasks-executor-rail w-[360px] shrink-0 flex flex-col gap-2 overflow-hidden">
+      <app-tasks-executions-list
+        class="tasks-executor-rail-list"
+        [groups]="groups()"
+        [selectedExecutionId]="selectedExecutionId()"
+        (executionSelected)="selectExecution($event)"
+        (executionDeleteRequested)="removeExecution($event)">
+      </app-tasks-executions-list>
+
+      @if (selectedExecution(); as run) {
+      <app-execution-tree
+        class="tasks-executor-rail-tree"
+        [rootExecution]="run"
+        [selectedExecutionId]="displayedExecution()?.id ?? null"
+        (executionSelected)="selectTreeExecution($event)">
+      </app-execution-tree>
+      }
+    </div>
 
     <mat-card class="tasks-executor-viewer flex w-full flex-col overflow-hidden !rounded-md !bg-gray-100">
       @if (showExecutionCreationLoader()) {
@@ -48,8 +59,8 @@
       }
       <app-task-execution-viewer
         [execution]="displayedExecution()"
-        [parentExecution]="childExecution() ? selectedExecution() : null"
-        [parentContainerStep]="childExecution() ? activeSubflowTarget()?.parentStep ?? null : null">
+        [parentExecution]="displayedParentExecution()"
+        [parentContainerStep]="displayedParentContainerStep()">
       </app-task-execution-viewer>
     </mat-card>
   </div>

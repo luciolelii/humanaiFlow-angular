@@ -6,7 +6,7 @@ import {
   BiasRerunRequest
 } from '@models/bias-impact';
 import { ExecutionEventLogEntry, TaskExecution, TaskExecutionGroup } from '@models/task-execution';
-import { map, Observable, of } from 'rxjs';
+import { map, Observable, of, throwError } from 'rxjs';
 import { TaskExecutionsCallServiceBase } from './task-executions-call.base';
 
 export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase {
@@ -465,6 +465,27 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
 
   override retrieveTaskExecution(executionId: string): Observable<TaskExecution> {
     return of(this.cloneExecution(this.findExecution(executionId)));
+  }
+
+  override retrieveStepIterations(executionId: string, stepId: string): Observable<TaskExecution[]> {
+    // Ensures the step exists and is a container, mirroring the backend's 404/400 contract.
+    const execution = this.findExecution(executionId);
+    const step = execution.context.steps?.[stepId];
+    if (!step) {
+      return throwError(() => new Error(`Step ${stepId} not found in execution ${executionId}`));
+    }
+
+    const iterations = this.data
+      .filter((candidate) =>
+        candidate.parentExecutionId === executionId && candidate.parentStepId === stepId
+      )
+      .sort((left, right) =>
+        (left.parentIterationIndex ?? 0) - (right.parentIterationIndex ?? 0)
+        || ((left.creationTime ?? 0) - (right.creationTime ?? 0))
+      )
+      .map((candidate) => this.cloneExecution(candidate));
+
+    return of(iterations);
   }
 
   override retrieveExecutionEvents(executionId: string): Observable<ExecutionEventLogEntry[]> {

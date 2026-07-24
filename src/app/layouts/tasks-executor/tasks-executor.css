@@ -11,6 +11,20 @@
   position: relative;
 }
 
+.tasks-executor-rail {
+  min-height: 0;
+}
+
+.tasks-executor-rail-list {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.tasks-executor-rail-tree {
+  flex: 0 0 auto;
+  max-height: 45%;
+}
+
 .interactive-subflow-switcher {
   align-items: center;
   display: flex;

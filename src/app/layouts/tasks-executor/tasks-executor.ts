@@ -22,6 +22,7 @@ import {
   TasksExecutionsListComponent
 } from '@shared/tasks-executions-list/tasks-executions-list';
 import { TaskExecutionViewerComponent } from '@shared/task-execution-viewer/task-execution-viewer';
+import { ExecutionTreeComponent, ExecutionTreeSelection } from '@shared/execution-tree/execution-tree';
 import { formatDuration } from '@shared/task-execution-viewer/execution-viewer.utils';
 import { BlocksService } from '@services/blocks/blocks';
 import { ContainersService } from '@services/containers/containers';
@@ -62,7 +63,7 @@ export function findInteractiveSubflowTargets(
 
 @Component({
   selector: 'app-tasks-executor',
-  imports: [TasksExecutionsListComponent, TaskExecutionViewerComponent, MatCardModule],
+  imports: [TasksExecutionsListComponent, TaskExecutionViewerComponent, ExecutionTreeComponent, MatCardModule],
   templateUrl: './tasks-executor.html',
   styleUrl: './tasks-executor.css',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -116,9 +117,30 @@ export class TasksExecutor {
     const childId = this.activeSubflowTarget()?.childExecutionId;
     return childId ? this.taskExecutionsService.followedExecutions()[childId] ?? null : null;
   });
-  readonly displayedExecution = computed<TaskExecution | null>(() =>
-    this.childExecution() ?? this.selectedExecution()
-  );
+
+  /** Execution the user navigated to via the hierarchy tree (any depth). */
+  readonly manualTreeSelectionId = signal<string | null>(null);
+
+  readonly displayedExecution = computed<TaskExecution | null>(() => {
+    const manual = this.resolveExecutionById(this.manualTreeSelectionId());
+    if (manual) return manual;
+    return this.childExecution() ?? this.selectedExecution();
+  });
+
+  readonly displayedParentExecution = computed<TaskExecution | null>(() => {
+    const displayed = this.displayedExecution();
+    const parentId = displayed?.parentExecutionId ?? null;
+    if (!parentId || parentId === displayed?.id) return null;
+    return this.resolveExecutionById(parentId);
+  });
+
+  readonly displayedParentContainerStep = computed<TaskExecutionStep | null>(() => {
+    const displayed = this.displayedExecution();
+    const parent = this.displayedParentExecution();
+    const stepId = displayed?.parentStepId ?? null;
+    if (!parent || !stepId) return null;
+    return parent.context.steps?.[stepId] ?? null;
+  });
 
   readonly showExecutionCreationLoader = computed(() =>
     this.pendingExecutionCreation() && !this.requestedExecutionId()
@@ -152,6 +174,11 @@ export class TasksExecutor {
       if (this.selectedExecutionId()) return;
       const first = this.groups()[0];
       if (first?.latestExecutionId) this.selectedExecutionId.set(first.latestExecutionId);
+    });
+    effect(() => {
+      // Reset tree navigation whenever the selected top-level run changes.
+      this.selectedExecutionId();
+      untracked(() => this.manualTreeSelectionId.set(null));
     });
     effect(() => {
       const targets = this.interactiveSubflowTargets();
@@ -205,7 +232,19 @@ export class TasksExecutor {
     if (!this.interactiveSubflowTargets().some(
       (target) => target.childExecutionId === childExecutionId
     )) return;
+    this.manualTreeSelectionId.set(null);
     this.selectedChildExecutionId.set(childExecutionId);
+  }
+
+  selectTreeExecution(selection: ExecutionTreeSelection) {
+    this.manualTreeSelectionId.set(selection.executionId);
+  }
+
+  private resolveExecutionById(executionId: string | null): TaskExecution | null {
+    if (!executionId) return null;
+    return this.executionDetails().find((execution) => execution.id === executionId)
+      ?? this.taskExecutionsService.followedExecutions()[executionId]
+      ?? null;
   }
 
   async removeExecution(id: string) {

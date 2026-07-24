@@ -160,6 +160,34 @@ describe('TaskExecutionsService bias operations', () => {
     expect(service.taskExecutions()).toEqual([]);
   });
 
+  it('caches every iteration returned for a looping container step', async () => {
+    const iterationOne = {
+      id: 'iteration-1',
+      name: 'Iteration 1',
+      creationTime: 1,
+      executionKind: 'SUBFLOW',
+      parentExecutionId: 'parent-1',
+      parentStepId: 'container-1',
+      parentIterationIndex: 1,
+      subflowRole: 'MAIN',
+      context: { inputs: {}, result: {}, errors: {}, warnings: {}, steps: {}, status: 'SUCCESS', waitingSteps: [] }
+    } satisfies TaskExecution;
+    const iterationTwo = {
+      ...iterationOne,
+      id: 'iteration-2',
+      parentIterationIndex: 2
+    } satisfies TaskExecution;
+    service.taskExecutionsCallService = {
+      retrieveStepIterations: vi.fn().mockReturnValue(of([iterationOne, iterationTwo]))
+    } as unknown as typeof service.taskExecutionsCallService;
+
+    const iterations = await lastValueFrom(service.retrieveStepIterations('parent-1', 'container-1'));
+
+    expect(iterations).toEqual([iterationOne, iterationTwo]);
+    expect(service.followedExecutions()['iteration-1']).toEqual(iterationOne);
+    expect(service.followedExecutions()['iteration-2']).toEqual(iterationTwo);
+  });
+
   it('retrieves and caches a child execution directly', async () => {
     const child = {
       id: 'child-1',

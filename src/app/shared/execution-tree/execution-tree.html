@@ -1,0 +1,68 @@
+@if (rootExecution(); as root) {
+@if (hasContainerContent()) {
+<div class="execution-tree-shell">
+  <div class="execution-tree-title">Execution tree</div>
+  <div class="execution-tree-body">
+    <ng-container *ngTemplateOutlet="execNode; context: { $implicit: root, depth: 0 }"></ng-container>
+  </div>
+</div>
+}
+}
+
+<ng-template #execNode let-execution let-depth="depth">
+  <div
+    class="tree-row tree-exec-row"
+    [class.tree-row-selected]="execution.id === selectedExecutionId()"
+    [style.padding-left.px]="8 + depth * 14"
+    (click)="selectExecution(execution)">
+    @if (containerSteps(execution).length) {
+    <button
+      type="button"
+      class="tree-chevron"
+      [class.tree-chevron-open]="isExecutionExpanded(execution.id)"
+      (click)="toggleExecution(execution.id, $event)"
+      aria-label="Toggle">
+      <span class="tree-chevron-icon">›</span>
+    </button>
+    } @else {
+    <span class="tree-chevron-spacer"></span>
+    }
+    <span class="tree-dot" [ngClass]="statusDotClass(execution.context.status)"></span>
+    <span class="tree-label" [title]="executionLabel(execution)">{{ executionLabel(execution) }}</span>
+    <span class="tree-status">{{ execution.context.status }}</span>
+  </div>
+
+  @if (isExecutionExpanded(execution.id)) {
+  @for (step of containerSteps(execution); track step.stepId) {
+  <div
+    class="tree-row tree-step-row"
+    [style.padding-left.px]="8 + (depth + 1) * 14"
+    (click)="toggleStep(execution.id, step.stepId, $event)">
+    <span
+      class="tree-chevron tree-chevron-inline"
+      [class.tree-chevron-open]="isStepExpanded(execution.id, step.stepId)">
+      <span class="tree-chevron-icon">›</span>
+    </span>
+    <span class="tree-icon">▤</span>
+    <span class="tree-label" [title]="step.name">{{ step.name }}</span>
+    @if (step.waitingForSubflow) {
+    <span class="tree-waiting-badge">waiting</span>
+    }
+  </div>
+
+  @if (isStepExpanded(execution.id, step.stepId)) {
+  @if (isStepLoading(execution.id, step.stepId)) {
+  <div class="tree-hint" [style.padding-left.px]="8 + (depth + 2) * 14">Loading iterations…</div>
+  } @else if (stepError(execution.id, step.stepId); as err) {
+  <div class="tree-error" [style.padding-left.px]="8 + (depth + 2) * 14">{{ err }}</div>
+  } @else if (!iterationsFor(execution.id, step.stepId).length) {
+  <div class="tree-hint" [style.padding-left.px]="8 + (depth + 2) * 14">No iterations yet</div>
+  } @else {
+  @for (iteration of iterationsFor(execution.id, step.stepId); track iteration.id) {
+  <ng-container *ngTemplateOutlet="execNode; context: { $implicit: iteration, depth: depth + 2 }"></ng-container>
+  }
+  }
+  }
+  }
+  }
+</ng-template>

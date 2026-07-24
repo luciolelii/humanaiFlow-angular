@@ -92,6 +92,20 @@ export class TaskExecutionsService {
     );
   }
 
+  retrieveStepIterations(executionId: string, stepId: string) {
+    return this.withRefreshAndErrorHandling(
+      this.taskExecutionsCallService.retrieveStepIterations(executionId, stepId).pipe(
+        tap((iterations) => {
+          for (const iteration of iterations) {
+            this.cacheFollowedExecution(iteration);
+          }
+        })
+      ),
+      'Retrieve step iterations failed',
+      false
+    );
+  }
+
   createExecution(flowId: string) {
     this._pendingExecutionCreation.set(true);
     return this.taskExecutionsCallService.createTaskExecution(flowId).pipe(

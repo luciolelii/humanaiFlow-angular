@@ -38,6 +38,13 @@ export class TaskExecutionsCallService extends TaskExecutionsCallServiceBase {
       .pipe(map((raw) => this.mapExecution(raw)));
   }
 
+  override retrieveStepIterations(executionId: string, stepId: string): Observable<TaskExecution[]> {
+    const url = `${environment.apiUrl}/executions/${encodeURIComponent(executionId)}/node/${encodeURIComponent(stepId)}/iterations`;
+    return this.http.get<unknown>(url).pipe(
+      map((raw) => Array.isArray(raw) ? raw.map((item) => this.mapExecution(item)) : [])
+    );
+  }
+
   override retrieveExecutionEvents(executionId: string): Observable<ExecutionEventLogEntry[]> {
     return this.http.get<ExecutionEventLogEntry[]>(`${environment.apiUrl}/executions/${encodeURIComponent(executionId)}/events`);
   }

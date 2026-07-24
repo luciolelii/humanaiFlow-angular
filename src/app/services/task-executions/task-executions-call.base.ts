@@ -12,6 +12,7 @@ export abstract class TaskExecutionsCallServiceBase {
   abstract retrieveAllTaskExecutions(): Observable<TaskExecution[]>;
   abstract retrieveTaskExecutionGroups(): Observable<TaskExecutionGroup[]>;
   abstract retrieveTaskExecution(executionId: string): Observable<TaskExecution>;
+  abstract retrieveStepIterations(executionId: string, stepId: string): Observable<TaskExecution[]>;
   abstract retrieveExecutionEvents(executionId: string): Observable<ExecutionEventLogEntry[]>;
   abstract createTaskExecution(flowId: string): Observable<TaskExecution>;
   abstract rerunTaskExecution(executionId: string): Observable<TaskExecution>;

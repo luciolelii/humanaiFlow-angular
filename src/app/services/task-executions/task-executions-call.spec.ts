@@ -247,6 +247,40 @@ describe('TaskExecutionsCallService bias APIs', () => {
     expect(decision.node?.biasAnnotations?.[0].id).toBe('selection-risk');
   });
 
+  it('retrieves the ordered iterations for a looping container step', async () => {
+    const result = firstValueFrom(service.retrieveStepIterations('parent-1', 'container-1'));
+    const request = httpMock.expectOne(
+      `${environment.apiUrl}/executions/parent-1/node/container-1/iterations`
+    );
+    expect(request.request.method).toBe('GET');
+    request.flush([
+      {
+        id: 'child-main-1',
+        executionKind: 'SUBFLOW',
+        parentExecutionId: 'parent-1',
+        parentStepId: 'container-1',
+        parentIterationIndex: 1,
+        subflowRole: 'MAIN',
+        context: { status: 'SUCCESS', inputs: {}, result: {}, errors: {}, warnings: {}, waitingSteps: [], steps: {} }
+      },
+      {
+        id: 'child-guard-1',
+        executionKind: 'SUBFLOW',
+        parentExecutionId: 'parent-1',
+        parentStepId: 'container-1',
+        parentIterationIndex: 1,
+        subflowRole: 'GUARD',
+        context: { status: 'SUCCESS', inputs: {}, result: {}, errors: {}, warnings: {}, waitingSteps: [], steps: {} }
+      }
+    ]);
+
+    const iterations = await result;
+    expect(iterations.map((iteration) => iteration.id)).toEqual(['child-main-1', 'child-guard-1']);
+    expect(iterations[0].parentIterationIndex).toBe(1);
+    expect(iterations[0].subflowRole).toBe('MAIN');
+    expect(iterations[1].subflowRole).toBe('GUARD');
+  });
+
   it('starts an asynchronous impact experiment and maps the job response', async () => {
     const result = firstValueFrom(service.runBiasImpactExperiment('execution-1', 'step-1', {
       annotationIds: ['annotation-1'],
