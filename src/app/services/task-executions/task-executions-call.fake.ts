@@ -463,6 +463,10 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
     return of(this.buildExecutionGroups());
   }
 
+  override retrieveTaskExecution(executionId: string): Observable<TaskExecution> {
+    return of(this.cloneExecution(this.findExecution(executionId)));
+  }
+
   override retrieveExecutionEvents(executionId: string): Observable<ExecutionEventLogEntry[]> {
     const execution = this.findExecution(executionId);
     return of(this.buildExecutionEvents(execution));

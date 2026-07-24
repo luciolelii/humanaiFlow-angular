@@ -45,6 +45,81 @@ describe('TaskExecutionsCallService bias APIs', () => {
 
   afterEach(() => httpMock.verify());
 
+  it('retrieves an interactive child execution with its subflow metadata', async () => {
+    const result = firstValueFrom(service.retrieveTaskExecution('child execution'));
+    const request = httpMock.expectOne(`${environment.apiUrl}/executions/child%20execution`);
+    expect(request.request.method).toBe('GET');
+    request.flush({
+      id: 'child execution',
+      name: 'Container subflow',
+      creationTime: 1,
+      executionKind: 'SUBFLOW',
+      parentExecutionId: 'parent-1',
+      parentStepId: 'container-1',
+      parentIterationIndex: 2,
+      subflowRole: 'MAIN',
+      context: {
+        inputs: {},
+        result: {},
+        errors: {},
+        warnings: [],
+        status: 'WAITING',
+        waitingSteps: ['human-1'],
+        steps: {
+          'human-1': {
+            id: 'human-1',
+            status: 'WAITING_FOR_INTERACTION',
+            simulated: false
+          }
+        }
+      }
+    });
+
+    await expect(result).resolves.toEqual(expect.objectContaining({
+      executionKind: 'SUBFLOW',
+      parentExecutionId: 'parent-1',
+      parentStepId: 'container-1',
+      parentIterationIndex: 2,
+      subflowRole: 'MAIN'
+    }));
+  });
+
+  it('keeps container continuation fields on waiting parent steps', async () => {
+    const result = firstValueFrom(service.retrieveTaskExecution('parent-1'));
+    const request = httpMock.expectOne(`${environment.apiUrl}/executions/parent-1`);
+    request.flush({
+      id: 'parent-1',
+      name: 'Parent',
+      creationTime: 1,
+      context: {
+        inputs: {},
+        result: {},
+        errors: {},
+        warnings: [],
+        status: 'WAITING',
+        waitingSteps: ['container-1'],
+        steps: {
+          'container-1': {
+            id: 'container-1',
+            status: 'WAITING_FOR_SUBFLOW',
+            simulated: false,
+            activeInnerExecutionId: 'child-1',
+            containerContinuationPhase: 'WAITING_FOR_SUBFLOW',
+            containerIterationIndex: 2
+          }
+        }
+      }
+    });
+
+    const execution = await result;
+    expect(execution.context.steps['container-1']).toEqual(expect.objectContaining({
+      status: 'WAITING_FOR_SUBFLOW',
+      activeInnerExecutionId: 'child-1',
+      containerContinuationPhase: 'WAITING_FOR_SUBFLOW',
+      containerIterationIndex: 2
+    }));
+  });
+
   it('maps the execution flow snapshot, branched topology, bias annotations and node capabilities', async () => {
     const result = firstValueFrom(service.retrieveAllTaskExecutions());
     const request = httpMock.expectOne(`${environment.apiUrl}/executions`);
@@ -208,12 +283,20 @@ describe('TaskExecutionsCallService bias APIs', () => {
 
   it('uses the confirmed biased rerun and comparison routes', async () => {
     const rerun = firstValueFrom(service.createBiasedRerun('baseline-1', {
-      activations: [{ nodeId: 'node-1', annotationIds: ['annotation-1'] }],
+      activations: [
+        { nodeId: 'node-1', annotationIds: ['annotation-1'] },
+        { nodeId: 'container-1', annotationIds: [], includeSubflow: true }
+      ],
       externalSideEffectPolicy: 'MOCK',
       confirmExternalSideEffects: false
     }));
     const rerunRequest = httpMock.expectOne(`${environment.apiUrl}/executions/baseline-1/bias-rerun`);
     expect(rerunRequest.request.method).toBe('POST');
+    expect(rerunRequest.request.body.activations[1]).toEqual({
+      nodeId: 'container-1',
+      annotationIds: [],
+      includeSubflow: true
+    });
     rerunRequest.flush({ id: 'variant-1', name: 'Variant', creationTime: 1, context: {} });
     await expect(rerun).resolves.toEqual(expect.objectContaining({ id: 'variant-1' }));
 

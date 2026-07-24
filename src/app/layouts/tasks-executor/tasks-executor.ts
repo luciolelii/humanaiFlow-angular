@@ -1,6 +1,19 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+  signal,
+  untracked
+} from '@angular/core';
 import { MatCardModule } from '@angular/material/card';
-import { normalizeExecutionStatus, TaskExecution, TaskExecutionGroup } from '@models/task-execution';
+import {
+  normalizeExecutionStatus,
+  TaskExecution,
+  TaskExecutionGroup,
+  TaskExecutionStep
+} from '@models/task-execution';
 import { ActivatedRoute, Router } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import {
@@ -14,6 +27,38 @@ import { BlocksService } from '@services/blocks/blocks';
 import { ContainersService } from '@services/containers/containers';
 import { ConfirmDialogService } from '@services/dialogs/confirm-dialog';
 import { TaskExecutionsService } from '@services/task-executions/task-executions';
+import { catchError, EMPTY, exhaustMap, timer } from 'rxjs';
+
+export type InteractiveSubflowTarget = {
+  childExecutionId: string;
+  parentStep: TaskExecutionStep;
+  parentStepId: string;
+  containerName: string;
+  iterationIndex: number | null;
+};
+
+export function findInteractiveSubflowTargets(
+  execution: TaskExecution | null | undefined
+): InteractiveSubflowTarget[] {
+  if (!execution) return [];
+
+  return Object.entries(execution.context.steps ?? {}).flatMap(([stepId, step]) => {
+    const childExecutionId = String(step.activeInnerExecutionId ?? '').trim();
+    if (String(step.status ?? '').toUpperCase() !== 'WAITING_FOR_SUBFLOW' || !childExecutionId) {
+      return [];
+    }
+
+    return [{
+      childExecutionId,
+      parentStep: step,
+      parentStepId: step.id || stepId,
+      containerName: step.node?.name?.trim() || step.id || stepId,
+      iterationIndex: typeof step.containerIterationIndex === 'number'
+        ? step.containerIterationIndex
+        : null
+    }];
+  });
+}
 
 @Component({
   selector: 'app-tasks-executor',
@@ -23,6 +68,7 @@ import { TaskExecutionsService } from '@services/task-executions/task-executions
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class TasksExecutor {
+  private static readonly CHILD_POLL_INTERVAL_MS = 2_000;
   private taskExecutionsService = inject(TaskExecutionsService);
   private confirm = inject(ConfirmDialogService);
   private blocksService = inject(BlocksService);
@@ -52,6 +98,27 @@ export class TasksExecutor {
     if (!selectedId) return details[0];
     return details.find((execution) => execution.id === selectedId) ?? null;
   });
+
+  readonly interactiveSubflowTargets = computed<InteractiveSubflowTarget[]>(() =>
+    findInteractiveSubflowTargets(this.selectedExecution())
+  );
+
+  readonly selectedChildExecutionId = signal<string | null>(null);
+  readonly childExecutionLoading = signal(false);
+  readonly childExecutionError = signal<string | null>(null);
+  readonly activeSubflowTarget = computed<InteractiveSubflowTarget | null>(() => {
+    const selectedId = this.selectedChildExecutionId();
+    return this.interactiveSubflowTargets()
+      .find((target) => target.childExecutionId === selectedId)
+      ?? null;
+  });
+  readonly childExecution = computed<TaskExecution | null>(() => {
+    const childId = this.activeSubflowTarget()?.childExecutionId;
+    return childId ? this.taskExecutionsService.followedExecutions()[childId] ?? null : null;
+  });
+  readonly displayedExecution = computed<TaskExecution | null>(() =>
+    this.childExecution() ?? this.selectedExecution()
+  );
 
   readonly showExecutionCreationLoader = computed(() =>
     this.pendingExecutionCreation() && !this.requestedExecutionId()
@@ -86,6 +153,41 @@ export class TasksExecutor {
       const first = this.groups()[0];
       if (first?.latestExecutionId) this.selectedExecutionId.set(first.latestExecutionId);
     });
+    effect(() => {
+      const targets = this.interactiveSubflowTargets();
+      const selectedId = this.selectedChildExecutionId();
+      if (selectedId && targets.some((target) => target.childExecutionId === selectedId)) return;
+      this.selectedChildExecutionId.set(targets[0]?.childExecutionId ?? null);
+    });
+    effect((onCleanup) => {
+      const childExecutionId = this.activeSubflowTarget()?.childExecutionId ?? null;
+      if (!childExecutionId) {
+        this.childExecutionLoading.set(false);
+        this.childExecutionError.set(null);
+        return;
+      }
+
+      this.childExecutionLoading.set(
+        !untracked(() => this.taskExecutionsService.followedExecutions()[childExecutionId])
+      );
+      this.childExecutionError.set(null);
+      const subscription = timer(0, TasksExecutor.CHILD_POLL_INTERVAL_MS).pipe(
+        exhaustMap(() => this.taskExecutionsService.retrieveExecution(childExecutionId).pipe(
+          catchError(() => {
+            this.childExecutionLoading.set(false);
+            this.childExecutionError.set(
+              'Unable to load the interactive subflow execution. Retrying…'
+            );
+            return EMPTY;
+          })
+        ))
+      ).subscribe(() => {
+        this.childExecutionLoading.set(false);
+        this.childExecutionError.set(null);
+      });
+
+      onCleanup(() => subscription.unsubscribe());
+    });
   }
 
   selectExecution(id: string) {
@@ -97,6 +199,13 @@ export class TasksExecutor {
       queryParamsHandling: 'merge',
       replaceUrl: true
     });
+  }
+
+  selectInteractiveSubflow(childExecutionId: string) {
+    if (!this.interactiveSubflowTargets().some(
+      (target) => target.childExecutionId === childExecutionId
+    )) return;
+    this.selectedChildExecutionId.set(childExecutionId);
   }
 
   async removeExecution(id: string) {

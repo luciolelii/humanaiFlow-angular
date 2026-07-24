@@ -1,5 +1,6 @@
 import { TaskExecutionStep } from '@models/task-execution';
 import {
+  buildVisibleExecutionLogs,
   getExecutionInputValues,
   getExecutionOutputValues
 } from './execution-viewer.utils';
@@ -30,5 +31,29 @@ describe('execution viewer runtime values', () => {
     expect(getExecutionOutputValues(documentedStep, {
       'decision-1:approve': 'Candidate evidence'
     })).toEqual({ approve: 'Candidate evidence' });
+  });
+
+  it('surfaces inner subflow identifiers from bias experiment events', () => {
+    const [event] = buildVisibleExecutionLogs([{
+      id: 'event-1',
+      timestamp: 1,
+      type: 'BIAS_EXPERIMENT_APPLIED',
+      message: 'Applied behavioral probe',
+      details: {
+        innerExecutionId: 'inner-execution-1',
+        innerNodeId: 'inner-node-1',
+        innerStepId: 'inner-step-1',
+        iterationIndex: 2,
+        containerType: 'LoopContainer'
+      }
+    }]);
+
+    expect(event).toEqual(expect.objectContaining({
+      innerExecutionId: 'inner-execution-1',
+      innerNodeId: 'inner-node-1',
+      innerStepId: 'inner-step-1',
+      iterationIndex: '2',
+      containerType: 'LoopContainer'
+    }));
   });
 });

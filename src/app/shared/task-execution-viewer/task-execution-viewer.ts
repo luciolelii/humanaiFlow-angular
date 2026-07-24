@@ -38,7 +38,11 @@ import { TaskExecutionsService } from '@services/task-executions/task-executions
 import { FlowsService } from '@services/flows/flows';
 import { ContainersService } from '@services/containers/containers';
 import { BlocksService } from '@services/blocks/blocks';
-import { BiasRerunDialogService, BiasRerunCandidate } from '@services/dialogs/bias-rerun-dialog';
+import {
+  BiasRerunDialogService,
+  BiasRerunCandidate,
+  hasActivatableSubflowBiasProbe
+} from '@services/dialogs/bias-rerun-dialog';
 import { BiasCompareDialogService } from '@services/dialogs/bias-compare-dialog';
 import { BiasComparisonViewStateService } from '@services/bias/bias-comparison-view-state';
 import { BiasImpactReportListComponent } from '@shared/bias-impact-report-list/bias-impact-report-list';
@@ -103,6 +107,8 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   private static readonly SIMULATOR_PROVIDER_RETRIEVER_URL = '/retriever/LLM/providers';
   private static readonly SIMULATOR_MODEL_RETRIEVER_URL = '/retriever/LLM/models';
   readonly execution = input<TaskExecution | null>(null);
+  readonly parentExecution = input<TaskExecution | null>(null);
+  readonly parentContainerStep = input<TaskExecutionStep | null>(null);
   readonly contextAsideOpen = signal(true);
   readonly activeAsideTab = signal<'inputs' | 'intermediate' | 'logs' | 'output' | 'bias-reports'>('inputs');
   readonly startInProgress = signal(false);
@@ -493,11 +499,16 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   );
 
   readonly canCancelExecution = computed(() => {
-    const status = String(this.execution()?.context.status ?? '').toUpperCase();
+    const target = this.isSubflowExecution() ? this.parentExecution() : this.execution();
+    const status = String(target?.context.status ?? '').toUpperCase();
     return !this.cancelInProgress() && (status === 'RUNNING' || status === 'WAITING');
   });
+  readonly cancelExecutionTooltip = computed(() =>
+    this.isSubflowExecution() ? 'Cancel parent execution' : 'Cancel execution'
+  );
 
   readonly canResumeExecution = computed(() => {
+    if (this.isSubflowExecution()) return false;
     const status = String(this.execution()?.context.status ?? '').toUpperCase();
     return !this.resumeInProgress() && status === 'SUSPENDED';
   });
@@ -505,6 +516,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   readonly canStartExecution = computed(() => {
     const execution = this.execution();
     if (!execution) return false;
+    if (this.isSubflowExecution()) return false;
     if ((execution.missingAuthorizationKeys?.length ?? 0) > 0) return false;
 
     const statusGroup = getExecutionStatusGroup(execution.context.status);
@@ -545,19 +557,32 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   });
 
   readonly canSimulateExecution = computed(() => {
-    return this.execution()?.simulationAvailable === true && this.canStartExecution() && !this.simulateInProgress();
+    return !this.isSubflowExecution()
+      && this.execution()?.simulationAvailable === true
+      && this.canStartExecution()
+      && !this.simulateInProgress();
   });
 
+  readonly isSubflowExecution = computed(() => this.execution()?.executionKind === 'SUBFLOW');
   readonly isSimulatedExecution = computed(() => this.execution()?.interactionSimulationEnabled === true);
   readonly isBiasVariant = computed(() => !!this.execution()?.biasExecutionContext);
   readonly canCreateBiasedRerun = computed(() =>
-    getExecutionStatusGroup(this.execution()?.context.status) === 'FINAL' && !this.biasRerunOpening()
+    !this.isSubflowExecution()
+    && getExecutionStatusGroup(this.execution()?.context.status) === 'FINAL'
+    && !this.biasRerunOpening()
   );
   readonly canCompareBiasExecution = computed(() =>
-    this.isBiasVariant()
+    !this.isSubflowExecution()
+    && this.isBiasVariant()
     && !!this.execution()?.rerunOfExecutionId
     && getExecutionStatusGroup(this.execution()?.context.status) === 'FINAL'
   );
+  readonly subflowIterationIndex = computed<number | null>(() => {
+    const executionIndex = this.execution()?.parentIterationIndex;
+    if (typeof executionIndex === 'number') return executionIndex;
+    const stepIndex = this.parentContainerStep()?.containerIterationIndex;
+    return typeof stepIndex === 'number' ? stepIndex : null;
+  });
   readonly simulationDescriptorLabel = computed(() => {
     const descriptor = this.execution()?.interactionSimulationDescriptor;
     if (!descriptor) return null;
@@ -714,7 +739,9 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   }
 
   cancelExecution() {
-    const executionId = this.execution()?.id;
+    const executionId = this.isSubflowExecution()
+      ? this.parentExecution()?.id
+      : this.execution()?.id;
     if (!executionId || !this.canCancelExecution()) return;
 
     this.cancelInProgress.set(true);
@@ -1155,8 +1182,18 @@ export class TaskExecutionViewerComponent implements OnDestroy {
 
   private async biasRerunCandidates(): Promise<BiasRerunCandidate[]> {
     const candidates = this.stepsArray().flatMap((step): Array<{ nodeId: string; nodeName: string; node: FlowNode }> => {
-      const node = getTaskExecutionStepNode(step);
+      const node = mergeExecutionStepNode(
+        step,
+        this.execution()?.flowSnapshot ?? this.sourceFlowData()
+      );
       if (!node) return [];
+
+      if (this.isContainerExecutionNode(node)) {
+        return hasActivatableSubflowBiasProbe(node)
+          ? [{ nodeId: step.id, nodeName: node.name || step.id, node: { ...node, nodeFamily: 'container' } }]
+          : [];
+      }
+
       const annotations = (node.biasAnnotations ?? []).filter((annotation) => isProbeExecutable(annotation.behavioralProbe));
       return annotations.length ? [{ nodeId: step.id, nodeName: node.name || step.id, node: { ...node, biasAnnotations: annotations } }] : [];
     });
@@ -1171,8 +1208,9 @@ export class TaskExecutionViewerComponent implements OnDestroy {
       return {
         nodeId: candidate.nodeId,
         nodeName: candidate.nodeName,
-        annotations: candidate.node.biasAnnotations ?? [],
-        capabilities
+        annotations: candidate.node.nodeFamily === 'container' ? [] : candidate.node.biasAnnotations ?? [],
+        capabilities,
+        activationKind: candidate.node.nodeFamily === 'container' ? 'SUBFLOW' : 'ANNOTATIONS'
       } satisfies BiasRerunCandidate;
     }));
     return resolved.filter((candidate): candidate is BiasRerunCandidate => candidate !== null);

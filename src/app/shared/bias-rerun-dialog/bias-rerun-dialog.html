@@ -1,14 +1,22 @@
 @if (state(); as currentState) {
   <app-modal-shell
     title="Create biased rerun"
-    subtitle="Select the executable annotations to activate for the full flow."
+    subtitle="Select executable annotations or activate all biases in a container subflow."
     ariaLabel="Create biased rerun"
     (backdropClick)="close()"
     (closeClick)="close()">
     @for (candidate of currentState.candidates; track candidate.nodeId) {
       <fieldset [disabled]="creating()"><legend>{{ candidate.nodeName }}</legend>
-        @for (annotation of candidate.annotations; track annotation.id) {
-          <label><input type="checkbox" [checked]="selectedIds(candidate.nodeId).includes($any(annotation.id))" (change)="toggleAnnotation(candidate.nodeId, $any(annotation.id), $any($event.target).checked)"> {{ annotation.category || 'Uncategorized' }} — {{ annotation.issue || annotation.rationale || annotation.id }}</label>
+        @if (candidate.activationKind === 'SUBFLOW') {
+          <label>
+            <input type="checkbox" [checked]="subflowSelected(candidate.nodeId)" (change)="toggleSubflow(candidate.nodeId, $any($event.target).checked)">
+            Activate biases in the subflow
+          </label>
+          <p class="bias-rerun-dialog__hint">All executable probes on nodes inside this container will be activated.</p>
+        } @else {
+          @for (annotation of candidate.annotations; track annotation.id) {
+            <label><input type="checkbox" [checked]="selectedIds(candidate.nodeId).includes($any(annotation.id))" (change)="toggleAnnotation(candidate.nodeId, $any(annotation.id), $any($event.target).checked)"> {{ annotation.category || 'Uncategorized' }} — {{ annotation.issue || annotation.rationale || annotation.id }}</label>
+          }
         }
       </fieldset>
     }

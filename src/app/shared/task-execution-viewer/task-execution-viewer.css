@@ -420,6 +420,15 @@
   gap: .35rem .75rem;
   margin-top: .45rem;
 }
+.execution-subflow-context {
+  align-items: center;
+  color: #075985;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: .78rem;
+  gap: .35rem .75rem;
+  margin-top: .45rem;
+}
 .execution-graph-action-button-bias { background: #f3e8ff; color: #7e22ce; }
 .execution-graph-action-button-compare { background: #ccfbf1; color: #0f766e; }
 .execution-graph-action-button-compare:hover:not(:disabled) { filter: brightness(1.05); }

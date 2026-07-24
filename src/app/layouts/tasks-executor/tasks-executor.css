@@ -11,6 +11,45 @@
   position: relative;
 }
 
+.interactive-subflow-switcher {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #bae6fd;
+  background: #f0f9ff;
+  color: #0c4a6e;
+  font-size: 12px;
+}
+
+.interactive-subflow-switcher button {
+  padding: 4px 9px;
+  border: 1px solid #7dd3fc;
+  border-radius: 999px;
+  background: #fff;
+  color: #075985;
+}
+
+.interactive-subflow-switcher button.interactive-subflow-switcher-active {
+  border-color: #0284c7;
+  background: #0284c7;
+  color: #fff;
+}
+
+.interactive-subflow-error {
+  position: absolute;
+  z-index: 3;
+  top: 10px;
+  right: 10px;
+  padding: 8px 12px;
+  border: 1px solid #fecdd3;
+  border-radius: 8px;
+  background: #fff1f2;
+  color: #9f1239;
+  font-size: 12px;
+}
+
 .tasks-executor-loader {
   position: absolute;
   inset: 0;

@@ -124,4 +124,65 @@ describe('TaskExecutionsService bias operations', () => {
 
     expect(service.taskExecutions()[0].context.status).toBe('SUCCESS');
   });
+
+  it('caches child interaction responses without adding them to the top-level list', async () => {
+    const child: TaskExecution = {
+      id: 'child-1',
+      name: 'Interactive subflow',
+      creationTime: 1,
+      executionKind: 'SUBFLOW',
+      parentExecutionId: 'parent-1',
+      parentStepId: 'container-1',
+      context: {
+        inputs: {},
+        result: { 'decision-1:choice': 'approve' },
+        errors: {},
+        warnings: [],
+        steps: {},
+        status: 'SUCCESS',
+        waitingSteps: []
+      }
+    };
+    (service as any)._taskExecutions.set([]);
+    vi.spyOn(service, 'refresh').mockImplementation(() => undefined);
+    service.taskExecutionsCallService = {
+      submitInteractionText: vi.fn().mockReturnValue(of(child))
+    } as unknown as typeof service.taskExecutionsCallService;
+
+    await lastValueFrom(service.submitInteractionText(
+      'child-1',
+      'decision-1',
+      'choice',
+      'approve'
+    ));
+
+    expect(service.followedExecutions()['child-1']).toEqual(child);
+    expect(service.taskExecutions()).toEqual([]);
+  });
+
+  it('retrieves and caches a child execution directly', async () => {
+    const child = {
+      id: 'child-1',
+      name: 'Interactive subflow',
+      creationTime: 1,
+      executionKind: 'SUBFLOW',
+      context: {
+        inputs: {},
+        result: {},
+        errors: {},
+        warnings: [],
+        steps: {},
+        status: 'WAITING',
+        waitingSteps: ['human-1']
+      }
+    } satisfies TaskExecution;
+    service.taskExecutionsCallService = {
+      retrieveTaskExecution: vi.fn().mockReturnValue(of(child))
+    } as unknown as typeof service.taskExecutionsCallService;
+
+    await lastValueFrom(service.retrieveExecution('child-1'));
+
+    expect(service.followedExecutions()['child-1']).toEqual(child);
+    expect(service.taskExecutions()).not.toContain(child);
+  });
 });

@@ -6,6 +6,19 @@
         <div class="execution-header-details">
           <h2 class="text-base font-semibold text-slate-900">{{ execution()!.name }}</h2>
           <p class="text-sm text-slate-500">Execution ID: {{ execution()!.id }}</p>
+          @if (isSubflowExecution()) {
+          <div class="execution-subflow-context">
+            <strong>Interactive container subflow</strong>
+            <span>Parent: {{ parentExecution()?.name || execution()!.parentExecutionId || 'Unknown' }}</span>
+            <span>Container: {{ parentContainerStep()?.node?.name || execution()!.parentStepId || 'Unknown' }}</span>
+            @if (subflowIterationIndex(); as iterationIndex) {
+            <span>Iteration {{ iterationIndex }}</span>
+            }
+            @if (execution()!.subflowRole) {
+            <span>Role: {{ execution()!.subflowRole }}</span>
+            }
+          </div>
+          }
           @if (isSimulatedExecution()) {
           <p class="text-sm text-sky-700">Simulated interactive execution</p>
           @if (simulationDescriptorLabel(); as simulationDescriptor) {
@@ -74,8 +87,8 @@
             <button
               type="button"
               class="execution-action-button execution-graph-action-button execution-action-button-stop"
-              matTooltip="Cancel execution"
-              aria-label="Cancel execution"
+              [matTooltip]="cancelExecutionTooltip()"
+              [attr.aria-label]="cancelExecutionTooltip()"
               [disabled]="!canCancelExecution()"
               (click)="cancelExecution()">
               <mat-icon fontIcon="stop"></mat-icon>
@@ -267,6 +280,21 @@
                         }
                         @if (event.type) {
                         <span>{{ event.type }}</span>
+                        }
+                        @if (event.innerNodeId) {
+                        <span>Inner node: {{ event.innerNodeId }}</span>
+                        }
+                        @if (event.innerStepId) {
+                        <span>Inner step: {{ event.innerStepId }}</span>
+                        }
+                        @if (event.innerExecutionId) {
+                        <span>Inner execution: {{ event.innerExecutionId }}</span>
+                        }
+                        @if (event.iterationIndex) {
+                        <span>Iteration: {{ event.iterationIndex }}</span>
+                        }
+                        @if (event.containerType) {
+                        <span>Container: {{ event.containerType }}</span>
                         }
                       </div>
                     </div>

@@ -3,7 +3,10 @@ import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { ExternalSideEffectPolicy } from '@models/bias-impact';
 import { ConfirmDialogService } from '@services/dialogs/confirm-dialog';
-import { BiasRerunDialogService } from '@services/dialogs/bias-rerun-dialog';
+import {
+  BiasRerunDialogService,
+  buildBiasRerunActivations
+} from '@services/dialogs/bias-rerun-dialog';
 import { extractBiasErrorMessage } from '@services/bias/bias-error.util';
 import { TaskExecutionsService } from '@services/task-executions/task-executions';
 import { SideEffectPolicySelectorComponent } from '@shared/side-effect-policy-selector/side-effect-policy-selector';
@@ -23,6 +26,7 @@ export class BiasRerunDialogHostComponent {
   private readonly confirmation = inject(ConfirmDialogService);
   readonly state = this.dialog.state;
   readonly selectedAnnotationIdsByNode = signal<Record<string, string[]>>({});
+  readonly selectedSubflowsByNode = signal<Record<string, boolean>>({});
   readonly policy = signal<ExternalSideEffectPolicy>('BLOCK');
   readonly creating = signal(false);
   readonly inlineError = signal<string | null>(null);
@@ -31,6 +35,11 @@ export class BiasRerunDialogHostComponent {
     effect(() => {
       const state = this.state();
       this.selectedAnnotationIdsByNode.set(Object.fromEntries((state?.candidates ?? []).map((candidate) => [candidate.nodeId, []])));
+      this.selectedSubflowsByNode.set(Object.fromEntries(
+        (state?.candidates ?? [])
+          .filter((candidate) => candidate.activationKind === 'SUBFLOW')
+          .map((candidate) => [candidate.nodeId, false])
+      ));
       this.policy.set('BLOCK');
       this.creating.set(false);
       this.inlineError.set(null);
@@ -47,17 +56,35 @@ export class BiasRerunDialogHostComponent {
     });
   }
 
+  subflowSelected(nodeId: string): boolean {
+    return this.selectedSubflowsByNode()[nodeId] === true;
+  }
+
+  toggleSubflow(nodeId: string, checked: boolean) {
+    this.selectedSubflowsByNode.update((current) => ({ ...current, [nodeId]: checked }));
+  }
+
   hasExternalSideEffects(): boolean {
-    return (this.state()?.candidates ?? []).some((candidate) => this.selectedIds(candidate.nodeId).length > 0 && candidate.capabilities.externalSideEffects);
+    return (this.state()?.candidates ?? []).some((candidate) => {
+      const selected = candidate.activationKind === 'SUBFLOW'
+        ? this.subflowSelected(candidate.nodeId)
+        : this.selectedIds(candidate.nodeId).length > 0;
+      return selected && candidate.capabilities.externalSideEffects;
+    });
   }
 
   async submit() {
     const state = this.state();
     if (!state || this.creating()) return;
-    const activations = Object.entries(this.selectedAnnotationIdsByNode())
-      .filter(([, annotationIds]) => annotationIds.length > 0)
-      .map(([nodeId, annotationIds]) => ({ nodeId, annotationIds }));
-    if (!activations.length) { this.inlineError.set('Select at least one executable annotation.'); return; }
+    const activations = buildBiasRerunActivations(
+      state.candidates,
+      this.selectedAnnotationIdsByNode(),
+      this.selectedSubflowsByNode()
+    );
+    if (!activations.length) {
+      this.inlineError.set('Select at least one executable annotation or container subflow.');
+      return;
+    }
 
     let confirmExternalSideEffects = false;
     if (this.policy() === 'REQUIRE_CONFIRMATION') {

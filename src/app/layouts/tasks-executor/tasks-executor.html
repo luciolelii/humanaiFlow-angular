@@ -18,7 +18,39 @@
         </div>
       </div>
       }
-      <app-task-execution-viewer [execution]="selectedExecution()"></app-task-execution-viewer>
+      @if (interactiveSubflowTargets().length > 1) {
+      <div class="interactive-subflow-switcher">
+        <span>Interactive containers waiting:</span>
+        @for (target of interactiveSubflowTargets(); track target.childExecutionId) {
+        <button
+          type="button"
+          [class.interactive-subflow-switcher-active]="target.childExecutionId === selectedChildExecutionId()"
+          (click)="selectInteractiveSubflow(target.childExecutionId)">
+          {{ target.containerName }}
+          @if (target.iterationIndex !== null) {
+          · iteration {{ target.iterationIndex }}
+          }
+        </button>
+        }
+      </div>
+      }
+      @if (childExecutionLoading()) {
+      <div class="tasks-executor-loader">
+        <div class="tasks-executor-loader-card">
+          <span class="tasks-executor-spinner" aria-hidden="true"></span>
+          <div class="tasks-executor-loader-title">Opening interactive subflow…</div>
+          <div class="tasks-executor-loader-text">Loading the active child execution.</div>
+        </div>
+      </div>
+      }
+      @if (childExecutionError(); as childError) {
+      <div class="interactive-subflow-error">{{ childError }}</div>
+      }
+      <app-task-execution-viewer
+        [execution]="displayedExecution()"
+        [parentExecution]="childExecution() ? selectedExecution() : null"
+        [parentContainerStep]="childExecution() ? activeSubflowTarget()?.parentStep ?? null : null">
+      </app-task-execution-viewer>
     </mat-card>
   </div>
 </div>

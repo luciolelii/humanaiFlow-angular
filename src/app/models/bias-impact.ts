@@ -23,6 +23,7 @@ export type BiasImpactExperimentRequest = {
 export type BiasRerunActivation = {
   nodeId: string;
   annotationIds: string[];
+  includeSubflow?: boolean;
 };
 
 export type BiasRerunRequest = {
@@ -141,6 +142,9 @@ export const BIAS_EXPERIMENT_ERROR_CODES = [
   'BIAS_EXECUTION_HISTORY_MISMATCH',
   'BIAS_SIDE_EFFECT_BLOCKED',
   'BIAS_SIDE_EFFECT_CONFIRMATION_REQUIRED',
+  'BIAS_SUBFLOW_ON_NON_CONTAINER',
+  'BIAS_SUBFLOW_NOT_EXECUTABLE',
+  'BIAS_ACTIVATION_ANNOTATIONS_REQUIRED',
   'BIAS_JOB_NOT_FOUND',
   'BIAS_REPORT_NOT_FOUND',
   'BIAS_EXPERIMENT_FAILED'

@@ -4,7 +4,28 @@ import { BiasExecutionContext } from './bias-impact';
 export type TaskExecutionStatus = 'CREATED' | 'READY' | 'RUNNING' | 'WAITING' | 'SUSPENDED' | 'SUCCESS' | 'ERROR' | 'CANCELLED';
 export type TaskExecutionStatusGroup = 'INIT' | 'RUNNING' | 'PAUSED' | 'FINAL';
 
-export type StepStatus = 'WAITING_FOR_INPUT' | 'WAITING_FOR_DEPENDENCY' | 'FAILED' | 'COMPLETED' | 'RUNNING' | string;
+export type StepStatus =
+  | 'WAITING_FOR_INPUT'
+  | 'WAITING_FOR_DEPENDENCY'
+  | 'WAITING_FOR_INTERACTION'
+  | 'WAITING_FOR_SUBFLOW'
+  | 'READY'
+  | 'RUNNING'
+  | 'COMPLETED'
+  | 'SKIPPED'
+  | 'FAILED'
+  | 'CANCELLED'
+  | string;
+
+export type ContainerContinuationPhase =
+  | 'CHILD_CREATED'
+  | 'CHILD_RUNNING'
+  | 'WAITING_FOR_SUBFLOW'
+  | 'CHILD_COMPLETED'
+  | string;
+
+export type ExecutionKind = 'TOP_LEVEL' | 'SUBFLOW' | string;
+export type SubflowRole = 'MAIN' | 'GUARD' | string;
 
 export type ExecutionEventLogEntry = {
   id: string;
@@ -26,6 +47,11 @@ export type TaskExecution = {
   sourceFlowId?: string | null;
   runNumber?: number | null;
   rerunOfExecutionId?: string | null;
+  executionKind?: ExecutionKind;
+  parentExecutionId?: string | null;
+  parentStepId?: string | null;
+  parentIterationIndex?: number | null;
+  subflowRole?: SubflowRole | null;
   biasExecutionContext?: BiasExecutionContext;
   context: TaskExecutionContext;
   interactionSimulationEnabled?: boolean;
@@ -99,6 +125,9 @@ export type TaskExecutionStep = {
   started?: boolean;
   skipReason?: string | null;
   simulated: boolean;
+  activeInnerExecutionId?: string | null;
+  containerContinuationPhase?: ContainerContinuationPhase | null;
+  containerIterationIndex?: number | null;
 };
 
 export type TaskExecutionStepInput = {
@@ -143,6 +172,7 @@ export function normalizeExecutionStatus(status: string | null | undefined): Tas
     normalized === 'WAITING' ||
     normalized === 'WAITING_FOR_INPUT' ||
     normalized === 'WAITING_FOR_INTERACTION' ||
+    normalized === 'WAITING_FOR_SUBFLOW' ||
     normalized === 'WAITING_FOR_DEPENDENCY'
   ) {
     return 'WAITING';

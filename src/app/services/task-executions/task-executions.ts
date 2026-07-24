@@ -42,12 +42,14 @@ export class TaskExecutionsService {
   private _pendingExecutionCreation = signal(false);
   private _biasExperimentInProgress = signal(false);
   private _biasRerunInProgress = signal(false);
+  private _followedExecutions = signal<Record<string, TaskExecution>>({});
 
   taskExecutions = this._taskExecutions.asReadonly();
   taskExecutionGroups = this._taskExecutionGroups.asReadonly();
   pendingExecutionCreation = this._pendingExecutionCreation.asReadonly();
   biasExperimentInProgress = this._biasExperimentInProgress.asReadonly();
   biasRerunInProgress = this._biasRerunInProgress.asReadonly();
+  followedExecutions = this._followedExecutions.asReadonly();
 
   init() {
     if (this.initialized) return;
@@ -76,6 +78,16 @@ export class TaskExecutionsService {
     return this.withRefreshAndErrorHandling(
       this.taskExecutionsCallService.retrieveExecutionEvents(executionId),
       'Retrieve execution events failed',
+      false
+    );
+  }
+
+  retrieveExecution(executionId: string) {
+    return this.withRefreshAndErrorHandling(
+      this.taskExecutionsCallService.retrieveTaskExecution(executionId).pipe(
+        tap((execution) => this.cacheFollowedExecution(execution))
+      ),
+      'Retrieve execution failed',
       false
     );
   }
@@ -297,7 +309,13 @@ export class TaskExecutionsService {
 
     return this.withRefreshAndErrorHandling(
       this.taskExecutionsCallService.submitInteractionText(executionId, nodeId, fieldName, value).pipe(
-        tap((updatedExecution) => this.replaceExecution(updatedExecution))
+        tap((updatedExecution) => {
+          if (updatedExecution.executionKind === 'SUBFLOW') {
+            this.cacheFollowedExecution(updatedExecution);
+          } else {
+            this.replaceExecution(updatedExecution);
+          }
+        })
       ),
       'Submit interaction text failed'
     );
@@ -346,6 +364,13 @@ export class TaskExecutionsService {
         };
       })
     );
+  }
+
+  private cacheFollowedExecution(execution: TaskExecution) {
+    this._followedExecutions.update((current) => ({
+      ...current,
+      [execution.id]: execution
+    }));
   }
 
   private flattenGroups(groups: TaskExecutionGroup[]): TaskExecution[] {

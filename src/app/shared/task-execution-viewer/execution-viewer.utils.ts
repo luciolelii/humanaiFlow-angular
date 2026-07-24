@@ -51,6 +51,11 @@ export type ExecutionIntermediateInputGroup = {
 export type ExecutionLogEntryView = ExecutionEventLogEntry & {
   messageText: string;
   levelText: string;
+  innerExecutionId: string | null;
+  innerNodeId: string | null;
+  innerStepId: string | null;
+  iterationIndex: string | null;
+  containerType: string | null;
 };
 
 const OUTPUT_PREVIEW_LIMIT = 80;
@@ -225,11 +230,26 @@ export function buildExecutionIntermediateInputGroups(
 export function buildVisibleExecutionLogs(logs: ExecutionEventLogEntry[]): ExecutionLogEntryView[] {
   return [...logs]
     .sort((a, b) => a.timestamp - b.timestamp)
-    .map((entry) => ({
-      ...entry,
-      messageText: String(entry.message ?? '').trim() || fallbackExecutionLogMessage(entry),
-      levelText: String(entry.level ?? 'INFO').toUpperCase(),
-    }));
+    .map((entry) => {
+      const details = entry.details && typeof entry.details === 'object' && !Array.isArray(entry.details)
+        ? entry.details as Record<string, unknown>
+        : {};
+      return {
+        ...entry,
+        messageText: String(entry.message ?? '').trim() || fallbackExecutionLogMessage(entry),
+        levelText: String(entry.level ?? 'INFO').toUpperCase(),
+        innerExecutionId: nonEmptyLogDetail(details['innerExecutionId']),
+        innerNodeId: nonEmptyLogDetail(details['innerNodeId']),
+        innerStepId: nonEmptyLogDetail(details['innerStepId']),
+        iterationIndex: nonEmptyLogDetail(details['iterationIndex']),
+        containerType: nonEmptyLogDetail(details['containerType'])
+      };
+    });
+}
+
+function nonEmptyLogDetail(value: unknown): string | null {
+  const normalized = value == null ? '' : String(value).trim();
+  return normalized || null;
 }
 
 export function isInputSet(value: unknown, multiple = false): boolean {
