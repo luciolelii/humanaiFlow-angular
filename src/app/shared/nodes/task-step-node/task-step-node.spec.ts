@@ -245,6 +245,30 @@ describe('TaskStepNodeComponent bias canvas highlighting', () => {
       }));
     });
 
+    it('builds a template substitution map from step inputs, global inputs and execution variables', () => {
+      configureInteraction('human-decision');
+      component.data.data.specificConfiguration = {
+        ...component.data.data.specificConfiguration,
+        __executionInputs: { candidateProfile: 'Jane Doe' },
+        __globalInputs: { cvs: ['cv-1', 'cv-2'] },
+        __executionVariables: { retryCount: 2 },
+        __executionName: 'Ranking run'
+      };
+      const dialog = TestBed.inject(HumanInteractionDialogService) as any;
+
+      component.openInteractionModal();
+
+      expect(dialog.open).toHaveBeenCalledWith(expect.objectContaining({
+        templateValues: {
+          candidateProfile: 'Jane Doe',
+          'global.cvs': ['cv-1', 'cv-2'],
+          'vars.retryCount': 2,
+          'context.executionId': 'execution-1',
+          'context.executionName': 'Ranking run'
+        }
+      }));
+    });
+
     it('submits rationale first and the technical choice last', () => {
       configureInteraction('human-decision');
       const dialog = TestBed.inject(HumanInteractionDialogService) as any;

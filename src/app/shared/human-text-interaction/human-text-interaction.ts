@@ -4,11 +4,12 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { HumanInteractionDialogState } from '@services/dialogs/human-interaction-dialog';
+import { TemplatePlaceholderTextComponent } from '@shared/template-placeholder-text/template-placeholder-text';
 
 @Component({
   selector: 'app-human-text-interaction',
   standalone: true,
-  imports: [FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule],
+  imports: [FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, TemplatePlaceholderTextComponent],
   templateUrl: './human-text-interaction.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })

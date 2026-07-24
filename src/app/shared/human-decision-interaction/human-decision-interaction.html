@@ -1,5 +1,11 @@
 <div class="grid gap-4">
-  <div class="text-base font-semibold text-slate-900">{{ state.question || 'Select an option' }}</div>
+  @if (state.question) {
+  <div class="text-base font-semibold text-slate-900">
+    <app-template-placeholder-text [text]="state.question" [values]="state.templateValues"></app-template-placeholder-text>
+  </div>
+  } @else {
+  <div class="text-base font-semibold text-slate-900">Select an option</div>
+  }
 
   @if (state.runtimeInputs.length) {
   <fieldset class="rounded-lg border border-slate-200 bg-slate-50 p-3">

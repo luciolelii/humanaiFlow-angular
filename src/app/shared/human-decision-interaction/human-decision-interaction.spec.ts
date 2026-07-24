@@ -30,6 +30,7 @@ function state(overrides: Partial<HumanInteractionDialogState> = {}): HumanInter
     ],
     rationaleRequired: true,
     rationaleLabel: 'Evidence-based rationale',
+    templateValues: {},
     onSubmit: null,
     resolve: () => undefined,
     ...overrides

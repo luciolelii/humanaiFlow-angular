@@ -7,11 +7,12 @@ import {
   HumanInteractionDialogResult,
   HumanInteractionDialogState
 } from '@services/dialogs/human-interaction-dialog';
+import { TemplatePlaceholderTextComponent } from '@shared/template-placeholder-text/template-placeholder-text';
 
 @Component({
   selector: 'app-human-decision-interaction',
   standalone: true,
-  imports: [FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule],
+  imports: [FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, TemplatePlaceholderTextComponent],
   templateUrl: './human-decision-interaction.html',
   styleUrl: './human-decision-interaction.css',
   changeDetection: ChangeDetectionStrategy.OnPush

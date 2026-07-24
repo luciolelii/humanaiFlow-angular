@@ -339,6 +339,9 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     const contextWarnings = this.execution()?.context.warnings ?? {};
     const waitingSteps = this.execution()?.context.waitingSteps ?? [];
     const activeAnnotationIdsByNode = this.execution()?.biasExecutionContext?.activeAnnotationIdsByNode ?? {};
+    const globalInputsValue = this.execution()?.context.globalInputs ?? {};
+    const executionVariablesValue = this.execution()?.context.executionVariables ?? {};
+    const executionName = this.execution()?.name ?? null;
     const steps = this.stepsArray();
     const execution = this.execution();
     const sourceFlow = execution?.flowSnapshot ?? this.sourceFlowData();
@@ -394,7 +397,10 @@ export class TaskExecutionViewerComponent implements OnDestroy {
           __executionWarnings: getExecutionWarnings(step.id, contextWarnings),
           __stepResultData: step.result ?? null,
           __executionPartialResult: this.execution()?.context.partialResult ?? null,
-          __biasActiveAnnotationIds: activeAnnotationIdsByNode[step.id] ?? []
+          __biasActiveAnnotationIds: activeAnnotationIdsByNode[step.id] ?? [],
+          __globalInputs: globalInputsValue,
+          __executionVariables: executionVariablesValue,
+          __executionName: executionName
         },
         position: stepNode.position ?? {
           x: 120 + (index % 3) * 340,
@@ -441,7 +447,10 @@ export class TaskExecutionViewerComponent implements OnDestroy {
           __executionWarnings: [],
           __stepResultData: null,
           __executionPartialResult: this.execution()?.context.partialResult ?? null,
-          __biasActiveAnnotationIds: activeAnnotationIdsByNode[sourceNode.id] ?? []
+          __biasActiveAnnotationIds: activeAnnotationIdsByNode[sourceNode.id] ?? [],
+          __globalInputs: globalInputsValue,
+          __executionVariables: executionVariablesValue,
+          __executionName: executionName
         }
       };
 

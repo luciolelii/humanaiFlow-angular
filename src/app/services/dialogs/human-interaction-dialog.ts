@@ -41,6 +41,8 @@ export type HumanInteractionDialogInput = {
   decisionOptions?: HumanDecisionOption[];
   rationaleRequired?: boolean;
   rationaleLabel?: string;
+  /** Flat substitution map for `${{name}}` / `${{global.name}}` / `${{vars.name}}` placeholders in `question`/`actionDescription`. */
+  templateValues?: Record<string, unknown>;
   onSubmit?: (value: HumanInteractionDialogResult) => void;
 };
 
@@ -72,6 +74,7 @@ export type HumanInteractionDialogState = {
   decisionOptions: HumanDecisionOption[];
   rationaleRequired: boolean;
   rationaleLabel: string;
+  templateValues: Record<string, unknown>;
   onSubmit: ((value: HumanInteractionDialogResult) => void) | null;
   resolve: (value: HumanInteractionDialogResult | null) => void;
 };
@@ -108,6 +111,7 @@ export class HumanInteractionDialogService {
         decisionOptions: input.decisionOptions ?? [],
         rationaleRequired: input.rationaleRequired === true,
         rationaleLabel: input.rationaleLabel ?? 'Rationale',
+        templateValues: input.templateValues ?? {},
         onSubmit: input.onSubmit ?? null,
         resolve
       });
@@ -145,6 +149,7 @@ export class HumanInteractionDialogService {
       decisionOptions: input.decisionOptions ?? state.decisionOptions,
       rationaleRequired: input.rationaleRequired ?? state.rationaleRequired,
       rationaleLabel: input.rationaleLabel ?? state.rationaleLabel,
+      templateValues: input.templateValues ?? state.templateValues,
       onSubmit: input.onSubmit !== undefined ? input.onSubmit : state.onSubmit
     });
   }

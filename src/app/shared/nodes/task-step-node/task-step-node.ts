@@ -15,6 +15,7 @@ import {
   HumanInteractionRuntimeInput
 } from '@services/dialogs/human-interaction-dialog';
 import { TaskExecutionsService } from '@services/task-executions/task-executions';
+import { buildTemplateSubstitutions } from '@shared/template-placeholder-text/template-placeholder';
 import { BiasImpactExperimentDialogService } from '@services/dialogs/bias-impact-experiment-dialog';
 import { BiasComparisonViewStateService } from '@services/bias/bias-comparison-view-state';
 import { BiasAnnotationsComponent } from '@shared/bias-annotations/bias-annotations';
@@ -659,6 +660,29 @@ export class TaskStepNodeComponent {
     return '';
   }
 
+  private globalInputsValue(): Record<string, unknown> {
+    const value = this.blockConfiguration?.['__globalInputs'];
+    return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  }
+
+  private executionVariablesValue(): Record<string, unknown> {
+    const value = this.blockConfiguration?.['__executionVariables'];
+    return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  }
+
+  private executionName(): string | null {
+    const value = this.blockConfiguration?.['__executionName'];
+    return typeof value === 'string' && value.trim().length > 0 ? value : null;
+  }
+
+  private templateSubstitutions(): Record<string, unknown> {
+    const inputs = (this.blockConfiguration?.['__executionInputs'] ?? {}) as Record<string, unknown>;
+    return buildTemplateSubstitutions(inputs, this.globalInputsValue(), this.executionVariablesValue(), {
+      executionId: this.executionId(),
+      executionName: this.executionName()
+    });
+  }
+
   private currentInputValue(): string {
     const inputKey = this.inputs[0]?.key ?? 'input';
     return this.executionInputTooltip(inputKey) ?? 'not ready yet';
@@ -918,7 +942,8 @@ export class TaskStepNodeComponent {
       question: this.decisionQuestion(),
       decisionOptions: this.decisionOptions(),
       rationaleRequired: this.blockConfiguration?.['rationaleRequired'] === true,
-      rationaleLabel: this.decisionRationaleLabel()
+      rationaleLabel: this.decisionRationaleLabel(),
+      templateValues: this.templateSubstitutions()
     };
   }
 
