@@ -662,7 +662,7 @@ export class GenericNodeComponent implements OnDestroy {
     if (!SWIMLANES_ENABLED) return null;
     const laneId = (this.data?.data as Record<string, unknown> | undefined)?.['laneId'];
     if (typeof laneId !== 'string' || !laneId) return null;
-    const lane = this.editorState.currentFlow()?.data.lanes?.find((candidate) => candidate.id === laneId);
+    const lane = this.editorState.activeFlowData()?.lanes?.find((candidate) => candidate.id === laneId);
     return lane ? { name: lane.name, color: lane.color ?? null } : null;
   }
 
@@ -741,9 +741,9 @@ export class GenericNodeComponent implements OnDestroy {
   }
 
   private markFlowDirty() {
-    const flow = this.editorState.currentFlow();
-    if (!flow) return;
-    this.editorState.updateData(this.cloneCurrentFlowWithNodeChanges(flow.data));
+    const activeData = this.editorState.activeFlowData();
+    if (!activeData) return;
+    this.editorState.updateData(this.cloneCurrentFlowWithNodeChanges(activeData));
   }
 
   updateBiasAnnotations(annotations: BiasAnnotation[]) {

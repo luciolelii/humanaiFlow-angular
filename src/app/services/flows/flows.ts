@@ -34,9 +34,9 @@ export class FlowsService {
     return this.flows;
   }
 
-  getFlowById(flowId: string): Observable<Flow> {
+  getFlowById(flowId: string, forceRefresh = false): Observable<Flow> {
     const cached = this._flows().find((flow) => flow.id === flowId);
-    if (cached) return of(cached);
+    if (cached && !forceRefresh) return of(cached);
 
     return this.flowsCallService.getFlowById(flowId).pipe(
       tap((flow) => {

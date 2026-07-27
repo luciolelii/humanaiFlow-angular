@@ -3,6 +3,14 @@ import { Flow, FlowData, FlowValidationError, normalizeFlowValidationErrors } fr
 import { Authorization } from '@services/authorization/authorization';
 import { ConfirmDialogService } from '@services/dialogs/confirm-dialog';
 import { FlowsService } from '@services/flows/flows';
+import {
+  FlowSubflowEntry,
+  FlowSubflowLocatorStep,
+  listFlowSubflows,
+  replaceFlowSubflow,
+  resolveFlowSubflow,
+  subflowLocatorKey
+} from '@utilities/flow-subflows';
 import { catchError, of, switchMap, take, tap, throwError } from 'rxjs';
 
 @Injectable({ providedIn: 'root' })
@@ -18,9 +26,27 @@ export class EditorStateHolder {
   readonly flowValidationErrors = signal<FlowValidationError[]>([]);
   readonly highlightedValidationNodeIds = signal<string[]>([]);
   readonly validationRequiresSave = signal(false);
+  readonly activeSubflow = signal<FlowSubflowEntry | null>(null);
 
   /** Derived state */
   readonly hasFlow = computed(() => !!this.currentFlow());
+  readonly availableSubflows = computed(() => {
+    const flow = this.currentFlow();
+    return flow ? listFlowSubflows(flow.data) : [];
+  });
+  readonly isEditingSubflow = computed(() => !!this.activeSubflow());
+  readonly activeFlowData = computed(() => {
+    const flow = this.currentFlow();
+    const active = this.activeSubflow();
+    if (!flow) return null;
+    return active ? resolveFlowSubflow(flow.data, active.locator) ?? flow.data : flow.data;
+  });
+  readonly activeEditorKey = computed(() => {
+    const flow = this.currentFlow();
+    const active = this.activeSubflow();
+    if (!flow) return '';
+    return active ? `${flow.id}:subflow:${active.key}` : `${flow.id}:root`;
+  });
   readonly isCurrentFlowReadOnly = computed(() => {
     const flow = this.currentFlow();
     const currentUsername = this.authorization.loggedInUser()?.username ?? null;
@@ -47,6 +73,7 @@ export class EditorStateHolder {
     }
 
     this.currentFlow.set(doc);
+    this.activeSubflow.set(null);
     this.isDirty.set(false);
     this.validationRequiresSave.set(false);
     this.applyFlowValidationErrors(doc.validationErrors ?? [], doc);
@@ -68,6 +95,7 @@ export class EditorStateHolder {
   /** Intent: close document */
   closeDocument() {
     this.currentFlow.set(null);
+    this.activeSubflow.set(null);
     this.isDirty.set(false);
     this.validationRequiresSave.set(false);
     this.applyFlowValidationErrors([], null);
@@ -78,6 +106,7 @@ export class EditorStateHolder {
   loadAssistantFlow(flow: Flow, options?: { markDirty?: boolean }) {
     if (this.isCurrentFlowReadOnly()) return;
     this.currentFlow.set(flow);
+    this.activeSubflow.set(null);
     this.isDirty.set(options?.markDirty === true);
     this.validationRequiresSave.set(options?.markDirty === true);
     this.applyFlowValidationErrors(flow.validationErrors ?? [], flow);
@@ -89,9 +118,17 @@ export class EditorStateHolder {
     if (this.isCurrentFlowReadOnly()) return;
     const current = this.currentFlow();
     if (!current) return;
-    if (this.areFlowDataEqual(current.data, data)) return;
+    const active = this.activeSubflow();
+    const currentData = active
+      ? resolveFlowSubflow(current.data, active.locator)
+      : current.data;
+    if (!currentData || this.areFlowDataEqual(currentData, data)) return;
 
-    const nextFlow = { ...current, data };
+    const rootData = active
+      ? replaceFlowSubflow(current.data, active.locator, data)
+      : data;
+    if (!rootData) return;
+    const nextFlow = { ...current, data: rootData };
     this.currentFlow.set(nextFlow);
     this.markDirty();
     this.applyFlowValidationErrors(current.validationErrors ?? [], nextFlow);
@@ -103,9 +140,34 @@ export class EditorStateHolder {
   replaceDataWithoutDirty(data: FlowData) {
     const current = this.currentFlow();
     if (!current) return;
-    if (this.areFlowDataEqual(current.data, data)) return;
+    const active = this.activeSubflow();
+    const currentData = active
+      ? resolveFlowSubflow(current.data, active.locator)
+      : current.data;
+    if (!currentData || this.areFlowDataEqual(currentData, data)) return;
 
-    this.currentFlow.set({ ...current, data });
+    const rootData = active
+      ? replaceFlowSubflow(current.data, active.locator, data)
+      : data;
+    if (!rootData) return;
+    this.currentFlow.set({ ...current, data: rootData });
+  }
+
+  openRootFlow() {
+    if (!this.currentFlow() || !this.activeSubflow()) return;
+    this.activeSubflow.set(null);
+    this.clearBlockSelection();
+  }
+
+  openSubflow(locator: FlowSubflowLocatorStep[]): boolean {
+    const flow = this.currentFlow();
+    if (!flow || !resolveFlowSubflow(flow.data, locator)) return false;
+    const key = subflowLocatorKey(locator);
+    const entry = this.availableSubflows().find((candidate) => candidate.key === key);
+    if (!entry) return false;
+    this.activeSubflow.set(entry);
+    this.clearBlockSelection();
+    return true;
   }
 
   setSelectedBlocks(blockIds: string[]) {
@@ -173,6 +235,10 @@ export class EditorStateHolder {
               validationErrors
             };
             this.currentFlow.set(nextFlow);
+            const active = this.activeSubflow();
+            if (active && !resolveFlowSubflow(nextFlow.data, active.locator)) {
+              this.activeSubflow.set(null);
+            }
             this.lastValidationFetchKey = this.validationFetchKey(nextFlow);
             this.applyFlowValidationErrors(validationErrors, nextFlow);
             this.markSaved();

@@ -1,8 +1,9 @@
 import { TestBed } from '@angular/core/testing';
-import { catchError, of } from 'rxjs';
+import { catchError, firstValueFrom, of } from 'rxjs';
 import { vi } from 'vitest';
 import { Authorization } from '@services/authorization/authorization';
 import { FlowsCallServiceFake } from './flows-call.fake';
+import { listFlowSubflows } from '@utilities/flow-subflows';
 
 describe('FlowsCallServiceFake', () => {
   let service: FlowsCallServiceFake;
@@ -29,6 +30,16 @@ describe('FlowsCallServiceFake', () => {
 
     expect(caught).toBeInstanceOf(Error);
     expect((caught as Error).message).toContain('missing-flow');
+  });
+
+  it('provides a visible subflow hierarchy example in development', async () => {
+    const flows = await firstValueFrom(service.retrieveAllFlows());
+    const testFlow = flows.find((flow) => flow.id === 'testFlow');
+
+    expect(testFlow).toBeTruthy();
+    expect(listFlowSubflows(testFlow!.data).map((entry) => entry.label)).toContain(
+      'Review container · Sub Flow'
+    );
   });
 
   it('surfaces "flow is finalized" on updateFlow as an observable error, not a synchronous throw', async () => {

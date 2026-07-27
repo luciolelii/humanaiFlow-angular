@@ -154,6 +154,41 @@ describe('EditorStateHolder', () => {
 
       expect(service.isDirty()).toBe(false);
     });
+
+    it('updates an active subflow inside the main flow payload', async () => {
+      const subflow = makeFlow().data;
+      const flow = makeFlow({
+        data: {
+          blocks: [],
+          containers: [{
+            id: 'container-1',
+            name: 'Container',
+            typeName: 'LoopContainer',
+            nodeFamily: 'container',
+            inputs: [],
+            outputs: [],
+            specificConfiguration: { subFlow: subflow }
+          }],
+          connections: [],
+          dependencies: []
+        }
+      });
+      await service.openDocument(flow);
+      const entry = service.availableSubflows()[0];
+
+      expect(service.openSubflow(entry.locator)).toBe(true);
+      service.updateData({
+        ...subflow,
+        globalInputs: [{ name: 'topic', type: 'TEXT', multiple: false }]
+      });
+
+      expect(service.isEditingSubflow()).toBe(true);
+      expect(service.activeFlowData()?.globalInputs?.[0].name).toBe('topic');
+      expect(
+        (service.currentFlow()?.data.containers[0].specificConfiguration as any).subFlow.globalInputs[0].name
+      ).toBe('topic');
+      expect(service.isDirty()).toBe(true);
+    });
   });
 
   it('saves annotations in the full flow payload and adopts server-generated ids', async () => {

@@ -2,6 +2,16 @@
 
   <div class="title-toolbar-main">
     <div class="title-toolbar-title-wrap">
+      @if (editingSubflow()) {
+      <button
+        type="button"
+        class="title-toolbar-subflow-parent"
+        matTooltip="Return to the main flow"
+        (click)="editorState.openRootFlow()">
+        <mat-icon fontIcon="arrow_back"></mat-icon>
+        <span>{{ flow()!.name }}</span>
+      </button>
+      }
       @if (editingTitle()) {
       <mat-form-field appearance="outline" class="title-toolbar-field">
         <mat-label>Flow title</mat-label>
@@ -19,7 +29,7 @@
       } @else {
       <div class="title-toolbar-title-row">
         <div class="title-toolbar-title-display" [title]="title()">{{ title() }}</div>
-        @if (flow()) {
+        @if (flow() && !editingSubflow()) {
         <button
           type="button"
           mat-icon-button
@@ -44,6 +54,9 @@
     @if (readOnly()) {
     <span class="title-toolbar-pill title-toolbar-pill-info">Read only</span>
     }
+    @if (editingSubflow()) {
+    <span class="title-toolbar-pill title-toolbar-pill-info">Editing subflow</span>
+    }
     @if (canExecute()) {
     <button
       type="button"
@@ -61,7 +74,7 @@
   </div>
 
   <div class="title-toolbar-actions" >
-    @if (flow() && isOwner()) {
+    @if (flow() && isOwner() && !editingSubflow()) {
     <div class="title-toolbar-flags">
       <mat-slide-toggle
         [checked]="!!flow()!.published"
@@ -94,6 +107,9 @@
 
 @if (flow()) {
 <div class="title-toolbar-meta">
+  @if (editingSubflow()) {
+  <span><span class="title-toolbar-meta-label">Main flow:</span> {{ flow()!.name }}</span>
+  }
   <span><span class="title-toolbar-meta-label">Author:</span> {{ flow()!.author }}</span>
   <span><span class="title-toolbar-meta-label">Created:</span> {{ flow()!.createdAt | date:'dd/MM/yyyy HH:mm' }}</span>
   <span><span class="title-toolbar-meta-label">Updated:</span> {{ flow()!.updatedAt | date:'dd/MM/yyyy HH:mm' }}</span>

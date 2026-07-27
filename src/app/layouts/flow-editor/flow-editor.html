@@ -20,7 +20,11 @@
         </div>
         <div class="flow-editor-canvas">
           <div data-tour="editor-canvas" class="flow-editor-tour-target">
-            <app-rete-editor [flowId]="flow()!.id" [flowData]="flow()!.data" [readonly]="readonly()"></app-rete-editor>
+            <app-rete-editor
+              [flowId]="flow()!.id"
+              [editorKey]="activeEditorKey()"
+              [flowData]="activeFlowData()!"
+              [readonly]="readonly()"></app-rete-editor>
           </div>
         </div>
       </mat-card>
@@ -63,9 +67,10 @@
       }
     </main>
 
-    @if (showAssistantPanel()) {
+    @if (showRightPanel()) {
     <section class="flow-editor-assistant" data-tour="editor-assistant" [class.flow-editor-assistant-collapsed]="!assistantOpen()">
       <div class="flow-editor-side-rail">
+        @if (assistantPanelAvailable()) {
         <button
           type="button"
           class="flow-editor-side-rail-button"
@@ -74,6 +79,7 @@
           (click)="setRightPanel('assistant')">
           <mat-icon fontIcon="auto_awesome"></mat-icon>
         </button>
+        }
         <button
           type="button"
           class="flow-editor-side-rail-button"
@@ -84,6 +90,18 @@
           <mat-icon fontIcon="error"></mat-icon>
           @if (validationErrorCount() > 0) {
           <span class="flow-editor-side-rail-badge">{{ validationErrorCount() }}</span>
+          }
+        </button>
+        <button
+          type="button"
+          class="flow-editor-side-rail-button"
+          [class.flow-editor-side-rail-button-active]="activeRightPanel() === 'structure' && assistantOpen()"
+          [disabled]="!subflows().length"
+          matTooltip="Flow structure"
+          (click)="setRightPanel('structure')">
+          <mat-icon fontIcon="account_tree"></mat-icon>
+          @if (subflows().length) {
+          <span class="flow-editor-side-rail-badge flow-editor-side-rail-badge-structure">{{ subflows().length }}</span>
           }
         </button>
       </div>
@@ -98,8 +116,49 @@
       </button>
         @if (activeRightPanel() === 'assistant') {
         <app-flow-assistant></app-flow-assistant>
-        } @else {
+        } @else if (activeRightPanel() === 'errors') {
         <app-flow-validation-panel></app-flow-validation-panel>
+        } @else {
+        <div class="flow-editor-structure-panel">
+          <div class="flow-editor-structure-header">
+            <div class="flow-editor-structure-eyebrow">Navigation</div>
+            <h2>Flow structure</h2>
+            <p>Select the main flow or one of its container subflows to edit it directly.</p>
+          </div>
+          <nav class="flow-editor-structure-tree" aria-label="Current flow structure">
+            <button
+              type="button"
+              class="flow-editor-structure-item flow-editor-structure-root"
+              [class.flow-editor-structure-item-active]="!activeSubflowKey()"
+              (click)="openMainFlow()">
+              <mat-icon fontIcon="schema"></mat-icon>
+              <span>
+                <strong>{{ flow()!.name }}</strong>
+                <small>Main flow</small>
+              </span>
+            </button>
+            @for (subflow of subflows(); track subflow.key) {
+            <button
+              type="button"
+              class="flow-editor-structure-item flow-editor-structure-child"
+              [class.flow-editor-structure-item-active]="activeSubflowKey() === subflow.key"
+              [style.--tree-depth]="subflow.depth"
+              (click)="openSubflow(subflow)">
+              <mat-icon fontIcon="subdirectory_arrow_right"></mat-icon>
+              <span>
+                <strong>{{ subflow.containerName }}</strong>
+                <small>{{ subflow.fieldLabel }}</small>
+              </span>
+            </button>
+            }
+            @if (!subflows().length) {
+            <div class="flow-editor-structure-empty">
+              <mat-icon fontIcon="info"></mat-icon>
+              <span>This flow has no editable container subflows.</span>
+            </div>
+            }
+          </nav>
+        </div>
         }
       }
     </section>

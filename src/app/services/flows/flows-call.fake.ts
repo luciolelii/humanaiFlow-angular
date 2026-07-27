@@ -185,6 +185,45 @@ const testDataFlow ={
     },
     "typeName" : "HumanInteractionBlock"
   } ],
+  "containers": [ {
+    "id": "development-subflow-container",
+    "name": "Review container",
+    "inputs": [],
+    "outputs": [],
+    "specificConfiguration": {
+      "type": "GenericContainerConfiguration",
+      "name": "Review container",
+      "subFlow": {
+        "blocks": [ {
+          "id": "development-subflow-block",
+          "name": "Review response",
+          "inputs": [ {
+            "name": "input",
+            "type": "TEXT",
+            "multiple": false
+          } ],
+          "outputs": [ {
+            "name": "output",
+            "type": "TEXT",
+            "multiple": false
+          } ],
+          "specificConfiguration": {
+            "type": "LLMBlockConfiguration",
+            "name": "Review response",
+            "llmDescriptor": {
+              "provider": "testProvider",
+              "model": "testModel"
+            },
+            "prompt": "Review the provided response."
+          },
+          "typeName": "LLMBlock"
+        } ],
+        "containers": [],
+        "connections": []
+      }
+    },
+    "typeName": "GenericContainer"
+  } ],
   "connections" : [ {
     "id" : "8da696c2-dc03-4717-b2ce-18637ae6f7f8",
     "sourceId" : "cabd6f4e-5a05-41f8-9bf7-4de20391ac4e",

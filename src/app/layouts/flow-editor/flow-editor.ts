@@ -18,6 +18,7 @@ import { FlowAssistant } from '@shared/flow-assistant/flow-assistant';
 import { FlowValidationPanel } from '@shared/flow-validation-panel/flow-validation-panel';
 import { TitleToolbar } from "@shared/title-toolbar/title-toolbar";
 import { ReteEditor } from "@shared/rete-editor/rete-editor";
+import { FlowSubflowEntry } from '@utilities/flow-subflows';
 import { firstValueFrom } from 'rxjs';
 
 type TourStep = {
@@ -49,20 +50,30 @@ export class FlowEditor {
   private assistantSessionStore = inject(AssistantSessionStore);
   private tourBootstrapped = false;
   private demoFlowId: string | null = null;
+  private structureAutoOpenedFlowId: string | null = null;
 
   assistantEnabled = environment.assistantEnabled;
   assistantOpen = signal(true);
-  activeRightPanel = signal<'assistant' | 'errors'>('assistant');
+  activeRightPanel = signal<'assistant' | 'errors' | 'structure'>('assistant');
   aiCreationRequested = signal(false);
   aiCreationMinimized = signal(false);
   createAssistantCancellable = signal(false);
   creatingFlowFromEmpty = signal(false);
-  flow = this.editorState.currentFlow; 
+  flow = this.editorState.currentFlow;
+  activeFlowData = this.editorState.activeFlowData;
+  activeEditorKey = this.editorState.activeEditorKey;
+  subflows = this.editorState.availableSubflows;
+  activeSubflowKey = computed(() => this.editorState.activeSubflow()?.key ?? null);
   readonly = this.editorState.isCurrentFlowReadOnly;
   validationErrors = this.editorState.flowValidationErrors;
   validationErrorCount = computed(() => this.validationErrors().length);
-  showAssistantPanel = computed(() =>
-    this.assistantEnabled && !this.readonly() && !!this.flow()
+  assistantPanelAvailable = computed(() => this.assistantEnabled && !this.readonly());
+  showRightPanel = computed(() =>
+    !!this.flow() && (
+      this.assistantPanelAvailable()
+      || this.validationErrorCount() > 0
+      || this.subflows().length > 0
+    )
   );
   showCreateAssistantModal = computed(() =>
     this.assistantEnabled && this.aiCreationRequested() && !this.aiCreationMinimized() && !this.flow()
@@ -150,14 +161,47 @@ export class FlowEditor {
     });
 
     effect(() => {
-      if (this.validationErrorCount() > 0) {
+      if (this.validationErrorCount() > 0 && this.activeRightPanel() !== 'structure') {
         this.activeRightPanel.set('errors');
       }
     });
 
     effect(() => {
       if (this.activeRightPanel() === 'errors' && this.validationErrorCount() === 0) {
-        this.activeRightPanel.set('assistant');
+        this.activeRightPanel.set(this.assistantPanelAvailable() ? 'assistant' : 'structure');
+      }
+    });
+
+    effect(() => {
+      if (this.activeRightPanel() === 'assistant' && !this.assistantPanelAvailable()) {
+        if (this.validationErrorCount() > 0) {
+          this.activeRightPanel.set('errors');
+        } else if (this.subflows().length > 0) {
+          this.activeRightPanel.set('structure');
+        }
+      }
+      if (this.activeRightPanel() === 'structure' && this.subflows().length === 0) {
+        if (this.validationErrorCount() > 0) {
+          this.activeRightPanel.set('errors');
+        } else if (this.assistantPanelAvailable()) {
+          this.activeRightPanel.set('assistant');
+        }
+      }
+    });
+
+    effect(() => {
+      const flowId = this.flow()?.id ?? null;
+      if (!flowId) {
+        this.structureAutoOpenedFlowId = null;
+        return;
+      }
+      if (!this.subflows().length || this.structureAutoOpenedFlowId === flowId) return;
+
+      this.structureAutoOpenedFlowId = flowId;
+      this.activeRightPanel.set('structure');
+      this.assistantOpen.set(true);
+      if (this.tourActive()) {
+        setTimeout(() => this.syncTourLayout());
       }
     });
 
@@ -179,11 +223,19 @@ export class FlowEditor {
     }
   }
 
-  setRightPanel(panel: 'assistant' | 'errors') {
+  setRightPanel(panel: 'assistant' | 'errors' | 'structure') {
     this.activeRightPanel.set(panel);
     if (!this.assistantOpen()) {
       this.assistantOpen.set(true);
     }
+  }
+
+  openMainFlow() {
+    this.editorState.openRootFlow();
+  }
+
+  openSubflow(subflow: FlowSubflowEntry) {
+    this.editorState.openSubflow(subflow.locator);
   }
 
   @HostListener('window:resize')

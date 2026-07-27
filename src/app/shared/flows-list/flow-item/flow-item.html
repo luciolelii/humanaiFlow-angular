@@ -1,7 +1,7 @@
 <mat-card class="flow-item-card"
-    [class.flow-item-card-clickable]="flow().id !== openedFlowId()"
+    [class.flow-item-card-clickable]="!isRootOpen()"
     [class.flow-item-card-open]="flow().id === openedFlowId()"
-    (click)="flow().id !== openedFlowId() && open()">
+    (click)="!isRootOpen() && open()">
 
     <div class="flow-item-head">
         <div class="flow-item-meta">

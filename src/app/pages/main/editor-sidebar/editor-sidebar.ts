@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, Output, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Output, computed, effect, inject, signal } from '@angular/core';
 import { GroupHolder } from '@shared/group-holder/group-holder';
 import { FlowsList } from '@shared/flows-list/flows-list';
 import { BlocksList } from '@shared/blocks-list/blocks-list';
@@ -35,11 +35,21 @@ export class EditorSidebar {
   confirm = inject(ConfirmDialogService);
 
   blockDisabled = computed(() => !this.flowState.hasFlow());
+  containerDisabled = computed(() =>
+    !this.flowState.hasFlow() || this.flowState.isEditingSubflow()
+  );
 
   collapsed = signal(true);
   creatingFlow = signal(false);
 
   open: OpenedId | null = null;
+
+  constructor() {
+    effect(() => {
+      if (!this.flowState.isEditingSubflow() || this.open !== 'containers') return;
+      this.open = 'blocks';
+    });
+  }
 
   ngOnInit() {
     void this.blocksService.getAllBlocksTypes().catch((err) => {
@@ -51,6 +61,7 @@ export class EditorSidebar {
   }
 
   openSide(id: OpenedId) {
+    if (id === 'containers' && this.containerDisabled()) return;
     this.open = id;
     this.collapsed.set(false);
   }

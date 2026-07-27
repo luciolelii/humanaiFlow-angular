@@ -22,6 +22,7 @@ export class ReteEditor implements OnChanges, OnDestroy {
   readonly swimlanesEnabled = SWIMLANES_ENABLED;
   readonly flowData = input.required<FlowData>();
   readonly flowId = input.required<string>();
+  readonly editorKey = input<string>('');
   readonly readonly = input<boolean>(false);
   readonly nodeView = input<'editor' | 'execution'>('editor');
 
@@ -93,7 +94,7 @@ export class ReteEditor implements OnChanges, OnDestroy {
 
   ngOnChanges(changes: SimpleChanges): void {
     if (!this.viewReady) return;
-    if (changes['flowId']) {
+    if (changes['flowId'] || changes['editorKey']) {
       void this.reloadEditor();
       return;
     }
@@ -146,6 +147,7 @@ export class ReteEditor implements OnChanges, OnDestroy {
     if (!payload || !this.rete) return;
 
     const blockType: BlockType = JSON.parse(payload);
+    if (this.flowState.isEditingSubflow() && blockType.family === 'container') return;
     const position = this.getDropPosition(event);
     let newBlock: FlowNode;
     this.creatingEmptyBlock = true;
@@ -335,6 +337,7 @@ export class ReteEditor implements OnChanges, OnDestroy {
     this.syncAreaDragMode();
     this.syncLaneTransform();
     const loadedFlowId = this.flowId();
+    const loadedEditorKey = this.editorKey();
     const normalizedData = exportGraph(rete.editor);
     if (this.flowState.currentFlow()?.id === loadedFlowId) {
       this.flowState.replaceDataWithoutDirty(normalizedData);
@@ -342,14 +345,14 @@ export class ReteEditor implements OnChanges, OnDestroy {
     if (!this.readonly()) {
       rete.editor.addPipe((context) => {
         if (this.dirtyEventTypes.has(context.type)) {
-          this.markFlowChanged(rete, context, loadedFlowId, currentVersion);
+          this.markFlowChanged(rete, context, loadedFlowId, loadedEditorKey, currentVersion);
         }
         return context;
       });
 
       rete.area.addPipe((context: any) => {
         if (context?.type === 'nodetranslated') {
-          this.markFlowChanged(rete, context, loadedFlowId, currentVersion);
+          this.markFlowChanged(rete, context, loadedFlowId, loadedEditorKey, currentVersion);
         } else if (context?.type === 'translated' || context?.type === 'zoomed' || context?.type === 'resized') {
           this.syncLaneTransform();
         }
@@ -633,12 +636,19 @@ export class ReteEditor implements OnChanges, OnDestroy {
     this.laneTransform.set({ x, y, k });
   }
 
-  private markFlowChanged(rete: ReteEditorInstance, context: any, loadedFlowId: string, loadedVersion: number) {
+  private markFlowChanged(
+    rete: ReteEditorInstance,
+    context: any,
+    loadedFlowId: string,
+    loadedEditorKey: string,
+    loadedVersion: number
+  ) {
     if (this.readonly()) return;
     if (this.suppressDirtyEvents) return;
     if (loadedVersion !== this.loadVersion) return;
     if (this.rete !== rete) return;
     if (this.flowId() !== loadedFlowId) return;
+    if (this.editorKey() !== loadedEditorKey) return;
     this.syncNodePositionFromContext(rete, context);
     if (this.flowState.currentFlow()?.id !== loadedFlowId) return;
 

@@ -27,6 +27,7 @@ describe('GenericNodeComponent', () => {
           provide: EditorStateHolder,
           useValue: {
             currentFlow: vi.fn().mockReturnValue(null),
+            activeFlowData: vi.fn().mockReturnValue(null),
             flowValidationErrors: vi.fn().mockReturnValue([]),
             isBlockSelected: vi.fn().mockReturnValue(false),
             isValidationNodeHighlighted: vi.fn().mockReturnValue(false),
@@ -79,6 +80,39 @@ describe('GenericNodeComponent', () => {
 
   it('should create', () => {
     expect(component).toBeTruthy();
+  });
+
+  it('writes parameter changes into the active subflow data instead of the main flow', () => {
+    const editorState = TestBed.inject(EditorStateHolder) as any;
+    const activeSubflowData = {
+      blocks: [{
+        id: 'node-1',
+        name: 'Node 1',
+        typeName: 'LLMBlock',
+        inputs: [],
+        outputs: [],
+        specificConfiguration: { name: 'Node 1' }
+      }],
+      containers: [],
+      connections: [],
+      dependencies: []
+    };
+    editorState.activeFlowData.mockReturnValue(activeSubflowData);
+    component.data.data = {
+      ...component.data.data,
+      typeName: 'LLMBlock',
+      specificConfiguration: { name: 'Edited node', prompt: 'Updated prompt' }
+    };
+
+    (component as any).markFlowDirty();
+
+    expect(editorState.updateData).toHaveBeenCalledWith(expect.objectContaining({
+      blocks: [expect.objectContaining({
+        id: 'node-1',
+        name: 'Edited node',
+        specificConfiguration: expect.objectContaining({ prompt: 'Updated prompt' })
+      })]
+    }));
   });
 
   it('renders every input and output after the Rete node payload is updated', () => {

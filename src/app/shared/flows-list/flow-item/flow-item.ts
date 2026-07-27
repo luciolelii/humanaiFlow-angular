@@ -9,6 +9,7 @@ import { Authorization } from '@services/authorization/authorization';
 import { ConfirmDialogService } from '@services/dialogs/confirm-dialog';
 import { FlowsService } from '@services/flows/flows';
 import { EditorStateHolder } from '@stores/flow-editor';
+import { firstValueFrom } from 'rxjs';
 
 @Component({
   selector: 'app-flow-item',
@@ -30,6 +31,9 @@ export class FlowItem {
   detailOpenedId = model<string | null>(null);
 
   openedFlowId = computed(() => this.editorState.currentFlow()?.id);
+  isRootOpen = computed(() =>
+    this.openedFlowId() === this.flow().id && !this.editorState.isEditingSubflow()
+  );
   canDelete = computed(() => {
     const username = this.authorization.loggedInUser()?.username ?? null;
     return !!username && this.flow().author === username && !this.flow().finalized;
@@ -43,15 +47,28 @@ export class FlowItem {
   );
 
   async open() {
+    if (this.openedFlowId() === this.flow().id) {
+      this.editorState.openRootFlow();
+      return;
+    }
     if (this.editorState.isDirty() && this.openedFlowId() !== this.flow().id) {
       const confirmed = await this.confirm.open(
         'You have unsaved changes in the current flow. Open another flow anyway?'
       );
       if (!confirmed) return;
-      await this.editorState.openDocument(this.flow(), { skipDirtyCheck: true });
+      await this.editorState.openDocument(await this.loadCompleteFlow(), { skipDirtyCheck: true });
       return;
     }
-    await this.editorState.openDocument(this.flow());
+    await this.editorState.openDocument(await this.loadCompleteFlow());
+  }
+
+  private async loadCompleteFlow(): Promise<Flow> {
+    try {
+      return await firstValueFrom(this.flowsService.getFlowById(this.flow().id, true));
+    } catch (error) {
+      console.error('Error loading complete flow', error);
+      return this.flow();
+    }
   }
 
   clone() {

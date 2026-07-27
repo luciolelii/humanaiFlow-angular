@@ -32,12 +32,13 @@
         (click)="!blockDisabled() && open != 'blocks' && openSide('blocks')"></i>
       <i
         [ngClass]="{
-          'cursor-pointer text-gray-600 enabled': !blockDisabled() && open != 'containers',
+          'cursor-pointer text-gray-600 enabled': !containerDisabled() && open != 'containers',
           'cursor-none bg-gray-200 text-cyan-700': open == 'containers',
-          'text-gray-200': blockDisabled()
+          'text-gray-200': containerDisabled()
         }"
+        [attr.title]="flowState.isEditingSubflow() ? 'Containers are not supported inside subflows' : 'Containers'"
         class="bi bi-box-seam text-xl p-2"
-        (click)="!blockDisabled() && open != 'containers' && openSide('containers')"></i>
+        (click)="!containerDisabled() && open != 'containers' && openSide('containers')"></i>
     </div>
   </div>
 
@@ -46,6 +47,7 @@
   <div class="h-full min-h-0 min-w-0 bg-white flex-1 overflow-hidden">
 
     <div class="editor-sidebar-content h-full min-h-0 min-w-0 overflow-hidden">
+      <div class="editor-sidebar-section">
       @switch (open) {
       @case ('flows') {
       <div data-tour="editor-sidebar-flows" class="h-full min-h-0 flex flex-col">
@@ -98,6 +100,7 @@
       </div>
       }
       }
+      </div>
     </div>
 
   </div>

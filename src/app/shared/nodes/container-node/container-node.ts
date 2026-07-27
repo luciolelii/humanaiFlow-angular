@@ -375,7 +375,7 @@ export class ContainerNodeComponent implements OnDestroy {
     if (!SWIMLANES_ENABLED) return null;
     const laneId = (this.data?.data as Record<string, unknown> | undefined)?.['laneId'];
     if (typeof laneId !== 'string' || !laneId) return null;
-    const lane = this.editorState.currentFlow()?.data.lanes?.find((candidate) => candidate.id === laneId);
+    const lane = this.editorState.activeFlowData()?.lanes?.find((candidate) => candidate.id === laneId);
     return lane ? { name: lane.name, color: lane.color ?? null } : null;
   }
 
@@ -457,9 +457,9 @@ export class ContainerNodeComponent implements OnDestroy {
   }
 
   private markBiasAnnotationsDirty() {
-    const flow = this.editorState.currentFlow();
-    if (!flow) return;
-    this.editorState.updateData(this.cloneCurrentFlowWithBiasAnnotations(flow.data));
+    const activeData = this.editorState.activeFlowData();
+    if (!activeData) return;
+    this.editorState.updateData(this.cloneCurrentFlowWithBiasAnnotations(activeData));
   }
 
   private cloneCurrentFlowWithBiasAnnotations(flowData: FlowData): FlowData {
@@ -1198,13 +1198,13 @@ export class ContainerNodeComponent implements OnDestroy {
   }
 
   private updateCurrentFlowData(nextConfiguration: Record<string, unknown>) {
-    const flow = this.editorState.currentFlow();
+    const activeData = this.editorState.activeFlowData();
     const blockId = this.blockId;
-    if (!flow || !blockId) return;
+    if (!activeData || !blockId) return;
 
     const nextFlow: FlowData = {
-      blocks: flow.data.blocks,
-      containers: flow.data.containers.map((container) =>
+      ...activeData,
+      containers: (activeData.containers ?? []).map((container) =>
         container.id === blockId
           ? {
             ...container,
@@ -1212,10 +1212,7 @@ export class ContainerNodeComponent implements OnDestroy {
             specificConfiguration: this.cloneConfigurationValue(nextConfiguration)
           }
           : container
-      ),
-      connections: flow.data.connections,
-      dependencies: flow.data.dependencies ?? [],
-      globalInputs: flow.data.globalInputs ?? []
+      )
     };
 
     this.editorState.updateData(nextFlow);

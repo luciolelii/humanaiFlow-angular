@@ -39,6 +39,9 @@ export class TitleToolbar {
   private authorization = inject(Authorization);
   private taskExecutionsService = inject(TaskExecutionsService);
   flow = computed(() => this.editorState.currentFlow());
+  activeData = this.editorState.activeFlowData;
+  activeSubflow = this.editorState.activeSubflow;
+  editingSubflow = this.editorState.isEditingSubflow;
   readOnly = this.editorState.isCurrentFlowReadOnly;
   isOwner = computed(() => {
     const flow = this.flow();
@@ -47,7 +50,8 @@ export class TitleToolbar {
   });
   title = computed(() => {
     const flow = this.flow();
-    return flow ? flow.name : 'No Flow Opened';
+    const subflow = this.activeSubflow();
+    return subflow ? subflow.label : flow ? flow.name : 'No Flow Opened';
   });
 
   notSaved = computed(() => this.editorState.isDirty());
@@ -59,7 +63,7 @@ export class TitleToolbar {
     !this.hasGlobalInputValidationIssues()
   );
   compactGlobalInputsHelp = signal(this.shouldUseCompactGlobalInputsHelp());
-  globalInputs = computed(() => this.flow()?.data.globalInputs ?? []);
+  globalInputs = computed(() => this.activeData()?.globalInputs ?? []);
   globalInputsHelpTooltip = computed(() =>
     `Use shared flow-level inputs for values reused by multiple nodes. Reference them as template ${this.globalTemplateReference('name')} or SpEL ${this.globalSpelReference('name')}.`
   );
@@ -87,7 +91,11 @@ export class TitleToolbar {
   canFinalize = computed(() => !!this.flow() && this.isOwner() && !this.flow()!.finalized);
   canExecute = computed(() => {
     const flow = this.flow();
-    return !!flow && !this.notSaved() && !this.blockSyncInProgress() && flow.status === 'EXECUTABLE';
+    return !!flow
+      && !this.editingSubflow()
+      && !this.notSaved()
+      && !this.blockSyncInProgress()
+      && flow.status === 'EXECUTABLE';
   });
   executeLoading = signal(false);
   publishSaving = signal(false);
@@ -103,7 +111,7 @@ export class TitleToolbar {
   lanesOpen = signal(false);
   creatingLane = signal(false);
   draftLane = signal<FlowLane>({ id: '', name: '', order: 0, color: null });
-  lanes = computed(() => [...(this.flow()?.data.lanes ?? [])].sort((a, b) => a.order - b.order));
+  lanes = computed(() => [...(this.activeData()?.lanes ?? [])].sort((a, b) => a.order - b.order));
   laneValidationErrors = computed(() => {
     const lanes = this.lanes();
     const nameCounts = new Map<string, number>();
@@ -122,7 +130,7 @@ export class TitleToolbar {
 
   startEditingTitle() {
     const flow = this.flow();
-    if (!flow || this.readOnly()) return;
+    if (!flow || this.readOnly() || this.editingSubflow()) return;
     this.draftTitle.set(flow.name);
     this.editingTitle.set(true);
     queueMicrotask(() => {
@@ -162,20 +170,20 @@ export class TitleToolbar {
   }
 
   saveNewGlobalInput() {
-    const flow = this.flow();
-    if (!flow || this.readOnly()) return;
+    const data = this.activeData();
+    if (!data || this.readOnly()) return;
 
     const draft = this.draftGlobalInput();
     const name = draft.name.trim();
     if (!name) return;
 
-    const alreadyExists = (flow.data.globalInputs ?? []).some((input) => input.name.trim().toLowerCase() === name.toLowerCase());
+    const alreadyExists = (data.globalInputs ?? []).some((input) => input.name.trim().toLowerCase() === name.toLowerCase());
     if (alreadyExists) return;
 
     this.editorState.updateData({
-      ...flow.data,
+      ...data,
       globalInputs: [
-        ...(flow.data.globalInputs ?? []),
+        ...(data.globalInputs ?? []),
         { ...draft, name }
       ]
     });
@@ -195,10 +203,10 @@ export class TitleToolbar {
   }
 
   updateGlobalInput(index: number, patch: Partial<FlowGlobalInput>) {
-    const flow = this.flow();
-    if (!flow || this.readOnly()) return;
+    const data = this.activeData();
+    if (!data || this.readOnly()) return;
 
-    const globalInputs = [...(flow.data.globalInputs ?? [])];
+    const globalInputs = [...(data.globalInputs ?? [])];
     if (!globalInputs[index]) return;
     globalInputs[index] = {
       ...globalInputs[index],
@@ -206,19 +214,19 @@ export class TitleToolbar {
     };
 
     this.editorState.updateData({
-      ...flow.data,
+      ...data,
       globalInputs
     });
   }
 
   removeGlobalInput(index: number) {
-    const flow = this.flow();
-    if (!flow || this.readOnly()) return;
+    const data = this.activeData();
+    if (!data || this.readOnly()) return;
 
-    const globalInputs = [...(flow.data.globalInputs ?? [])];
+    const globalInputs = [...(data.globalInputs ?? [])];
     globalInputs.splice(index, 1);
     this.editorState.updateData({
-      ...flow.data,
+      ...data,
       globalInputs
     });
   }
@@ -243,11 +251,11 @@ export class TitleToolbar {
   }
 
   canSaveDraftGlobalInput(): boolean {
-    const flow = this.flow();
+    const data = this.activeData();
     const draft = this.draftGlobalInput();
     const name = draft.name.trim();
-    if (!flow || !name) return false;
-    return !(flow.data.globalInputs ?? []).some((input) => input.name.trim().toLowerCase() === name.toLowerCase());
+    if (!data || !name) return false;
+    return !(data.globalInputs ?? []).some((input) => input.name.trim().toLowerCase() === name.toLowerCase());
   }
 
   toggleLanes() {
@@ -279,15 +287,15 @@ export class TitleToolbar {
   }
 
   saveNewLane() {
-    const flow = this.flow();
-    if (!flow || this.readOnly()) return;
+    const data = this.activeData();
+    if (!data || this.readOnly()) return;
 
     const draft = this.draftLane();
     const name = draft.name.trim();
     if (!name || !this.canSaveDraftLane()) return;
 
     this.editorState.updateData({
-      ...flow.data,
+      ...data,
       lanes: [...this.lanes(), { ...draft, name }]
     });
     this.creatingLane.set(false);
@@ -299,19 +307,19 @@ export class TitleToolbar {
   }
 
   updateLane(index: number, patch: Partial<FlowLane>) {
-    const flow = this.flow();
-    if (!flow || this.readOnly()) return;
+    const data = this.activeData();
+    if (!data || this.readOnly()) return;
 
     const lanes = [...this.lanes()];
     if (!lanes[index]) return;
     lanes[index] = { ...lanes[index], ...patch };
 
-    this.editorState.updateData({ ...flow.data, lanes });
+    this.editorState.updateData({ ...data, lanes });
   }
 
   removeLane(index: number) {
-    const flow = this.flow();
-    if (!flow || this.readOnly()) return;
+    const data = this.activeData();
+    if (!data || this.readOnly()) return;
 
     const lanes = [...this.lanes()];
     const removed = lanes[index];
@@ -319,16 +327,16 @@ export class TitleToolbar {
     lanes.splice(index, 1);
 
     this.editorState.updateData({
-      ...flow.data,
+      ...data,
       lanes,
-      blocks: flow.data.blocks.map((block) => block.laneId === removed.id ? { ...block, laneId: null } : block),
-      containers: flow.data.containers.map((container) => container.laneId === removed.id ? { ...container, laneId: null } : container)
+      blocks: data.blocks.map((block) => block.laneId === removed.id ? { ...block, laneId: null } : block),
+      containers: data.containers.map((container) => container.laneId === removed.id ? { ...container, laneId: null } : container)
     });
   }
 
   moveLane(index: number, direction: -1 | 1) {
-    const flow = this.flow();
-    if (!flow || this.readOnly()) return;
+    const data = this.activeData();
+    if (!data || this.readOnly()) return;
 
     const lanes = [...this.lanes()];
     const targetIndex = index + direction;
@@ -337,7 +345,7 @@ export class TitleToolbar {
     [lanes[index], lanes[targetIndex]] = [lanes[targetIndex], lanes[index]];
     const reordered = lanes.map((lane, position) => ({ ...lane, order: position }));
 
-    this.editorState.updateData({ ...flow.data, lanes: reordered });
+    this.editorState.updateData({ ...data, lanes: reordered });
   }
 
   private shouldUseCompactGlobalInputsHelp(): boolean {
@@ -351,9 +359,19 @@ export class TitleToolbar {
     ).subscribe({
       next: (savedFlow) => {
         if ((savedFlow.validationErrors?.length ?? 0) > 0 && savedFlow.status === 'DRAFT') {
-          this.showSnackbar('Flow saved as draft with validation errors', 'error');
+          this.showSnackbar(
+            this.editingSubflow()
+              ? `Subflow saved in main flow "${savedFlow.name}" as draft with validation errors`
+              : 'Flow saved as draft with validation errors',
+            'error'
+          );
         } else {
-          this.showSnackbar('Flow saved', 'success');
+          this.showSnackbar(
+            this.editingSubflow()
+              ? `Subflow saved. Main flow "${savedFlow.name}" has also been saved`
+              : 'Flow saved',
+            'success'
+          );
         }
       },
       error: err => {
