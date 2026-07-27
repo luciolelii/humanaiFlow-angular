@@ -43,26 +43,6 @@
   }
   @if (!readonly()) {
   <div class="rete-editor-toolbar" [class.rete-editor-toolbar--with-lanes]="swimlanesEnabled && sortedLanes().length">
-    <section class="rete-editor-toolbar-group" aria-label="Editor mode controls">
-      <div class="rete-editor-toolbar-legend">Mode</div>
-      <button
-        type="button"
-        class="rete-editor-toolbar-btn"
-        [class.rete-editor-toolbar-btn-active]="!selectionModeActive"
-        (click)="setEditorMode('standard', $event)"
-        aria-label="Standard mode">
-        <i class="bi bi-cursor" aria-hidden="true"></i>
-      </button>
-      <button
-        type="button"
-        class="rete-editor-toolbar-btn"
-        [class.rete-editor-toolbar-btn-active]="selectionModeActive"
-        (click)="setEditorMode('select', $event)"
-        aria-label="Selection mode">
-        <i class="bi bi-bounding-box" aria-hidden="true"></i>
-      </button>
-    </section>
-
     <section class="rete-editor-toolbar-group" aria-label="Zoom controls">
       <div class="rete-editor-toolbar-legend">Zoom</div>
       <button
@@ -85,17 +65,6 @@
 
   <div class="h-full w-full rete-editor-canvas" #editor (dragover)="onDragOver($event)" (drop)="onDrop($event)">
   </div>
-
-  @if (hasSelectedBlocks) {
-  <div
-    class="rete-editor-selection-badge"
-    draggable="true"
-    (dragstart)="onSelectionDragStart($event)"
-    (dragend)="onSelectionDragEnd()">
-    Drag {{ selectedBlockCount }} selected {{ selectedBlockCount === 1 ? 'node' : 'nodes' }}
-  </div>
-  }
-
   @if (selectionBox(); as box) {
   <div
     class="rete-editor-selection-box"

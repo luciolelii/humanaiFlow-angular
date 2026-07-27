@@ -191,6 +191,48 @@ describe('EditorStateHolder', () => {
     });
   });
 
+  it('opens a nested subflow from the active editor context and requests the structure panel', async () => {
+    const nestedSubflow: FlowData = { blocks: [], containers: [], connections: [], dependencies: [] };
+    const parentSubflow: FlowData = {
+      blocks: [],
+      containers: [{
+        id: 'nested-container',
+        name: 'Nested container',
+        typeName: 'LoopContainer',
+        nodeFamily: 'container',
+        inputs: [],
+        outputs: [],
+        specificConfiguration: { subFlow: nestedSubflow }
+      }],
+      connections: [],
+      dependencies: []
+    };
+    const flow = makeFlow({
+      data: {
+        blocks: [],
+        containers: [{
+          id: 'container-1',
+          name: 'Container',
+          typeName: 'LoopContainer',
+          nodeFamily: 'container',
+          inputs: [],
+          outputs: [],
+          specificConfiguration: { subFlow: parentSubflow }
+        }],
+        connections: [],
+        dependencies: []
+      }
+    });
+
+    await service.openDocument(flow);
+    expect(service.openSubflow([{ containerId: 'container-1', configurationPath: 'subFlow' }])).toBe(true);
+
+    const previousRequest = service.structureNavigationRequest();
+    expect(service.openSubflowFromActiveContext('nested-container', 'subFlow')).toBe(true);
+    expect(service.activeSubflow()?.key).toBe('container-1:subFlow/nested-container:subFlow');
+    expect(service.structureNavigationRequest()).toBe(previousRequest + 1);
+  });
+
   it('saves annotations in the full flow payload and adopts server-generated ids', async () => {
     const flow = makeFlow({
       data: {

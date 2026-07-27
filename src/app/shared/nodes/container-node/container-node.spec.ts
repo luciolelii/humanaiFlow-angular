@@ -15,6 +15,7 @@ describe('ContainerNodeComponent', () => {
   let fixture: ComponentFixture<ContainerNodeComponent>;
   let fieldRetriever: FieldRetriever;
   let settingsDialog: NodeSettingsDialogService;
+  let editorState: EditorStateHolder;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
@@ -33,6 +34,7 @@ describe('ContainerNodeComponent', () => {
     component = fixture.componentInstance;
     fieldRetriever = TestBed.inject(FieldRetriever);
     settingsDialog = TestBed.inject(NodeSettingsDialogService);
+    editorState = TestBed.inject(EditorStateHolder);
   });
 
   it('keeps empty textarea fields visible when schema conditions enable them', () => {
@@ -141,6 +143,82 @@ describe('ContainerNodeComponent', () => {
       { label: 'OpenAI', value: 'OpenAI' },
       { label: 'Anthropic', value: 'Anthropic' }
     ]);
+  });
+
+  it('shows external flow import without subflow drag-and-drop copy', async () => {
+    component.data = {
+      data: {
+        id: 'container-1',
+        name: 'Container',
+        typeName: 'GenericContainer',
+        specificConfiguration: {
+          subFlow: {
+            blocks: [],
+            containers: [],
+            connections: [],
+            dependencies: []
+          }
+        },
+        inputs: [],
+        outputs: []
+      }
+    };
+
+    vi.spyOn(component as any, 'loadSchemaContext').mockResolvedValue(undefined);
+    (component as any).containerFlowFieldDefinitions = [{
+      path: 'subFlow',
+      label: 'Subflow',
+      retrieverBlockType: 'Flows',
+      retrieverKey: 'subFlow',
+      retrieverUrl: null,
+      retrieverStructuredData: true,
+      retrieverDependsOn: [],
+      validationUrl: null,
+      validationType: null,
+      requiresAuth: false,
+      ui: {}
+    }];
+
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.textContent).toContain('Import flow');
+    expect(host.textContent).toContain('Import from an existing flow');
+    expect(host.textContent).not.toContain('Drag a flow here');
+  });
+
+  it('opens the container subflow in the editor structure panel instead of a modal', () => {
+    component.data = {
+      data: {
+        id: 'container-1',
+        name: 'Container',
+        typeName: 'GenericContainer',
+        specificConfiguration: {},
+        inputs: [],
+        outputs: []
+      }
+    };
+    const openSpy = vi.spyOn(editorState, 'openSubflowFromActiveContext').mockReturnValue(true);
+
+    component.openSubflow({
+      path: 'subFlow',
+      label: 'Subflow',
+      flow: { blocks: [], containers: [], connections: [], dependencies: [] },
+      blockCount: 1,
+      importLoading: false,
+      retrieverBlockType: 'Flows',
+      retrieverKey: 'subFlow',
+      retrieverUrl: null,
+      retrieverStructuredData: true,
+      retrieverDependsOn: [],
+      validationUrl: null,
+      validationType: null,
+      requiresAuth: false,
+      ui: {}
+    });
+
+    expect(openSpy).toHaveBeenCalledWith('container-1', 'subFlow');
   });
 
   it('clears dependent retriever fields when the parent field changes', async () => {

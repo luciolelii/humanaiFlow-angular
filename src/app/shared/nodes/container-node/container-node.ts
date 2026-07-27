@@ -21,9 +21,7 @@ import { BlocksService } from '@services/blocks/blocks';
 import { FieldRetriever } from '@services/retriever/field-retriever';
 import { ClassicPreset } from 'rete';
 import { ReteModule } from 'rete-angular-plugin/21';
-import { SubflowPreviewDialogService } from '@services/dialogs/subflow-preview-dialog';
 import { EditorStateHolder } from '@stores/flow-editor';
-import { CONTAINER_SUBFLOW_DRAG_MIME } from './container-node-drag';
 import { NodeFocusModalController } from '../node-focus-modal-controller';
 import { BiasAnnotationsComponent } from '@shared/bias-annotations/bias-annotations';
 import { firstValueFrom } from 'rxjs';
@@ -82,7 +80,6 @@ type ContainerDisplaySection = SchemaDisplaySection<ContainerDisplayItem>;
 type ContainerFlowFieldView = SchemaFlowDataFieldDefinition & {
   flow: FlowData | null;
   blockCount: number;
-  replaceConfirmOpen: boolean;
   importLoading: boolean;
 };
 
@@ -101,7 +98,6 @@ export class ContainerNodeComponent implements OnDestroy {
   private cdr = inject(ChangeDetectorRef);
   private hostElement = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly focusModal = new NodeFocusModalController(this.hostElement, 'container-node-focus-placeholder');
-  private subflowPreview = inject(SubflowPreviewDialogService);
   private fieldRetriever = inject(FieldRetriever);
   private containersService = inject(ContainersService);
   private blocksService = inject(BlocksService);
@@ -112,7 +108,6 @@ export class ContainerNodeComponent implements OnDestroy {
   private containerFieldDefinitions: ContainerFieldDefinition[] = [];
   private containerFlowFieldDefinitions: SchemaFlowDataFieldDefinition[] = [];
   deleteConfirmOpen = false;
-  replaceConfirmSelection: { path: string; selection: string[] } | null = null;
   importLoadingPath: string | null = null;
   private importErrorMessage: string | null = null;
   parameterFields: ContainerFieldView[] = [];
@@ -290,10 +285,6 @@ export class ContainerNodeComponent implements OnDestroy {
     return !!this.dependencyInput || !!this.dependantOutput;
   }
 
-  get selectedCount() {
-    return this.editorState.selectedBlockIds().filter((id) => id !== this.blockId).length;
-  }
-
   get flowFields(): ContainerFlowFieldView[] {
     return this.resolveFlowFieldDefinitions().map((definition) => {
       const flow = this.flowAtPath(definition.path);
@@ -301,18 +292,9 @@ export class ContainerNodeComponent implements OnDestroy {
         ...definition,
         flow,
         blockCount: flowDataNodeCount(flow),
-        replaceConfirmOpen: this.replaceConfirmSelection?.path === definition.path,
         importLoading: this.importLoadingPath === definition.path
       };
     });
-  }
-
-  get replaceConfirmOpen() {
-    return !!this.replaceConfirmSelection?.selection.length;
-  }
-
-  get hasFlowDropzones() {
-    return this.flowFields.length > 0;
   }
 
   get assignmentErrorMessage() {
@@ -512,7 +494,7 @@ export class ContainerNodeComponent implements OnDestroy {
   async importSubflow(flowField: ContainerFlowFieldView, event?: Event) {
     event?.preventDefault();
     event?.stopPropagation();
-    if (this.isReadonly || this.importLoadingPath || this.replaceConfirmOpen) return;
+    if (this.isReadonly || this.importLoadingPath) return;
 
     this.importLoadingPath = flowField.path;
     this.importErrorMessage = null;
@@ -673,58 +655,6 @@ export class ContainerNodeComponent implements OnDestroy {
     await this.applyFieldValue(definition, currentValue !== true);
   }
 
-  onDropZoneDragOver(event: DragEvent, flowField: ContainerFlowFieldView) {
-    if (this.isReadonly) return;
-    if (!this.canAcceptSelectionDrop(flowField.path)) return;
-    event.preventDefault();
-    if (event.dataTransfer) {
-      event.dataTransfer.dropEffect = 'move';
-    }
-  }
-
-  onDropZoneDrop(event: DragEvent, flowField: ContainerFlowFieldView) {
-    if (this.isReadonly) return;
-    event.preventDefault();
-    event.stopPropagation();
-
-    const raw = event.dataTransfer?.getData(CONTAINER_SUBFLOW_DRAG_MIME);
-    const payload = this.parseDraggedSelection(raw);
-    if (!payload.length) return;
-
-    if (flowField.blockCount > 0) {
-      this.replaceConfirmSelection = { path: flowField.path, selection: payload };
-      this.editorState.stopDraggingSelectedBlocks();
-      return;
-    }
-
-    this.assignSelectionToContainer(flowField, payload);
-  }
-
-  onDropZoneDragLeave(_: DragEvent) {
-    if (this.isReadonly) return;
-    this.editorState.stopDraggingSelectedBlocks();
-  }
-
-  confirmReplaceSubflow(flowField: ContainerFlowFieldView, event?: Event) {
-    event?.preventDefault();
-    event?.stopPropagation();
-    if (this.isReadonly) return;
-
-    const payload = this.replaceConfirmSelection?.path === flowField.path
-      ? this.replaceConfirmSelection.selection
-      : null;
-    this.replaceConfirmSelection = null;
-    if (!payload?.length) return;
-
-    this.assignSelectionToContainer(flowField, payload);
-  }
-
-  cancelReplaceSubflow(event?: Event) {
-    event?.preventDefault();
-    event?.stopPropagation();
-    this.replaceConfirmSelection = null;
-  }
-
   deleteNode(event?: Event) {
     event?.preventDefault();
     event?.stopPropagation();
@@ -757,11 +687,12 @@ export class ContainerNodeComponent implements OnDestroy {
     }
   }
 
-  openSubflowPreview(flowField: ContainerFlowFieldView, event?: Event) {
+  openSubflow(flowField: ContainerFlowFieldView, event?: Event) {
     event?.preventDefault();
     event?.stopPropagation();
-    if (!flowField.flow) return;
-    this.subflowPreview.open(flowField.flow, `${this.name} ${flowField.label}`, this.name);
+    const containerId = this.blockId;
+    if (!containerId) return;
+    this.editorState.openSubflowFromActiveContext(containerId, flowField.path);
   }
 
   async openFieldPreview(field: ContainerFieldView, event?: Event) {
@@ -831,12 +762,6 @@ export class ContainerNodeComponent implements OnDestroy {
     return normalizeFlowDataValue(getValueByPath(this.configuration ?? {}, path));
   }
 
-  private canAcceptSelectionDrop(path: string) {
-    return !this.isAssigning
-      && (!this.replaceConfirmOpen || this.replaceConfirmSelection?.path === path)
-      && this.selectedCount > 0;
-  }
-
   private async openReadonlyTextDialog(label: string, value: string) {
     await this.settingsDialog.open({
       title: label,
@@ -854,28 +779,6 @@ export class ContainerNodeComponent implements OnDestroy {
         value
       }
     });
-  }
-
-  private assignSelectionToContainer(flowField: ContainerFlowFieldView, payload: string[]) {
-    this.importErrorMessage = null;
-    const assign = this.data?.data?.assignSelectedBlocksToContainer;
-    if (typeof assign !== 'function' || !payload.length) return;
-
-    void assign(payload, flowField.path, flowField.validationUrl);
-    this.editorState.stopDraggingSelectedBlocks();
-  }
-
-  private parseDraggedSelection(raw: string | undefined) {
-    if (!raw) return [];
-
-    try {
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed)
-        ? parsed.filter((value): value is string => typeof value === 'string' && value.length > 0)
-        : [];
-    } catch {
-      return [];
-    }
   }
 
   private resolvePortName(kind: 'input' | 'output', key: string) {

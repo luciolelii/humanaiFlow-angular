@@ -4,10 +4,9 @@ import { Drag } from 'rete-area-plugin';
 import { BlocksService } from '@services/blocks/blocks';
 import { ContainersService } from '@services/containers/containers';
 import { BLOCK_TYPE_DRAG_MIME } from '@shared/blocks-list/block-drag';
-import { CONTAINER_SUBFLOW_DRAG_MIME } from '@shared/nodes/container-node/container-node-drag';
 import { GraphSelectionService } from '@services/graph-selection/graph-selection';
 import { EditorStateHolder } from '@stores/flow-editor';
-import { addBlockToEditor, createEditor, exportGraph, isProgrammaticNodeTranslation, ReteEditorInstance, setEditorGlobalInputs, setEditorLanes } from '@utilities/rete-editor';
+import { addBlockToEditor, createEditor, exportGraph, isProgrammaticNodeTranslation, RETE_ZOOM_RANGE, ReteEditorInstance, setEditorGlobalInputs, setEditorLanes } from '@utilities/rete-editor';
 import { firstValueFrom } from 'rxjs';
 import { SWIMLANES_ENABLED } from '@shared/feature-flags';
 
@@ -118,26 +117,13 @@ export class ReteEditor implements OnChanges, OnDestroy {
     this.flowState.stopDraggingSelectedBlocks();
   }
 
-  get selectedBlockCount() {
-    return this.flowState.selectedBlockIds().length;
-  }
-
-  get hasSelectedBlocks() {
-    return !this.readonly() && this.selectedBlockCount > 0;
-  }
-
   get selectionModeActive() {
     return this.editorMode() === 'select';
   }
 
   onDragOver(event: DragEvent) {
     event.preventDefault();
-    if (event.dataTransfer) {
-      const dragTypes = Array.from(event.dataTransfer.types ?? []);
-      event.dataTransfer.dropEffect = dragTypes.includes(CONTAINER_SUBFLOW_DRAG_MIME)
-        ? 'move'
-        : 'copy';
-    }
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
   }
 
   async onDrop(event: DragEvent) {
@@ -246,24 +232,6 @@ export class ReteEditor implements OnChanges, OnDestroy {
     this.selectionBox.set(null);
   }
 
-  onSelectionDragStart(event: DragEvent) {
-    if (!event.dataTransfer) return;
-
-    const selectedBlockIds = this.flowState.selectedBlockIds();
-    if (!selectedBlockIds.length) {
-      event.preventDefault();
-      return;
-    }
-
-    this.flowState.startDraggingSelectedBlocks(selectedBlockIds);
-    event.dataTransfer.effectAllowed = 'move';
-    event.dataTransfer.setData(CONTAINER_SUBFLOW_DRAG_MIME, JSON.stringify(selectedBlockIds));
-  }
-
-  onSelectionDragEnd() {
-    this.flowState.stopDraggingSelectedBlocks();
-  }
-
   onShellClick(event: MouseEvent) {
     const target = event.target as Element | null;
     if (!target) {
@@ -275,8 +243,7 @@ export class ReteEditor implements OnChanges, OnDestroy {
       target.closest('[data-testid="connection"]') ||
       target.closest('.connection-delete') ||
       target.closest('[data-testid="node"]') ||
-      target.closest('.rete-editor-toolbar') ||
-      target.closest('.rete-editor-selection-badge')
+      target.closest('.rete-editor-toolbar')
     ) {
       return;
     }
@@ -717,7 +684,7 @@ export class ReteEditor implements OnChanges, OnDestroy {
     if (!area || !host) return;
 
     const currentZoom = area.transform.k || 1;
-    const nextZoom = Math.min(2.4, Math.max(0.35, currentZoom * multiplier));
+    const nextZoom = Math.min(RETE_ZOOM_RANGE.max, Math.max(RETE_ZOOM_RANGE.min, currentZoom * multiplier));
     if (Math.abs(nextZoom - currentZoom) < 0.001) return;
 
     await area.zoom(nextZoom, 0, 0);

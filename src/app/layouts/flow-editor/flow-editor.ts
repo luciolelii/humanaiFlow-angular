@@ -64,6 +64,7 @@ export class FlowEditor {
   activeEditorKey = this.editorState.activeEditorKey;
   subflows = this.editorState.availableSubflows;
   activeSubflowKey = computed(() => this.editorState.activeSubflow()?.key ?? null);
+  structureNavigationRequest = this.editorState.structureNavigationRequest;
   readonly = this.editorState.isCurrentFlowReadOnly;
   validationErrors = this.editorState.flowValidationErrors;
   validationErrorCount = computed(() => this.validationErrors().length);
@@ -198,6 +199,16 @@ export class FlowEditor {
       if (!this.subflows().length || this.structureAutoOpenedFlowId === flowId) return;
 
       this.structureAutoOpenedFlowId = flowId;
+      this.activeRightPanel.set('structure');
+      this.assistantOpen.set(true);
+      if (this.tourActive()) {
+        setTimeout(() => this.syncTourLayout());
+      }
+    });
+
+    effect(() => {
+      const request = this.structureNavigationRequest();
+      if (!request || !this.subflows().length) return;
       this.activeRightPanel.set('structure');
       this.assistantOpen.set(true);
       if (this.tourActive()) {

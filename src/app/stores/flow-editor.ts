@@ -27,6 +27,7 @@ export class EditorStateHolder {
   readonly highlightedValidationNodeIds = signal<string[]>([]);
   readonly validationRequiresSave = signal(false);
   readonly activeSubflow = signal<FlowSubflowEntry | null>(null);
+  readonly structureNavigationRequest = signal(0);
 
   /** Derived state */
   readonly hasFlow = computed(() => !!this.currentFlow());
@@ -168,6 +169,19 @@ export class EditorStateHolder {
     this.activeSubflow.set(entry);
     this.clearBlockSelection();
     return true;
+  }
+
+  openSubflowFromActiveContext(containerId: string, configurationPath: string): boolean {
+    if (!containerId || !configurationPath) return false;
+    const locator = [
+      ...(this.activeSubflow()?.locator ?? []),
+      { containerId, configurationPath }
+    ];
+    const opened = this.openSubflow(locator);
+    if (opened) {
+      this.structureNavigationRequest.update((value) => value + 1);
+    }
+    return opened;
   }
 
   setSelectedBlocks(blockIds: string[]) {

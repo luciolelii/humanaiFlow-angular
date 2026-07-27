@@ -3,6 +3,7 @@ import { BlocksService } from '@services/blocks/blocks';
 import { ContainersService } from '@services/containers/containers';
 import { GraphSelectionService } from '@services/graph-selection/graph-selection';
 import { EditorStateHolder } from '@stores/flow-editor';
+import { RETE_ZOOM_RANGE } from '@utilities/rete-editor';
 import { vi } from 'vitest';
 
 import { ReteEditor } from './rete-editor';
@@ -81,5 +82,27 @@ describe('ReteEditor', () => {
     expect(component.swimlanesEnabled).toBe(false);
     expect((fixture.nativeElement as HTMLElement).querySelector('.rete-lanes-layer')).toBeNull();
     expect((fixture.nativeElement as HTMLElement).querySelector('.rete-lane-headers')).toBeNull();
+  });
+
+  it('clamps toolbar zoom using the shared zoom range', async () => {
+    const zoom = vi.fn().mockResolvedValue(undefined);
+    (component as any).rete = {
+      area: {
+        area: {
+          transform: { x: 0, y: 0, k: RETE_ZOOM_RANGE.max },
+          zoom
+        }
+      }
+    };
+    (component as any).container = () => ({
+      nativeElement: document.createElement('div')
+    });
+
+    await (component as any).applyZoom(1.12);
+    expect(zoom).not.toHaveBeenCalled();
+
+    (component as any).rete.area.area.transform.k = RETE_ZOOM_RANGE.min;
+    await (component as any).applyZoom(1 / 1.12);
+    expect(zoom).not.toHaveBeenCalled();
   });
 });
