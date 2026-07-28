@@ -51,9 +51,10 @@ export class FlowEditor {
   private tourBootstrapped = false;
   private demoFlowId: string | null = null;
   private structureAutoOpenedFlowId: string | null = null;
+  private lastOpenedFlowId: string | null = null;
 
   assistantEnabled = environment.assistantEnabled;
-  assistantOpen = signal(true);
+  assistantOpen = signal(false);
   activeRightPanel = signal<'assistant' | 'errors' | 'structure'>('assistant');
   aiCreationRequested = signal(false);
   aiCreationMinimized = signal(false);
@@ -188,6 +189,19 @@ export class FlowEditor {
           this.activeRightPanel.set('assistant');
         }
       }
+    });
+
+    effect(() => {
+      const flowId = this.flow()?.id ?? null;
+      if (!flowId) {
+        this.lastOpenedFlowId = null;
+        this.assistantOpen.set(false);
+        return;
+      }
+      if (this.lastOpenedFlowId === flowId) return;
+
+      this.lastOpenedFlowId = flowId;
+      this.assistantOpen.set(false);
     });
 
     effect(() => {
