@@ -91,6 +91,7 @@ export class TasksExecutor {
 
   readonly selectedExecutionId = signal<string | null>(null);
   readonly requestedExecutionId = signal<string | null>(null);
+  readonly executionTreeOpen = signal(true);
 
   readonly selectedExecution = computed<TaskExecution | null>(() => {
     const selectedId = this.selectedExecutionId();
@@ -238,6 +239,10 @@ export class TasksExecutor {
 
   selectTreeExecution(selection: ExecutionTreeSelection) {
     this.manualTreeSelectionId.set(selection.executionId);
+  }
+
+  toggleExecutionTree() {
+    this.executionTreeOpen.update((open) => !open);
   }
 
   private resolveExecutionById(executionId: string | null): TaskExecution | null {

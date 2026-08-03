@@ -38,6 +38,50 @@ describe('TitleToolbar', () => {
     expect(component).toBeTruthy();
   });
 
+  it('hides parent metadata and global inputs while editing a subflow', async () => {
+    editorState.currentFlow.set({
+      ...makeFlow(),
+      description: 'Main flow description',
+      data: {
+        blocks: [],
+        containers: [{
+          id: 'container-1',
+          name: 'Container',
+          typeName: 'LoopContainer',
+          nodeFamily: 'container',
+          inputs: [],
+          outputs: [],
+          specificConfiguration: {
+            subFlow: {
+              blocks: [],
+              containers: [],
+              connections: [],
+              dependencies: [],
+              globalInputs: [{ name: 'topic', type: 'TEXT', multiple: false }],
+              lanes: []
+            }
+          }
+        }],
+        connections: [],
+        dependencies: [],
+        globalInputs: [{ name: 'rootInput', type: 'TEXT', multiple: false }],
+        lanes: []
+      }
+    });
+    editorState.openSubflow([{ containerId: 'container-1', configurationPath: 'subFlow' }]);
+
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.textContent).not.toContain('Description:');
+    expect(host.textContent).not.toContain('Global Inputs');
+    expect(host.textContent).not.toContain('Author:');
+    expect(host.textContent).not.toContain('Created:');
+    expect(host.textContent).not.toContain('Updated:');
+    expect(host.textContent).not.toContain('Main flow:');
+  });
+
   describe('lanes', () => {
     beforeEach(() => {
       editorState.currentFlow.set(makeFlow());

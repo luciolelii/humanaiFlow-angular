@@ -1,5 +1,7 @@
 :host {
-  display: block;
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 :host(.execution-tree-empty) {
@@ -8,22 +10,14 @@
 
 .execution-tree-shell {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
+  min-height: 0;
   max-height: 100%;
   overflow: hidden;
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
-}
-
-.execution-tree-title {
-  padding: 10px 12px;
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: #64748b;
-  border-bottom: 1px solid #e2e8f0;
 }
 
 .execution-tree-body {

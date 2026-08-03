@@ -1,7 +1,6 @@
 @if (rootExecution(); as root) {
 @if (hasContainerContent()) {
 <div class="execution-tree-shell">
-  <div class="execution-tree-title">Execution tree</div>
   <div class="execution-tree-body">
     <ng-container *ngTemplateOutlet="execNode; context: { $implicit: root, depth: 0 }"></ng-container>
   </div>

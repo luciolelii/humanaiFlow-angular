@@ -150,15 +150,20 @@
 }
 
 .execution-aside-tab {
+  flex: 0 0 auto;
   border: 0;
   border-bottom: 2px solid transparent;
   background: transparent;
   color: #64748b;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
-  padding: 9px 9px;
+  padding: 9px 6px;
   cursor: pointer;
   white-space: nowrap;
+}
+
+.execution-aside-tabs {
+  flex-wrap: nowrap;
 }
 
 .execution-aside-tab-active {

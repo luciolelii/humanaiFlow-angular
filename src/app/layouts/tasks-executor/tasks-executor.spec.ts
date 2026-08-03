@@ -105,6 +105,16 @@ describe('TasksExecutor', () => {
     expect(component).toBeTruthy();
   });
 
+  it('toggles the execution tree panel', () => {
+    expect(component.executionTreeOpen()).toBe(true);
+
+    component.toggleExecutionTree();
+    expect(component.executionTreeOpen()).toBe(false);
+
+    component.toggleExecutionTree();
+    expect(component.executionTreeOpen()).toBe(true);
+  });
+
   it('follows only container steps waiting for a child subflow', () => {
     const execution = {
       id: 'parent-1',

@@ -10,12 +10,25 @@
       </app-tasks-executions-list>
 
       @if (selectedExecution(); as run) {
-      <app-execution-tree
-        class="tasks-executor-rail-tree"
-        [rootExecution]="run"
-        [selectedExecutionId]="displayedExecution()?.id ?? null"
-        (executionSelected)="selectTreeExecution($event)">
-      </app-execution-tree>
+      <section class="tasks-executor-tree-panel" [class.tasks-executor-tree-panel-collapsed]="!executionTreeOpen()">
+        <button
+          type="button"
+          class="tasks-executor-tree-toggle"
+          [attr.aria-expanded]="executionTreeOpen()"
+          (click)="toggleExecutionTree()">
+          <span>Execution tree</span>
+          <span class="tasks-executor-tree-toggle-icon" [class.tasks-executor-tree-toggle-icon-open]="executionTreeOpen()">⌃</span>
+        </button>
+
+        @if (executionTreeOpen()) {
+        <app-execution-tree
+          class="tasks-executor-rail-tree"
+          [rootExecution]="run"
+          [selectedExecutionId]="displayedExecution()?.id ?? null"
+          (executionSelected)="selectTreeExecution($event)">
+        </app-execution-tree>
+        }
+      </section>
       }
     </div>
 

@@ -105,11 +105,8 @@
   </div>
 </div>
 
-@if (flow()) {
+@if (flow() && !editingSubflow()) {
 <div class="title-toolbar-meta">
-  @if (editingSubflow()) {
-  <span><span class="title-toolbar-meta-label">Main flow:</span> {{ flow()!.name }}</span>
-  }
   <span><span class="title-toolbar-meta-label">Author:</span> {{ flow()!.author }}</span>
   <span><span class="title-toolbar-meta-label">Created:</span> {{ flow()!.createdAt | date:'dd/MM/yyyy HH:mm' }}</span>
   <span><span class="title-toolbar-meta-label">Updated:</span> {{ flow()!.updatedAt | date:'dd/MM/yyyy HH:mm' }}</span>

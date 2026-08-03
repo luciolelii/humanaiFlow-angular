@@ -16,13 +16,58 @@
 }
 
 .tasks-executor-rail-list {
-  flex: 1 1 auto;
+  flex: 1 1 0;
   min-height: 0;
 }
 
-.tasks-executor-rail-tree {
+.tasks-executor-tree-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.tasks-executor-tree-panel-collapsed {
   flex: 0 0 auto;
-  max-height: 45%;
+  gap: 0;
+}
+
+.tasks-executor-tree-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #dbe2ea;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+}
+
+.tasks-executor-tree-toggle-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1;
+  transform: rotate(180deg);
+  transition: transform 0.15s ease;
+}
+
+.tasks-executor-tree-toggle-icon-open {
+  transform: rotate(0deg);
+}
+
+.tasks-executor-rail-tree {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .interactive-subflow-switcher {
