@@ -580,6 +580,8 @@
 
 .llm-pill {
   min-height: 32px;
+  width: 100%;
+  max-width: 100%;
   border-radius: 7px;
   border: 1px solid transparent;
   font-size: 11px;
@@ -589,14 +591,18 @@
   align-items: center;
   min-width: 0;
   overflow: hidden;
+  box-sizing: border-box;
 }
 
 .llm-pill-meta {
+  width: 100%;
+  max-width: 100%;
   min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 1px;
+  overflow: hidden;
 }
 
 .llm-pill-meta-output {
@@ -604,6 +610,9 @@
 }
 
 .llm-pill-name {
+  display: block;
+  width: 100%;
+  max-width: 100%;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -624,7 +633,7 @@
   background: #ecfdf3;
   border-color: #bbf7d0;
   gap: 4px;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .llm-node--human .llm-pill-input {

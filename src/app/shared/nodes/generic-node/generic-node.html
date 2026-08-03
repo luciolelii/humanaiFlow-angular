@@ -140,7 +140,7 @@
           }"
           [emit]="emit">
         </div>
-        <span class="llm-pill llm-pill-input">
+        <span class="llm-pill llm-pill-input" [title]="inputDisplayLabel(input.key)">
           <span class="llm-pill-meta">
             <span class="llm-pill-name">{{ inputDisplayLabel(input.key) }}</span>
             @if (!isReadonly && canTogglePortMultiplicity('input', input.key)) {
@@ -167,7 +167,7 @@
       <div class="llm-column-title llm-column-title-right">{{ outputsTitle() }}</div>
       @for (output of outputs; track output.key) {
       <div class="llm-row llm-row-output">
-        <span class="llm-pill llm-pill-output" [ngClass]="outputPillClass(output.key)">
+        <span class="llm-pill llm-pill-output" [ngClass]="outputPillClass(output.key)" [title]="outputDisplayLabel(output.key)">
           <span class="llm-pill-meta llm-pill-meta-output">
             <span class="llm-pill-name">{{ outputDisplayLabel(output.key) }}</span>
             @if (!isReadonly && canTogglePortMultiplicity('output', output.key)) {

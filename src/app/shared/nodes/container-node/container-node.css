@@ -440,6 +440,7 @@
   font-size: 12px;
   font-weight: 600;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 .container-node__port-label--input {
@@ -475,6 +476,13 @@
 }
 
 .container-node__port-context {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 9px;
   line-height: 1.1;
   font-weight: 700;
@@ -483,6 +491,13 @@
 }
 
 .container-node__port-name {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   line-height: 1.1;
 }
 

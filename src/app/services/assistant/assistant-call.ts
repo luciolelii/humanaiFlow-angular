@@ -203,12 +203,61 @@ function hasAssistantFlowData(flow: AssistantDraftPayload['flow']): boolean {
 function mapAssistantFlowData(raw: unknown): AssistantDraftPayload['flow'] {
   const value = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
   return {
-    blocks: Array.isArray(value['blocks']) ? (value['blocks'] as any[]) : [],
-    containers: Array.isArray(value['containers']) ? (value['containers'] as any[]) : [],
+    blocks: normalizeAssistantFlowNodes(value['blocks'], 'block'),
+    containers: normalizeAssistantFlowNodes(value['containers'], 'container'),
     connections: Array.isArray(value['connections']) ? (value['connections'] as any[]) : [],
     dependencies: Array.isArray(value['dependencies']) ? (value['dependencies'] as any[]) : [],
-    globalInputs: Array.isArray(value['globalInputs']) ? (value['globalInputs'] as any[]) : []
+    globalInputs: Array.isArray(value['globalInputs']) ? (value['globalInputs'] as any[]) : [],
+    lanes: Array.isArray(value['lanes']) ? (value['lanes'] as any[]) : []
   };
+}
+
+function normalizeAssistantFlowNodes(
+  raw: unknown,
+  nodeFamily: 'block'
+): AssistantDraftPayload['flow']['blocks'];
+function normalizeAssistantFlowNodes(
+  raw: unknown,
+  nodeFamily: 'container'
+): AssistantDraftPayload['flow']['containers'];
+function normalizeAssistantFlowNodes(
+  raw: unknown,
+  nodeFamily: 'block' | 'container'
+): AssistantDraftPayload['flow']['blocks'] | AssistantDraftPayload['flow']['containers'] {
+  if (!Array.isArray(raw)) return [];
+
+  return raw
+    .filter((node): node is Record<string, unknown> =>
+      !!node && typeof node === 'object' && !Array.isArray(node)
+    )
+    .map((node) => ({
+      ...node,
+      nodeFamily,
+      specificConfiguration: normalizeAssistantFlowValue(node['specificConfiguration'])
+    })) as AssistantDraftPayload['flow']['blocks'] | AssistantDraftPayload['flow']['containers'];
+}
+
+function normalizeAssistantFlowValue(raw: unknown): unknown {
+  if (Array.isArray(raw)) {
+    return raw.map((item) => normalizeAssistantFlowValue(item));
+  }
+  if (!raw || typeof raw !== 'object') return raw;
+
+  const value = raw as Record<string, unknown>;
+  if (isAssistantFlowData(value)) {
+    return mapAssistantFlowData(value);
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).map(([key, item]) => [key, normalizeAssistantFlowValue(item)])
+  );
+}
+
+function isAssistantFlowData(value: Record<string, unknown>): boolean {
+  return ['blocks', 'containers', 'connections'].every((key) =>
+    Object.prototype.hasOwnProperty.call(value, key)
+    && (value[key] == null || Array.isArray(value[key]))
+  );
 }
 
 function mapValidationIssues(raw: unknown): AssistantValidationIssue[] {

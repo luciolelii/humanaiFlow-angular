@@ -137,7 +137,7 @@
           }"
           [emit]="emit">
         </div>
-        <span class="container-node__port-label container-node__port-label--input">
+        <span class="container-node__port-label container-node__port-label--input" [title]="inputDisplayLabel(input.key)">
           @if (inputDisplayLabelParts(input.key).context; as context) {
           <span class="container-node__port-context">{{ context }}</span>
           }
@@ -152,7 +152,7 @@
       <div class="container-node__port-title">Outputs</div>
       @for (output of outputs; track output.key) {
       <div class="container-node__port-row container-node__port-row--right">
-        <span class="container-node__port-label container-node__port-label--output">
+        <span class="container-node__port-label container-node__port-label--output" [title]="outputDisplayLabel(output.key)">
           @if (outputDisplayLabelParts(output.key).context; as context) {
           <span class="container-node__port-context">{{ context }}</span>
           }

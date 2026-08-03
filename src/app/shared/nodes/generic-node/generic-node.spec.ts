@@ -153,6 +153,27 @@ describe('GenericNodeComponent', () => {
     expect(outputLabels).toEqual(['noAssessment', 'excluded', 'continued']);
   });
 
+  it('keeps long port labels available as tooltips', () => {
+    const longInput = 'input.with.a.very.long.descriptive.label.that.must.not.expand.the.node';
+    const longOutput = 'output.with.a.very.long.descriptive.label.that.must.not.expand.the.node';
+    fixture.componentRef.setInput('data', {
+      ...component.data,
+      inputs: { [longInput]: { socket: { name: 'TEXT' } } },
+      outputs: { [longOutput]: { socket: { name: 'TEXT' } } },
+      data: {
+        ...component.data.data,
+        inputs: [{ name: longInput, type: 'TEXT', multiple: false }],
+        outputs: [{ name: longOutput, type: 'TEXT', multiple: false }]
+      }
+    });
+
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.querySelector('.llm-row-input .llm-pill')?.getAttribute('title')).toBe(longInput);
+    expect(host.querySelector('.llm-row-output .llm-pill')?.getAttribute('title')).toBe(longOutput);
+  });
+
   it('keeps a flexible port kind-selectable after narrowing it once', () => {
     fixture.componentRef.setInput('data', {
       ...component.data,
