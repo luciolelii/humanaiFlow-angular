@@ -1,4 +1,4 @@
-import { Flow, FlowValidationError } from "@models/flow";
+import { Flow, FlowValidationError, GroupedFlowValidation, groupedFlowValidationFromErrors } from "@models/flow";
 import { FlowsCallServiceBase } from "./flows-call.base";
 import { defer, Observable, of } from "rxjs";
 import { Authorization } from "@services/authorization/authorization";
@@ -121,6 +121,10 @@ export class FlowsCallServiceFake extends FlowsCallServiceBase {
 
   override getFlowValidation(flowId: string): Observable<FlowValidationError[]> {
     return defer(() => of(this.requireFlow(flowId).validationErrors ?? []));
+  }
+
+  override getGroupedFlowValidation(flowId: string): Observable<GroupedFlowValidation> {
+    return defer(() => of(groupedFlowValidationFromErrors(this.requireFlow(flowId).validationErrors)));
   }
 }
 const testDataFlow ={

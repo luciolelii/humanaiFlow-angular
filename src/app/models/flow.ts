@@ -229,6 +229,14 @@ export type FlowValidationError = {
   relatedNodeIds?: string[];
 };
 
+export type GroupedFlowValidation = {
+  flowLevel: FlowValidationError[];
+  byContainer: Record<string, {
+    body: FlowValidationError[];
+    guard: FlowValidationError[];
+  }>;
+};
+
 export const FLOW_DEPENDANT_PORT_KEY = '__dependant';
 export const FLOW_DEPENDENCY_PORT_KEY = '__dependency';
 export const FLOW_DEPENDENCY_SOCKET_TYPE = '__FLOW_DEPENDENCY__';
@@ -246,6 +254,45 @@ export function normalizeFlowValidationErrors(raw: unknown): FlowValidationError
       message: String(item['message'] ?? item['error'] ?? 'Validation error'),
       relatedNodeIds: normalizeRelatedNodeIds(item)
     }));
+}
+
+export function normalizeGroupedFlowValidation(raw: unknown): GroupedFlowValidation {
+  const value = raw && typeof raw === 'object' && !Array.isArray(raw)
+    ? raw as Record<string, unknown>
+    : {};
+  const byContainerRaw = value['byContainer'];
+  const byContainer = byContainerRaw && typeof byContainerRaw === 'object' && !Array.isArray(byContainerRaw)
+    ? Object.fromEntries(
+      Object.entries(byContainerRaw as Record<string, unknown>).map(([containerId, grouped]) => {
+        const group = grouped && typeof grouped === 'object' && !Array.isArray(grouped)
+          ? grouped as Record<string, unknown>
+          : {};
+        return [containerId, {
+          body: normalizeFlowValidationErrors(group['body']),
+          guard: normalizeFlowValidationErrors(group['guard'])
+        }];
+      })
+    )
+    : {};
+
+  return {
+    flowLevel: normalizeFlowValidationErrors(value['flowLevel']),
+    byContainer
+  };
+}
+
+export function groupedFlowValidationFromErrors(errors: unknown): GroupedFlowValidation {
+  return {
+    flowLevel: normalizeFlowValidationErrors(errors),
+    byContainer: {}
+  };
+}
+
+export function flattenGroupedFlowValidation(validation: GroupedFlowValidation): FlowValidationError[] {
+  return [
+    ...validation.flowLevel,
+    ...Object.values(validation.byContainer).flatMap((group) => [...group.body, ...group.guard])
+  ];
 }
 
 function normalizeRelatedNodeIds(item: Record<string, unknown>): string[] {

@@ -160,6 +160,15 @@ export class FlowsService {
     );
   }
 
+  getGroupedFlowValidation(flowId: string) {
+    return this.flowsCallService.getGroupedFlowValidation(flowId).pipe(
+      catchError(err => {
+        console.error('Retrieve grouped flow validation failed', err);
+        return throwError(() => err);
+      })
+    );
+  }
+
   cloneFlow(flow: Pick<Flow, 'name' | 'description' | 'data' | 'status'>): Observable<Flow> {
     return this.createFlow({
       name: `${flow.name} (cloned)`,

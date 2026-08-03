@@ -1,7 +1,8 @@
 import { TestBed } from '@angular/core/testing';
 import { Authorization } from '@services/authorization/authorization';
 import { ConfirmDialogService } from '@services/dialogs/confirm-dialog';
-import { Flow, FlowData } from '@models/flow';
+import { FlowsService } from '@services/flows/flows';
+import { Flow, FlowData, GroupedFlowValidation } from '@models/flow';
 import { of } from 'rxjs';
 import { vi } from 'vitest';
 import { EditorStateHolder } from './flow-editor';
@@ -25,7 +26,7 @@ describe('EditorStateHolder', () => {
   let service: EditorStateHolder;
   let confirmSpy: { open: ReturnType<typeof vi.fn> };
   let authSpy: { loggedInUser: ReturnType<typeof vi.fn> };
-  let flowsServiceSpy: { getFlowValidation: ReturnType<typeof vi.fn>; updateFlow: ReturnType<typeof vi.fn> };
+  let flowsServiceSpy: { getGroupedFlowValidation: ReturnType<typeof vi.fn>; updateFlow: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
     confirmSpy = {
@@ -35,7 +36,7 @@ describe('EditorStateHolder', () => {
       loggedInUser: vi.fn().mockReturnValue({ username: 'testuser', email: null, role: 'USER' })
     };
     flowsServiceSpy = {
-      getFlowValidation: vi.fn(),
+      getGroupedFlowValidation: vi.fn(),
       updateFlow: vi.fn()
     };
 
@@ -43,12 +44,13 @@ describe('EditorStateHolder', () => {
       providers: [
         EditorStateHolder,
         { provide: ConfirmDialogService, useValue: confirmSpy },
-        { provide: Authorization, useValue: authSpy }
+        { provide: Authorization, useValue: authSpy },
+        { provide: FlowsService, useValue: flowsServiceSpy }
       ]
     });
     service = TestBed.inject(EditorStateHolder);
     service.flowsService = flowsServiceSpy as any;
-    flowsServiceSpy.getFlowValidation.mockReturnValue(of([]));
+    flowsServiceSpy.getGroupedFlowValidation.mockReturnValue(of({ flowLevel: [], byContainer: {} }));
   });
 
   it('should be created', () => {
@@ -117,7 +119,7 @@ describe('EditorStateHolder', () => {
 
       await service.openDocument(flow);
 
-      expect(flowsServiceSpy.getFlowValidation).not.toHaveBeenCalled();
+      expect(flowsServiceSpy.getGroupedFlowValidation).not.toHaveBeenCalled();
     });
   });
 
@@ -231,6 +233,47 @@ describe('EditorStateHolder', () => {
     expect(service.openSubflowFromActiveContext('nested-container', 'subFlow')).toBe(true);
     expect(service.activeSubflow()?.key).toBe('container-1:subFlow/nested-container:subFlow');
     expect(service.structureNavigationRequest()).toBe(previousRequest + 1);
+  });
+
+  it('shows only the active subflow validation errors', async () => {
+    const validation: GroupedFlowValidation = {
+      flowLevel: [{ message: 'Root flow error', code: 'ROOT' }],
+      byContainer: {
+        'container-1': {
+          body: [{ message: 'Body error', code: 'BODY' }],
+          guard: [{ message: 'Guard error', code: 'GUARD' }]
+        }
+      }
+    };
+    flowsServiceSpy.getGroupedFlowValidation.mockReturnValue(of(validation));
+    const flow = makeFlow({
+      data: {
+        blocks: [],
+        containers: [{
+          id: 'container-1',
+          name: 'Loop',
+          typeName: 'LoopContainer',
+          nodeFamily: 'container',
+          inputs: [],
+          outputs: [],
+          specificConfiguration: {
+            subFlow: { blocks: [], containers: [], connections: [], dependencies: [] },
+            guardSubFlow: { blocks: [], containers: [], connections: [], dependencies: [] }
+          }
+        }],
+        connections: [],
+        dependencies: []
+      }
+    });
+
+    await service.openDocument(flow);
+    expect(service.flowValidationErrors().map((error) => error.message)).toEqual(['Root flow error']);
+
+    expect(service.openSubflow([{ containerId: 'container-1', configurationPath: 'subFlow' }])).toBe(true);
+    expect(service.flowValidationErrors().map((error) => error.message)).toEqual(['Body error']);
+
+    expect(service.openSubflow([{ containerId: 'container-1', configurationPath: 'guardSubFlow' }])).toBe(true);
+    expect(service.flowValidationErrors().map((error) => error.message)).toEqual(['Guard error']);
   });
 
   it('saves annotations in the full flow payload and adopts server-generated ids', async () => {

@@ -1,5 +1,13 @@
 import { computed, inject, Injectable, signal } from '@angular/core';
-import { Flow, FlowData, FlowValidationError, normalizeFlowValidationErrors } from '@models/flow';
+import {
+  Flow,
+  FlowData,
+  FlowValidationError,
+  GroupedFlowValidation,
+  flattenGroupedFlowValidation,
+  groupedFlowValidationFromErrors,
+  normalizeFlowValidationErrors
+} from '@models/flow';
 import { Authorization } from '@services/authorization/authorization';
 import { ConfirmDialogService } from '@services/dialogs/confirm-dialog';
 import { FlowsService } from '@services/flows/flows';
@@ -23,7 +31,23 @@ export class EditorStateHolder {
   readonly isDirty = signal(false);
   readonly selectedBlockIds = signal<string[]>([]);
   readonly draggingSelectedBlockIds = signal<string[]>([]);
-  readonly flowValidationErrors = signal<FlowValidationError[]>([]);
+  private readonly groupedFlowValidation = signal<GroupedFlowValidation>(emptyGroupedFlowValidation());
+  private readonly localFlowValidationErrors = signal<FlowValidationError[]>([]);
+  readonly flowValidationErrors = computed(() => {
+    const validation = this.groupedFlowValidation();
+    const activeSubflow = this.activeSubflow();
+    if (!activeSubflow) {
+      return [...validation.flowLevel, ...this.localFlowValidationErrors()];
+    }
+
+    const activeStep = activeSubflow.locator.at(-1);
+    if (!activeStep) return [];
+    const containerErrors = validation.byContainer[activeStep.containerId];
+    if (!containerErrors) return [];
+    return isGuardSubflow(activeStep.configurationPath)
+      ? containerErrors.guard
+      : containerErrors.body;
+  });
   readonly highlightedValidationNodeIds = signal<string[]>([]);
   readonly validationRequiresSave = signal(false);
   readonly activeSubflow = signal<FlowSubflowEntry | null>(null);
@@ -77,7 +101,7 @@ export class EditorStateHolder {
     this.activeSubflow.set(null);
     this.isDirty.set(false);
     this.validationRequiresSave.set(false);
-    this.applyFlowValidationErrors(doc.validationErrors ?? [], doc);
+    this.applyGroupedFlowValidation(groupedFlowValidationFromErrors(doc.validationErrors), doc);
     this.ensureValidationForFlow(doc);
     this.clearBlockSelection();
     return true;
@@ -99,7 +123,7 @@ export class EditorStateHolder {
     this.activeSubflow.set(null);
     this.isDirty.set(false);
     this.validationRequiresSave.set(false);
-    this.applyFlowValidationErrors([], null);
+    this.applyGroupedFlowValidation(emptyGroupedFlowValidation(), null);
     this.lastValidationFetchKey = null;
     this.clearBlockSelection();
   }
@@ -110,7 +134,7 @@ export class EditorStateHolder {
     this.activeSubflow.set(null);
     this.isDirty.set(options?.markDirty === true);
     this.validationRequiresSave.set(options?.markDirty === true);
-    this.applyFlowValidationErrors(flow.validationErrors ?? [], flow);
+    this.applyGroupedFlowValidation(groupedFlowValidationFromErrors(flow.validationErrors), flow);
     this.ensureValidationForFlow(flow);
     this.clearBlockSelection();
   }
@@ -132,7 +156,7 @@ export class EditorStateHolder {
     const nextFlow = { ...current, data: rootData };
     this.currentFlow.set(nextFlow);
     this.markDirty();
-    this.applyFlowValidationErrors(current.validationErrors ?? [], nextFlow);
+    this.refreshValidationPresentation(nextFlow);
     if (options?.structural !== false) {
       this.validationRequiresSave.set(true);
     }
@@ -151,12 +175,15 @@ export class EditorStateHolder {
       ? replaceFlowSubflow(current.data, active.locator, data)
       : data;
     if (!rootData) return;
-    this.currentFlow.set({ ...current, data: rootData });
+    const nextFlow = { ...current, data: rootData };
+    this.currentFlow.set(nextFlow);
+    this.refreshValidationPresentation(nextFlow);
   }
 
   openRootFlow() {
     if (!this.currentFlow() || !this.activeSubflow()) return;
     this.activeSubflow.set(null);
+    this.setHighlightedValidationNodes([]);
     this.clearBlockSelection();
   }
 
@@ -167,6 +194,7 @@ export class EditorStateHolder {
     const entry = this.availableSubflows().find((candidate) => candidate.key === key);
     if (!entry) return false;
     this.activeSubflow.set(entry);
+    this.setHighlightedValidationNodes([]);
     this.clearBlockSelection();
     return true;
   }
@@ -239,11 +267,12 @@ export class EditorStateHolder {
     return save$.pipe(
       switchMap((savedFlow) => {
         const validation$ = savedFlow.status !== 'EXECUTABLE'
-          ? this.flowsService.getFlowValidation(savedFlow.id)
-          : of([]);
+          ? this.flowsService.getGroupedFlowValidation(savedFlow.id)
+          : of(emptyGroupedFlowValidation());
 
         return validation$.pipe(
-          tap((validationErrors) => {
+          tap((validation) => {
+            const validationErrors = flattenGroupedFlowValidation(validation);
             const nextFlow = {
               ...savedFlow,
               validationErrors
@@ -254,18 +283,18 @@ export class EditorStateHolder {
               this.activeSubflow.set(null);
             }
             this.lastValidationFetchKey = this.validationFetchKey(nextFlow);
-            this.applyFlowValidationErrors(validationErrors, nextFlow);
+            this.applyGroupedFlowValidation(validation, nextFlow);
             this.markSaved();
             this.validationRequiresSave.set(false);
           }),
           switchMap(() => of({
             ...savedFlow,
-            validationErrors: this.flowValidationErrors()
+            validationErrors: this.currentFlow()?.validationErrors ?? []
           }))
         );
       }),
       catchError((error) => {
-        this.applyFlowValidationErrors(this.extractValidationErrors(error), this.currentFlow());
+        this.applyGroupedFlowValidation(groupedFlowValidationFromErrors(this.extractValidationErrors(error)), this.currentFlow());
         return throwError(() => error);
       })
     )
@@ -285,13 +314,16 @@ export class EditorStateHolder {
     return JSON.stringify(left) === JSON.stringify(right);
   }
 
-  private applyFlowValidationErrors(errors: FlowValidationError[], flow?: Flow | null) {
-    const normalized = Array.isArray(errors) ? errors : [];
-    const derived = flow ? this.deriveGlobalInputReferenceErrors(flow) : [];
-    const merged = [...normalized, ...derived];
-    this.flowValidationErrors.set(merged);
+  private applyGroupedFlowValidation(validation: GroupedFlowValidation, flow?: Flow | null) {
+    this.groupedFlowValidation.set(validation);
+    this.refreshValidationPresentation(flow);
+  }
+
+  private refreshValidationPresentation(flow?: Flow | null) {
+    this.localFlowValidationErrors.set(flow ? this.deriveGlobalInputReferenceErrors(flow) : []);
+    const errors = this.flowValidationErrors();
     this.highlightedValidationNodeIds.set(Array.from(new Set(
-      merged.flatMap((error) => Array.isArray(error.relatedNodeIds) ? error.relatedNodeIds : [])
+      errors.flatMap((error) => Array.isArray(error.relatedNodeIds) ? error.relatedNodeIds : [])
     )));
   }
 
@@ -309,13 +341,13 @@ export class EditorStateHolder {
     if (!flow) return;
     if (flow.id.startsWith(EditorStateHolder.ASSISTANT_DRAFT_PREFIX)) {
       this.lastValidationFetchKey = this.validationFetchKey(flow);
-      this.applyFlowValidationErrors(flow.validationErrors ?? [], flow);
+      this.applyGroupedFlowValidation(groupedFlowValidationFromErrors(flow.validationErrors), flow);
       return;
     }
 
     if (flow.status === 'EXECUTABLE') {
       this.lastValidationFetchKey = this.validationFetchKey(flow);
-      this.applyFlowValidationErrors(flow.validationErrors ?? [], flow);
+      this.applyGroupedFlowValidation(groupedFlowValidationFromErrors(flow.validationErrors), flow);
       return;
     }
 
@@ -323,15 +355,16 @@ export class EditorStateHolder {
     if (this.lastValidationFetchKey === fetchKey) return;
     this.lastValidationFetchKey = fetchKey;
 
-    this.flowsService.getFlowValidation(flow.id).pipe(take(1)).subscribe({
-      next: (validationErrors) => {
+    this.flowsService.getGroupedFlowValidation(flow.id).pipe(take(1)).subscribe({
+      next: (validation) => {
         const current = this.currentFlow();
         if (!current || current.id !== flow.id) return;
+        const validationErrors = flattenGroupedFlowValidation(validation);
         this.currentFlow.set({
           ...current,
           validationErrors
         });
-        this.applyFlowValidationErrors(validationErrors, {
+        this.applyGroupedFlowValidation(validation, {
           ...current,
           validationErrors
         });
@@ -416,4 +449,12 @@ function extractReferencedGlobalNames(content: string): string[] {
   }
 
   return Array.from(names);
+}
+
+function emptyGroupedFlowValidation(): GroupedFlowValidation {
+  return { flowLevel: [], byContainer: {} };
+}
+
+function isGuardSubflow(configurationPath: string): boolean {
+  return configurationPath.split('.').at(-1)?.toLowerCase().includes('guard') ?? false;
 }

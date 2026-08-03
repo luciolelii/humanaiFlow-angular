@@ -29,6 +29,7 @@ describe('FlowsService', () => {
     updatePublished: ReturnType<typeof vi.fn>;
     finalizeFlow: ReturnType<typeof vi.fn>;
     getFlowValidation: ReturnType<typeof vi.fn>;
+    getGroupedFlowValidation: ReturnType<typeof vi.fn>;
     getFlowById: ReturnType<typeof vi.fn>;
     createNewFlow: ReturnType<typeof vi.fn>;
   };
@@ -42,6 +43,7 @@ describe('FlowsService', () => {
       updatePublished: vi.fn(),
       finalizeFlow: vi.fn(),
       getFlowValidation: vi.fn(),
+      getGroupedFlowValidation: vi.fn(),
       getFlowById: vi.fn(),
       createNewFlow: vi.fn()
     };
