@@ -27,7 +27,7 @@ function node(
 function step(flowNode: FlowNode): TaskExecutionStep {
   return {
     id: flowNode.id,
-    node: { ...flowNode, position: undefined, biasAnnotations: undefined },
+    node: { ...flowNode, position: undefined, biasAnnotations: undefined } as any,
     inputs: [],
     outputs: [],
     status: 'READY',
@@ -82,7 +82,7 @@ describe('execution graph topology', () => {
     const merged = mergeExecutionStepNode(steps[0], sourceFlow);
 
     expect(merged?.position).toEqual({ x: 100, y: 200 });
-    expect(merged?.biasAnnotations).toEqual([{ id: 'bias-1', category: 'SELECTION_BIAS' }]);
+    expect((merged as any)?.biasAnnotations).toEqual([{ id: 'bias-1', category: 'SELECTION_BIAS' }]);
     expect(merged?.outputs.map((port) => port.name)).toEqual(['left', 'right']);
   });
 

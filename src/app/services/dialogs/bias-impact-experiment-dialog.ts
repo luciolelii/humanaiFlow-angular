@@ -17,7 +17,7 @@ export class BiasImpactExperimentDialogService {
   readonly state = this._state.asReadonly();
 
   open(input: BiasImpactExperimentDialogInput) {
-    const annotations = input.annotations.filter((annotation) => isProbeExecutable(annotation.behavioralProbe));
+    const annotations = input.annotations.filter((annotation) => isProbeExecutable(annotation.biasProbe) || isProbeExecutable(annotation.mitigationProbe));
     if (!annotations.length) return;
     this._state.set({ ...input, annotations });
   }

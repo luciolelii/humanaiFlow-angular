@@ -42,6 +42,7 @@ describe('TaskExecutionsService bias operations', () => {
 
     await expect(lastValueFrom(service.runBiasImpactExperiment('execution-1', 'step-1', {
       annotationIds: ['annotation-1'],
+      direction: 'BIAS',
       repetitions: 3,
       includeRawOutputs: true,
       externalSideEffectPolicy: 'BLOCK',

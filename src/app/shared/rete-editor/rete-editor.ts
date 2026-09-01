@@ -111,7 +111,7 @@ export class ReteEditor implements OnChanges, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.rete?.area.destroy();
+    this.rete?.area?.destroy?.();
     this.rete = undefined;
     this.graphSelection.clearConnectionSelection();
     this.flowState.stopDraggingSelectedBlocks();
@@ -492,7 +492,7 @@ export class ReteEditor implements OnChanges, OnDestroy {
       inputs: currentNode.inputs,
       outputs: currentNode.outputs,
       specificConfiguration: currentNode.specificConfiguration,
-      biasAnnotations: currentNode.biasAnnotations,
+      ...(currentNode.nodeFamily === 'container' ? {} : { biasAnnotations: currentNode.biasAnnotations }),
       typeName: currentNode.typeName,
       userInteractive: currentNode['userInteractive'],
       nodeFamily: currentNode.nodeFamily,
@@ -505,7 +505,7 @@ export class ReteEditor implements OnChanges, OnDestroy {
       inputs: nextNode.inputs,
       outputs: nextNode.outputs,
       specificConfiguration: nextNode.specificConfiguration,
-      biasAnnotations: nextNode.biasAnnotations,
+      ...(nextNode.nodeFamily === 'container' ? {} : { biasAnnotations: nextNode.biasAnnotations }),
       typeName: nextNode.typeName,
       userInteractive: nextNode['userInteractive'],
       nodeFamily: nextNode.nodeFamily,

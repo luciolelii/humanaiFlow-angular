@@ -22,6 +22,9 @@
     </div>
 
     @if (listError(); as error) { <div class="bias-error">{{ error }}</div> }
+    @if (unsupportedLegacyFormat) {
+      <div class="bias-error">This flow uses an unsupported bias format. Migrate the legacy probe to Bias probe or Mitigation probe before saving.</div>
+    }
     @if (!annotations.length) {
       <div class="bias-empty">No bias annotations.</div>
     } @else {
@@ -46,15 +49,25 @@
             }
           </dl>
           }
-          @if (probeDetailFields(annotation.behavioralProbe).length) {
+          @if (probeDetailFields(annotation.biasProbe).length) {
           <div class="bias-probe-details">
-            <div class="bias-probe-title">Behavioral probe</div>
+            <div class="bias-probe-title">Bias probe — comportamento da misurare</div>
             <dl class="bias-details">
-              @for (field of probeDetailFields(annotation.behavioralProbe); track field.label) {
+              @for (field of probeDetailFields(annotation.biasProbe); track field.label) {
               <div>
                 <dt>{{ field.label }}</dt>
                 <dd>{{ field.value }}</dd>
               </div>
+              }
+            </dl>
+          </div>
+          }
+          @if (probeDetailFields(annotation.mitigationProbe).length) {
+          <div class="bias-probe-details">
+            <div class="bias-probe-title">Mitigation probe — correzione da applicare</div>
+            <dl class="bias-details">
+              @for (field of probeDetailFields(annotation.mitigationProbe); track field.label) {
+              <div><dt>{{ field.label }}</dt><dd>{{ field.value }}</dd></div>
               }
             </dl>
           </div>
@@ -104,15 +117,18 @@
         @if (clientErrors[field.key]; as error) { <em>{{ error }}</em> }
       </label>
       }
-      <app-behavioral-probe-editor
-        [block]="block"
-        [probe]="draft.behavioralProbe"
-        [readonly]="readonly"
-        (probeChange)="updateProbe($event)" />
+      <details class="bias-probe-editor-section" open>
+        <summary>Bias probe — comportamento da misurare</summary>
+        <app-behavioral-probe-editor [block]="block" [probe]="draft.biasProbe" [readonly]="readonly" (probeChange)="updateProbe('biasProbe', $event)" />
+      </details>
+      <details class="bias-probe-editor-section">
+        <summary>Mitigation probe — correzione da applicare</summary>
+        <app-behavioral-probe-editor [block]="block" [probe]="draft.mitigationProbe" [readonly]="readonly" (probeChange)="updateProbe('mitigationProbe', $event)" />
+      </details>
     </div>
     <div class="bias-modal-actions">
       <button type="button" (click)="close($event)">Cancel</button>
-      <button type="submit" class="primary">Save</button>
+      <button type="submit" class="primary" [disabled]="draftUsesUnsupportedLegacyFormat">Save</button>
     </div>
   </form>
 </dialog>

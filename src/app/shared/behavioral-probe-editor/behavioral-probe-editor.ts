@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, Input, OnChanges, Output, EventEmitter, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { BiasCapabilities } from '@models/bias-impact';
-import { BehavioralProbe, BiasActivationMode, FlowBlock, FlowContainer, FlowNode, FlowPort } from '@models/flow';
+import { BiasBehavioralProbe, BiasActivationMode, FlowBlock, FlowContainer, FlowNode, FlowPort } from '@models/flow';
 import { BlocksService } from '@services/blocks/blocks';
 import { ContainersService } from '@services/containers/containers';
 import { Observable, take } from 'rxjs';
@@ -22,9 +22,9 @@ export class BehavioralProbeEditorComponent implements OnChanges {
   private capabilityKey: string | null = null;
 
   @Input() block: FlowNode | null = null;
-  @Input() probe: BehavioralProbe | undefined;
+  @Input() probe: BiasBehavioralProbe | undefined;
   @Input() readonly = false;
-  @Output() probeChange = new EventEmitter<BehavioralProbe | undefined>();
+  @Output() probeChange = new EventEmitter<BiasBehavioralProbe | undefined>();
 
   capabilities: BiasCapabilities | null = null;
   loadingCapabilities = false;
@@ -44,7 +44,7 @@ export class BehavioralProbeEditorComponent implements OnChanges {
     return this.capabilities?.supported !== false;
   }
 
-  get currentProbe(): BehavioralProbe {
+  get currentProbe(): BiasBehavioralProbe {
     return this.probe ?? {};
   }
 
@@ -72,7 +72,6 @@ export class BehavioralProbeEditorComponent implements OnChanges {
       this.emit({
         ...this.currentProbe,
         activationMode,
-        instruction: undefined,
         targetInputs: [],
         mockOutputs: this.normalizedMockOutputs(this.currentProbe.mockOutputs)
       });
@@ -82,7 +81,6 @@ export class BehavioralProbeEditorComponent implements OnChanges {
     this.emit({
       ...this.currentProbe,
       activationMode,
-      mockOutputs: undefined
     });
   }
 
@@ -225,7 +223,7 @@ export class BehavioralProbeEditorComponent implements OnChanges {
     }
   }
 
-  private emit(probe: BehavioralProbe) {
+  private emit(probe: BiasBehavioralProbe) {
     this.probeChange.emit(probe);
   }
 }

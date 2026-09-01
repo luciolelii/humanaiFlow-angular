@@ -5,7 +5,7 @@ import {
   BiasAnnotation,
   BiasAnnotationOption,
   BiasAnnotationsDescriptor,
-  BehavioralProbe,
+  BiasBehavioralProbe,
   FlowNode,
   FlowValidationError,
   isProbeExecutable
@@ -61,6 +61,16 @@ export class BiasAnnotationsComponent {
   editingIndex: number | null = null;
   draft: BiasAnnotation = {};
   clientErrors: Record<string, string> = {};
+
+  get unsupportedLegacyFormat(): boolean {
+    const legacyField = ['behavioral', 'Probe'].join('');
+    return this.annotations.some((annotation) => Object.prototype.hasOwnProperty.call(annotation, legacyField));
+  }
+
+  get draftUsesUnsupportedLegacyFormat(): boolean {
+    const legacyField = ['behavioral', 'Probe'].join('');
+    return Object.prototype.hasOwnProperty.call(this.draft, legacyField);
+  }
 
   /**
    * Both dialogs render inside a node card, which rete.js positions with a CSS
@@ -138,7 +148,7 @@ export class BiasAnnotationsComponent {
 
     return Object.entries(properties)
       .filter(([key]) => !generated.has(key))
-      .filter(([key]) => key !== 'behavioralProbe')
+      .filter(([key]) => key !== 'biasProbe' && key !== 'mitigationProbe')
       .map(([key, raw]) => {
         const field = this.record(raw);
         const maxLength = Number(field['maxLength']);
@@ -230,11 +240,11 @@ export class BiasAnnotationsComponent {
   }
 
   probeExecutable(annotation: BiasAnnotation): boolean {
-    return isProbeExecutable(annotation.behavioralProbe);
+    return isProbeExecutable(annotation.biasProbe) || isProbeExecutable(annotation.mitigationProbe);
   }
 
   annotationDetailFields(annotation: BiasAnnotation): BiasDetailField[] {
-    const summaryFields = new Set(['category', 'severity', 'status', 'source', 'issue', 'behavioralProbe']);
+    const summaryFields = new Set(['category', 'severity', 'status', 'source', 'issue', 'biasProbe', 'mitigationProbe']);
     return this.fields.flatMap((field) => {
       if (summaryFields.has(field.key)) return [];
       const value = this.displayValue(annotation[field.key]);
@@ -242,7 +252,7 @@ export class BiasAnnotationsComponent {
     });
   }
 
-  probeDetailFields(probe: BehavioralProbe | null | undefined): BiasDetailField[] {
+  probeDetailFields(probe: BiasBehavioralProbe | null | undefined): BiasDetailField[] {
     if (!probe) return [];
     return [
       { label: 'Activation mode', value: this.displayValue(probe.activationMode) },
@@ -253,8 +263,8 @@ export class BiasAnnotationsComponent {
     ].filter((field) => field.value.length > 0);
   }
 
-  updateProbe(probe: BehavioralProbe | undefined) {
-    this.draft = { ...this.draft, behavioralProbe: probe };
+  updateProbe(kind: 'biasProbe' | 'mitigationProbe', probe: BiasBehavioralProbe | undefined) {
+    this.draft = { ...this.draft, [kind]: probe };
   }
 
   valueLength(field: string): number {

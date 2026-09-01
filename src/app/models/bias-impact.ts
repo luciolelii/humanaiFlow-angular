@@ -1,5 +1,7 @@
 import { BiasActivationMode } from './flow';
 
+export type BiasInterventionDirection = 'BIAS' | 'MITIGATION' | 'BOTH';
+
 export type BiasCapabilities = {
   blockType: string;
   supported: boolean;
@@ -14,6 +16,7 @@ export type ExternalSideEffectPolicy = 'BLOCK' | 'MOCK' | 'REQUIRE_CONFIRMATION'
 
 export type BiasImpactExperimentRequest = {
   annotationIds: string[];
+  direction: BiasInterventionDirection;
   repetitions: number;
   includeRawOutputs: boolean;
   externalSideEffectPolicy: ExternalSideEffectPolicy;
@@ -23,7 +26,8 @@ export type BiasImpactExperimentRequest = {
 export type BiasRerunActivation = {
   nodeId: string;
   annotationIds: string[];
-  includeSubflow?: boolean;
+  includeSubflow: boolean;
+  direction: BiasInterventionDirection;
 };
 
 export type BiasRerunRequest = {
@@ -40,6 +44,12 @@ export type BiasExecutionContext = {
   activeAnnotationIdsByNode: Record<string, string[]>;
   externalSideEffectPolicy: ExternalSideEffectPolicy;
   externalSideEffectsConfirmed: boolean;
+  activeBiasProbes?: Array<{
+    annotationId: string;
+    direction: 'BIAS' | 'MITIGATION';
+    activationMode: BiasActivationMode;
+    instruction?: string;
+  }>;
 };
 
 export type BiasImpactJobStatus = 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED';
@@ -114,6 +124,7 @@ export type BiasImpactReport = {
   mockedSideEffects: BiasMockedSideEffect[];
   summary: string;
   warnings: string[];
+  interventionDirection?: BiasInterventionDirection;
 };
 
 export const BIAS_PROBE_ERROR_CODES = [

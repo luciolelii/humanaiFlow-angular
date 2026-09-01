@@ -244,7 +244,7 @@ describe('TaskExecutionsCallService bias APIs', () => {
     expect(execution.stepDependencies).toEqual([]);
     expect(decision.node?.position).toEqual({ x: 600, y: 160 });
     expect(decision.node?.userInteractive).toBe(true);
-    expect(decision.node?.biasAnnotations?.[0].id).toBe('selection-risk');
+    expect((decision.node as any)?.biasAnnotations?.[0].id).toBe('selection-risk');
   });
 
   it('retrieves the ordered iterations for a looping container step', async () => {
@@ -284,6 +284,7 @@ describe('TaskExecutionsCallService bias APIs', () => {
   it('starts an asynchronous impact experiment and maps the job response', async () => {
     const result = firstValueFrom(service.runBiasImpactExperiment('execution-1', 'step-1', {
       annotationIds: ['annotation-1'],
+      direction: 'BIAS',
       repetitions: 3,
       includeRawOutputs: true,
       externalSideEffectPolicy: 'BLOCK',
@@ -318,8 +319,8 @@ describe('TaskExecutionsCallService bias APIs', () => {
   it('uses the confirmed biased rerun and comparison routes', async () => {
     const rerun = firstValueFrom(service.createBiasedRerun('baseline-1', {
       activations: [
-        { nodeId: 'node-1', annotationIds: ['annotation-1'] },
-        { nodeId: 'container-1', annotationIds: [], includeSubflow: true }
+        { nodeId: 'node-1', annotationIds: ['annotation-1'], includeSubflow: false, direction: 'BIAS' },
+        { nodeId: 'container-1', annotationIds: [], includeSubflow: true, direction: 'MITIGATION' }
       ],
       externalSideEffectPolicy: 'MOCK',
       confirmExternalSideEffects: false
@@ -329,7 +330,8 @@ describe('TaskExecutionsCallService bias APIs', () => {
     expect(rerunRequest.request.body.activations[1]).toEqual({
       nodeId: 'container-1',
       annotationIds: [],
-      includeSubflow: true
+      includeSubflow: true,
+      direction: 'MITIGATION'
     });
     rerunRequest.flush({ id: 'variant-1', name: 'Variant', creationTime: 1, context: {} });
     await expect(rerun).resolves.toEqual(expect.objectContaining({ id: 'variant-1' }));

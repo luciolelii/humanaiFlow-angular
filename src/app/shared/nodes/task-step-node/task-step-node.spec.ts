@@ -141,7 +141,7 @@ describe('TaskStepNodeComponent bias canvas highlighting', () => {
       canHaveDependentNodes: false
     };
     component.data.data.biasAnnotations = [
-      { id: 'annotation-1', behavioralProbe: { activationMode: 'PROMPT_DIRECTIVE', instruction: 'Nudge it' } },
+      { id: 'annotation-1', biasProbe: { activationMode: 'PROMPT_DIRECTIVE', instruction: 'Nudge it' } },
       { id: 'annotation-2' }
     ];
 
@@ -164,7 +164,7 @@ describe('TaskStepNodeComponent bias canvas highlighting', () => {
             severity: 'HIGH',
             issue: 'First issue',
             rationale: 'First rationale',
-            behavioralProbe: {
+            biasProbe: {
               activationMode: 'INPUT_TRANSFORMATION',
               instruction: 'Transform the candidate profile'
             }
@@ -357,7 +357,7 @@ describe('TaskStepNodeComponent bias canvas highlighting', () => {
         canHaveDependentNodes: true
       };
       component.data.data.biasAnnotations = [
-        { id: 'annotation-1', behavioralProbe: { activationMode: 'PROMPT_DIRECTIVE', instruction: 'Nudge it' } }
+        { id: 'annotation-1', biasProbe: { activationMode: 'PROMPT_DIRECTIVE', instruction: 'Nudge it' } }
       ];
       component.biasCapabilities = { blockType: 'LLMBlock', supported: true, isolatedExperimentSupported: true, fullFlowExperimentSupported: true, externalSideEffects: false, configurationDependent: false, activationModes: ['PROMPT_DIRECTIVE'] };
     });

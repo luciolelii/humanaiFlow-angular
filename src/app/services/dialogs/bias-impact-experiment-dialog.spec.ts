@@ -14,8 +14,8 @@ describe('BiasImpactExperimentDialogService', () => {
       executionId: 'execution', stepId: 'step', nodeId: 'node', nodeName: 'Node',
       capabilities: { blockType: 'LLM', supported: true, isolatedExperimentSupported: true, fullFlowExperimentSupported: true, externalSideEffects: false, configurationDependent: false, activationModes: [] },
       annotations: [
-        { id: 'not-executable', behavioralProbe: { activationMode: 'PROMPT_DIRECTIVE' } },
-        { id: 'executable', behavioralProbe: { activationMode: 'PROMPT_DIRECTIVE', instruction: 'Apply probe' } }
+        { id: 'not-executable', biasProbe: { activationMode: 'PROMPT_DIRECTIVE' } },
+        { id: 'executable', biasProbe: { activationMode: 'PROMPT_DIRECTIVE', instruction: 'Apply probe' } }
       ]
     });
 

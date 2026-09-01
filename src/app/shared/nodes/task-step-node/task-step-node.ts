@@ -444,7 +444,7 @@ export class TaskStepNodeComponent {
 
   executableBiasAnnotations(): BiasAnnotation[] {
     return this.allBiasAnnotations()
-      .filter((annotation) => isProbeExecutable(annotation.behavioralProbe));
+      .filter((annotation) => isProbeExecutable(annotation.biasProbe) || isProbeExecutable(annotation.mitigationProbe));
   }
 
   allBiasAnnotations(): BiasAnnotation[] {

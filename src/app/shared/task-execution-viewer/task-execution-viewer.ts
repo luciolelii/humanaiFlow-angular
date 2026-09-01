@@ -1203,8 +1203,9 @@ export class TaskExecutionViewerComponent implements OnDestroy {
           : [];
       }
 
-      const annotations = (node.biasAnnotations ?? []).filter((annotation) => isProbeExecutable(annotation.behavioralProbe));
-      return annotations.length ? [{ nodeId: step.id, nodeName: node.name || step.id, node: { ...node, biasAnnotations: annotations } }] : [];
+      const block = node as FlowBlock;
+      const annotations = (block.biasAnnotations ?? []).filter((annotation) => isProbeExecutable(annotation.biasProbe) || isProbeExecutable(annotation.mitigationProbe));
+      return annotations.length ? [{ nodeId: step.id, nodeName: node.name || step.id, node: { ...block, biasAnnotations: annotations } }] : [];
     });
 
     const resolved = await Promise.all(candidates.map(async (candidate) => {

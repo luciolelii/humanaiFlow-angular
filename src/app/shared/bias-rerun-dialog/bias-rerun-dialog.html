@@ -5,6 +5,11 @@
     ariaLabel="Create biased rerun"
     (backdropClick)="close()"
     (closeClick)="close()">
+    <label>Intervention direction
+      <select [ngModel]="direction()" (ngModelChange)="setDirection($event)" [disabled]="creating()">
+        <option value="BIAS">BIAS</option><option value="MITIGATION">MITIGATION</option><option value="BOTH">BOTH</option>
+      </select>
+    </label>
     @for (candidate of currentState.candidates; track candidate.nodeId) {
       <fieldset [disabled]="creating()"><legend>{{ candidate.nodeName }}</legend>
         @if (candidate.activationKind === 'SUBFLOW') {
@@ -14,7 +19,7 @@
           </label>
           <p class="bias-rerun-dialog__hint">All executable probes on nodes inside this container will be activated.</p>
         } @else {
-          @for (annotation of candidate.annotations; track annotation.id) {
+          @for (annotation of eligibleAnnotations(candidate); track annotation.id) {
             <label><input type="checkbox" [checked]="selectedIds(candidate.nodeId).includes($any(annotation.id))" (change)="toggleAnnotation(candidate.nodeId, $any(annotation.id), $any($event.target).checked)"> {{ annotation.category || 'Uncategorized' }} — {{ annotation.issue || annotation.rationale || annotation.id }}</label>
           }
         }

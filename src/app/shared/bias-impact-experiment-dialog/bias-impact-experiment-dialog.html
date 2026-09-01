@@ -9,8 +9,13 @@
       <app-bias-impact-report-viewer [report]="completedReport" (highlightOnCanvas)="highlightOnCanvas()" />
     } @else {
       <p>Run the selected probes against this completed execution step.</p>
+      <label>Intervention direction
+        <select [ngModel]="direction()" (ngModelChange)="setDirection($event)" [disabled]="submitting() || !!currentJob()">
+          <option value="BIAS">BIAS</option><option value="MITIGATION">MITIGATION</option><option value="BOTH">BOTH</option>
+        </select>
+      </label>
       <fieldset [disabled]="submitting() || !!currentJob()"><legend>Executable annotations</legend>
-        @for (annotation of currentState.annotations; track annotation.id) {
+        @for (annotation of eligibleAnnotations(); track annotation.id) {
           <label><input type="checkbox" [checked]="selectedAnnotationIds().includes($any(annotation.id))" (change)="toggleAnnotation($any(annotation.id), $any($event.target).checked)"> {{ annotation.category || 'Uncategorized' }} — {{ annotation.issue || annotation.rationale || annotation.id }}</label>
         }
       </fieldset>

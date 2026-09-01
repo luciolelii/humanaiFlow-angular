@@ -4,7 +4,7 @@ import {
   BiasImpactJob,
   BiasImpactReport
 } from './bias-impact';
-import { BehavioralProbe, isProbeExecutable } from './flow';
+import { BiasBehavioralProbe, isProbeExecutable } from './flow';
 import { TaskExecution } from './task-execution';
 
 describe('bias impact models', () => {
@@ -18,11 +18,11 @@ describe('bias impact models', () => {
   });
 
   it('requires typed outputs for new MOCK_RESPONSE probes', () => {
-    const legacyProbe: BehavioralProbe = {
+    const legacyProbe: BiasBehavioralProbe = {
       activationMode: 'MOCK_RESPONSE',
       instruction: 'legacy mock response'
     };
-    const typedProbe: BehavioralProbe = {
+    const typedProbe: BiasBehavioralProbe = {
       activationMode: 'MOCK_RESPONSE',
       mockOutputs: { body: 'controlled response', success: true }
     };

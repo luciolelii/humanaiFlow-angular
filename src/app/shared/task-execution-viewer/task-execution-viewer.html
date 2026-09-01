@@ -31,6 +31,9 @@
             <span>Experiment: {{ biasContext.experimentId }}</span>
             <span>Baseline: {{ execution()!.rerunOfExecutionId || 'not available' }}</span>
             <span>Active annotations: {{ biasContext.activeAnnotationIdsByNode | json }}</span>
+            @for (probe of biasContext.activeBiasProbes ?? []; track probe.annotationId + probe.direction) {
+              <span>{{ probe.direction === 'BIAS' ? 'Bias applicato' : 'Mitigazione applicata' }}: {{ probe.annotationId }}</span>
+            }
           </div>
           }
         </div>

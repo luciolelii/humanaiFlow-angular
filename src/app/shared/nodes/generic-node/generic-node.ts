@@ -676,7 +676,7 @@ export class GenericNodeComponent implements OnDestroy {
     if (!annotations.length) return null;
     return {
       count: annotations.length,
-      hasExecutableProbe: annotations.some((annotation) => isProbeExecutable(annotation.behavioralProbe)),
+      hasExecutableProbe: annotations.some((annotation) => isProbeExecutable(annotation.biasProbe) || isProbeExecutable(annotation.mitigationProbe)),
       maxSeverityLabel: this.mostSevereBiasLabel(annotations)
     };
   }

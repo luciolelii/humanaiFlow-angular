@@ -41,7 +41,7 @@ describe('BiasRerunDialogService', () => {
       outputs: [],
       typeName: 'LLMBlock',
       specificConfiguration: {},
-      biasAnnotations: withProbe ? [{ behavioralProbe: { activationMode: 'PROMPT_DIRECTIVE' } }] : []
+      biasAnnotations: withProbe ? [{ biasProbe: { activationMode: 'PROMPT_DIRECTIVE', instruction: 'probe' } }] : []
     });
     const flow = (blocks: ReturnType<typeof block>[]) => ({
       blocks,
@@ -92,8 +92,8 @@ describe('BiasRerunDialogService', () => {
       { 'block-1': ['annotation-1'], 'container-1': ['must-not-be-sent'] },
       { 'container-1': true }
     )).toEqual([
-      { nodeId: 'block-1', annotationIds: ['annotation-1'] },
-      { nodeId: 'container-1', annotationIds: [], includeSubflow: true }
+      { nodeId: 'block-1', annotationIds: ['annotation-1'], includeSubflow: false, direction: 'BIAS' },
+      { nodeId: 'container-1', annotationIds: [], includeSubflow: true, direction: 'BIAS' }
     ]);
   });
 });

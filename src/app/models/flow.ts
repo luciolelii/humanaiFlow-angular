@@ -134,7 +134,7 @@ export type BiasActivationMode =
   | 'MOCK_RESPONSE'
   | string;
 
-export type BehavioralProbe = {
+export type BiasBehavioralProbe = {
   activationMode?: BiasActivationMode;
   instruction?: string;
   targetInputs?: string[];
@@ -142,7 +142,7 @@ export type BehavioralProbe = {
   mockOutputs?: Record<string, unknown>;
 };
 
-export function isProbeExecutable(probe: BehavioralProbe | null | undefined): boolean {
+export function isProbeExecutable(probe: BiasBehavioralProbe | null | undefined): boolean {
   if (!probe?.activationMode) return false;
 
   if (probe.activationMode === 'MOCK_RESPONSE') {
@@ -162,7 +162,8 @@ export type BiasAnnotation = Record<string, unknown> & {
   status?: string;
   source?: string;
   analysisId?: string;
-  behavioralProbe?: BehavioralProbe;
+  biasProbe?: BiasBehavioralProbe;
+  mitigationProbe?: BiasBehavioralProbe;
 };
 
 export type BiasAnnotationOption = {
@@ -189,7 +190,6 @@ export type FlowBlock = FlowNodeBase & {
 
 export type FlowContainer = FlowNodeBase & {
   nodeFamily: 'container';
-  biasAnnotations?: BiasAnnotation[];
 };
 
 export type FlowNode = FlowBlock | FlowContainer;

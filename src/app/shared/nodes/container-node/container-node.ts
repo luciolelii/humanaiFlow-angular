@@ -3,8 +3,6 @@ import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, Host
 import { FormsModule } from '@angular/forms';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import {
-  BiasAnnotation,
-  BiasAnnotationsDescriptor,
   BlockType,
   currentFlowPortValueKind,
   flowValueKindLabel,
@@ -12,8 +10,7 @@ import {
   FlowData,
   FlowPort,
   FLOW_DEPENDANT_PORT_KEY,
-  FLOW_DEPENDENCY_PORT_KEY,
-  isProbeExecutable
+  FLOW_DEPENDENCY_PORT_KEY
 } from '@models/flow';
 import { NodeSettingField, NodeSettingOption, NodeSettingsDialogService } from '@services/dialogs/node-settings-dialog';
 import { ContainersService } from '@services/containers/containers';
@@ -23,7 +20,6 @@ import { ClassicPreset } from 'rete';
 import { ReteModule } from 'rete-angular-plugin/21';
 import { EditorStateHolder } from '@stores/flow-editor';
 import { NodeFocusModalController } from '../node-focus-modal-controller';
-import { BiasAnnotationsComponent } from '@shared/bias-annotations/bias-annotations';
 import { firstValueFrom } from 'rxjs';
 import { SWIMLANES_ENABLED } from '@shared/feature-flags';
 import { extractSchemaRequirements, SchemaRequirements } from '../schema-requirements';
@@ -85,7 +81,7 @@ type ContainerFlowFieldView = SchemaFlowDataFieldDefinition & {
 
 @Component({
   selector: 'app-container-node',
-  imports: [CommonModule, FormsModule, ReteModule, MatTooltipModule, BiasAnnotationsComponent],
+  imports: [CommonModule, FormsModule, ReteModule, MatTooltipModule],
   templateUrl: './container-node.html',
   styleUrl: './container-node.css',
   host: {
@@ -191,7 +187,7 @@ export class ContainerNodeComponent implements OnDestroy {
   }
 
   ngAfterViewInit() {
-    this.rendered();
+    this.rendered?.();
   }
 
   get isReadonly() {
@@ -361,104 +357,9 @@ export class ContainerNodeComponent implements OnDestroy {
     return lane ? { name: lane.name, color: lane.color ?? null } : null;
   }
 
-  get biasAnnotations(): BiasAnnotation[] {
-    const nodeData = this.data?.data as Record<string, unknown> | undefined;
-    const value = nodeData?.[this.biasAnnotationsProperty];
-    return Array.isArray(value) ? value as BiasAnnotation[] : [];
-  }
-
-  get biasAnnotationsAllowed(): boolean {
-    return this.containerDescriptor?.capabilities?.biasAnnotationsAllowed !== false;
-  }
-
-  get biasAnnotationBadge(): { count: number; hasExecutableProbe: boolean; maxSeverityLabel: string | null } | null {
-    if (!this.biasAnnotationsAllowed) return null;
-    const annotations = this.biasAnnotations;
-    if (!annotations.length) return null;
-    return {
-      count: annotations.length,
-      hasExecutableProbe: annotations.some((annotation) => isProbeExecutable(annotation.behavioralProbe)),
-      maxSeverityLabel: this.mostSevereBiasLabel(annotations)
-    };
-  }
-
-  get biasContainer(): FlowContainer | null {
-    const nodeData = this.data?.data as Record<string, unknown> | undefined;
-    const containerId = this.blockId;
-    if (!nodeData || !containerId) return null;
-    return {
-      id: containerId,
-      name: this.name,
-      position: nodeData['position'] as { x: number; y: number } | undefined,
-      inputs: (Array.isArray(nodeData['inputs']) ? nodeData['inputs'] as FlowPort[] : []).map((port) => ({ ...port })),
-      outputs: (Array.isArray(nodeData['outputs']) ? nodeData['outputs'] as FlowPort[] : []).map((port) => ({ ...port })),
-      specificConfiguration: this.configuration ?? {},
-      typeName: this.typeName,
-      nodeFamily: 'container',
-      biasAnnotations: this.biasAnnotations
-    };
-  }
-
-  updateBiasAnnotations(annotations: BiasAnnotation[]) {
-    if (this.isReadonly || !this.data?.data) return;
-    this.data.data[this.biasAnnotationsProperty] = this.cloneConfigurationValue(annotations);
-    this.data.data.__biasAnnotationsProperty = this.biasAnnotationsProperty;
-    this.markBiasAnnotationsDirty();
-    this.refreshView();
-  }
-
-  private get biasAnnotationsProperty(): string {
-    const descriptorSignal = (this.blocksService as BlocksService & {
-      biasAnnotationsDescriptor?: () => { blockProperty?: string } | null
-    }).biasAnnotationsDescriptor;
-    const property = typeof descriptorSignal === 'function' ? descriptorSignal()?.blockProperty : null;
-    return typeof property === 'string' && property.length ? property : 'biasAnnotations';
-  }
-
-  private mostSevereBiasLabel(annotations: BiasAnnotation[]): string | null {
-    const descriptorSignal = (this.blocksService as BlocksService & {
-      biasAnnotationsDescriptor?: () => BiasAnnotationsDescriptor | null
-    }).biasAnnotationsDescriptor;
-    const severityOptions = descriptorSignal?.()?.options?.['severity'] ?? [];
-    const rankByValue = new Map(severityOptions.map((option, index) => [option.value, index]));
-
-    let mostSevereValue: unknown = undefined;
-    let mostSevereRank = -1;
-    for (const annotation of annotations) {
-      const value = annotation.severity;
-      const rank = typeof value === 'string' && rankByValue.has(value) ? rankByValue.get(value)! : -1;
-      if (mostSevereValue === undefined || rank > mostSevereRank) {
-        mostSevereValue = value;
-        mostSevereRank = rank;
-      }
-    }
-
-    if (mostSevereValue == null) return null;
-    return severityOptions.find((option) => option.value === mostSevereValue)?.label
-      ?? (typeof mostSevereValue === 'string' ? mostSevereValue : null);
-  }
-
-  private markBiasAnnotationsDirty() {
-    const activeData = this.editorState.activeFlowData();
-    if (!activeData) return;
-    this.editorState.updateData(this.cloneCurrentFlowWithBiasAnnotations(activeData));
-  }
-
-  private cloneCurrentFlowWithBiasAnnotations(flowData: FlowData): FlowData {
-    const nextFlowData = this.cloneConfigurationValue(flowData);
-    const nodeData = this.data?.data as Record<string, any> | undefined;
-    const containerId = typeof nodeData?.['id'] === 'string' ? nodeData['id'] : null;
-    if (!containerId) return nextFlowData;
-
-    const container = nextFlowData.containers.find((item) => item.id === containerId);
-    if (!container) return nextFlowData;
-
-    (container as unknown as Record<string, unknown>)[this.biasAnnotationsProperty] = this.cloneConfigurationValue(
-      Array.isArray(nodeData?.[this.biasAnnotationsProperty]) ? nodeData[this.biasAnnotationsProperty] : []
-    );
-
-    return nextFlowData;
-  }
+  /** Containers are not directly annotatable; bias activation is scoped to their subflow. */
+  get biasAnnotationsAllowed(): boolean { return false; }
+  get biasAnnotationBadge(): null { return null; }
 
   formatDynamicInputToken(token: string): string {
     const match = token.match(/^\$\{\{\s*([^}]+?)\s*\}\}$/);
@@ -1060,18 +961,11 @@ export class ContainerNodeComponent implements OnDestroy {
         })
       );
 
-      const annotationsProperty = this.biasAnnotationsProperty;
-      const preservedAnnotations = Array.isArray(current[annotationsProperty])
-        ? this.cloneConfigurationValue(current[annotationsProperty])
-        : [];
-
       const replaceNode = current['replaceWithCreatedNode'];
       if (typeof replaceNode === 'function') {
         await replaceNode({
           ...createdContainer,
           position: (current['position'] as { x: number; y: number } | undefined) ?? createdContainer.position,
-          [annotationsProperty]: preservedAnnotations,
-          __biasAnnotationsProperty: annotationsProperty,
           __focusOpen: current['__focusOpen'] === true
         });
         return;
@@ -1082,8 +976,6 @@ export class ContainerNodeComponent implements OnDestroy {
         ...createdContainer,
         specificConfiguration: nextConfiguration,
         position: (current['position'] as { x: number; y: number } | undefined) ?? createdContainer.position,
-        [annotationsProperty]: preservedAnnotations,
-        __biasAnnotationsProperty: annotationsProperty,
         __containerAssigning: false,
         __containerAssignmentError: null
       };

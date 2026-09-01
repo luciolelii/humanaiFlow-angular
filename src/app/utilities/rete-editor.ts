@@ -190,7 +190,9 @@ export function exportGraph(editor: NodeEditor<HFSchemes>) {
       outputs,
       specificConfiguration: cloneValue(blockData?.specificConfiguration ?? {}),
       capabilities: cloneValue(blockData?.capabilities),
-      [biasAnnotationsProperty]: cloneValue(blockRecord?.[biasAnnotationsProperty] ?? []),
+      ...(blockData?.nodeFamily === 'container' ? {} : {
+        [biasAnnotationsProperty]: cloneValue(blockRecord?.[biasAnnotationsProperty] ?? [])
+      }),
       typeName: blockData?.typeName ?? "LLMBlock",
       nodeFamily: blockData?.nodeFamily === 'container' ? 'container' : 'block',
       laneId: typeof blockRecord?.['laneId'] === 'string' ? blockRecord['laneId'] : null

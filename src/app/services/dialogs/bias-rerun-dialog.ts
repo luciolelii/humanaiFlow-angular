@@ -1,6 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 import { BiasAnnotation, FlowData, FlowNode } from '@models/flow';
-import { BiasCapabilities, BiasRerunActivation } from '@models/bias-impact';
+import { BiasCapabilities, BiasInterventionDirection, BiasRerunActivation } from '@models/bias-impact';
 import { TaskExecution } from '@models/task-execution';
 
 export type BiasRerunCandidate = {
@@ -29,7 +29,7 @@ export class BiasRerunDialogService {
   close() { this._state.set(null); }
 }
 
-export function hasActivatableSubflowBiasProbe(container: FlowNode): boolean {
+export function hasActivatableSubflowBiasProbe(container: FlowNode, direction: BiasInterventionDirection = 'BIAS'): boolean {
   const configuration = container.specificConfiguration as Record<string, unknown> | null | undefined;
   const subflows = [configuration?.['subFlow'], configuration?.['guardSubFlow']]
     .filter((value): value is FlowData => !!value && typeof value === 'object' && !Array.isArray(value));
@@ -37,7 +37,9 @@ export function hasActivatableSubflowBiasProbe(container: FlowNode): boolean {
   return subflows.some((subflow) =>
     (Array.isArray(subflow.blocks) ? subflow.blocks : []).some((block) =>
       (Array.isArray(block.biasAnnotations) ? block.biasAnnotations : [])
-        .some((annotation) => annotation.behavioralProbe != null)
+        .some((annotation) => direction === 'BIAS'
+          ? !!annotation.biasProbe
+          : direction === 'MITIGATION' ? !!annotation.mitigationProbe : !!annotation.biasProbe && !!annotation.mitigationProbe)
     )
   );
 }
@@ -45,16 +47,17 @@ export function hasActivatableSubflowBiasProbe(container: FlowNode): boolean {
 export function buildBiasRerunActivations(
   candidates: BiasRerunCandidate[],
   annotationIdsByNode: Record<string, string[]>,
-  selectedSubflowsByNode: Record<string, boolean>
+  selectedSubflowsByNode: Record<string, boolean>,
+  direction: BiasInterventionDirection = 'BIAS'
 ): BiasRerunActivation[] {
-  return candidates.flatMap((candidate) => {
+  return candidates.flatMap((candidate): BiasRerunActivation[] => {
     if (candidate.activationKind === 'SUBFLOW') {
       return selectedSubflowsByNode[candidate.nodeId]
-        ? [{ nodeId: candidate.nodeId, annotationIds: [], includeSubflow: true }]
+        ? [{ nodeId: candidate.nodeId, annotationIds: [], includeSubflow: true, direction }]
         : [];
     }
 
     const annotationIds = annotationIdsByNode[candidate.nodeId] ?? [];
-    return annotationIds.length ? [{ nodeId: candidate.nodeId, annotationIds }] : [];
+    return annotationIds.length ? [{ nodeId: candidate.nodeId, annotationIds, includeSubflow: false, direction }] : [];
   });
 }

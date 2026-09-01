@@ -402,7 +402,10 @@ export class TaskExecutionsCallService extends TaskExecutionsCallServiceBase {
       routingChanges: this.toRoutingChanges(value['routingChanges']),
       mockedSideEffects: this.toMockedSideEffects(value['mockedSideEffects']),
       summary: String(value['summary'] ?? ''),
-      warnings: this.toStringArray(value['warnings'])
+      warnings: this.toStringArray(value['warnings']),
+      ...(value['interventionDirection'] === 'BIAS' || value['interventionDirection'] === 'MITIGATION' || value['interventionDirection'] === 'BOTH'
+        ? { interventionDirection: value['interventionDirection'] }
+        : {})
     };
   }
 

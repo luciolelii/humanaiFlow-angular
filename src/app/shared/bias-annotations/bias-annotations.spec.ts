@@ -159,9 +159,9 @@ describe('BiasAnnotationsComponent', () => {
     validationErrors.set([{
       code: 'BIAS_PROBE_MOCK_OUTPUT_TYPE_MISMATCH',
       id: 'block-1',
-      field: 'biasAnnotations[0].behavioralProbe.mockOutputs.response',
+      field: 'biasAnnotations[0].biasProbe.mockOutputs.response',
       message: 'Response must be text'
     }]);
-    expect(component.serverError(0, 'behavioralProbe.mockOutputs.response')).toBe('Response must be text');
+    expect(component.serverError(0, 'biasProbe.mockOutputs.response')).toBe('Response must be text');
   });
 });

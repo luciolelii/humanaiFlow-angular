@@ -150,9 +150,6 @@ export class ContainersCallService extends ContainersCallServiceBase {
       typeName,
       nodeFamily: 'container',
       ...(value["capabilities"] == null ? {} : { capabilities: toNodeCapabilities(value["capabilities"]) }),
-      biasAnnotations: Array.isArray(value["biasAnnotations"])
-        ? value["biasAnnotations"] as FlowContainer["biasAnnotations"]
-        : []
     };
   }
 

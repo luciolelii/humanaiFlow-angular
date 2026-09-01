@@ -10,7 +10,7 @@ import { BiasComparisonViewStateService } from '@services/bias/bias-comparison-v
 import { extractBiasErrorMessage } from '@services/bias/bias-error.util';
 import { NotificationService } from '@services/notifications/notification';
 import { TaskExecutionsService } from '@services/task-executions/task-executions';
-import { BiasImpactJob, BiasImpactReport, ExternalSideEffectPolicy } from '@models/bias-impact';
+import { BiasImpactJob, BiasImpactReport, BiasInterventionDirection, ExternalSideEffectPolicy } from '@models/bias-impact';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -32,6 +32,7 @@ export class BiasImpactExperimentDialogHostComponent {
 
   readonly state = this.dialog.state;
   readonly selectedAnnotationIds = signal<string[]>([]);
+  readonly direction = signal<BiasInterventionDirection>('BIAS');
   readonly repetitions = signal(3);
   readonly includeRawOutputs = signal(true);
   readonly policy = signal<ExternalSideEffectPolicy>('BLOCK');
@@ -45,6 +46,7 @@ export class BiasImpactExperimentDialogHostComponent {
       const state = this.state();
       this.cancelPolling();
       this.selectedAnnotationIds.set(state?.annotations.map((annotation) => String(annotation.id ?? '')).filter(Boolean) ?? []);
+      this.direction.set('BIAS');
       this.repetitions.set(3);
       this.includeRawOutputs.set(true);
       this.policy.set('BLOCK');
@@ -58,6 +60,20 @@ export class BiasImpactExperimentDialogHostComponent {
 
   toggleAnnotation(id: string, checked: boolean) {
     this.selectedAnnotationIds.update((current) => checked ? [...new Set([...current, id])] : current.filter((value) => value !== id));
+  }
+
+  eligibleAnnotations() {
+    const direction = this.direction();
+    return (this.state()?.annotations ?? []).filter((annotation) =>
+      direction === 'BIAS' ? !!annotation.biasProbe :
+      direction === 'MITIGATION' ? !!annotation.mitigationProbe : !!annotation.biasProbe && !!annotation.mitigationProbe
+    );
+  }
+
+  setDirection(direction: BiasInterventionDirection) {
+    this.direction.set(direction);
+    const allowed = new Set(this.eligibleAnnotations().map((annotation) => String(annotation.id ?? '')));
+    this.selectedAnnotationIds.update((ids) => ids.filter((id) => allowed.has(id)));
   }
 
   updateRepetitions(value: number) {
@@ -82,6 +98,7 @@ export class BiasImpactExperimentDialogHostComponent {
     this.inlineError.set(null);
     this.executions.runBiasImpactExperiment(state.executionId, state.stepId, {
       annotationIds: this.selectedAnnotationIds(),
+      direction: this.direction(),
       repetitions: this.repetitions(),
       includeRawOutputs: this.includeRawOutputs(),
       externalSideEffectPolicy: this.policy(),

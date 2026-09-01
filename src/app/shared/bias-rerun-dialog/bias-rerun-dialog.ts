@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
-import { ExternalSideEffectPolicy } from '@models/bias-impact';
+import { BiasInterventionDirection, ExternalSideEffectPolicy } from '@models/bias-impact';
 import { ConfirmDialogService } from '@services/dialogs/confirm-dialog';
 import {
   BiasRerunDialogService,
@@ -28,6 +28,7 @@ export class BiasRerunDialogHostComponent {
   readonly selectedAnnotationIdsByNode = signal<Record<string, string[]>>({});
   readonly selectedSubflowsByNode = signal<Record<string, boolean>>({});
   readonly policy = signal<ExternalSideEffectPolicy>('BLOCK');
+  readonly direction = signal<BiasInterventionDirection>('BIAS');
   readonly creating = signal(false);
   readonly inlineError = signal<string | null>(null);
 
@@ -41,12 +42,18 @@ export class BiasRerunDialogHostComponent {
           .map((candidate) => [candidate.nodeId, false])
       ));
       this.policy.set('BLOCK');
+      this.direction.set('BIAS');
       this.creating.set(false);
       this.inlineError.set(null);
     });
   }
 
   selectedIds(nodeId: string): string[] { return this.selectedAnnotationIdsByNode()[nodeId] ?? []; }
+
+  eligibleAnnotations(candidate: any) {
+    const direction = this.direction();
+    return candidate.annotations.filter((annotation: any) => direction === 'BIAS' ? !!annotation.biasProbe : direction === 'MITIGATION' ? !!annotation.mitigationProbe : !!annotation.biasProbe && !!annotation.mitigationProbe);
+  }
 
   toggleAnnotation(nodeId: string, annotationId: string, checked: boolean) {
     this.selectedAnnotationIdsByNode.update((current) => {
@@ -80,6 +87,7 @@ export class BiasRerunDialogHostComponent {
       state.candidates,
       this.selectedAnnotationIdsByNode(),
       this.selectedSubflowsByNode()
+      , this.direction()
     );
     if (!activations.length) {
       this.inlineError.set('Select at least one executable annotation or container subflow.');
@@ -99,6 +107,18 @@ export class BiasRerunDialogHostComponent {
         this.creating.set(false);
         this.inlineError.set(extractBiasErrorMessage(error, 'Unable to create the biased rerun.'));
       }
+    });
+  }
+
+  setDirection(direction: BiasInterventionDirection) {
+    this.direction.set(direction);
+    this.selectedAnnotationIdsByNode.update((current) => {
+      const next = { ...current };
+      for (const candidate of this.state()?.candidates ?? []) {
+        const allowed = new Set(this.eligibleAnnotations(candidate).map((annotation: any) => String(annotation.id ?? '')));
+        next[candidate.nodeId] = (next[candidate.nodeId] ?? []).filter((id) => allowed.has(id));
+      }
+      return next;
     });
   }
 

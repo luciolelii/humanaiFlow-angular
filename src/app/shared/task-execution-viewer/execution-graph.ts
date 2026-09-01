@@ -27,7 +27,9 @@ export function mergeExecutionStepNode(
       ...(sourceNode.specificConfiguration ?? {}),
       ...(executionNode.specificConfiguration ?? {})
     },
-    biasAnnotations: executionNode.biasAnnotations ?? sourceNode.biasAnnotations,
+    ...(executionNode.nodeFamily === 'container' || sourceNode.nodeFamily === 'container'
+      ? {}
+      : { biasAnnotations: executionNode.biasAnnotations ?? sourceNode.biasAnnotations }),
     capabilities: executionNode.capabilities ?? sourceNode.capabilities,
     nodeFamily: sourceNode.nodeFamily ?? executionNode.nodeFamily
   } as FlowNode;

@@ -271,7 +271,7 @@ describe('GenericNodeComponent', () => {
       ...component.data.data,
       biasAnnotations: [
         { id: 'a1', severity: 'LOW' },
-        { id: 'a2', severity: 'HIGH', behavioralProbe: { activationMode: 'PROMPT_DIRECTIVE', instruction: 'do it' } }
+        { id: 'a2', severity: 'HIGH', biasProbe: { activationMode: 'PROMPT_DIRECTIVE', instruction: 'do it' } }
       ]
     };
 

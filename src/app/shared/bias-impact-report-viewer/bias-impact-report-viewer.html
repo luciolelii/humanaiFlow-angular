@@ -4,6 +4,9 @@
       <div>
         <span class="bias-impact-report__kind">{{ currentReport.kind }}</span>
         <h3>Bias impact report</h3>
+        @if (currentReport.interventionDirection) {
+          <span class="bias-impact-report__direction">{{ currentReport.interventionDirection }}</span>
+        }
       </div>
       <div class="bias-impact-report__header-actions">
         <button type="button" class="bias-impact-report__highlight-btn" (click)="highlightOnCanvas.emit()">

@@ -14,7 +14,7 @@ describe('bias impact main API flow (annotation -> capability -> isolated experi
     id: 'annotation-1',
     category: 'FRAMING',
     severity: 'HIGH',
-    behavioralProbe: { activationMode: 'PROMPT_DIRECTIVE', instruction: 'Nudge the model towards a biased framing.' }
+    biasProbe: { activationMode: 'PROMPT_DIRECTIVE', instruction: 'Nudge the model towards a biased framing.' }
   };
 
   const capabilities: BiasCapabilities = {
@@ -71,13 +71,14 @@ describe('bias impact main API flow (annotation -> capability -> isolated experi
   });
 
   it('runs an isolated experiment on an executable annotation and opens the resulting report', async () => {
-    expect(isProbeExecutable(annotation.behavioralProbe)).toBe(true);
+    expect(isProbeExecutable(annotation.biasProbe)).toBe(true);
 
     const resolvedCapabilities = await lastValueFrom(blocks.retrieveBiasCapabilities('LLMBlock'));
     expect(resolvedCapabilities.isolatedExperimentSupported).toBe(true);
 
     const job = await lastValueFrom(executions.runBiasImpactExperiment('execution-1', 'step-1', {
       annotationIds: [annotation.id!],
+      direction: 'BIAS',
       repetitions: 3,
       includeRawOutputs: true,
       externalSideEffectPolicy: 'BLOCK',

@@ -128,6 +128,12 @@ export type TaskExecutionStep = {
   activeInnerExecutionId?: string | null;
   containerContinuationPhase?: ContainerContinuationPhase | null;
   containerIterationIndex?: number | null;
+  activeBiasProbes?: Array<{
+    annotationId: string;
+    direction: 'BIAS' | 'MITIGATION';
+    activationMode: string;
+    instruction?: string;
+  }>;
 };
 
 export type TaskExecutionStepInput = {

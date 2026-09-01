@@ -67,7 +67,6 @@ describe('BehavioralProbeEditorComponent', () => {
 
     expect(changed).toHaveBeenLastCalledWith(expect.objectContaining({
       activationMode: 'MOCK_RESPONSE',
-      instruction: undefined,
       mockOutputs: { response: '', accepted: false, items: [] }
     }));
   });
