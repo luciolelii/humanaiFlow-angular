@@ -14,10 +14,12 @@ import {
   AssistantDraftPayload,
   AssistantFlowActionResult,
   AssistantLlmSelection,
-  AssistantSessionState
+  AssistantSessionState,
+  VaultSecret
 } from '@models/assistant';
 import { Flow } from '@models/flow';
 import { AssistantService } from '@services/assistant/assistant';
+import { CREDENTIAL_ERROR_MESSAGES, VaultService } from '@services/vault/vault';
 import { Authorization } from '@services/authorization/authorization';
 import { AssistantSessionStore } from '@stores/assistant-session-store';
 import { EditorStateHolder } from '@stores/flow-editor';
@@ -35,6 +37,7 @@ export class FlowAssistant implements OnInit, OnDestroy {
   @ViewChild('assistantScroll') assistantScrollElement?: ElementRef<HTMLDivElement>;
 
   private readonly assistant = inject(AssistantService);
+  private readonly vault = inject(VaultService);
   private readonly editorState = inject(EditorStateHolder);
   private readonly authorization = inject(Authorization);
   private readonly sessionStore = inject(AssistantSessionStore);
@@ -66,6 +69,18 @@ export class FlowAssistant implements OnInit, OnDestroy {
   readonly useDefaultConfiguration = signal(true);
   readonly selectedProvider = signal('');
   readonly phaseModels = signal<AssistantLlmSelection['phaseModels']>(undefined);
+  readonly credentials = signal<VaultSecret[]>([]);
+  readonly credentialsLoading = signal(false);
+  readonly credentialsError = signal<string | null>(null);
+  readonly selectedCredentialId = signal('');
+  readonly credentialsPanelOpen = signal(false);
+  readonly credentialFormOpen = signal(false);
+  readonly credentialSaving = signal(false);
+  readonly editingCredentialId = signal<string | null>(null);
+  readonly credentialLabel = signal('');
+  readonly credentialProvider = signal('');
+  readonly credentialDescription = signal('');
+  readonly credentialValue = signal('');
   readonly advancedModelsOpen = signal(false);
   readonly modelPickerOpen = signal(false);
   readonly quickPromptsOpen = signal(true);
@@ -189,8 +204,22 @@ export class FlowAssistant implements OnInit, OnDestroy {
   readonly currentFlow = this.editorState.currentFlow;
   readonly currentDraft = computed(() => this.sessionState()?.currentDraftFlow ?? null);
   readonly configurationLocked = computed(() => !!this.sessionState()?.id);
+  readonly providerNeedsCredential = computed(() =>
+    !!this.selectedProvider().trim() && !this.isInternalProvider(this.selectedProvider())
+  );
+  readonly compatibleCredentials = computed(() => {
+    const provider = this.selectedProvider().trim().toLowerCase();
+    if (!provider) return [];
+    return this.credentials().filter((credential) =>
+      credential.active && credential.provider.trim().toLowerCase() === provider
+    );
+  });
   readonly customConfigurationValid = computed(() =>
-    !!this.selectedProvider().trim() && !!this.selectedModel().trim()
+    !!this.selectedProvider().trim()
+      && !!this.selectedModel().trim()
+      && (!this.providerNeedsCredential() || this.compatibleCredentials().some(
+        (credential) => credential.id === this.selectedCredentialId()
+      ))
   );
   readonly configurationValid = computed(() =>
     this.useDefaultConfiguration() || this.customConfigurationValid()
@@ -260,10 +289,97 @@ export class FlowAssistant implements OnInit, OnDestroy {
     if (this.configurationLocked()) return;
     this.selectedProvider.set(provider);
     this.selectedModel.set('');
+    this.selectedCredentialId.set('');
     this.models.set([]);
     this.modelsError.set(null);
     if (provider) void this.loadModels(provider);
+    if (provider) void this.loadCredentials();
     this.persistSnapshot();
+  }
+
+  selectCredential(credentialId: string) {
+    if (this.configurationLocked()) return;
+    this.selectedCredentialId.set(credentialId);
+  }
+
+  toggleCredentialsPanel() {
+    this.credentialsPanelOpen.update((open) => !open);
+    if (this.credentialsPanelOpen()) {
+      void this.loadCredentials();
+      void this.loadProviders();
+    }
+  }
+
+  openCredentialForm(provider = this.selectedProvider()) {
+    if (this.configurationLocked()) return;
+    this.editingCredentialId.set(null);
+    this.credentialLabel.set('');
+    this.credentialProvider.set(provider);
+    this.credentialDescription.set('');
+    this.credentialValue.set('');
+    this.credentialsError.set(null);
+    this.credentialsPanelOpen.set(true);
+    this.credentialFormOpen.set(true);
+  }
+
+  editCredential(credential: VaultSecret) {
+    this.editingCredentialId.set(credential.id);
+    this.credentialLabel.set(credential.label);
+    this.credentialProvider.set(credential.provider);
+    this.credentialDescription.set(credential.description ?? '');
+    this.credentialValue.set('');
+    this.credentialsError.set(null);
+    this.credentialsPanelOpen.set(true);
+    this.credentialFormOpen.set(true);
+  }
+
+  saveCredential() {
+    const label = this.credentialLabel().trim();
+    const provider = this.credentialProvider().trim();
+    const description = this.credentialDescription().trim();
+    const value = this.credentialValue();
+    const editingId = this.editingCredentialId();
+    if (!label || !provider || (!editingId && !value.trim()) || this.credentialSaving()) return;
+
+    this.credentialSaving.set(true);
+    this.credentialsError.set(null);
+    const request = editingId
+      ? this.vault.updateSecret(editingId, {
+        label,
+        description: description || undefined,
+        ...(value.trim() ? { value } : {})
+      })
+      : this.vault.createSecret({ label, provider, description: description || undefined, value });
+
+    request.pipe(finalize(() => {
+      this.credentialSaving.set(false);
+      this.credentialValue.set('');
+    })).subscribe({
+      next: (credential) => {
+        this.credentialFormOpen.set(false);
+        this.editingCredentialId.set(null);
+        if (credential.active && this.sameProvider(credential.provider, this.selectedProvider())) {
+          this.selectedCredentialId.set(credential.id);
+        }
+        void this.loadCredentials();
+      },
+      error: (err) => this.credentialsError.set(this.backendErrorMessage(err))
+    });
+  }
+
+  setCredentialActive(credential: VaultSecret, active: boolean) {
+    if (this.credentialSaving()) return;
+    this.credentialSaving.set(true);
+    this.credentialsError.set(null);
+    this.vault.updateSecret(credential.id, { active }).pipe(
+      finalize(() => this.credentialSaving.set(false))
+    ).subscribe({
+      next: () => {
+        if (!active && this.selectedCredentialId() === credential.id) this.selectedCredentialId.set('');
+        void this.loadCredentials();
+      },
+      error: (err) => this.credentialsError.set(this.backendErrorMessage(err))
+    });
   }
 
   setPhaseModel(phase: keyof NonNullable<AssistantLlmSelection['phaseModels']>, model: string) {
@@ -354,6 +470,7 @@ export class FlowAssistant implements OnInit, OnDestroy {
 
     const request = {
       userPrompt: normalizedContent,
+      maxRepairAttempts: 2,
       ...(this.llmSelection() ? { llmSelection: this.llmSelection() } : {}),
       ...(intent === 'draft' ? {} : { flow: this.assistantFlowForRequest() }),
       ...(intent === 'fix' ? { validationErrors: this.sessionState()?.lastValidationErrors ?? [] } : {})
@@ -391,6 +508,7 @@ export class FlowAssistant implements OnInit, OnDestroy {
       next: (config) => {
         this.assistantConfig.set(config);
         this.initializeConfiguration(config);
+        void this.loadCredentials();
       },
       error: (err) => {
         console.error('Assistant config loading failed', err);
@@ -439,6 +557,24 @@ export class FlowAssistant implements OnInit, OnDestroy {
     });
   }
 
+  private loadCredentials() {
+    this.credentialsLoading.set(true);
+    this.credentialsError.set(null);
+    this.vault.listSecrets().pipe(
+      take(1),
+      finalize(() => this.credentialsLoading.set(false))
+    ).subscribe({
+      next: (credentials) => {
+        this.credentials.set(credentials);
+        const selectedId = this.selectedCredentialId();
+        if (selectedId && !credentials.some((credential) => credential.id === selectedId && credential.active)) {
+          this.selectedCredentialId.set('');
+        }
+      },
+      error: (err) => this.credentialsError.set(this.backendErrorMessage(err))
+    });
+  }
+
   private llmSelection(): AssistantLlmSelection | undefined {
     if (this.useDefaultConfiguration()) return undefined;
     const provider = this.selectedProvider().trim();
@@ -448,7 +584,13 @@ export class FlowAssistant implements OnInit, OnDestroy {
     const populatedPhases = phaseModels && Object.values(phaseModels).some(Boolean)
       ? phaseModels
       : undefined;
-    return { provider, model, ...(populatedPhases ? { phaseModels: populatedPhases } : {}) };
+    const credentialId = this.selectedCredentialId();
+    return {
+      provider,
+      model,
+      ...(this.providerNeedsCredential() && credentialId ? { credentialId } : {}),
+      ...(populatedPhases ? { phaseModels: populatedPhases } : {})
+    };
   }
 
   private sessionRequest() {
@@ -501,7 +643,7 @@ export class FlowAssistant implements OnInit, OnDestroy {
   }
 
   private backendErrorMessage(error: unknown): string {
-    const value = error as { error?: unknown; message?: unknown };
+    const value = error as { error?: unknown; message?: unknown; status?: unknown };
     const payload = value?.error;
     if (typeof payload === 'string' && payload.trim()) return payload;
     if (payload && typeof payload === 'object') {
@@ -510,8 +652,18 @@ export class FlowAssistant implements OnInit, OnDestroy {
         if (typeof body[key] === 'string' && body[key].trim()) return body[key] as string;
       }
     }
+    const statusMessage = CREDENTIAL_ERROR_MESSAGES[Number(value?.status)];
+    if (statusMessage) return statusMessage;
     if (typeof value?.message === 'string' && value.message.trim()) return value.message;
     return FlowAssistant.STANDARD_ASSISTANT_ERROR;
+  }
+
+  private isInternalProvider(provider: string): boolean {
+    return provider.trim().toLowerCase() === 'internalollama';
+  }
+
+  private sameProvider(left: string, right: string): boolean {
+    return left.trim().toLowerCase() === right.trim().toLowerCase();
   }
 
   private async openSession(

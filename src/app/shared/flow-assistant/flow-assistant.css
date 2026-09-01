@@ -237,6 +237,55 @@
   gap: 10px;
 }
 
+.assistant-credential-picker,
+.assistant-credentials-list,
+.assistant-credential-form {
+  display: grid;
+  gap: 8px;
+}
+
+.assistant-add-credential {
+  justify-self: start;
+}
+
+.assistant-credential-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid #dbe4ee;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.assistant-credential-item strong,
+.assistant-credential-item p {
+  margin: 0;
+}
+
+.assistant-credential-item strong {
+  color: #0f172a;
+  font-size: 13px;
+}
+
+.assistant-credential-item p {
+  margin-top: 3px;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.assistant-credential-inactive {
+  opacity: 0.7;
+}
+
+.assistant-credential-actions {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
 .assistant-llm-settings .assistant-copy {
   margin-bottom: 0;
 }
@@ -481,5 +530,13 @@
 @media (max-width: 520px) {
   .assistant-phase-fields {
     grid-template-columns: 1fr;
+  }
+
+  .assistant-credential-item {
+    flex-direction: column;
+  }
+
+  .assistant-credential-actions {
+    justify-content: flex-start;
   }
 }

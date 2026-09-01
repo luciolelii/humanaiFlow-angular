@@ -376,7 +376,7 @@ export class TitleToolbar {
       },
       error: err => {
         console.error('Save failed', err);
-        this.showSnackbar(err instanceof Error ? err.message : 'Errore durante il salvataggio', 'error');
+        this.showSnackbar(err instanceof Error ? err.message : 'Unable to save the flow', 'error');
       }
     });
   }
@@ -399,7 +399,7 @@ export class TitleToolbar {
       error: (err) => {
         this.executeLoading.set(false);
         console.error('Create execution failed', err);
-        this.showSnackbar('Errore durante la creazione dell\'esecuzione', 'error');
+        this.showSnackbar('Unable to create the execution', 'error');
       }
     });
   }

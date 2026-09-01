@@ -42,8 +42,8 @@
     <section class="assistant-card assistant-llm-settings">
       <div class="assistant-starters-head">
         <div>
-          <p class="assistant-label">Configurazione assistente</p>
-          <p class="assistant-copy">Le credenziali dei provider sono gestite dal backend.</p>
+          <p class="assistant-label">Assistant model</p>
+          <p class="assistant-copy">Provider credentials are managed by the backend.</p>
         </div>
       </div>
 
@@ -51,11 +51,11 @@
         [checked]="useDefaultConfiguration()"
         [disabled]="configurationLocked() || assistantBusy()"
         (change)="setUseDefaultConfiguration($event.checked)">
-        Usa configurazione predefinita
+        Use default configuration
       </mat-checkbox>
 
       @if (configurationLocked()) {
-      <p class="assistant-meta">La configurazione LLM è fissata per questa sessione.</p>
+      <p class="assistant-meta">The LLM configuration is locked for this session.</p>
       }
 
       @if (!useDefaultConfiguration()) {
@@ -70,12 +70,12 @@
             <mat-option [value]="provider">{{ provider }}</mat-option>
             }
           </mat-select>
-          @if (providersLoading()) { <mat-hint>Caricamento provider...</mat-hint> }
+          @if (providersLoading()) { <mat-hint>Loading providers...</mat-hint> }
           @if (providersError()) { <mat-error>{{ providersError() }}</mat-error> }
         </mat-form-field>
 
         <mat-form-field appearance="outline">
-          <mat-label>Modello</mat-label>
+          <mat-label>Model</mat-label>
           <mat-select
             [value]="selectedModel()"
             [disabled]="configurationLocked() || assistantBusy() || !selectedProvider() || modelsLoading()"
@@ -84,13 +84,36 @@
             <mat-option [value]="model">{{ model }}</mat-option>
             }
           </mat-select>
-          @if (modelsLoading()) { <mat-hint>Caricamento modelli...</mat-hint> }
+          @if (modelsLoading()) { <mat-hint>Loading models...</mat-hint> }
           @if (modelsError()) { <mat-error>{{ modelsError() }}</mat-error> }
         </mat-form-field>
       </div>
 
+      @if (providerNeedsCredential()) {
+      <div class="assistant-credential-picker">
+        <mat-form-field appearance="outline">
+          <mat-label>Credential</mat-label>
+          <mat-select
+            [value]="selectedCredentialId()"
+            [disabled]="configurationLocked() || assistantBusy() || credentialsLoading()"
+            (selectionChange)="selectCredential($event.value)">
+            @for (credential of compatibleCredentials(); track credential.id) {
+            <mat-option [value]="credential.id">{{ credential.label }}</mat-option>
+            }
+          </mat-select>
+          @if (credentialsLoading()) { <mat-hint>Loading credentials...</mat-hint> }
+          @if (credentialsError()) { <mat-error>{{ credentialsError() }}</mat-error> }
+        </mat-form-field>
+        @if (!credentialsLoading() && !compatibleCredentials().length) {
+        <button type="button" mat-stroked-button class="assistant-add-credential" [disabled]="configurationLocked() || assistantBusy()" (click)="openCredentialForm()">
+          Add credential
+        </button>
+        }
+      </div>
+      }
+
       <button type="button" class="assistant-advanced-toggle" [disabled]="configurationLocked() || assistantBusy()" (click)="toggleAdvancedModels()">
-        {{ advancedModelsOpen() ? 'Nascondi' : 'Mostra' }} modelli per fase (opzionale)
+        {{ advancedModelsOpen() ? 'Hide' : 'Show' }} per-phase models (optional)
       </button>
 
       @if (advancedModelsOpen()) {
@@ -98,25 +121,94 @@
         <mat-form-field appearance="outline">
           <mat-label>Planning</mat-label>
           <mat-select [value]="phaseModels()?.planningModel ?? ''" [disabled]="configurationLocked() || assistantBusy() || !models().length" (selectionChange)="setPhaseModel('planningModel', $event.value)">
-            <mat-option value="">Modello principale</mat-option>
+            <mat-option value="">Main model</mat-option>
             @for (model of models(); track model) { <mat-option [value]="model">{{ model }}</mat-option> }
           </mat-select>
         </mat-form-field>
         <mat-form-field appearance="outline">
           <mat-label>JSON</mat-label>
           <mat-select [value]="phaseModels()?.jsonModel ?? ''" [disabled]="configurationLocked() || assistantBusy() || !models().length" (selectionChange)="setPhaseModel('jsonModel', $event.value)">
-            <mat-option value="">Modello principale</mat-option>
+            <mat-option value="">Main model</mat-option>
             @for (model of models(); track model) { <mat-option [value]="model">{{ model }}</mat-option> }
           </mat-select>
         </mat-form-field>
         <mat-form-field appearance="outline">
           <mat-label>Repair</mat-label>
           <mat-select [value]="phaseModels()?.repairModel ?? ''" [disabled]="configurationLocked() || assistantBusy() || !models().length" (selectionChange)="setPhaseModel('repairModel', $event.value)">
-            <mat-option value="">Modello principale</mat-option>
+            <mat-option value="">Main model</mat-option>
             @for (model of models(); track model) { <mat-option [value]="model">{{ model }}</mat-option> }
           </mat-select>
         </mat-form-field>
       </div>
+      }
+      }
+    </section>
+
+    <section class="assistant-card assistant-credentials">
+      <div class="assistant-starters-head">
+        <div>
+          <p class="assistant-label">Provider credentials</p>
+          <p class="assistant-copy">Keys are stored in the vault and are never displayed.</p>
+        </div>
+        <button type="button" class="assistant-section-toggle" (click)="toggleCredentialsPanel()" [attr.aria-label]="credentialsPanelOpen() ? 'Collapse credentials' : 'Expand credentials'">
+          {{ credentialsPanelOpen() ? '−' : '+' }}
+        </button>
+      </div>
+
+      @if (credentialsPanelOpen()) {
+      <div class="assistant-credentials-list">
+        @if (credentialsLoading()) {
+        <p class="assistant-meta">Loading credentials...</p>
+        } @else if (!credentials().length) {
+        <p class="assistant-meta">No credentials saved yet.</p>
+        } @else {
+        @for (credential of credentials(); track credential.id) {
+        <article class="assistant-credential-item" [class.assistant-credential-inactive]="!credential.active">
+          <div>
+            <strong>{{ credential.label }}</strong>
+            <p>{{ credential.provider }} · {{ credential.active ? 'Active' : 'Inactive' }}</p>
+            @if (credential.description) { <p>{{ credential.description }}</p> }
+            <p>Key configured · last used: {{ credential.lastUsedAt || 'never' }}</p>
+          </div>
+          <div class="assistant-credential-actions">
+            <button type="button" mat-stroked-button (click)="editCredential(credential)">Edit / rotate</button>
+            <button type="button" mat-stroked-button [disabled]="credentialSaving()" (click)="setCredentialActive(credential, !credential.active)">
+              {{ credential.active ? 'Disable' : 'Enable' }}
+            </button>
+          </div>
+        </article>
+        }
+        }
+      </div>
+
+      @if (!credentialFormOpen()) {
+      <button type="button" mat-stroked-button class="assistant-add-credential" (click)="openCredentialForm()">Add credential</button>
+      } @else {
+      <form class="assistant-credential-form" (ngSubmit)="saveCredential()">
+        <mat-form-field appearance="outline">
+          <mat-label>Label</mat-label>
+          <input matInput [ngModel]="credentialLabel()" (ngModelChange)="credentialLabel.set($event)" name="credentialLabel" required />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Provider</mat-label>
+          <mat-select [value]="credentialProvider()" [disabled]="!!editingCredentialId()" (selectionChange)="credentialProvider.set($event.value)" name="credentialProvider" required>
+            @for (provider of providers(); track provider) { <mat-option [value]="provider">{{ provider }}</mat-option> }
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Description (optional)</mat-label>
+          <input matInput [ngModel]="credentialDescription()" (ngModelChange)="credentialDescription.set($event)" name="credentialDescription" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>{{ editingCredentialId() ? 'New value (to rotate)' : 'API key' }}</mat-label>
+          <input matInput type="password" autocomplete="off" [ngModel]="credentialValue()" (ngModelChange)="credentialValue.set($event)" name="credentialValue" [required]="!editingCredentialId()" />
+          <mat-hint>{{ editingCredentialId() ? 'Leave empty to keep the current key.' : 'The value will not be shown again after saving.' }}</mat-hint>
+        </mat-form-field>
+        @if (credentialsError()) { <p class="assistant-error">{{ credentialsError() }}</p> }
+        <button type="submit" mat-flat-button class="assistant-send" [disabled]="credentialSaving() || !credentialLabel().trim() || !credentialProvider().trim() || (!editingCredentialId() && !credentialValue().trim())">
+          {{ credentialSaving() ? 'Saving...' : editingCredentialId() ? 'Save changes' : 'Save credential' }}
+        </button>
+      </form>
       }
       }
     </section>

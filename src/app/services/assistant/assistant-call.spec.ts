@@ -104,6 +104,7 @@ describe('AssistantCallService', () => {
     const selection = {
       provider: 'OpenAI',
       model: 'gpt-oss:20b',
+      credentialId: 'credential-1',
       phaseModels: { planningModel: 'planning-model' }
     };
     const actionRequests = [

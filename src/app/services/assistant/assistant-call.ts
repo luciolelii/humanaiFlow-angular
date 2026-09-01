@@ -74,8 +74,13 @@ function mapAssistantConfig(raw: unknown): AssistantConfig {
   return {
     defaultProvider: String(value['defaultProvider'] ?? value['provider'] ?? ''),
     defaultModel: String(value['defaultModel'] ?? ''),
-    availableProvidersRetrieverUrl: String(value['availableProvidersRetrieverUrl'] ?? ''),
-    availableModelsRetrieverUrl: String(value['availableModelsRetrieverUrlTemplate'] ?? value['availableModelsRetrieverUrl'] ?? ''),
+    availableProvidersRetrieverUrl: String(value['providersRetrieverUrl'] ?? value['availableProvidersRetrieverUrl'] ?? ''),
+    availableModelsRetrieverUrl: String(
+      value['modelsRetrieverUrlTemplate']
+        ?? value['availableModelsRetrieverUrlTemplate']
+        ?? value['availableModelsRetrieverUrl']
+        ?? ''
+    ),
     defaultPhaseModels: mapPhaseModels(value['defaultPhaseModels'])
   };
 }
