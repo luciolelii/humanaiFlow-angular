@@ -1,9 +1,12 @@
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ChangeDetectionStrategy, Component, computed, effect, ElementRef, inject, input, OnDestroy, signal, viewChild } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatSelectModule } from '@angular/material/select';
 import {
   areFlowValueKindsCompatible,
   FlowBlock,
@@ -23,6 +26,8 @@ import {
   TaskExecutionAuthorizationRequirement,
   TaskExecutionStep
 } from '@models/task-execution';
+import { ExecutionVaultCredential, LlmProviderCapability } from '@models/llm-provider';
+import { VaultSecret } from '@models/assistant';
 import {
   EditableExecutionInput,
   TaskExecutionInputsPanelComponent
@@ -38,6 +43,10 @@ import { TaskExecutionsService } from '@services/task-executions/task-executions
 import { FlowsService } from '@services/flows/flows';
 import { ContainersService } from '@services/containers/containers';
 import { BlocksService } from '@services/blocks/blocks';
+import { LlmProviderService } from '@services/llm-provider/llm-provider';
+import { ExecutionVaultCredentialsService } from '@services/llm-provider/execution-vault-credentials';
+import { VaultService } from '@services/vault/vault';
+import { extractHttpErrorMessage } from '@services/shared/http-error.util';
 import {
   BiasRerunDialogService,
   BiasRerunCandidate,
@@ -46,7 +55,7 @@ import {
 import { BiasCompareDialogService } from '@services/dialogs/bias-compare-dialog';
 import { BiasComparisonViewStateService } from '@services/bias/bias-comparison-view-state';
 import { BiasImpactReportListComponent } from '@shared/bias-impact-report-list/bias-impact-report-list';
-import { firstValueFrom, take } from 'rxjs';
+import { firstValueFrom, Observable, of, take, tap } from 'rxjs';
 import {
   ExecutionOutputEntry,
   ExecutionOutputGroup,
@@ -66,7 +75,6 @@ import {
   buildExecutionIntermediateInputs,
   buildExecutionIntermediateInputGroups,
   buildVisibleExecutionLogs,
-  isInputSet,
   normalizeEditableInputValue,
   getExecutionInputValues,
   getExecutionOutputValues,
@@ -74,6 +82,10 @@ import {
   getConnectedOutputs,
   getExecutionErrors,
   getExecutionWarnings,
+  AuthorizationGate,
+  VaultAuthorizationEntry,
+  buildAuthorizationGate,
+  isExecutionStartable,
 } from './execution-viewer.utils';
 import {
   mergeExecutionStepNode,
@@ -83,7 +95,7 @@ import {
 
 @Component({
   selector: 'app-task-execution-viewer',
-  imports: [CommonModule, ReteEditor, TaskExecutionInputsPanelComponent, MatButtonModule, MatIconModule, MatTooltipModule, BiasImpactReportListComponent],
+  imports: [CommonModule, FormsModule, ReteEditor, TaskExecutionInputsPanelComponent, MatButtonModule, MatIconModule, MatTooltipModule, MatFormFieldModule, MatSelectModule, BiasImpactReportListComponent],
   templateUrl: './task-execution-viewer.html',
   styleUrl: './task-execution-viewer.css',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -97,6 +109,9 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   private fieldRetriever = inject(FieldRetriever);
   private containersService = inject(ContainersService);
   private blocksService = inject(BlocksService);
+  private llmProviderService = inject(LlmProviderService);
+  private executionVaultCredentials = inject(ExecutionVaultCredentialsService);
+  private vaultService = inject(VaultService);
   private biasRerunDialog = inject(BiasRerunDialogService);
   private biasCompareDialog = inject(BiasCompareDialogService);
   private biasComparisonViewState = inject(BiasComparisonViewStateService);
@@ -122,6 +137,21 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   readonly pendingAuthorizationValues = signal<Record<string, string>>({});
   readonly savingAuthorizations = signal<Record<string, boolean>>({});
   readonly authorizationErrors = signal<Record<string, string>>({});
+  readonly llmProviderCapabilities = signal<LlmProviderCapability[]>([]);
+  readonly llmProviderCapabilitiesLoading = signal(false);
+  readonly llmProviderCapabilitiesError = signal<string | null>(null);
+  readonly llmCredentialOptions = signal<Record<string, ExecutionVaultCredential[]>>({});
+  readonly llmCredentialLoading = signal<Record<string, boolean>>({});
+  readonly llmCredentialErrors = signal<Record<string, string>>({});
+  /** Satisfied requirements the user reopened to pick a different credential. */
+  readonly editingAuthorizationKeys = signal<Record<string, boolean>>({});
+  readonly credentialFormOpen = signal(false);
+  readonly credentialFormProvider = signal('');
+  readonly credentialFormLabel = signal('');
+  readonly credentialFormDescription = signal('');
+  readonly credentialFormValue = signal('');
+  readonly credentialFormSaving = signal(false);
+  readonly credentialFormError = signal<string | null>(null);
   readonly outputPreviewModal = signal<ExecutionOutputEntry | null>(null);
   readonly intermediateInputPreviewModal = signal<ExecutionIntermediateInputEntry | null>(null);
   readonly executionLogs = signal<ExecutionEventLogEntry[]>([]);
@@ -132,6 +162,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   private readonly logsScrollViewport = viewChild<ElementRef<HTMLDivElement>>('logsScrollViewport');
   private sourceFlowRequestVersion = 0;
   private readonly sourceFlowCache = new Map<string, FlowData>();
+  private readonly requestedCredentialProviders = new Set<string>();
 
   constructor() {
     effect(() => {
@@ -142,12 +173,28 @@ export class TaskExecutionViewerComponent implements OnDestroy {
       this.pendingAuthorizationValues.set({});
       this.savingAuthorizations.set({});
       this.authorizationErrors.set({});
+      this.llmCredentialOptions.set({});
+      this.llmCredentialLoading.set({});
+      this.llmCredentialErrors.set({});
+      this.editingAuthorizationKeys.set({});
+      this.requestedCredentialProviders.clear();
+      this.credentialFormOpen.set(false);
+      this.credentialFormError.set(null);
+      this.loadLlmProviderCapabilities();
       this.activeAsideTab.set('inputs');
       this.outputPreviewModal.set(null);
       this.intermediateInputPreviewModal.set(null);
       this.executionLogs.set([]);
       this.logsError.set(null);
       this.logsLoading.set(false);
+    });
+
+    // Credentials follow the gate, not the provider catalog: a requirement needs a
+    // vault secret whether or not the catalog could be read.
+    effect(() => {
+      for (const provider of this.authorizationGate().missingProviders) {
+        this.loadLlmCredentialsOnce(provider);
+      }
     });
 
     effect(() => {
@@ -315,21 +362,31 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     Object.values(this.execution()?.context.steps ?? {})
   );
 
-  readonly authorizationRequirements = computed<TaskExecutionAuthorizationRequirement[]>(() => {
-    const execution = this.execution();
-    if (!execution?.requiredAuthorizations) return [];
+  readonly authorizationGate = computed<AuthorizationGate>(() =>
+    buildAuthorizationGate(this.execution(), {
+      capabilities: this.llmProviderCapabilities(),
+      loading: this.llmProviderCapabilitiesLoading(),
+      failed: !!this.llmProviderCapabilitiesError()
+    })
+  );
 
-    const required = execution.requiredAuthorizations;
-    const entries = Array.isArray(required) ? required : Object.values(required);
-    return entries
-      .filter((entry): entry is TaskExecutionAuthorizationRequirement => !!entry && typeof entry.key === 'string')
-      .sort((a, b) => a.provider.localeCompare(b.provider) || a.key.localeCompare(b.key));
+  /** Credentials still to choose, plus the settled ones the user reopened. */
+  readonly pendingVaultAuthorizations = computed<VaultAuthorizationEntry[]>(() => {
+    const gate = this.authorizationGate();
+    const editing = this.editingAuthorizationKeys();
+    return [
+      ...gate.vault,
+      ...gate.satisfiedVault.filter((entry) => editing[entry.requirement.key])
+    ];
   });
 
-  readonly missingAuthorizationRequirements = computed<TaskExecutionAuthorizationRequirement[]>(() => {
-    const missingKeys = new Set(this.execution()?.missingAuthorizationKeys ?? []);
-    return this.authorizationRequirements().filter((requirement) => missingKeys.has(requirement.key));
+  /** Credentials already accepted, kept on screen so they can be reviewed or changed. */
+  readonly settledVaultAuthorizations = computed<VaultAuthorizationEntry[]>(() => {
+    const editing = this.editingAuthorizationKeys();
+    return this.authorizationGate().satisfiedVault.filter((entry) => !editing[entry.requirement.key]);
   });
+
+  readonly runtimeAuthorizationRequirements = computed(() => this.authorizationGate().runtime);
 
   readonly executionFlowData = computed<FlowData>(() => {
     const executionStatusGroup = getExecutionStatusGroup(this.execution()?.context.status);
@@ -512,6 +569,13 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     const status = String(target?.context.status ?? '').toUpperCase();
     return !this.cancelInProgress() && (status === 'RUNNING' || status === 'WAITING');
   });
+  readonly startExecutionTooltip = computed(() => {
+    const gate = this.authorizationGate();
+    if (gate.missingProviders.length) return `Missing provider credential: ${gate.missingProviders.join(', ')}`;
+    if (gate.runtime.length) return 'Missing provider authorization';
+    return 'Start execution';
+  });
+
   readonly cancelExecutionTooltip = computed(() =>
     this.isSubflowExecution() ? 'Cancel parent execution' : 'Cancel execution'
   );
@@ -522,48 +586,9 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     return !this.resumeInProgress() && status === 'SUSPENDED';
   });
 
-  readonly canStartExecution = computed(() => {
-    const execution = this.execution();
-    if (!execution) return false;
-    if (this.isSubflowExecution()) return false;
-    if ((execution.missingAuthorizationKeys?.length ?? 0) > 0) return false;
-
-    const statusGroup = getExecutionStatusGroup(execution.context.status);
-    if (statusGroup !== 'INIT') return false;
-
-    const status = String(execution.context.status ?? '').toUpperCase();
-    if (status !== 'CREATED' && status !== 'READY') return false;
-
-    const globalInputs = execution.context.globalInputs ?? {};
-    const globalInputDescriptors = execution.context.globalInputDescriptors ?? {};
-    for (const [descriptorKey, descriptor] of Object.entries(globalInputDescriptors)) {
-      const inputName = String(descriptor?.name ?? descriptorKey).trim();
-      if (!inputName) return false;
-
-      const value = Object.prototype.hasOwnProperty.call(globalInputs, inputName)
-        ? globalInputs[inputName]
-        : descriptor?.value;
-      if (!isInputSet(value, Boolean(descriptor?.multiple))) return false;
-    }
-
-    for (const step of Object.values(execution.context.steps ?? {})) {
-      for (const input of step.inputs ?? []) {
-        if (input.registered) continue;
-
-        const inputName = input.descriptor?.name;
-        if (!inputName) continue;
-
-        const key = `${step.id}:${inputName}`;
-        const value = Object.prototype.hasOwnProperty.call(execution.context.inputs ?? {}, key)
-          ? execution.context.inputs[key]
-          : input.value;
-
-        if (!isInputSet(value, Boolean(input.descriptor?.multiple))) return false;
-      }
-    }
-
-    return true;
-  });
+  readonly canStartExecution = computed(() =>
+    !this.isSubflowExecution() && isExecutionStartable(this.execution(), this.authorizationGate())
+  );
 
   readonly canSimulateExecution = computed(() => {
     return !this.isSubflowExecution()
@@ -666,6 +691,12 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     return entries.sort((a, b) => a.title.localeCompare(b.title) || a.subtitle.localeCompare(b.subtitle));
   });
 
+  /** Brings the credential picker on screen from the banner above the graph. */
+  openAuthorizationPanel() {
+    this.contextAsideOpen.set(true);
+    this.activeAsideTab.set('inputs');
+  }
+
   toggleContextAside() {
     this.contextAsideOpen.update((open) => !open);
   }
@@ -731,6 +762,182 @@ export class TaskExecutionViewerComponent implements OnDestroy {
       next: () => this.startInProgress.set(false),
       error: () => this.startInProgress.set(false)
     });
+  }
+
+  llmCredentialOptionsFor(entry: VaultAuthorizationEntry): ExecutionVaultCredential[] {
+    return this.llmCredentialOptions()[entry.provider.toLowerCase()] ?? [];
+  }
+
+  llmCredentialLoadingFor(entry: VaultAuthorizationEntry): boolean {
+    return this.llmCredentialLoading()[entry.provider.toLowerCase()] === true;
+  }
+
+  llmCredentialErrorFor(entry: VaultAuthorizationEntry): string | null {
+    return this.llmCredentialErrors()[entry.provider.toLowerCase()] ?? null;
+  }
+
+  selectedLlmCredentialFor(entry: VaultAuthorizationEntry): string {
+    return this.pendingAuthorizationValues()[entry.requirement.key] ?? '';
+  }
+
+  authorizationSavingFor(entry: VaultAuthorizationEntry): boolean {
+    return this.savingAuthorizations()[entry.requirement.key] === true;
+  }
+
+  authorizationErrorFor(entry: VaultAuthorizationEntry): string | null {
+    return this.authorizationErrors()[entry.requirement.key] ?? null;
+  }
+
+  /** Label of the credential currently answering a satisfied requirement, when it can be resolved. */
+  providedCredentialLabel(entry: VaultAuthorizationEntry): string {
+    const provided = this.execution()?.providedAuthorizations?.[entry.requirement.key];
+    const credentialId = typeof provided === 'string' ? provided : '';
+    const match = this.llmCredentialOptionsFor(entry).find((item) => item.id === credentialId);
+    return match?.label ?? 'Credential provided';
+  }
+
+  selectLlmCredential(entry: VaultAuthorizationEntry, credentialId: string) {
+    if (!this.llmCredentialOptionsFor(entry).some((item) => item.id === credentialId)) return;
+    this.applyLlmCredential(entry, credentialId);
+  }
+
+  changeVaultAuthorization(entry: VaultAuthorizationEntry) {
+    this.editingAuthorizationKeys.update((current) => ({ ...current, [entry.requirement.key]: true }));
+    this.reloadLlmCredentials(entry.provider);
+  }
+
+  cancelVaultAuthorizationChange(entry: VaultAuthorizationEntry) {
+    this.editingAuthorizationKeys.update((current) => {
+      const next = { ...current };
+      delete next[entry.requirement.key];
+      return next;
+    });
+  }
+
+  retryLlmCredentials(entry: VaultAuthorizationEntry) {
+    this.reloadLlmCredentials(entry.provider);
+  }
+
+  retryLlmProviderCapabilities() {
+    this.loadLlmProviderCapabilities();
+  }
+
+  private applyLlmCredential(entry: VaultAuthorizationEntry, credentialId: string) {
+    if (!credentialId) return;
+    this.onAuthorizationValueChange(entry.requirement, credentialId);
+    this.submitAuthorization(entry.requirement);
+  }
+
+  openVaultCredentialForm(provider: string) {
+    this.credentialFormError.set(null);
+    this.credentialFormProvider.set(provider);
+    this.credentialFormLabel.set('');
+    this.credentialFormDescription.set('');
+    this.credentialFormValue.set('');
+    this.credentialFormOpen.set(true);
+  }
+
+  closeVaultCredentialForm() {
+    this.credentialFormOpen.set(false);
+    this.credentialFormValue.set('');
+    this.credentialFormError.set(null);
+  }
+
+  saveExecutionCredential() {
+    const provider = this.credentialFormProvider().trim();
+    const label = this.credentialFormLabel().trim();
+    const value = this.credentialFormValue();
+    if (!provider || !label || !value.trim() || this.credentialFormSaving()) return;
+    this.credentialFormSaving.set(true);
+    this.vaultService.createSecret({
+      provider,
+      label,
+      description: this.credentialFormDescription().trim() || undefined,
+      value
+    }).pipe(take(1)).subscribe({
+      next: (credential) => {
+        this.credentialFormSaving.set(false);
+        this.credentialFormValue.set('');
+        this.credentialFormOpen.set(false);
+        this.credentialFormError.set(null);
+        this.reloadLlmCredentials(provider);
+
+        // The vault id is the same id the authorizations endpoint takes, so the new
+        // credential can answer the requirement without waiting for the listing.
+        if (!credential.active) return;
+        const entry = this.pendingVaultAuthorizations().find((item) =>
+          item.provider.toLowerCase() === provider.toLowerCase()
+        );
+        if (entry) this.applyLlmCredential(entry, credential.id);
+      },
+      error: (error) => {
+        this.credentialFormSaving.set(false);
+        this.credentialFormValue.set('');
+        this.credentialFormError.set(this.executionErrorMessage(error));
+      }
+    });
+  }
+
+  private loadLlmProviderCapabilities() {
+    if (!this.execution()?.id) return;
+    this.llmProviderCapabilitiesLoading.set(true);
+    this.llmProviderCapabilitiesError.set(null);
+    this.llmProviderService.listCapabilities().pipe(take(1)).subscribe({
+      next: (capabilities) => {
+        this.llmProviderCapabilities.set(capabilities);
+        this.llmProviderCapabilitiesLoading.set(false);
+      },
+      error: (error) => {
+        this.llmProviderCapabilitiesLoading.set(false);
+        this.llmProviderCapabilitiesError.set(this.executionErrorMessage(error));
+      }
+    });
+  }
+
+  private loadLlmCredentialsOnce(provider: string) {
+    const key = provider.trim().toLowerCase();
+    if (!key || this.requestedCredentialProviders.has(key)) return;
+    this.requestedCredentialProviders.add(key);
+    this.loadLlmCredentials(provider).subscribe();
+  }
+
+  private reloadLlmCredentials(provider: string) {
+    const key = provider.trim().toLowerCase();
+    if (!key) return;
+    this.requestedCredentialProviders.add(key);
+    this.llmCredentialErrors.update((current) => {
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
+    this.loadLlmCredentials(provider).subscribe();
+  }
+
+  private loadLlmCredentials(provider: string): Observable<ExecutionVaultCredential[]> {
+    const key = provider.trim().toLowerCase();
+    if (!key) return of([]);
+    this.llmCredentialLoading.update((current) => ({ ...current, [key]: true }));
+    return this.executionVaultCredentials.listForProvider(provider).pipe(
+      take(1),
+      tap({
+        next: (credentials) => {
+          this.llmCredentialOptions.update((current) => ({ ...current, [key]: credentials }));
+          this.llmCredentialLoading.update((current) => ({ ...current, [key]: false }));
+        },
+        error: (error: unknown) => {
+          this.llmCredentialLoading.update((current) => ({ ...current, [key]: false }));
+          this.llmCredentialErrors.update((current) => ({ ...current, [key]: this.executionErrorMessage(error) }));
+        }
+      })
+    );
+  }
+
+  private executionErrorMessage(error: unknown): string {
+    return extractHttpErrorMessage(error as any)
+      ?? (typeof (error as { message?: unknown })?.message === 'string'
+        && (error as { message: string }).message.trim()
+        ? (error as { message: string }).message
+        : 'Unable to load or save the provider credential.');
   }
 
   async simulateExecution() {
@@ -875,6 +1082,8 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     if (!value) return;
 
     this.setAuthorizationSaving(requirement.key, true);
+    // The endpoint answers with the recomputed execution, which the service puts back
+    // into the store, so the gate reopens on the backend's word rather than a guess.
     this.taskExecutionsService.provideAuthorization(executionId, requirement.key, value).subscribe({
       next: () => {
         this.pendingAuthorizationValues.update((current) => {
@@ -882,9 +1091,17 @@ export class TaskExecutionViewerComponent implements OnDestroy {
           delete next[requirement.key];
           return next;
         });
+        this.editingAuthorizationKeys.update((current) => {
+          const next = { ...current };
+          delete next[requirement.key];
+          return next;
+        });
         this.clearAuthorizationSaving(requirement.key);
       },
-      error: () => this.setAuthorizationError(requirement.key, 'Failed to save authorization')
+      error: (error: unknown) => this.setAuthorizationError(
+        requirement.key,
+        extractHttpErrorMessage(error as any) ?? 'Failed to save authorization'
+      )
     });
   }
 

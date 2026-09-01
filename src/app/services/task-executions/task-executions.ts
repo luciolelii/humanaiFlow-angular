@@ -36,6 +36,7 @@ export class TaskExecutionsService {
   taskExecutionsCallService: TaskExecutionsCallServiceBase = new environment.taskExecutionsCallService();
   private initialized = false;
   private refreshInFlight = false;
+  private refreshQueued = false;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private _taskExecutions = signal<TaskExecution[]>([]);
   private _taskExecutionGroups = signal<TaskExecutionGroup[]>([]);
@@ -59,12 +60,19 @@ export class TaskExecutionsService {
   }
 
   refresh() {
-    if (this.refreshInFlight) return;
+    if (this.refreshInFlight) {
+      this.refreshQueued = true;
+      return;
+    }
     this.refreshInFlight = true;
 
     this.taskExecutionsCallService.retrieveTaskExecutionGroups().pipe(
       finalize(() => {
         this.refreshInFlight = false;
+        if (this.refreshQueued) {
+          this.refreshQueued = false;
+          this.refresh();
+        }
       })
     ).subscribe((groups) => {
       const taskExecutions = this.flattenGroups(groups);
@@ -337,8 +345,11 @@ export class TaskExecutionsService {
 
   provideAuthorization(executionId: string, key: string, value: string) {
     return this.withRefreshAndErrorHandling(
-      this.taskExecutionsCallService.provideAuthorization(executionId, key, value),
-      'Provide authorization failed'
+      this.taskExecutionsCallService.provideAuthorization(executionId, key, value).pipe(
+        tap((execution) => this.replaceExecution(execution))
+      ),
+      'Provide authorization failed',
+      false
     );
   }
 

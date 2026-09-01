@@ -235,9 +235,17 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
       id: '74ec477f-b04e-494c-80cc-968a40527bef',
       name: 'Test Flow',
       creationTime: 1772705504567,
-      requiredAuthorizations: {},
+      requiredAuthorizations: {
+        'LLMProvider::testProvider::authorization': {
+          key: 'LLMProvider::testProvider::authorization',
+          provider: 'testProvider',
+          fieldName: 'authorization',
+          description: 'Select a saved credential for testProvider.',
+          requiredBySteps: ['f91ec0f7-03e8-4208-89ac-bd9db46dca8c']
+        }
+      },
       providedAuthorizations: {},
-      missingAuthorizationKeys: [],
+      missingAuthorizationKeys: ['LLMProvider::testProvider::authorization'],
       context: {
         inputs: {
           'f91ec0f7-03e8-4208-89ac-bd9db46dca8c:name': 'marie curie'
@@ -866,12 +874,31 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
     value: string
   ): Observable<TaskExecution> {
     const execution = this.findExecution(executionId);
-    execution.providedAuthorizations = {
-      ...(execution.providedAuthorizations ?? {}),
-      [key]: value ? 'provided' : ''
+    const required = execution.requiredAuthorizations ?? {};
+    const isRequired = Array.isArray(required)
+      ? required.some((requirement) => requirement.key === key)
+      : Object.prototype.hasOwnProperty.call(required, key);
+
+    if (!isRequired || !value.trim()) {
+      return throwError(() => ({
+        status: 400,
+        error: { detail: !value.trim() ? 'The credential is required.' : `This execution does not require ${key}.` }
+      }));
+    }
+
+    // A real endpoint answers with a freshly serialized execution, so hand back a new
+    // object here too: signal consumers only react to a changed reference.
+    const updated: TaskExecution = {
+      ...execution,
+      providedAuthorizations: {
+        ...(execution.providedAuthorizations ?? {}),
+        [key]: value
+      },
+      missingAuthorizationKeys: (execution.missingAuthorizationKeys ?? []).filter((item) => item !== key)
     };
-    execution.missingAuthorizationKeys = (execution.missingAuthorizationKeys ?? []).filter((item) => item !== key);
-    return of(execution);
+    const index = this.data.findIndex((item) => item.id === executionId);
+    if (index >= 0) this.data[index] = updated;
+    return of(updated);
   }
 
   private createIsolatedReport(baselineExecutionId: string, stepId: string): BiasImpactReport {

@@ -13,8 +13,10 @@ import {
   getExecutionStatusGroup,
   getTaskExecutionStepNode,
   TaskExecution,
+  TaskExecutionAuthorizationRequirement,
   TaskExecutionStep,
 } from '@models/task-execution';
+import { LlmProviderCapability } from '@models/llm-provider';
 
 export type ExecutionOutputEntry = {
   key: string;
@@ -371,4 +373,165 @@ export function getExecutionWarnings(stepId: string, contextWarnings: unknown): 
     return raw.filter((value): value is string => typeof value === 'string' && value.trim().length > 0);
   }
   return [];
+}
+
+
+/* ------------------------------------------------------------------ *
+ * Authorization gate
+ *
+ * An execution cannot start until every entry of `requiredAuthorizations`
+ * has been satisfied. `missingAuthorizationKeys` is the backend's answer on
+ * what is still outstanding and is the only thing the gate trusts.
+ * ------------------------------------------------------------------ */
+
+/** Keys of the form `LLMProvider::<provider>::<field>`, always paid with a vault secret id. */
+export const LLM_AUTHORIZATION_KEY_PREFIX = 'llmprovider::';
+
+export type AuthorizationCapabilityState = {
+  capabilities: LlmProviderCapability[];
+  loading: boolean;
+  failed: boolean;
+};
+
+export type VaultAuthorizationEntry = {
+  requirement: TaskExecutionAuthorizationRequirement;
+  provider: string;
+  /** `null` while the provider catalog is unavailable, so the UI cannot claim either way. */
+  requiresCredential: boolean | null;
+};
+
+export type AuthorizationGate = {
+  /** Vault credentials the execution is still waiting for. */
+  vault: VaultAuthorizationEntry[];
+  /** Vault credentials already provided, kept so the user can review or change them. */
+  satisfiedVault: VaultAuthorizationEntry[];
+  /** Outstanding authorizations that are not provider credentials and carry a literal value. */
+  runtime: TaskExecutionAuthorizationRequirement[];
+  missingProviders: string[];
+  satisfied: boolean;
+};
+
+export function authorizationProvider(requirement: TaskExecutionAuthorizationRequirement): string {
+  const provider = String(requirement.provider ?? '').trim();
+  if (provider && !provider.includes('::')) return provider;
+  const parts = String(requirement.key ?? '').split('::');
+  return parts.length > 1 ? parts[1].trim() : provider;
+}
+
+export function isLlmAuthorizationRequirement(requirement: TaskExecutionAuthorizationRequirement): boolean {
+  return String(requirement.key ?? '').trim().toLowerCase().startsWith(LLM_AUTHORIZATION_KEY_PREFIX);
+}
+
+export function listAuthorizationRequirements(
+  execution: TaskExecution | null | undefined
+): TaskExecutionAuthorizationRequirement[] {
+  const required = execution?.requiredAuthorizations;
+  if (!required) return [];
+  const entries = Array.isArray(required) ? required : Object.values(required);
+  return entries
+    .filter((entry): entry is TaskExecutionAuthorizationRequirement =>
+      !!entry && typeof entry.key === 'string' && entry.key.trim().length > 0
+    )
+    .sort((left, right) =>
+      authorizationProvider(left).localeCompare(authorizationProvider(right))
+      || left.key.localeCompare(right.key)
+    );
+}
+
+export function buildAuthorizationGate(
+  execution: TaskExecution | null | undefined,
+  capabilityState: AuthorizationCapabilityState
+): AuthorizationGate {
+  const missingKeys = new Set(execution?.missingAuthorizationKeys ?? []);
+  const vault: VaultAuthorizationEntry[] = [];
+  const satisfiedVault: VaultAuthorizationEntry[] = [];
+  const runtime: TaskExecutionAuthorizationRequirement[] = [];
+
+  for (const requirement of listAuthorizationRequirements(execution)) {
+    const missing = missingKeys.has(requirement.key);
+
+    // A provider key is never payable with a literal value, whatever the catalog says
+    // or fails to say, so it can only ever go down the vault path.
+    if (isLlmAuthorizationRequirement(requirement)) {
+      const provider = authorizationProvider(requirement);
+      const entry: VaultAuthorizationEntry = {
+        requirement,
+        provider,
+        requiresCredential: resolveRequiresCredential(provider, capabilityState)
+      };
+      (missing ? vault : satisfiedVault).push(entry);
+      continue;
+    }
+
+    if (missing) runtime.push(requirement);
+  }
+
+  const missingProviders = Array.from(new Set(vault.map((entry) => entry.provider))).filter(Boolean);
+
+  return {
+    vault,
+    satisfiedVault,
+    runtime,
+    missingProviders,
+    satisfied: vault.length === 0 && runtime.length === 0
+  };
+}
+
+function resolveRequiresCredential(
+  provider: string,
+  capabilityState: AuthorizationCapabilityState
+): boolean | null {
+  if (capabilityState.loading || capabilityState.failed) return null;
+  const wanted = provider.trim().toLowerCase();
+  const match = capabilityState.capabilities.find((capability) =>
+    capability.name.trim().toLowerCase() === wanted
+  );
+  return match ? match.requiresCredential : null;
+}
+
+/**
+ * Everything that has to hold before an execution can be started, except the
+ * conditions only the component knows about (a subflow view, a request already
+ * in flight).
+ */
+export function isExecutionStartable(
+  execution: TaskExecution | null | undefined,
+  gate: AuthorizationGate
+): boolean {
+  if (!execution) return false;
+  if (!gate.satisfied) return false;
+
+  if (getExecutionStatusGroup(execution.context.status) !== 'INIT') return false;
+  const status = String(execution.context.status ?? '').toUpperCase();
+  if (status !== 'CREATED' && status !== 'READY') return false;
+
+  const globalInputs = execution.context.globalInputs ?? {};
+  const globalInputDescriptors = execution.context.globalInputDescriptors ?? {};
+  for (const [descriptorKey, descriptor] of Object.entries(globalInputDescriptors)) {
+    const inputName = String(descriptor?.name ?? descriptorKey).trim();
+    if (!inputName) return false;
+
+    const value = Object.prototype.hasOwnProperty.call(globalInputs, inputName)
+      ? globalInputs[inputName]
+      : descriptor?.value;
+    if (!isInputSet(value, Boolean(descriptor?.multiple))) return false;
+  }
+
+  for (const step of Object.values(execution.context.steps ?? {})) {
+    for (const input of step.inputs ?? []) {
+      if (input.registered) continue;
+
+      const inputName = input.descriptor?.name;
+      if (!inputName) continue;
+
+      const key = `${step.id}:${inputName}`;
+      const value = Object.prototype.hasOwnProperty.call(execution.context.inputs ?? {}, key)
+        ? execution.context.inputs[key]
+        : input.value;
+
+      if (!isInputSet(value, Boolean(input.descriptor?.multiple))) return false;
+    }
+  }
+
+  return true;
 }
