@@ -45,11 +45,6 @@
           <p class="assistant-label">Configurazione assistente</p>
           <p class="assistant-copy">Le credenziali dei provider sono gestite dal backend.</p>
         </div>
-        @if (configurationLocked()) {
-        <button type="button" mat-stroked-button class="assistant-new-session" [disabled]="assistantBusy()" (click)="createNewSession()">
-          Nuova sessione
-        </button>
-        }
       </div>
 
       <mat-checkbox
@@ -60,7 +55,7 @@
       </mat-checkbox>
 
       @if (configurationLocked()) {
-      <p class="assistant-meta">La configurazione LLM è fissata per questa sessione. Crea una nuova sessione per modificarla.</p>
+      <p class="assistant-meta">La configurazione LLM è fissata per questa sessione.</p>
       }
 
       @if (!useDefaultConfiguration()) {

@@ -277,18 +277,6 @@ export class FlowAssistant implements OnInit, OnDestroy {
     this.persistSnapshot();
   }
 
-  createNewSession() {
-    if (this.assistantBusy() || !this.configurationValid()) return;
-    this.stopPolling();
-    this.currentCall.set(null);
-    this.sessionState.set(null);
-    this.localMessages.set([]);
-    this.assistantErrorMessage.set(null);
-    this.lastFailedPrompt.set(null);
-    this.lastSubmittedPrompt.set('');
-    void this.openSession();
-  }
-
   useStarter(prompt: string) {
     this.prompt.set(prompt);
     this.persistSnapshot();
@@ -388,6 +376,7 @@ export class FlowAssistant implements OnInit, OnDestroy {
       error: (err) => {
         console.error('Assistant flow action failed', err);
         this.requestPending.set(false);
+        this.discardFailedSession();
         this.handleAssistantErrorWithRetry(normalizedContent, this.backendErrorMessage(err));
       }
     });
@@ -503,6 +492,12 @@ export class FlowAssistant implements OnInit, OnDestroy {
       });
     }
     this.syncDraftToEditor(result.flow);
+  }
+
+  private discardFailedSession() {
+    this.stopPolling();
+    this.currentCall.set(null);
+    this.sessionState.set(null);
   }
 
   private backendErrorMessage(error: unknown): string {
