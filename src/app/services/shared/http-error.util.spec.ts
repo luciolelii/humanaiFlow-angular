@@ -12,6 +12,7 @@ describe('extractHttpErrorMessage', () => {
     expect(extractHttpErrorMessage(new HttpErrorResponse({ error: { message: 'msg' }, status: 400 }))).toBe('msg');
     expect(extractHttpErrorMessage(new HttpErrorResponse({ error: { error: 'err' }, status: 400 }))).toBe('err');
     expect(extractHttpErrorMessage(new HttpErrorResponse({ error: { details: 'det' }, status: 400 }))).toBe('det');
+    expect(extractHttpErrorMessage(new HttpErrorResponse({ error: { detail: 'problem detail' }, status: 400 }))).toBe('problem detail');
   });
 
   it('returns null when nothing usable is present', () => {

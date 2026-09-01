@@ -57,7 +57,32 @@ export type AssistantPhaseModels = {
 export type AssistantLlmSelection = {
   provider: string;
   model: string;
+  credentialId?: string;
   phaseModels?: AssistantPhaseModels;
+};
+
+export type VaultSecret = {
+  id: string;
+  label: string;
+  provider: string;
+  description?: string;
+  active: boolean;
+  lastUsedAt?: string;
+  maskedPreview?: string;
+};
+
+export type VaultSecretCreateRequest = {
+  label: string;
+  provider: string;
+  description?: string;
+  value: string;
+};
+
+export type VaultSecretUpdateRequest = {
+  label?: string;
+  description?: string;
+  active?: boolean;
+  value?: string;
 };
 
 export type AssistantSessionRequest = {

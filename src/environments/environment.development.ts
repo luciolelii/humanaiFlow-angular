@@ -3,6 +3,9 @@ import { AssistantCallServiceFake } from "@services/assistant/assistant-call.fak
 import { AuthorizationCallFakeService } from "@services/authorization/authorization-call.fake";
 import { BlocksCallServiceFake } from "@services/blocks/blocks-call.fake";
 import { ContainersCallServiceFake } from "@services/containers/containers-call.fake";
+import { ExecutionVaultCredentialsCallServiceFake } from "@services/llm-provider/execution-vault-credentials-call.fake";
+import { LlmProviderCallServiceFake } from "@services/llm-provider/llm-provider-call.fake";
+import { VaultCallServiceFake } from "@services/vault/vault-call.fake";
 import { FlowsCallServiceFake } from "@services/flows/flows-call.fake";
 import { FieldRetrieverCallServiceFake } from "@services/retriever/field-retriever-call.fake";
 import { TaskExecutionsCallServiceFake } from "@services/task-executions/task-executions-call.fake";
@@ -20,5 +23,8 @@ export const environment = {
     blocksCallService: BlocksCallServiceFake,
     containersCallService: ContainersCallServiceFake,
     fieldRetrieverCallService: FieldRetrieverCallServiceFake,
-    taskExecutionsCallService: TaskExecutionsCallServiceFake
+    taskExecutionsCallService: TaskExecutionsCallServiceFake,
+    llmProviderCallService: LlmProviderCallServiceFake,
+    executionVaultCredentialsCallService: ExecutionVaultCredentialsCallServiceFake,
+    vaultCallService: VaultCallServiceFake
 };

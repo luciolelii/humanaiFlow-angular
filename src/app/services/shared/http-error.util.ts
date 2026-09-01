@@ -3,7 +3,7 @@ import { Observable, throwError } from 'rxjs';
 
 /**
  * Reads a human-readable message out of a backend error body, trying the
- * conventional `message`/`error`/`details` string fields in that order.
+ * conventional `message`/`error`/`details`/`detail` string fields in that order.
  */
 export function extractHttpErrorMessage(error: HttpErrorResponse): string | null {
   const payload = error.error;
@@ -23,6 +23,11 @@ export function extractHttpErrorMessage(error: HttpErrorResponse): string | null
     const details = record['details'];
     if (typeof details === 'string' && details.trim().length > 0) {
       return details.trim();
+    }
+    // RFC 7807 ProblemDetail, which the execution endpoints answer with.
+    const detail = record['detail'];
+    if (typeof detail === 'string' && detail.trim().length > 0) {
+      return detail.trim();
     }
   }
   return null;
