@@ -1,6 +1,9 @@
 import { Injectable } from '@angular/core';
 import { environment } from '@environment';
-import { AssistantSendMessageRequest } from '@models/assistant';
+import {
+  AssistantFlowRequest,
+  AssistantSessionRequest
+} from '@models/assistant';
 import { AssistantCallServiceBase } from './assistant-call.base';
 
 @Injectable({
@@ -13,27 +16,32 @@ export class AssistantService {
     return this.assistantCall.getConfig();
   }
 
-  listModels(retrieverUrl: string) {
-    return this.assistantCall.listModels(retrieverUrl);
+  listProviders(retrieverUrl: string) {
+    return this.assistantCall.listProviders(retrieverUrl);
   }
 
-  createSession(request: { model: string }) {
+  listModels(retrieverUrlTemplate: string, provider: string) {
+    return this.assistantCall.listModels(retrieverUrlTemplate, provider);
+  }
+
+  createSession(request: AssistantSessionRequest) {
     return this.assistantCall.createSession(request);
   }
 
-  sendMessage(sessionId: string, request: AssistantSendMessageRequest) {
-    return this.assistantCall.sendMessage(sessionId, request);
+  draft(request: AssistantFlowRequest) {
+    return this.assistantCall.draft(request);
   }
 
-  getCall(callId: string) {
-    return this.assistantCall.getCall(callId);
+  refine(request: AssistantFlowRequest) {
+    return this.assistantCall.refine(request);
   }
 
-  cancelCall(callId: string) {
-    return this.assistantCall.cancelCall(callId);
+  fix(request: AssistantFlowRequest) {
+    return this.assistantCall.fix(request);
   }
 
-  getSession(sessionId: string) {
-    return this.assistantCall.getSession(sessionId);
+  explain(request: AssistantFlowRequest) {
+    return this.assistantCall.explain(request);
   }
+
 }

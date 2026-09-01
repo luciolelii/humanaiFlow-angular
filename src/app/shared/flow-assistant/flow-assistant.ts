@@ -1,18 +1,19 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, effect, ElementRef, EventEmitter, inject, input, OnDestroy, OnInit, Output, signal, ViewChild } from '@angular/core';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
-import { environment } from '@environment';
 import {
   AssistantCallPhase,
   AssistantCallState,
   AssistantChatMessage,
   AssistantConfig,
   AssistantDraftPayload,
-  AssistantFlowResult,
+  AssistantFlowActionResult,
+  AssistantLlmSelection,
   AssistantSessionState
 } from '@models/assistant';
 import { Flow } from '@models/flow';
@@ -24,7 +25,7 @@ import { finalize, firstValueFrom, interval, Subscription, switchMap, take } fro
 
 @Component({
   selector: 'app-flow-assistant',
-  imports: [CommonModule, FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule],
+  imports: [CommonModule, FormsModule, MatButtonModule, MatCheckboxModule, MatFormFieldModule, MatInputModule, MatSelectModule],
   templateUrl: './flow-assistant.html',
   styleUrl: './flow-assistant.css',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -52,6 +53,9 @@ export class FlowAssistant implements OnInit, OnDestroy {
   readonly currentCall = signal<AssistantCallState | null>(null);
   readonly localMessages = signal<AssistantChatMessage[]>([]);
   readonly models = signal<string[]>([]);
+  readonly providers = signal<string[]>([]);
+  readonly providersLoading = signal(false);
+  readonly providersError = signal<string | null>(null);
   readonly modelsLoading = signal(false);
   readonly modelsError = signal<string | null>(null);
   readonly sessionLoading = signal(false);
@@ -59,6 +63,10 @@ export class FlowAssistant implements OnInit, OnDestroy {
   readonly prompt = signal('');
   readonly createPromptSubmitted = signal(false);
   readonly selectedModel = signal('');
+  readonly useDefaultConfiguration = signal(true);
+  readonly selectedProvider = signal('');
+  readonly phaseModels = signal<AssistantLlmSelection['phaseModels']>(undefined);
+  readonly advancedModelsOpen = signal(false);
   readonly modelPickerOpen = signal(false);
   readonly quickPromptsOpen = signal(true);
   readonly assistantErrorMessage = signal<string | null>(null);
@@ -180,6 +188,13 @@ export class FlowAssistant implements OnInit, OnDestroy {
   });
   readonly currentFlow = this.editorState.currentFlow;
   readonly currentDraft = computed(() => this.sessionState()?.currentDraftFlow ?? null);
+  readonly configurationLocked = computed(() => !!this.sessionState()?.id);
+  readonly customConfigurationValid = computed(() =>
+    !!this.selectedProvider().trim() && !!this.selectedModel().trim()
+  );
+  readonly configurationValid = computed(() =>
+    this.useDefaultConfiguration() || this.customConfigurationValid()
+  );
 
   constructor() {
     effect(() => {
@@ -226,9 +241,52 @@ export class FlowAssistant implements OnInit, OnDestroy {
   }
 
   selectModel(model: string) {
-    if (!model || model === this.selectedModel()) return;
+    if (this.configurationLocked()) return;
     this.selectedModel.set(model);
-    void this.openSession(model);
+    this.persistSnapshot();
+  }
+
+  setUseDefaultConfiguration(useDefault: boolean) {
+    if (this.configurationLocked()) return;
+    this.useDefaultConfiguration.set(useDefault);
+    this.modelsError.set(null);
+    if (!useDefault) {
+      void this.loadProviders();
+    }
+    this.persistSnapshot();
+  }
+
+  selectProvider(provider: string) {
+    if (this.configurationLocked()) return;
+    this.selectedProvider.set(provider);
+    this.selectedModel.set('');
+    this.models.set([]);
+    this.modelsError.set(null);
+    if (provider) void this.loadModels(provider);
+    this.persistSnapshot();
+  }
+
+  setPhaseModel(phase: keyof NonNullable<AssistantLlmSelection['phaseModels']>, model: string) {
+    if (this.configurationLocked()) return;
+    this.phaseModels.update((current) => ({ ...current, [phase]: model || undefined }));
+    this.persistSnapshot();
+  }
+
+  toggleAdvancedModels() {
+    this.advancedModelsOpen.update((value) => !value);
+    this.persistSnapshot();
+  }
+
+  createNewSession() {
+    if (this.assistantBusy() || !this.configurationValid()) return;
+    this.stopPolling();
+    this.currentCall.set(null);
+    this.sessionState.set(null);
+    this.localMessages.set([]);
+    this.assistantErrorMessage.set(null);
+    this.lastFailedPrompt.set(null);
+    this.lastSubmittedPrompt.set('');
+    void this.openSession();
   }
 
   useStarter(prompt: string) {
@@ -264,40 +322,12 @@ export class FlowAssistant implements OnInit, OnDestroy {
       === this.canonicalAssistantErrorContent(FlowAssistant.STANDARD_ASSISTANT_ERROR);
   }
 
-  hasCancellableCall(): boolean {
-    return this.isActiveCall(this.currentCall());
-  }
+  hasCancellableCall(): boolean { return false; }
 
   async cancelActiveCall(): Promise<boolean> {
-    const call = this.currentCall();
-    if (!this.isActiveCall(call)) {
-      this.requestPending.set(false);
-      this.createPromptSubmitted.set(false);
-      return true;
-    }
-
-    this.stopPolling();
     this.requestPending.set(false);
-
-    try {
-      const cancelledCall = await firstValueFrom(this.assistant.cancelCall(call.id).pipe(take(1)));
-      this.currentCall.set(cancelledCall);
-      this.createPromptSubmitted.set(false);
-      this.persistSnapshot();
-
-      const session = await firstValueFrom(this.assistant.getSession(cancelledCall.sessionId || call.sessionId).pipe(take(1)));
-      this.applySessionState(session, { syncDraftToEditor: false });
-      this.currentCall.set(null);
-      this.persistSnapshot();
-      return true;
-    } catch (err) {
-      console.error('Assistant call cancel failed', err);
-      this.currentCall.set(call);
-      this.startPolling(call.id, call.sessionId);
-      this.assistantErrorMessage.set('Unable to cancel the assistant request.');
-      this.persistSnapshot();
-      return false;
-    }
+    this.createPromptSubmitted.set(false);
+    return true;
   }
 
   clearActiveSnapshot() {
@@ -307,8 +337,18 @@ export class FlowAssistant implements OnInit, OnDestroy {
 
   private sendPrompt(content: string) {
     const normalizedContent = content.trim();
-    const sessionId = this.sessionState()?.id;
-    if (!normalizedContent || this.assistantBusy() || !sessionId) return;
+    if (!normalizedContent || this.assistantBusy() || !this.configurationValid()) return;
+
+    if (!this.sessionState()?.id) {
+      void this.openSession(normalizedContent);
+      return;
+    }
+
+    this.runFlowAction(normalizedContent);
+  }
+
+  private runFlowAction(normalizedContent: string) {
+    const intent = this.resolveIntent(normalizedContent);
 
     if (this.isCreateModal()) this.createPromptSubmitted.set(true);
     this.requestPending.set(true);
@@ -324,24 +364,31 @@ export class FlowAssistant implements OnInit, OnDestroy {
     ]);
     this.persistSnapshot();
 
-    this.assistant.sendMessage(sessionId, { message: normalizedContent }).pipe(
-      take(1)
-    ).subscribe({
-      next: ({ callId }) => {
+    const request = {
+      userPrompt: normalizedContent,
+      ...(this.llmSelection() ? { llmSelection: this.llmSelection() } : {}),
+      ...(intent === 'draft' ? {} : { flow: this.assistantFlowForRequest() }),
+      ...(intent === 'fix' ? { validationErrors: this.sessionState()?.lastValidationErrors ?? [] } : {})
+    };
+    const action = intent === 'draft'
+      ? this.assistant.draft(request)
+      : intent === 'fix'
+        ? this.assistant.fix(request)
+        : intent === 'explain'
+          ? this.assistant.explain(request)
+          : this.assistant.refine(request);
+
+    action.pipe(take(1)).subscribe({
+      next: (result) => {
         this.requestPending.set(false);
-        this.currentCall.set({
-          id: callId,
-          sessionId,
-          status: 'QUEUED',
-          phase: 'queued'
-        });
+        this.applyFlowActionResult(result);
+        this.createPromptSubmitted.set(false);
         this.persistSnapshot();
-        this.startPolling(callId, sessionId);
       },
       error: (err) => {
-        console.error('Assistant send message failed', err);
+        console.error('Assistant flow action failed', err);
         this.requestPending.set(false);
-        this.handleAssistantErrorWithRetry(normalizedContent);
+        this.handleAssistantErrorWithRetry(normalizedContent, this.backendErrorMessage(err));
       }
     });
   }
@@ -354,7 +401,7 @@ export class FlowAssistant implements OnInit, OnDestroy {
     ).subscribe({
       next: (config) => {
         this.assistantConfig.set(config);
-        this.loadModelsAndSession(config);
+        this.initializeConfiguration(config);
       },
       error: (err) => {
         console.error('Assistant config loading failed', err);
@@ -364,112 +411,150 @@ export class FlowAssistant implements OnInit, OnDestroy {
     });
   }
 
-  private loadModelsAndSession(config: AssistantConfig) {
+  private initializeConfiguration(_config: AssistantConfig) {
+    this.activeFlowKey = this.isCreateModal()
+      ? this.createModalFlowKey
+      : this.resolveFlowKey(this.currentFlow()?.id ?? null);
+    this.initialized = true;
+    void this.restoreSessionForFlow(this.activeFlowKey);
+  }
+
+  private loadProviders() {
+    const config = this.assistantConfig();
+    if (!config?.availableProvidersRetrieverUrl) return;
+    this.providersLoading.set(true);
+    this.providersError.set(null);
+    this.assistant.listProviders(config.availableProvidersRetrieverUrl).pipe(
+      take(1),
+      finalize(() => this.providersLoading.set(false))
+    ).subscribe({
+      next: (providers) => this.providers.set(providers),
+      error: (err) => this.providersError.set(this.backendErrorMessage(err))
+    });
+  }
+
+  private loadModels(provider: string) {
+    const config = this.assistantConfig();
+    if (!config?.availableModelsRetrieverUrl) return;
     this.modelsLoading.set(true);
-    const resolvedUrl = this.resolveAssistantModelsUrl(config.availableModelsRetrieverUrl);
-    this.assistant.listModels(config.availableModelsRetrieverUrl).pipe(
+    this.modelsError.set(null);
+    this.assistant.listModels(config.availableModelsRetrieverUrl, provider).pipe(
       take(1),
       finalize(() => this.modelsLoading.set(false))
     ).subscribe({
       next: (models) => {
         this.models.set(models);
-        const selectedModel = config.defaultModel || models[0] || '';
-        this.selectedModel.set(selectedModel);
-        if (!selectedModel) {
-          this.sessionLoading.set(false);
-          this.modelsError.set('No assistant model is available.');
-          return;
-        }
-        this.activeFlowKey = this.isCreateModal()
-          ? this.createModalFlowKey
-          : this.resolveFlowKey(this.currentFlow()?.id ?? null);
-        this.initialized = true;
-        void this.restoreSessionForFlow(this.activeFlowKey);
+        if (!models.length) this.modelsError.set('No models are available for the selected provider.');
       },
-      error: (err) => {
-        console.error('Assistant model loading failed', err);
-        this.sessionLoading.set(false);
-        this.modelsError.set(
-          `Unable to load assistant models from ${resolvedUrl}.`
-        );
-      }
+      error: (err) => this.modelsError.set(this.backendErrorMessage(err))
     });
   }
 
-  private async openSession(model: string, flowKey = this.activeFlowKey ?? this.resolveFlowKey(this.currentFlow()?.id ?? null)) {
+  private llmSelection(): AssistantLlmSelection | undefined {
+    if (this.useDefaultConfiguration()) return undefined;
+    const provider = this.selectedProvider().trim();
+    const model = this.selectedModel().trim();
+    if (!provider || !model) return undefined;
+    const phaseModels = this.phaseModels();
+    const populatedPhases = phaseModels && Object.values(phaseModels).some(Boolean)
+      ? phaseModels
+      : undefined;
+    return { provider, model, ...(populatedPhases ? { phaseModels: populatedPhases } : {}) };
+  }
+
+  private sessionRequest() {
+    const llmSelection = this.llmSelection();
+    return llmSelection ? { llmSelection } : {};
+  }
+
+  private resolveIntent(prompt: string): 'draft' | 'refine' | 'fix' | 'explain' {
+    const normalized = prompt.toLowerCase();
+    if (/\b(explain|what does|why|describe)\b/.test(normalized)) return 'explain';
+    if (/\b(fix|repair|invalid|error|broken)\b/.test(normalized)) return 'fix';
+    return this.canOfferCreate() ? 'draft' : 'refine';
+  }
+
+  private assistantFlowForRequest(): AssistantDraftPayload | undefined {
+    const draft = this.currentDraft();
+    if (draft) return draft;
+    const flow = this.currentFlow();
+    if (!flow) return undefined;
+    return { name: flow.name, description: flow.description, flow: flow.data };
+  }
+
+  private applyFlowActionResult(result: AssistantFlowActionResult) {
+    const message: AssistantChatMessage = {
+      id: crypto.randomUUID(),
+      role: 'assistant',
+      content: result.message,
+      warnings: result.warnings,
+      validationErrors: result.validationErrors
+    };
+    this.localMessages.update((messages) => [...messages, message]);
+
+    if (!result.flow) return;
+    const session = this.sessionState();
+    if (session) {
+      this.sessionState.set({
+        ...session,
+        currentFlow: result.flow,
+        currentDraftFlow: result.flow,
+        lastValidationErrors: result.validationErrors
+      });
+    }
+    this.syncDraftToEditor(result.flow);
+  }
+
+  private backendErrorMessage(error: unknown): string {
+    const value = error as { error?: unknown; message?: unknown };
+    const payload = value?.error;
+    if (typeof payload === 'string' && payload.trim()) return payload;
+    if (payload && typeof payload === 'object') {
+      const body = payload as Record<string, unknown>;
+      for (const key of ['message', 'error', 'detail', 'title']) {
+        if (typeof body[key] === 'string' && body[key].trim()) return body[key] as string;
+      }
+    }
+    if (typeof value?.message === 'string' && value.message.trim()) return value.message;
+    return FlowAssistant.STANDARD_ASSISTANT_ERROR;
+  }
+
+  private async openSession(
+    promptToSend?: string,
+    flowKey = this.activeFlowKey ?? this.resolveFlowKey(this.currentFlow()?.id ?? null)
+  ) {
     this.stopPolling();
     this.currentCall.set(null);
     this.localMessages.set([]);
     this.sessionLoading.set(true);
 
-    this.assistant.createSession({ model }).pipe(
+    this.assistant.createSession(this.sessionRequest()).pipe(
       take(1),
       finalize(() => this.sessionLoading.set(false))
     ).subscribe({
       next: (session) => {
         this.applySessionState(session);
         this.persistSnapshot(flowKey);
+        if (promptToSend) this.runFlowAction(promptToSend);
       },
       error: (err) => {
         console.error('Assistant session creation failed', err);
-        this.pushLocalAssistantMessage('Unable to create an assistant session.');
+        const message = this.backendErrorMessage(err);
+        this.assistantErrorMessage.set(message);
+        this.pushLocalAssistantMessage(message);
       }
     });
   }
 
-  private startPolling(callId: string, sessionId: string) {
-    this.stopPolling();
-    this.pollSubscription = interval(500).pipe(
-      switchMap(() => this.assistant.getCall(callId))
-    ).subscribe({
-      next: (callState) => {
-        this.currentCall.set(callState);
-        this.persistSnapshot();
-        if (this.isTerminalCall(callState)) {
-          this.stopPolling();
-          if (callState.status === 'COMPLETED' && callState.flowResult?.flow) {
-            this.syncDraftToEditor(this.flowResultToDraft(callState.flowResult));
-          }
-          if (callState.status === 'CANCELLED') {
-            this.createPromptSubmitted.set(false);
-          }
-          void this.reloadSession(sessionId, callState.status === 'FAILED');
-        }
-      },
-      error: (err) => {
-        console.error('Assistant call polling failed', err);
-        this.stopPolling();
-        this.handleAssistantErrorWithRetry(this.lastSubmittedPrompt());
-      }
-    });
-  }
-
-  private async reloadSession(sessionId: string, hasFailedCall = false) {
-    this.assistant.getSession(sessionId).pipe(
-      take(1)
-    ).subscribe({
-      next: (session) => {
-        this.applySessionState(session);
-        this.currentCall.set(null);
-        this.persistSnapshot();
-        if (hasFailedCall) {
-          this.handleAssistantErrorWithRetry(this.lastSubmittedPrompt());
-        }
-      },
-      error: (err) => {
-        console.error('Assistant session refresh failed', err);
-        this.currentCall.set(null);
-        this.handleAssistantErrorWithRetry(this.lastSubmittedPrompt());
-      }
-    });
-  }
-
-  private handleAssistantErrorWithRetry(promptForRetry: string) {
+  private handleAssistantErrorWithRetry(
+    promptForRetry: string,
+    message = FlowAssistant.STANDARD_ASSISTANT_ERROR
+  ) {
     const normalizedPrompt = String(promptForRetry ?? '').trim();
     this.createPromptSubmitted.set(false);
-    this.assistantErrorMessage.set(FlowAssistant.STANDARD_ASSISTANT_ERROR);
+    this.assistantErrorMessage.set(message);
     this.lastFailedPrompt.set(normalizedPrompt || null);
-    this.pushLocalAssistantMessage(FlowAssistant.STANDARD_ASSISTANT_ERROR);
+    this.pushLocalAssistantMessage(message);
     this.persistSnapshot();
   }
 
@@ -539,15 +624,6 @@ export class FlowAssistant implements OnInit, OnDestroy {
     };
   }
 
-  private flowResultToDraft(result: AssistantFlowResult): AssistantDraftPayload {
-    const currentFlow = this.currentFlow();
-    return {
-      name: result.name ?? currentFlow?.name ?? 'Assistant Draft',
-      description: result.description ?? currentFlow?.description,
-      flow: result.flow
-    };
-  }
-
   private pushLocalAssistantMessage(content: string) {
     const normalizedContent = this.normalizeAssistantMessageContent(content);
     const filtered = this.localMessages().filter((message) => message.role !== 'assistant');
@@ -606,8 +682,8 @@ export class FlowAssistant implements OnInit, OnDestroy {
       id: 'assistant-system-welcome',
       role: 'system',
       content: this.canOfferCreate()
-        ? (this.isCreateModal() ? 'Describe the workflow you want to create.' : 'Select a model, then ask me to create a new workflow.')
-        : 'Select a model, then ask me to refine, fix, or explain the current workflow.'
+        ? (this.isCreateModal() ? 'Describe the workflow you want to create.' : 'Use the default configuration or choose a provider and model, then ask me to create a new workflow.')
+        : 'Use the default configuration or choose a provider and model, then ask me to refine, fix, or explain the current workflow.'
     };
   }
 
@@ -625,12 +701,12 @@ export class FlowAssistant implements OnInit, OnDestroy {
       this.assistantErrorMessage.set(null);
       this.lastFailedPrompt.set(null);
       this.lastSubmittedPrompt.set('');
-      const model = this.selectedModel();
-      if (!model) {
-        this.sessionLoading.set(false);
-        return;
-      }
-      void this.openSession(model, flowKey);
+      this.useDefaultConfiguration.set(true);
+      this.selectedProvider.set('');
+      this.selectedModel.set('');
+      this.phaseModels.set(undefined);
+      this.advancedModelsOpen.set(false);
+      this.sessionLoading.set(false);
       return;
     }
 
@@ -642,62 +718,27 @@ export class FlowAssistant implements OnInit, OnDestroy {
     this.assistantErrorMessage.set(snapshot.assistantErrorMessage);
     this.lastFailedPrompt.set(snapshot.lastFailedPrompt);
     this.lastSubmittedPrompt.set(snapshot.lastSubmittedPrompt);
-    this.createPromptSubmitted.set(this.isCreateModal() && this.isActiveCall(snapshot.currentCall));
-    if (snapshot.selectedModel) {
-      this.selectedModel.set(snapshot.selectedModel);
-    }
+    this.createPromptSubmitted.set(false);
+    this.useDefaultConfiguration.set(snapshot.useDefaultConfiguration);
+    this.selectedProvider.set(snapshot.selectedProvider);
+    this.selectedModel.set(snapshot.selectedModel);
+    this.phaseModels.set(snapshot.phaseModels);
+    this.advancedModelsOpen.set(snapshot.advancedModelsOpen);
     if (snapshot.sessionState) {
       this.sessionState.set(snapshot.sessionState);
     } else {
       this.sessionState.set(null);
     }
 
-    if (!snapshot.sessionId) {
-      const model = this.selectedModel();
-      if (!model) {
-        this.sessionLoading.set(false);
-        return;
-      }
-      void this.openSession(model, flowKey);
-      return;
+    this.sessionLoading.set(false);
+    if (!this.useDefaultConfiguration() && this.selectedProvider()) {
+      void this.loadProviders();
+      void this.loadModels(this.selectedProvider());
     }
-
-    if (this.isActiveCall(snapshot.currentCall)) {
-      this.sessionLoading.set(false);
-      this.startPolling(snapshot.currentCall.id, snapshot.currentCall.sessionId || snapshot.sessionId);
-      return;
-    }
-
-    this.sessionLoading.set(true);
-    this.assistant.getSession(snapshot.sessionId).pipe(
-      take(1),
-      finalize(() => this.sessionLoading.set(false))
-    ).subscribe({
-      next: (session) => {
-        this.applySessionState(session, {
-          clearLocalMessages: false,
-          syncDraftToEditor: true
-        });
-      },
-      error: (err) => {
-        console.error('Assistant session restore failed', err);
-        const model = this.selectedModel();
-        if (!model) return;
-        void this.openSession(model, flowKey);
-      }
-    });
   }
 
   private resolveFlowKey(flowId: string | null | undefined): string {
     return this.sessionStore.flowKey(flowId);
-  }
-
-  private isActiveCall(call: AssistantCallState | null): call is AssistantCallState {
-    return call?.status === 'QUEUED' || call?.status === 'RUNNING';
-  }
-
-  private isTerminalCall(call: AssistantCallState): boolean {
-    return call.status === 'COMPLETED' || call.status === 'FAILED' || call.status === 'CANCELLED';
   }
 
   private clearSnapshot(flowKey: string) {
@@ -711,6 +752,10 @@ export class FlowAssistant implements OnInit, OnDestroy {
     this.sessionStore.setSnapshot(flowKey, {
       sessionId: this.sessionState()?.id ?? null,
       selectedModel: this.selectedModel(),
+      useDefaultConfiguration: this.useDefaultConfiguration(),
+      selectedProvider: this.selectedProvider(),
+      phaseModels: this.phaseModels(),
+      advancedModelsOpen: this.advancedModelsOpen(),
       prompt: this.prompt(),
       modelPickerOpen: this.modelPickerOpen(),
       quickPromptsOpen: this.quickPromptsOpen(),
@@ -769,20 +814,6 @@ export class FlowAssistant implements OnInit, OnDestroy {
       case 'cancelled':
         return 'Assistant request cancelled.';
     }
-  }
-
-  private resolveAssistantModelsUrl(url: string): string {
-    if (!url) return url;
-    if (/^https?:\/\//i.test(url)) return url;
-
-    const apiBase = environment.apiUrl;
-    if (/^https?:\/\//i.test(apiBase)) {
-      return new URL(url, `${apiBase.replace(/\/+$/, '')}/`).toString();
-    }
-
-    const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const normalizedBase = apiBase.startsWith('/') ? apiBase : `/${apiBase}`;
-    return new URL(url, `${origin}${normalizedBase.replace(/\/+$/, '')}/`).toString();
   }
 
   private hasMeaningfulFlow(flow: Flow | null): boolean {

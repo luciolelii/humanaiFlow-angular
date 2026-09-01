@@ -1,15 +1,12 @@
 import { HttpClient } from '@angular/common/http';
 import { inject } from '@angular/core';
 import {
-  AssistantCallPhase,
-  AssistantCallState,
-  AssistantCallStatus,
   AssistantChatMessage,
   AssistantConfig,
   AssistantDraftPayload,
-  AssistantFlowResult,
-  AssistantIntent,
-  AssistantSendMessageRequest,
+  AssistantFlowActionResult,
+  AssistantFlowRequest,
+  AssistantSessionRequest,
   AssistantSessionState,
   AssistantValidationIssue
 } from '@models/assistant';
@@ -26,56 +23,69 @@ export class AssistantCallService extends AssistantCallServiceBase {
       .pipe(map((raw) => mapAssistantConfig(raw)));
   }
 
-  override listModels(retrieverUrl: string): Observable<string[]> {
+  override listProviders(retrieverUrl: string): Observable<string[]> {
+    return this.http
+      .get<unknown>(resolveAssistantUrl(retrieverUrl))
+      .pipe(map((raw) => mapModelList(raw)));
+  }
+
+  override listModels(retrieverUrlTemplate: string, provider: string): Observable<string[]> {
+    const retrieverUrl = retrieverUrlTemplate.replace('{provider}', encodeURIComponent(provider));
     const resolvedUrl = resolveAssistantUrl(retrieverUrl);
     return this.http
       .get<unknown>(resolvedUrl)
       .pipe(map((raw) => mapModelList(raw)));
   }
 
-  override createSession(request: {
-    model: string;
-  }): Observable<AssistantSessionState> {
+  override createSession(request: AssistantSessionRequest): Observable<AssistantSessionState> {
     return this.http
       .post<unknown>(`${environment.apiUrl}/assistant/sessions`, request)
       .pipe(map((raw) => mapAssistantSessionState(raw)));
   }
 
-  override sendMessage(sessionId: string, request: AssistantSendMessageRequest): Observable<{ callId: string }> {
-    const encodedId = encodeURIComponent(sessionId);
-    return this.http
-      .post<unknown>(`${environment.apiUrl}/assistant/sessions/${encodedId}/messages`, request)
-      .pipe(map((raw) => mapSendMessageResponse(raw)));
+  override draft(request: AssistantFlowRequest): Observable<AssistantFlowActionResult> {
+    return this.runFlowAction('draft', request);
   }
 
-  override getCall(callId: string): Observable<AssistantCallState> {
-    const encodedId = encodeURIComponent(callId);
-    return this.http
-      .get<unknown>(`${environment.apiUrl}/assistant/calls/${encodedId}`)
-      .pipe(map((raw) => mapAssistantCallState(raw)));
+  override refine(request: AssistantFlowRequest): Observable<AssistantFlowActionResult> {
+    return this.runFlowAction('refine', request);
   }
 
-  override cancelCall(callId: string): Observable<AssistantCallState> {
-    const encodedId = encodeURIComponent(callId);
-    return this.http
-      .put<unknown>(`${environment.apiUrl}/assistant/calls/${encodedId}/cancel`, {})
-      .pipe(map((raw) => mapAssistantCallState(raw)));
+  override fix(request: AssistantFlowRequest): Observable<AssistantFlowActionResult> {
+    return this.runFlowAction('fix', request);
   }
 
-  override getSession(sessionId: string): Observable<AssistantSessionState> {
-    const encodedId = encodeURIComponent(sessionId);
+  override explain(request: AssistantFlowRequest): Observable<AssistantFlowActionResult> {
+    return this.runFlowAction('explain', request);
+  }
+
+  private runFlowAction(
+    action: 'draft' | 'refine' | 'fix' | 'explain',
+    request: AssistantFlowRequest
+  ): Observable<AssistantFlowActionResult> {
     return this.http
-      .get<unknown>(`${environment.apiUrl}/assistant/sessions/${encodedId}`)
-      .pipe(map((raw) => mapAssistantSessionState(raw)));
+      .post<unknown>(`${environment.apiUrl}/assistant/flows/${action}`, request)
+      .pipe(map((raw) => mapAssistantFlowActionResult(raw)));
   }
 }
 
 function mapAssistantConfig(raw: unknown): AssistantConfig {
   const value = (raw ?? {}) as Record<string, unknown>;
   return {
-    provider: typeof value['provider'] === 'string' ? value['provider'] : undefined,
+    defaultProvider: String(value['defaultProvider'] ?? value['provider'] ?? ''),
     defaultModel: String(value['defaultModel'] ?? ''),
-    availableModelsRetrieverUrl: String(value['availableModelsRetrieverUrl'] ?? '')
+    availableProvidersRetrieverUrl: String(value['availableProvidersRetrieverUrl'] ?? ''),
+    availableModelsRetrieverUrl: String(value['availableModelsRetrieverUrlTemplate'] ?? value['availableModelsRetrieverUrl'] ?? ''),
+    defaultPhaseModels: mapPhaseModels(value['defaultPhaseModels'])
+  };
+}
+
+function mapPhaseModels(raw: unknown) {
+  const value = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  return {
+    planningModel: typeof value['planningModel'] === 'string' ? value['planningModel'] : undefined,
+    jsonModel: typeof value['jsonModel'] === 'string' ? value['jsonModel'] : undefined,
+    repairModel: typeof value['repairModel'] === 'string' ? value['repairModel'] : undefined
   };
 }
 
@@ -99,29 +109,25 @@ function mapModelList(raw: unknown): string[] {
   }).filter((item) => item.length > 0);
 }
 
-function mapSendMessageResponse(raw: unknown): { callId: string } {
-  const value = (raw ?? {}) as Record<string, unknown>;
-  return {
-    callId: String(value['callId'] ?? value['id'] ?? '')
-  };
-}
-
-function mapAssistantCallState(raw: unknown): AssistantCallState {
-  const value = (raw ?? {}) as Record<string, unknown>;
-  const status = mapCallStatus(value['status']);
-  return {
-    id: String(value['id'] ?? value['callId'] ?? ''),
-    sessionId: String(value['sessionId'] ?? ''),
-    status,
-    phase: mapCallPhase(value['phase']),
-    progressMessage: typeof value['progressMessage'] === 'string' ? value['progressMessage'] : undefined,
-    intent: mapIntent(value['intent']),
-    errorMessage: typeof value['errorMessage'] === 'string'
-      ? value['errorMessage']
-      : typeof value['message'] === 'string' && status === 'FAILED'
+function mapAssistantFlowActionResult(raw: unknown): AssistantFlowActionResult {
+  const value = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  const flow = mapAssistantDraftPayload(value['flow'] ?? value['result']);
+  const message = typeof value['assistantRationale'] === 'string'
+    ? value['assistantRationale']
+    : typeof value['explanation'] === 'string'
+      ? value['explanation']
+      : typeof value['message'] === 'string'
         ? value['message']
-        : undefined,
-    flowResult: mapAssistantFlowResult(value['flowResult'])
+        : flow
+          ? 'Workflow updated.'
+          : 'The assistant completed the request.';
+
+  return {
+    flow,
+    valid: typeof value['valid'] === 'boolean' ? value['valid'] : undefined,
+    validationErrors: mapValidationIssues(value['validationErrors']),
+    warnings: Array.isArray(value['warnings']) ? value['warnings'].map((warning) => String(warning)) : [],
+    message
   };
 }
 
@@ -157,18 +163,6 @@ function mapAssistantMessages(raw: unknown): AssistantChatMessage[] {
       validationErrors: mapValidationIssues(value['validationErrors'])
     } as AssistantChatMessage;
   });
-}
-
-function mapAssistantFlowResult(raw: unknown): AssistantFlowResult | null {
-  if (!raw || typeof raw !== 'object') return null;
-  const value = raw as Record<string, unknown>;
-  const flow = mapAssistantFlowData(value['flow']);
-  if (!hasAssistantFlowData(flow)) return null;
-  return {
-    name: typeof value['name'] === 'string' ? value['name'] : undefined,
-    description: typeof value['description'] === 'string' ? value['description'] : undefined,
-    flow
-  };
 }
 
 function mapAssistantDraftPayload(raw: unknown): AssistantDraftPayload | null {
@@ -274,45 +268,6 @@ function mapValidationIssues(raw: unknown): AssistantValidationIssue[] {
       path: typeof value['path'] === 'string' ? value['path'] : undefined
     };
   });
-}
-
-function mapCallStatus(raw: unknown): AssistantCallStatus {
-  const normalized = typeof raw === 'string' ? raw.toUpperCase() : '';
-  if (normalized === 'QUEUED' || normalized === 'RUNNING' || normalized === 'FAILED' || normalized === 'CANCELLED') return normalized;
-  return 'COMPLETED';
-}
-
-function mapCallPhase(raw: unknown): AssistantCallPhase {
-  const normalized = typeof raw === 'string' ? raw.toLowerCase() : '';
-  switch (normalized) {
-    case 'queued':
-    case 'routing':
-    case 'planning':
-    case 'configuring_blocks':
-    case 'connecting_blocks':
-    case 'validating':
-    case 'fixing':
-    case 'explaining':
-    case 'completed':
-    case 'failed':
-    case 'cancelled':
-      return normalized;
-    default:
-      return 'queued';
-  }
-}
-
-function mapIntent(raw: unknown): AssistantIntent | null {
-  const normalized = typeof raw === 'string' ? raw.toLowerCase() : '';
-  switch (normalized) {
-    case 'draft':
-    case 'refine':
-    case 'fix':
-    case 'explain':
-      return normalized;
-    default:
-      return null;
-  }
 }
 
 function resolveAssistantUrl(url: string): string {

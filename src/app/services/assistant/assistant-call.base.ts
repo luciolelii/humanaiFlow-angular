@@ -1,7 +1,8 @@
 import {
-  AssistantCallState,
   AssistantConfig,
-  AssistantSendMessageRequest,
+  AssistantFlowActionResult,
+  AssistantFlowRequest,
+  AssistantSessionRequest,
   AssistantSessionState
 } from '@models/assistant';
 import { Observable } from 'rxjs';
@@ -9,17 +10,18 @@ import { Observable } from 'rxjs';
 export abstract class AssistantCallServiceBase {
   abstract getConfig(): Observable<AssistantConfig>;
 
-  abstract listModels(retrieverUrl: string): Observable<string[]>;
+  abstract listProviders(retrieverUrl: string): Observable<string[]>;
 
-  abstract createSession(request: {
-    model: string;
-  }): Observable<AssistantSessionState>;
+  abstract listModels(retrieverUrlTemplate: string, provider: string): Observable<string[]>;
 
-  abstract sendMessage(sessionId: string, request: AssistantSendMessageRequest): Observable<{ callId: string }>;
+  abstract createSession(request: AssistantSessionRequest): Observable<AssistantSessionState>;
 
-  abstract getCall(callId: string): Observable<AssistantCallState>;
+  abstract draft(request: AssistantFlowRequest): Observable<AssistantFlowActionResult>;
 
-  abstract cancelCall(callId: string): Observable<AssistantCallState>;
+  abstract refine(request: AssistantFlowRequest): Observable<AssistantFlowActionResult>;
 
-  abstract getSession(sessionId: string): Observable<AssistantSessionState>;
+  abstract fix(request: AssistantFlowRequest): Observable<AssistantFlowActionResult>;
+
+  abstract explain(request: AssistantFlowRequest): Observable<AssistantFlowActionResult>;
+
 }

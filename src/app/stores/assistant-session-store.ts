@@ -1,9 +1,13 @@
 import { Injectable } from '@angular/core';
-import { AssistantCallState, AssistantChatMessage, AssistantSessionState } from '@models/assistant';
+import { AssistantCallState, AssistantChatMessage, AssistantLlmSelection, AssistantSessionState } from '@models/assistant';
 
 export type AssistantSessionSnapshot = {
   sessionId: string | null;
   selectedModel: string;
+  useDefaultConfiguration: boolean;
+  selectedProvider: string;
+  phaseModels: AssistantLlmSelection['phaseModels'];
+  advancedModelsOpen: boolean;
   prompt: string;
   modelPickerOpen: boolean;
   quickPromptsOpen: boolean;
@@ -85,6 +89,10 @@ export class AssistantSessionStore {
     return {
       sessionId: typeof snapshot['sessionId'] === 'string' ? snapshot['sessionId'] : null,
       selectedModel: typeof snapshot['selectedModel'] === 'string' ? snapshot['selectedModel'] : '',
+      useDefaultConfiguration: snapshot['useDefaultConfiguration'] !== false,
+      selectedProvider: typeof snapshot['selectedProvider'] === 'string' ? snapshot['selectedProvider'] : '',
+      phaseModels: this.normalizePhaseModels(snapshot['phaseModels']),
+      advancedModelsOpen: snapshot['advancedModelsOpen'] === true,
       prompt: typeof snapshot['prompt'] === 'string' ? snapshot['prompt'] : '',
       modelPickerOpen: snapshot['modelPickerOpen'] === true,
       quickPromptsOpen: snapshot['quickPromptsOpen'] !== false,
@@ -107,6 +115,17 @@ export class AssistantSessionStore {
         ? snapshot['lastSubmittedPrompt']
         : ''
     };
+  }
+
+  private normalizePhaseModels(raw: unknown): AssistantLlmSelection['phaseModels'] {
+    if (!raw || typeof raw !== 'object') return undefined;
+    const value = raw as Record<string, unknown>;
+    const phaseModels = {
+      planningModel: typeof value['planningModel'] === 'string' ? value['planningModel'] : undefined,
+      jsonModel: typeof value['jsonModel'] === 'string' ? value['jsonModel'] : undefined,
+      repairModel: typeof value['repairModel'] === 'string' ? value['repairModel'] : undefined
+    };
+    return Object.values(phaseModels).some(Boolean) ? phaseModels : undefined;
   }
 
   private normalizeSessionState(rawSession: unknown): AssistantSessionState | null {

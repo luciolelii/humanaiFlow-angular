@@ -41,9 +41,43 @@ export type AssistantEditorDraft = {
 };
 
 export type AssistantConfig = {
-  provider?: string;
+  defaultProvider: string;
   defaultModel: string;
+  availableProvidersRetrieverUrl: string;
   availableModelsRetrieverUrl: string;
+  defaultPhaseModels: AssistantPhaseModels;
+};
+
+export type AssistantPhaseModels = {
+  planningModel?: string;
+  jsonModel?: string;
+  repairModel?: string;
+};
+
+export type AssistantLlmSelection = {
+  provider: string;
+  model: string;
+  phaseModels?: AssistantPhaseModels;
+};
+
+export type AssistantSessionRequest = {
+  llmSelection?: AssistantLlmSelection;
+};
+
+export type AssistantFlowRequest = {
+  userPrompt: string;
+  llmSelection?: AssistantLlmSelection;
+  flow?: AssistantDraftPayload;
+  validationErrors?: AssistantValidationIssue[];
+  maxRepairAttempts?: number;
+};
+
+export type AssistantFlowActionResult = {
+  flow: AssistantDraftPayload | null;
+  valid?: boolean;
+  validationErrors: AssistantValidationIssue[];
+  warnings: string[];
+  message: string;
 };
 
 export type AssistantCallStatus = 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';

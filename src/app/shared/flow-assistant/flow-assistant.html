@@ -39,6 +39,99 @@
     }
 
     @if (!progressOnlyMode()) {
+    <section class="assistant-card assistant-llm-settings">
+      <div class="assistant-starters-head">
+        <div>
+          <p class="assistant-label">Configurazione assistente</p>
+          <p class="assistant-copy">Le credenziali dei provider sono gestite dal backend.</p>
+        </div>
+        @if (configurationLocked()) {
+        <button type="button" mat-stroked-button class="assistant-new-session" [disabled]="assistantBusy()" (click)="createNewSession()">
+          Nuova sessione
+        </button>
+        }
+      </div>
+
+      <mat-checkbox
+        [checked]="useDefaultConfiguration()"
+        [disabled]="configurationLocked() || assistantBusy()"
+        (change)="setUseDefaultConfiguration($event.checked)">
+        Usa configurazione predefinita
+      </mat-checkbox>
+
+      @if (configurationLocked()) {
+      <p class="assistant-meta">La configurazione LLM è fissata per questa sessione. Crea una nuova sessione per modificarla.</p>
+      }
+
+      @if (!useDefaultConfiguration()) {
+      <div class="assistant-settings-fields">
+        <mat-form-field appearance="outline">
+          <mat-label>Provider</mat-label>
+          <mat-select
+            [value]="selectedProvider()"
+            [disabled]="configurationLocked() || assistantBusy() || providersLoading()"
+            (selectionChange)="selectProvider($event.value)">
+            @for (provider of providers(); track provider) {
+            <mat-option [value]="provider">{{ provider }}</mat-option>
+            }
+          </mat-select>
+          @if (providersLoading()) { <mat-hint>Caricamento provider...</mat-hint> }
+          @if (providersError()) { <mat-error>{{ providersError() }}</mat-error> }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Modello</mat-label>
+          <mat-select
+            [value]="selectedModel()"
+            [disabled]="configurationLocked() || assistantBusy() || !selectedProvider() || modelsLoading()"
+            (selectionChange)="selectModel($event.value)">
+            @for (model of models(); track model) {
+            <mat-option [value]="model">{{ model }}</mat-option>
+            }
+          </mat-select>
+          @if (modelsLoading()) { <mat-hint>Caricamento modelli...</mat-hint> }
+          @if (modelsError()) { <mat-error>{{ modelsError() }}</mat-error> }
+        </mat-form-field>
+      </div>
+
+      <button type="button" class="assistant-advanced-toggle" [disabled]="configurationLocked() || assistantBusy()" (click)="toggleAdvancedModels()">
+        {{ advancedModelsOpen() ? 'Nascondi' : 'Mostra' }} modelli per fase (opzionale)
+      </button>
+
+      @if (advancedModelsOpen()) {
+      <div class="assistant-settings-fields assistant-phase-fields">
+        <mat-form-field appearance="outline">
+          <mat-label>Planning</mat-label>
+          <mat-select [value]="phaseModels()?.planningModel ?? ''" [disabled]="configurationLocked() || assistantBusy() || !models().length" (selectionChange)="setPhaseModel('planningModel', $event.value)">
+            <mat-option value="">Modello principale</mat-option>
+            @for (model of models(); track model) { <mat-option [value]="model">{{ model }}</mat-option> }
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>JSON</mat-label>
+          <mat-select [value]="phaseModels()?.jsonModel ?? ''" [disabled]="configurationLocked() || assistantBusy() || !models().length" (selectionChange)="setPhaseModel('jsonModel', $event.value)">
+            <mat-option value="">Modello principale</mat-option>
+            @for (model of models(); track model) { <mat-option [value]="model">{{ model }}</mat-option> }
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Repair</mat-label>
+          <mat-select [value]="phaseModels()?.repairModel ?? ''" [disabled]="configurationLocked() || assistantBusy() || !models().length" (selectionChange)="setPhaseModel('repairModel', $event.value)">
+            <mat-option value="">Modello principale</mat-option>
+            @for (model of models(); track model) { <mat-option [value]="model">{{ model }}</mat-option> }
+          </mat-select>
+        </mat-form-field>
+      </div>
+      }
+      }
+    </section>
+
+    @if (assistantErrorMessage()) {
+    <section class="assistant-card assistant-error-card">
+      <p class="assistant-error-message">{{ assistantErrorMessage() }}</p>
+    </section>
+    }
+
     <section class="assistant-card assistant-starters">
       <div class="assistant-starters-head">
         <p class="assistant-label">Quick prompts</p>
@@ -115,7 +208,7 @@
         class="assistant-input"
         [ngModel]="prompt()"
         (ngModelChange)="prompt.set($event)"
-        [disabled]="!selectedModel() || assistantBusy()"
+        [disabled]="!configurationValid() || assistantBusy()"
         name="assistantPrompt"
         rows="4"
         [placeholder]="promptPlaceholder()"></textarea>
@@ -125,7 +218,7 @@
       type="submit"
       mat-flat-button
       class="assistant-send"
-      [disabled]="!selectedModel() || assistantBusy() || !prompt().trim()">
+      [disabled]="!configurationValid() || assistantBusy() || !prompt().trim()">
       Send
     </button>
   </form>

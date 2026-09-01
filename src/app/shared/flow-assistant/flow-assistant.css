@@ -232,6 +232,42 @@
   margin-bottom: 8px;
 }
 
+.assistant-llm-settings {
+  display: grid;
+  gap: 10px;
+}
+
+.assistant-llm-settings .assistant-copy {
+  margin-bottom: 0;
+}
+
+.assistant-settings-fields {
+  display: grid;
+  gap: 4px;
+}
+
+.assistant-phase-fields {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.assistant-advanced-toggle,
+.assistant-new-session {
+  justify-self: start;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #0f766e;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.assistant-advanced-toggle:disabled {
+  color: #94a3b8;
+  cursor: default;
+}
+
 .assistant-label {
   display: block;
   margin-bottom: 8px;
@@ -439,5 +475,11 @@
   .assistant-shell {
     border-left: 0;
     border-top: 1px solid #dbe4ee;
+  }
+}
+
+@media (max-width: 520px) {
+  .assistant-phase-fields {
+    grid-template-columns: 1fr;
   }
 }
