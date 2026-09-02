@@ -89,12 +89,14 @@ export type AssistantSessionRequest = {
   llmSelection?: AssistantLlmSelection;
 };
 
-export type AssistantFlowRequest = {
-  userPrompt: string;
-  llmSelection?: AssistantLlmSelection;
+export type AssistantSessionMessageRequest = {
+  message: string;
   flow?: AssistantDraftPayload;
-  validationErrors?: AssistantValidationIssue[];
-  maxRepairAttempts?: number;
+};
+
+export type AssistantCallAccepted = {
+  sessionId: string;
+  callId: string;
 };
 
 export type AssistantFlowActionResult = {
@@ -129,6 +131,7 @@ export type AssistantCallState = {
   intent?: AssistantIntent | null;
   errorMessage?: string;
   flowResult?: AssistantFlowResult | null;
+  actionResult?: AssistantFlowActionResult | null;
 };
 
 export type AssistantSessionState = {

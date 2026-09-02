@@ -1,7 +1,8 @@
 import {
+  AssistantCallAccepted,
+  AssistantCallState,
   AssistantConfig,
-  AssistantFlowActionResult,
-  AssistantFlowRequest,
+  AssistantSessionMessageRequest,
   AssistantSessionRequest,
   AssistantSessionState
 } from '@models/assistant';
@@ -16,12 +17,9 @@ export abstract class AssistantCallServiceBase {
 
   abstract createSession(request: AssistantSessionRequest): Observable<AssistantSessionState>;
 
-  abstract draft(request: AssistantFlowRequest): Observable<AssistantFlowActionResult>;
+  abstract submitMessage(sessionId: string, request: AssistantSessionMessageRequest): Observable<AssistantCallAccepted>;
 
-  abstract refine(request: AssistantFlowRequest): Observable<AssistantFlowActionResult>;
+  abstract getCall(callId: string): Observable<AssistantCallState>;
 
-  abstract fix(request: AssistantFlowRequest): Observable<AssistantFlowActionResult>;
-
-  abstract explain(request: AssistantFlowRequest): Observable<AssistantFlowActionResult>;
-
+  abstract cancelCall(callId: string): Observable<AssistantCallState>;
 }

@@ -14,6 +14,7 @@ import {
   AssistantDraftPayload,
   AssistantFlowActionResult,
   AssistantLlmSelection,
+  AssistantSessionMessageRequest,
   AssistantSessionState,
   VaultSecret
 } from '@models/assistant';
@@ -448,11 +449,12 @@ export class FlowAssistant implements OnInit, OnDestroy {
       return;
     }
 
-    this.runFlowAction(normalizedContent);
+    this.submitAssistantMessage(normalizedContent);
   }
 
-  private runFlowAction(normalizedContent: string) {
-    const intent = this.resolveIntent(normalizedContent);
+  private submitAssistantMessage(normalizedContent: string) {
+    const sessionId = this.sessionState()?.id;
+    if (!sessionId) return;
 
     if (this.isCreateModal()) this.createPromptSubmitted.set(true);
     this.requestPending.set(true);
@@ -468,33 +470,65 @@ export class FlowAssistant implements OnInit, OnDestroy {
     ]);
     this.persistSnapshot();
 
-    const request = {
-      userPrompt: normalizedContent,
-      maxRepairAttempts: 2,
-      ...(this.llmSelection() ? { llmSelection: this.llmSelection() } : {}),
-      ...(intent === 'draft' ? {} : { flow: this.assistantFlowForRequest() }),
-      ...(intent === 'fix' ? { validationErrors: this.sessionState()?.lastValidationErrors ?? [] } : {})
+    const flow = this.assistantFlowForRequest();
+    const request: AssistantSessionMessageRequest = {
+      message: normalizedContent,
+      ...(flow ? { flow } : {})
     };
-    const action = intent === 'draft'
-      ? this.assistant.draft(request)
-      : intent === 'fix'
-        ? this.assistant.fix(request)
-        : intent === 'explain'
-          ? this.assistant.explain(request)
-          : this.assistant.refine(request);
 
-    action.pipe(take(1)).subscribe({
-      next: (result) => {
+    this.assistant.submitMessage(sessionId, request).pipe(take(1)).subscribe({
+      next: (accepted) => {
         this.requestPending.set(false);
-        this.applyFlowActionResult(result);
-        this.createPromptSubmitted.set(false);
-        this.persistSnapshot();
+        this.beginPolling(accepted.callId);
       },
       error: (err) => {
-        console.error('Assistant flow action failed', err);
+        console.error('Assistant message submission failed', err);
         this.requestPending.set(false);
         this.discardFailedSession();
         this.handleAssistantErrorWithRetry(normalizedContent, this.backendErrorMessage(err));
+      }
+    });
+  }
+
+  private beginPolling(callId: string) {
+    this.stopPolling();
+    this.pollSubscription = interval(1000).pipe(
+      switchMap(() => this.assistant.getCall(callId))
+    ).subscribe({
+      next: (call) => {
+        this.currentCall.set(call);
+        this.persistSnapshot();
+
+        if (call.status === 'COMPLETED') {
+          this.stopPolling();
+          this.applyFlowActionResult(call.actionResult ?? {
+            flow: null,
+            validationErrors: [],
+            warnings: [],
+            message: 'The assistant completed the request.'
+          });
+          this.createPromptSubmitted.set(false);
+          this.persistSnapshot();
+          return;
+        }
+
+        if (call.status === 'FAILED') {
+          this.stopPolling();
+          this.discardFailedSession();
+          this.handleAssistantErrorWithRetry(this.lastSubmittedPrompt(), call.errorMessage || undefined);
+          return;
+        }
+
+        if (call.status === 'CANCELLED') {
+          this.stopPolling();
+          this.createPromptSubmitted.set(false);
+        }
+      },
+      error: (err) => {
+        console.error('Assistant call polling failed', err);
+        this.stopPolling();
+        this.discardFailedSession();
+        this.handleAssistantErrorWithRetry(this.lastSubmittedPrompt(), this.backendErrorMessage(err));
       }
     });
   }
@@ -598,13 +632,6 @@ export class FlowAssistant implements OnInit, OnDestroy {
     return llmSelection ? { llmSelection } : {};
   }
 
-  private resolveIntent(prompt: string): 'draft' | 'refine' | 'fix' | 'explain' {
-    const normalized = prompt.toLowerCase();
-    if (/\b(explain|what does|why|describe)\b/.test(normalized)) return 'explain';
-    if (/\b(fix|repair|invalid|error|broken)\b/.test(normalized)) return 'fix';
-    return this.canOfferCreate() ? 'draft' : 'refine';
-  }
-
   private assistantFlowForRequest(): AssistantDraftPayload | undefined {
     const draft = this.currentDraft();
     if (draft) return draft;
@@ -682,7 +709,7 @@ export class FlowAssistant implements OnInit, OnDestroy {
       next: (session) => {
         this.applySessionState(session);
         this.persistSnapshot(flowKey);
-        if (promptToSend) this.runFlowAction(promptToSend);
+        if (promptToSend) this.submitAssistantMessage(promptToSend);
       },
       error: (err) => {
         console.error('Assistant session creation failed', err);

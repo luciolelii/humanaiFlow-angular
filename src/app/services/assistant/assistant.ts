@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { environment } from '@environment';
 import {
-  AssistantFlowRequest,
+  AssistantSessionMessageRequest,
   AssistantSessionRequest
 } from '@models/assistant';
 import { AssistantCallServiceBase } from './assistant-call.base';
@@ -28,20 +28,16 @@ export class AssistantService {
     return this.assistantCall.createSession(request);
   }
 
-  draft(request: AssistantFlowRequest) {
-    return this.assistantCall.draft(request);
+  submitMessage(sessionId: string, request: AssistantSessionMessageRequest) {
+    return this.assistantCall.submitMessage(sessionId, request);
   }
 
-  refine(request: AssistantFlowRequest) {
-    return this.assistantCall.refine(request);
+  getCall(callId: string) {
+    return this.assistantCall.getCall(callId);
   }
 
-  fix(request: AssistantFlowRequest) {
-    return this.assistantCall.fix(request);
-  }
-
-  explain(request: AssistantFlowRequest) {
-    return this.assistantCall.explain(request);
+  cancelCall(callId: string) {
+    return this.assistantCall.cancelCall(callId);
   }
 
 }

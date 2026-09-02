@@ -1,11 +1,13 @@
 import { HttpClient } from '@angular/common/http';
 import { inject } from '@angular/core';
 import {
+  AssistantCallAccepted,
+  AssistantCallState,
   AssistantChatMessage,
   AssistantConfig,
   AssistantDraftPayload,
   AssistantFlowActionResult,
-  AssistantFlowRequest,
+  AssistantSessionMessageRequest,
   AssistantSessionRequest,
   AssistantSessionState,
   AssistantValidationIssue
@@ -43,30 +45,56 @@ export class AssistantCallService extends AssistantCallServiceBase {
       .pipe(map((raw) => mapAssistantSessionState(raw)));
   }
 
-  override draft(request: AssistantFlowRequest): Observable<AssistantFlowActionResult> {
-    return this.runFlowAction('draft', request);
-  }
-
-  override refine(request: AssistantFlowRequest): Observable<AssistantFlowActionResult> {
-    return this.runFlowAction('refine', request);
-  }
-
-  override fix(request: AssistantFlowRequest): Observable<AssistantFlowActionResult> {
-    return this.runFlowAction('fix', request);
-  }
-
-  override explain(request: AssistantFlowRequest): Observable<AssistantFlowActionResult> {
-    return this.runFlowAction('explain', request);
-  }
-
-  private runFlowAction(
-    action: 'draft' | 'refine' | 'fix' | 'explain',
-    request: AssistantFlowRequest
-  ): Observable<AssistantFlowActionResult> {
+  override submitMessage(sessionId: string, request: AssistantSessionMessageRequest): Observable<AssistantCallAccepted> {
     return this.http
-      .post<unknown>(`${environment.apiUrl}/assistant/flows/${action}`, request)
-      .pipe(map((raw) => mapAssistantFlowActionResult(raw)));
+      .post<unknown>(`${environment.apiUrl}/assistant/sessions/${sessionId}/messages`, request)
+      .pipe(map((raw) => mapAssistantCallAccepted(raw)));
   }
+
+  override getCall(callId: string): Observable<AssistantCallState> {
+    return this.http
+      .get<unknown>(`${environment.apiUrl}/assistant/calls/${callId}`)
+      .pipe(map((raw) => mapAssistantCallState(raw)));
+  }
+
+  override cancelCall(callId: string): Observable<AssistantCallState> {
+    return this.http
+      .put<unknown>(`${environment.apiUrl}/assistant/calls/${callId}/cancel`, {})
+      .pipe(map((raw) => mapAssistantCallState(raw)));
+  }
+}
+
+function mapAssistantCallAccepted(raw: unknown): AssistantCallAccepted {
+  const value = (raw ?? {}) as Record<string, unknown>;
+  return {
+    sessionId: String(value['sessionId'] ?? ''),
+    callId: String(value['callId'] ?? '')
+  };
+}
+
+function mapAssistantCallState(raw: unknown): AssistantCallState {
+  const value = (raw ?? {}) as Record<string, unknown>;
+  const intent = mapAssistantIntent(value['intent']);
+  const actionResult = mapAssistantFlowActionResult(value['flowResult'] ?? value['explainResult'] ?? {});
+  return {
+    id: String(value['id'] ?? ''),
+    sessionId: String(value['sessionId'] ?? ''),
+    status: String(value['status'] ?? 'QUEUED').toUpperCase() as AssistantCallState['status'],
+    phase: String(value['phase'] ?? 'queued') as AssistantCallState['phase'],
+    progressMessage: typeof value['progressMessage'] === 'string' ? value['progressMessage'] : undefined,
+    intent,
+    errorMessage: typeof value['errorMessage'] === 'string' ? value['errorMessage'] : undefined,
+    flowResult: actionResult.flow,
+    actionResult
+  };
+}
+
+function mapAssistantIntent(raw: unknown): AssistantCallState['intent'] {
+  if (typeof raw !== 'string') return null;
+  const normalized = raw.toLowerCase();
+  return normalized === 'draft' || normalized === 'refine' || normalized === 'fix' || normalized === 'explain'
+    ? normalized
+    : null;
 }
 
 function mapAssistantConfig(raw: unknown): AssistantConfig {

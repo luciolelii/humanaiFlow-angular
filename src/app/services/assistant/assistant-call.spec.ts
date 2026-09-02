@@ -28,45 +28,56 @@ describe('AssistantCallService', () => {
   });
 
   it('normalizes node families in assistant drafts and nested container subflows', async () => {
-    const request = firstValueFrom(service.draft({ userPrompt: 'Create a flow' }));
+    const request = firstValueFrom(service.getCall('call-1'));
 
-    httpMock.expectOne(`${environment.apiUrl}/assistant/flows/draft`).flush({
-      flow: {
-        name: 'Loop draft',
+    httpMock.expectOne(`${environment.apiUrl}/assistant/calls/call-1`).flush({
+      id: 'call-1',
+      sessionId: 'session-1',
+      status: 'COMPLETED',
+      phase: 'completed',
+      intent: 'DRAFT',
+      flowResult: {
         flow: {
-          blocks: [{ id: 'root-block', typeName: 'LLMBlock', specificConfiguration: {} }],
-          containers: [{
-            id: 'loop-1',
-            typeName: 'LoopContainer',
-            specificConfiguration: {
-              subFlow: {
-                blocks: [{ id: 'body-block', typeName: 'LLMBlock', specificConfiguration: {} }],
-                containers: [{
-                  id: 'nested-container',
-                  typeName: 'GenericContainer',
-                  specificConfiguration: {
-                    subFlow: { blocks: [], containers: [], connections: [], dependencies: [] }
-                  }
-                }],
-                connections: [],
-                dependencies: []
-              },
-              guardSubFlow: {
-                blocks: [{ id: 'guard-block', typeName: 'SwitchBlock', specificConfiguration: {} }],
-                containers: [],
-                connections: [],
-                dependencies: []
+          name: 'Loop draft',
+          flow: {
+            blocks: [{ id: 'root-block', typeName: 'LLMBlock', specificConfiguration: {} }],
+            containers: [{
+              id: 'loop-1',
+              typeName: 'LoopContainer',
+              specificConfiguration: {
+                subFlow: {
+                  blocks: [{ id: 'body-block', typeName: 'LLMBlock', specificConfiguration: {} }],
+                  containers: [{
+                    id: 'nested-container',
+                    typeName: 'GenericContainer',
+                    specificConfiguration: {
+                      subFlow: { blocks: [], containers: [], connections: [], dependencies: [] }
+                    }
+                  }],
+                  connections: [],
+                  dependencies: []
+                },
+                guardSubFlow: {
+                  blocks: [{ id: 'guard-block', typeName: 'SwitchBlock', specificConfiguration: {} }],
+                  containers: [],
+                  connections: [],
+                  dependencies: []
+                }
               }
-            }
-          }],
-          connections: [],
-          dependencies: []
-        }
+            }],
+            connections: [],
+            dependencies: []
+          }
+        },
+        valid: true,
+        validationErrors: [],
+        warnings: [],
+        assistantRationale: 'Done'
       }
     });
 
     const result = await request;
-    const flow = result.flow!.flow;
+    const flow = result.actionResult!.flow!.flow;
     const loopConfiguration = flow.containers[0].specificConfiguration as Record<string, any>;
 
     expect(flow.blocks[0].nodeFamily).toBe('block');
@@ -94,7 +105,7 @@ describe('AssistantCallService', () => {
     await expect(models).resolves.toEqual(['gpt-oss:20b']);
   });
 
-  it('sends llmSelection only when supplied, for sessions and flow actions', async () => {
+  it('sends llmSelection only when supplied when creating a session', async () => {
     const defaultSession = firstValueFrom(service.createSession({}));
     const defaultSessionRequest = httpMock.expectOne(`${environment.apiUrl}/assistant/sessions`);
     expect(defaultSessionRequest.request.body).toEqual({});
@@ -107,20 +118,52 @@ describe('AssistantCallService', () => {
       credentialId: 'credential-1',
       phaseModels: { planningModel: 'planning-model' }
     };
-    const actionRequests = [
-      ['draft', service.draft({ userPrompt: 'Create a flow', llmSelection: selection })],
-      ['refine', service.refine({ userPrompt: 'Refine it', flow: { name: 'Flow', flow: emptyFlow() }, llmSelection: selection })],
-      ['fix', service.fix({ userPrompt: 'Fix it', flow: { name: 'Flow', flow: emptyFlow() }, llmSelection: selection })],
-      ['explain', service.explain({ userPrompt: 'Explain it', flow: { name: 'Flow', flow: emptyFlow() }, llmSelection: selection })]
-    ] as const;
+    const selectionSession = firstValueFrom(service.createSession({ llmSelection: selection }));
+    const selectionSessionRequest = httpMock.expectOne(`${environment.apiUrl}/assistant/sessions`);
+    expect(selectionSessionRequest.request.body).toEqual({ llmSelection: selection });
+    selectionSessionRequest.flush({ id: 'session-selection', messages: [] });
+    await selectionSession;
+  });
 
-    for (const [action, observable] of actionRequests) {
-      const result = firstValueFrom(observable);
-      const request = httpMock.expectOne(`${environment.apiUrl}/assistant/flows/${action}`);
-      expect(request.request.body.llmSelection).toEqual(selection);
-      request.flush({ message: 'Done' });
-      await result;
-    }
+  it('submits a session message and polls the call, then cancels it', async () => {
+    const accepted = firstValueFrom(service.submitMessage('session-1', {
+      message: 'Create a flow',
+      flow: { name: 'Flow', flow: emptyFlow() }
+    }));
+    const submitRequest = httpMock.expectOne(`${environment.apiUrl}/assistant/sessions/session-1/messages`);
+    expect(submitRequest.request.body).toEqual({
+      message: 'Create a flow',
+      flow: { name: 'Flow', flow: emptyFlow() }
+    });
+    submitRequest.flush({ sessionId: 'session-1', callId: 'call-1' });
+    await expect(accepted).resolves.toEqual({ sessionId: 'session-1', callId: 'call-1' });
+
+    const call = firstValueFrom(service.getCall('call-1'));
+    httpMock.expectOne(`${environment.apiUrl}/assistant/calls/call-1`).flush({
+      id: 'call-1',
+      sessionId: 'session-1',
+      status: 'RUNNING',
+      phase: 'planning',
+      progressMessage: 'Planning workflow blocks',
+      intent: 'DRAFT'
+    });
+    const runningCall = await call;
+    expect(runningCall.status).toBe('RUNNING');
+    expect(runningCall.phase).toBe('planning');
+
+    const cancelled = firstValueFrom(service.cancelCall('call-1'));
+    const cancelRequest = httpMock.expectOne(`${environment.apiUrl}/assistant/calls/call-1/cancel`);
+    expect(cancelRequest.request.method).toBe('PUT');
+    cancelRequest.flush({
+      id: 'call-1',
+      sessionId: 'session-1',
+      status: 'CANCELLED',
+      phase: 'cancelled',
+      progressMessage: 'Assistant request cancelled',
+      intent: 'DRAFT'
+    });
+    const cancelledCall = await cancelled;
+    expect(cancelledCall.status).toBe('CANCELLED');
   });
 });
 

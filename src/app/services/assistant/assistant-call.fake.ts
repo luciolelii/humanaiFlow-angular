@@ -1,8 +1,11 @@
 import {
+  AssistantCallAccepted,
+  AssistantCallState,
   AssistantConfig,
   AssistantDraftPayload,
   AssistantFlowActionResult,
-  AssistantFlowRequest,
+  AssistantIntent,
+  AssistantSessionMessageRequest,
   AssistantSessionRequest,
   AssistantSessionState
 } from '@models/assistant';
@@ -13,6 +16,7 @@ import { AssistantCallServiceBase } from './assistant-call.base';
 export class AssistantCallServiceFake extends AssistantCallServiceBase {
   private readonly models = ['llama3.1:8b', 'qwen2.5:7b', 'mistral:7b'];
   private readonly providers = ['InternalOllama', 'OpenAI'];
+  private readonly calls = new Map<string, { sessionId: string; intent: AssistantIntent; result: AssistantFlowActionResult }>();
 
   override getConfig(): Observable<AssistantConfig> {
     return of({
@@ -51,50 +55,105 @@ export class AssistantCallServiceFake extends AssistantCallServiceBase {
     return of(structuredClone(session));
   }
 
-  override draft(request: AssistantFlowRequest): Observable<AssistantFlowActionResult> {
-    const model = request.llmSelection?.model ?? this.models[0];
+  override submitMessage(sessionId: string, request: AssistantSessionMessageRequest): Observable<AssistantCallAccepted> {
+    const intent = this.inferIntent(request.message, request.flow);
+    const result = this.buildActionResult(intent, request);
+    const callId = crypto.randomUUID();
+    this.calls.set(callId, { sessionId, intent, result });
+    return of({ sessionId, callId });
+  }
+
+  override getCall(callId: string): Observable<AssistantCallState> {
+    const call = this.calls.get(callId);
+    if (!call) {
+      return of({
+        id: callId,
+        sessionId: '',
+        status: 'FAILED',
+        phase: 'failed',
+        errorMessage: 'Assistant call not found',
+        intent: null,
+        flowResult: null,
+        actionResult: null
+      });
+    }
     return of({
-      flow: {
-        name: 'Ticket classification with urgent review',
-        description: `Draft generated from prompt: ${request.userPrompt}`,
-        flow: buildTicketFlow(model)
-      },
-      valid: true,
-      validationErrors: [],
-      warnings: ['Fake assistant response'],
-      message: 'I created a new workflow draft.'
+      id: callId,
+      sessionId: call.sessionId,
+      status: 'COMPLETED',
+      phase: call.intent === 'explain' ? 'explaining' : 'completed',
+      progressMessage: 'Assistant request completed',
+      intent: call.intent,
+      flowResult: call.result.flow,
+      actionResult: call.result
     });
   }
 
-  override refine(request: AssistantFlowRequest): Observable<AssistantFlowActionResult> {
-    const flow = request.flow ? structuredClone(request.flow) : null;
-    if (flow) addHumanReviewTail(flow.flow);
+  override cancelCall(callId: string): Observable<AssistantCallState> {
+    const call = this.calls.get(callId);
     return of({
-      flow,
-      valid: true,
-      validationErrors: [],
-      warnings: ['Fake assistant response'],
-      message: 'I updated the current workflow based on your request.'
+      id: callId,
+      sessionId: call?.sessionId ?? '',
+      status: 'CANCELLED',
+      phase: 'cancelled',
+      progressMessage: 'Assistant request cancelled',
+      intent: call?.intent ?? null,
+      flowResult: null,
+      actionResult: null
     });
   }
 
-  override fix(request: AssistantFlowRequest): Observable<AssistantFlowActionResult> {
-    return of({
-      flow: request.flow ? structuredClone(request.flow) : null,
-      valid: true,
-      validationErrors: [],
-      warnings: ['Fake assistant response'],
-      message: 'I fixed the current workflow.'
-    });
+  private inferIntent(message: string, flow: AssistantDraftPayload | undefined): AssistantIntent {
+    const normalized = message.toLowerCase();
+    if (!flow) return 'draft';
+    if (/\b(fix|repair|invalid|error|broken)\b/.test(normalized)) return 'fix';
+    if (/\b(explain|what does|why|describe)\b/.test(normalized)) return 'explain';
+    return 'refine';
   }
 
-  override explain(_request: AssistantFlowRequest): Observable<AssistantFlowActionResult> {
-    return of({
-      flow: null,
-      validationErrors: [],
-      warnings: [],
-      message: 'This workflow classifies incoming tickets and routes urgent cases to a human reviewer.'
-    });
+  private buildActionResult(intent: AssistantIntent, request: AssistantSessionMessageRequest): AssistantFlowActionResult {
+    switch (intent) {
+      case 'draft': {
+        const model = this.models[0];
+        return {
+          flow: {
+            name: 'Ticket classification with urgent review',
+            description: `Draft generated from prompt: ${request.message}`,
+            flow: buildTicketFlow(model)
+          },
+          valid: true,
+          validationErrors: [],
+          warnings: ['Fake assistant response'],
+          message: 'I created a new workflow draft.'
+        };
+      }
+      case 'refine': {
+        const flow = request.flow ? structuredClone(request.flow) : null;
+        if (flow) addHumanReviewTail(flow.flow);
+        return {
+          flow,
+          valid: true,
+          validationErrors: [],
+          warnings: ['Fake assistant response'],
+          message: 'I updated the current workflow based on your request.'
+        };
+      }
+      case 'fix':
+        return {
+          flow: request.flow ? structuredClone(request.flow) : null,
+          valid: true,
+          validationErrors: [],
+          warnings: ['Fake assistant response'],
+          message: 'I fixed the current workflow.'
+        };
+      case 'explain':
+        return {
+          flow: null,
+          validationErrors: [],
+          warnings: [],
+          message: 'This workflow classifies incoming tickets and routes urgent cases to a human reviewer.'
+        };
+    }
   }
 
 }
