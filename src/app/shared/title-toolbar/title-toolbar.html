@@ -40,6 +40,17 @@
           <mat-icon fontIcon="edit"></mat-icon>
         </button>
         }
+        @if (flow()) {
+        <button
+          type="button"
+          mat-icon-button
+          class="title-toolbar-fullscreen-button"
+          [matTooltip]="editorState.isFullscreen() ? 'Exit fullscreen' : 'Fullscreen'"
+          [attr.aria-label]="editorState.isFullscreen() ? 'Exit fullscreen' : 'Fullscreen'"
+          (click)="editorState.toggleFullscreen()">
+          <mat-icon [fontIcon]="editorState.isFullscreen() ? 'fullscreen_exit' : 'fullscreen'"></mat-icon>
+        </button>
+        }
       </div>
       }
     </div>

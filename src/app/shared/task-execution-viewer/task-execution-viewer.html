@@ -1,10 +1,20 @@
-<section class="h-full p-1">
+<section class="h-full p-1" [class.execution-viewer-fullscreen]="isFullscreen()">
   @if (execution()) {
   <div class="h-full bg-white border border-slate-200 rounded-md flex flex-col overflow-hidden">
     <div class="px-5 pt-2 border-b border-slate-200 bg-slate-50">
       <div class="execution-header-main">
         <div class="execution-header-details">
-          <h2 class="text-base font-semibold text-slate-900">{{ execution()!.name }}</h2>
+          <h2 class="text-base font-semibold text-slate-900">
+            {{ execution()!.name }}
+            <button
+              type="button"
+              class="execution-header-fullscreen-toggle"
+              [matTooltip]="isFullscreen() ? 'Exit fullscreen' : 'Fullscreen'"
+              [attr.aria-label]="isFullscreen() ? 'Exit fullscreen' : 'Fullscreen'"
+              (click)="toggleFullscreen()">
+              <mat-icon [fontIcon]="isFullscreen() ? 'fullscreen_exit' : 'fullscreen'"></mat-icon>
+            </button>
+          </h2>
           <p class="text-sm text-slate-500">Execution ID: {{ execution()!.id }}</p>
           @if (isSubflowExecution()) {
           <div class="execution-subflow-context">

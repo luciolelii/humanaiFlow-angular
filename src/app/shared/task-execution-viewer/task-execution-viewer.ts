@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ChangeDetectionStrategy, Component, computed, effect, ElementRef, inject, input, OnDestroy, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, ElementRef, HostListener, inject, input, OnDestroy, signal, viewChild } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -125,6 +125,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   readonly parentExecution = input<TaskExecution | null>(null);
   readonly parentContainerStep = input<TaskExecutionStep | null>(null);
   readonly contextAsideOpen = signal(true);
+  readonly isFullscreen = signal(false);
   readonly activeAsideTab = signal<'inputs' | 'intermediate' | 'logs' | 'output' | 'bias-reports'>('inputs');
   readonly startInProgress = signal(false);
   readonly simulateInProgress = signal(false);
@@ -699,6 +700,17 @@ export class TaskExecutionViewerComponent implements OnDestroy {
 
   toggleContextAside() {
     this.contextAsideOpen.update((open) => !open);
+  }
+
+  toggleFullscreen() {
+    this.isFullscreen.update((fullscreen) => !fullscreen);
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscapeKey() {
+    if (this.isFullscreen()) {
+      this.isFullscreen.set(false);
+    }
   }
 
   selectAsideTab(tab: 'inputs' | 'intermediate' | 'logs' | 'output' | 'bias-reports') {

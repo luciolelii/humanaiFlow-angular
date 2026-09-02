@@ -38,7 +38,7 @@ const editorRuntime = new WeakMap<NodeEditor<HFSchemes>, ReteRuntimeContext>();
 const areaProgrammaticTranslations = new WeakMap<AreaPlugin<HFSchemes, AreaExtra>, Set<string>>();
 
 export const RETE_ZOOM_RANGE = {
-  min: 0.35,
+  min: 0.1,
   max: 2.4
 } as const;
 
@@ -143,7 +143,7 @@ export async function createEditor(
   AreaExtensions.simpleNodesOrder(area);
 
   area.addPipe((context: any) => {
-    if (readonly && context?.type === 'nodetranslate') {
+    if (readonly && nodeView !== "execution" && context?.type === 'nodetranslate') {
       const nodeId = String(context?.data?.id ?? '');
       if (!programmaticTranslations.has(nodeId)) return;
     }

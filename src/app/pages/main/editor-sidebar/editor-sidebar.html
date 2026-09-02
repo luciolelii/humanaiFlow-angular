@@ -18,10 +18,15 @@
 
     <!-- ICON MODE -->
     <div class="flex flex-col gap-4 items-center pt-6 flex-1">
-      <i [ngClass]="{'cursor-none bg-gray-200' : open == 'flows'}"
-         [ngClass]="{'cursor-pointer enabled' : open != 'flows'}"
-         class="bi bi-lightning-charge-fill text-indigo-500 text-xl p-2" 
-        (click)="open != 'flows' && openSide('flows')"></i>
+      <i
+        [ngClass]="{
+          'cursor-pointer text-indigo-500 enabled': !flowsDisabled() && open != 'flows',
+          'cursor-none bg-gray-200 text-indigo-500': !flowsDisabled() && open == 'flows',
+          'text-gray-200': flowsDisabled()
+        }"
+        [attr.title]="flowsDisabled() ? 'Exit fullscreen to browse other flows' : 'Flows'"
+        class="bi bi-lightning-charge-fill text-xl p-2"
+        (click)="!flowsDisabled() && open != 'flows' && openSide('flows')"></i>
       <i
         [ngClass]="{
           'cursor-pointer text-gray-600 enabled': !blockDisabled() && open != 'blocks',

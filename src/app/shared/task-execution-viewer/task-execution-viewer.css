@@ -3,12 +3,50 @@
   height: 100%;
 }
 
+.execution-viewer-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  background: #ffffff;
+  padding: 0.25rem;
+}
+
 .execution-header-main {
   display: block;
 }
 
 .execution-header-details {
   min-width: 0;
+}
+
+.execution-header-details h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.execution-header-fullscreen-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: #e2e8f0;
+  color: #334155;
+  padding: 0;
+  transition: filter 120ms ease;
+}
+
+.execution-header-fullscreen-toggle:hover {
+  filter: brightness(1.05);
+}
+
+.execution-header-fullscreen-toggle mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
 }
 
 .execution-graph-body {
@@ -23,6 +61,11 @@
   display: inline-flex;
   flex-direction: row;
   gap: 8px;
+}
+
+.execution-graph-actions-right {
+  left: auto;
+  right: 12px;
 }
 
 .execution-action-button {

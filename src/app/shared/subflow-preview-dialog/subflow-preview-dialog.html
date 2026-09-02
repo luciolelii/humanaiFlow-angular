@@ -9,10 +9,6 @@
         <h3 class="subflow-preview__title">{{ state()!.title }}</h3>
       </div>
       <div class="subflow-preview__actions">
-        <button type="button" mat-stroked-button (click)="exportSubflow($event)" [disabled]="exporting()">
-          <mat-icon>file_upload</mat-icon>
-          Export
-        </button>
         <button type="button" mat-stroked-button (click)="close($event)">Close</button>
       </div>
     </div>

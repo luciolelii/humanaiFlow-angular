@@ -38,6 +38,7 @@ export class EditorSidebar {
   containerDisabled = computed(() =>
     !this.flowState.hasFlow() || this.flowState.isEditingSubflow()
   );
+  flowsDisabled = computed(() => this.flowState.isFullscreen());
 
   collapsed = signal(true);
   creatingFlow = signal(false);
@@ -48,6 +49,14 @@ export class EditorSidebar {
     effect(() => {
       if (!this.flowState.isEditingSubflow() || this.open !== 'containers') return;
       this.open = 'blocks';
+    });
+    effect(() => {
+      if (!this.flowsDisabled() || this.open !== 'flows') return;
+      this.open = 'blocks';
+    });
+    effect(() => {
+      if (!this.flowState.isFullscreen()) return;
+      this.collapse();
     });
   }
 
@@ -62,6 +71,7 @@ export class EditorSidebar {
 
   openSide(id: OpenedId) {
     if (id === 'containers' && this.containerDisabled()) return;
+    if (id === 'flows' && this.flowsDisabled()) return;
     this.open = id;
     this.collapsed.set(false);
   }

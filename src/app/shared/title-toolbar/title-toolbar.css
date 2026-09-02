@@ -117,6 +117,31 @@
   font-size: 18px;
 }
 
+.title-toolbar-fullscreen-button {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 30px !important;
+  height: 30px !important;
+  padding: 0 !important;
+  margin-left: 5px;
+  border-radius: 8px !important;
+  color: #334155 !important;
+  background: rgba(226, 232, 240, 0.95) !important;
+  border: 1px solid rgba(148, 163, 184, 0.55);
+}
+
+.title-toolbar-fullscreen-button:hover {
+  background: rgba(203, 213, 225, 0.98) !important;
+}
+
+.title-toolbar-fullscreen-button .mat-icon {
+  width: 18px;
+  height: 18px;
+  font-size: 18px;
+}
+
 .title-toolbar-pill {
   display: inline-flex;
   align-items: center;

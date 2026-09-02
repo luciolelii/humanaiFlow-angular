@@ -309,6 +309,9 @@ export class ReteEditor implements OnChanges, OnDestroy {
     if (this.flowState.currentFlow()?.id === loadedFlowId) {
       this.flowState.replaceDataWithoutDirty(normalizedData);
     }
+    if (this.nodeView() === 'execution') {
+      this.restoreExecutionNodePositions(rete, loadedFlowId);
+    }
     if (!this.readonly()) {
       rete.editor.addPipe((context) => {
         if (this.dirtyEventTypes.has(context.type)) {
@@ -329,6 +332,8 @@ export class ReteEditor implements OnChanges, OnDestroy {
       rete.area.addPipe((context: any) => {
         if (context?.type === 'translated' || context?.type === 'zoomed' || context?.type === 'resized') {
           this.syncLaneTransform();
+        } else if (context?.type === 'nodetranslated' && this.nodeView() === 'execution') {
+          this.persistExecutionNodePosition(rete, loadedFlowId, context);
         }
         return context;
       });
@@ -548,6 +553,47 @@ export class ReteEditor implements OnChanges, OnDestroy {
 
     // Keep socket anchors and connection paths visually in sync while dragging.
     void rete.area.update('node', movedNode.id);
+  }
+
+  private executionPositionsStorageKey(flowId: string): string {
+    return `hf:exec-node-positions:${flowId}`;
+  }
+
+  private readExecutionNodePositions(flowId: string): Record<string, { x: number; y: number }> {
+    if (typeof sessionStorage === 'undefined') return {};
+    try {
+      const raw = sessionStorage.getItem(this.executionPositionsStorageKey(flowId));
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  }
+
+  private restoreExecutionNodePositions(rete: ReteEditorInstance, flowId: string) {
+    const saved = this.readExecutionNodePositions(flowId);
+    if (!Object.keys(saved).length) return;
+
+    for (const node of rete.editor.getNodes()) {
+      const blockId = (node.data as { id?: string } | undefined)?.id;
+      const position = blockId ? saved[blockId] : undefined;
+      if (!position) continue;
+      void rete.area.translate(node.id, position);
+    }
+  }
+
+  private persistExecutionNodePosition(rete: ReteEditorInstance, flowId: string, context: any) {
+    const position = context?.data?.position;
+    const movedNode = rete.editor.getNode(context?.data?.id) as { data?: { id?: string } } | undefined;
+    const blockId = movedNode?.data?.id;
+    if (!blockId || !position) return;
+
+    const positions = this.readExecutionNodePositions(flowId);
+    positions[blockId] = { x: position.x, y: position.y };
+    try {
+      sessionStorage.setItem(this.executionPositionsStorageKey(flowId), JSON.stringify(positions));
+    } catch {
+      // sessionStorage unavailable or full — the custom layout simply won't persist across a refresh.
+    }
   }
 
   laneBandTop(index: number): number {

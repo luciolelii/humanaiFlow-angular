@@ -52,6 +52,7 @@ export class EditorStateHolder {
   readonly validationRequiresSave = signal(false);
   readonly activeSubflow = signal<FlowSubflowEntry | null>(null);
   readonly structureNavigationRequest = signal(0);
+  readonly isFullscreen = signal(false);
 
   /** Derived state */
   readonly hasFlow = computed(() => !!this.currentFlow());
@@ -126,6 +127,11 @@ export class EditorStateHolder {
     this.applyGroupedFlowValidation(emptyGroupedFlowValidation(), null);
     this.lastValidationFetchKey = null;
     this.clearBlockSelection();
+    this.isFullscreen.set(false);
+  }
+
+  toggleFullscreen() {
+    this.isFullscreen.update((fullscreen) => !fullscreen);
   }
 
   loadAssistantFlow(flow: Flow, options?: { markDirty?: boolean }) {

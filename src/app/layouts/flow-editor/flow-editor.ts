@@ -67,11 +67,12 @@ export class FlowEditor {
   activeSubflowKey = computed(() => this.editorState.activeSubflow()?.key ?? null);
   structureNavigationRequest = this.editorState.structureNavigationRequest;
   readonly = this.editorState.isCurrentFlowReadOnly;
+  isFullscreen = this.editorState.isFullscreen;
   validationErrors = this.editorState.flowValidationErrors;
   validationErrorCount = computed(() => this.validationErrors().length);
   assistantPanelAvailable = computed(() => this.assistantEnabled && !this.readonly());
   showRightPanel = computed(() =>
-    !!this.flow() && (
+    !this.isFullscreen() && !!this.flow() && (
       this.assistantPanelAvailable()
       || this.validationErrorCount() > 0
       || this.subflows().length > 0
@@ -267,6 +268,13 @@ export class FlowEditor {
   onWindowResize() {
     if (!this.tourActive()) return;
     this.syncTourLayout();
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscapeKey() {
+    if (this.isFullscreen()) {
+      this.editorState.isFullscreen.set(false);
+    }
   }
 
   previousTourStep() {
