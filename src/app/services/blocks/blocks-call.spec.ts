@@ -31,7 +31,7 @@ describe('BlocksCallService', () => {
   it('retrieves block descriptors from the catalog endpoint and attaches shared definitions to each schema', async () => {
     const request = firstValueFrom(service.retrieveAllBlocksTypes());
 
-    const catalogRequest = httpMock.expectOne(`${environment.apiUrl}/blocks/types/catalog`);
+    const catalogRequest = httpMock.expectOne(`${environment.apiUrl}/blocks/types/configurations/catalog`);
     expect(catalogRequest.request.method).toBe('GET');
     catalogRequest.flush({
       sharedDefinitions: {
@@ -90,7 +90,7 @@ describe('BlocksCallService', () => {
   it('parses a terminal EndBlock descriptor capabilities and falls back to defaults when absent', async () => {
     const request = firstValueFrom(service.retrieveAllBlocksTypes());
 
-    httpMock.expectOne(`${environment.apiUrl}/blocks/types/catalog`).flush({
+    httpMock.expectOne(`${environment.apiUrl}/blocks/types/configurations/catalog`).flush({
       descriptors: [
         {
           type: 'EndBlock',
@@ -133,7 +133,7 @@ describe('BlocksCallService', () => {
   it('rejects the legacy block catalog array format', async () => {
     const request = firstValueFrom(service.retrieveAllBlocksTypes());
 
-    httpMock.expectOne(`${environment.apiUrl}/blocks/types/catalog`).flush([
+    httpMock.expectOne(`${environment.apiUrl}/blocks/types/configurations/catalog`).flush([
       {
         type: 'LLMBlock'
       }

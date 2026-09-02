@@ -14,7 +14,7 @@ export class BlocksCallService extends BlocksCallServiceBase {
 
   override retrieveAllBlocksTypes(): Observable<BlockType[]> {
     return this.http
-      .get<unknown>(`${environment.apiUrl}/blocks/types/catalog`)
+      .get<unknown>(`${environment.apiUrl}/blocks/types/configurations/catalog`)
       .pipe(
         map((raw) => this.parseCatalogResponse(raw)),
         map((types) => {
