@@ -427,12 +427,40 @@ export class FlowAssistant implements OnInit, OnDestroy {
       === this.canonicalAssistantErrorContent(FlowAssistant.STANDARD_ASSISTANT_ERROR);
   }
 
-  hasCancellableCall(): boolean { return false; }
+  hasCancellableCall(): boolean {
+    return this.isActiveCall(this.currentCall());
+  }
 
   async cancelActiveCall(): Promise<boolean> {
+    const call = this.currentCall();
+    if (!this.isActiveCall(call)) {
+      this.requestPending.set(false);
+      this.createPromptSubmitted.set(false);
+      return true;
+    }
+
+    this.stopPolling();
     this.requestPending.set(false);
-    this.createPromptSubmitted.set(false);
-    return true;
+
+    try {
+      const cancelledCall = await firstValueFrom(this.assistant.cancelCall(call.id).pipe(take(1)));
+      this.currentCall.set(cancelledCall);
+      this.createPromptSubmitted.set(false);
+      this.persistSnapshot();
+
+      const session = await firstValueFrom(this.assistant.getSession(cancelledCall.sessionId || call.sessionId).pipe(take(1)));
+      this.applySessionState(session, { syncDraftToEditor: false });
+      this.currentCall.set(null);
+      this.persistSnapshot();
+      return true;
+    } catch (err) {
+      console.error('Assistant call cancel failed', err);
+      this.currentCall.set(call);
+      this.beginPolling(call.id);
+      this.assistantErrorMessage.set('Unable to cancel the assistant request.');
+      this.persistSnapshot();
+      return false;
+    }
   }
 
   clearActiveSnapshot() {
@@ -892,23 +920,43 @@ export class FlowAssistant implements OnInit, OnDestroy {
     this.assistantErrorMessage.set(snapshot.assistantErrorMessage);
     this.lastFailedPrompt.set(snapshot.lastFailedPrompt);
     this.lastSubmittedPrompt.set(snapshot.lastSubmittedPrompt);
-    this.createPromptSubmitted.set(false);
+    this.createPromptSubmitted.set(this.isCreateModal() && this.isActiveCall(snapshot.currentCall));
     this.useDefaultConfiguration.set(snapshot.useDefaultConfiguration);
     this.selectedProvider.set(snapshot.selectedProvider);
     this.selectedModel.set(snapshot.selectedModel);
     this.phaseModels.set(snapshot.phaseModels);
     this.advancedModelsOpen.set(snapshot.advancedModelsOpen);
-    if (snapshot.sessionState) {
-      this.sessionState.set(snapshot.sessionState);
-    } else {
-      this.sessionState.set(null);
-    }
+    this.sessionState.set(snapshot.sessionState ?? null);
 
-    this.sessionLoading.set(false);
     if (!this.useDefaultConfiguration() && this.selectedProvider()) {
       void this.loadProviders();
       void this.loadModels(this.selectedProvider());
     }
+
+    if (this.isActiveCall(snapshot.currentCall)) {
+      this.sessionLoading.set(false);
+      this.beginPolling(snapshot.currentCall!.id);
+      return;
+    }
+
+    const sessionId = snapshot.sessionId ?? snapshot.sessionState?.id ?? null;
+    if (!sessionId) {
+      this.sessionLoading.set(false);
+      return;
+    }
+
+    this.sessionLoading.set(true);
+    this.assistant.getSession(sessionId).pipe(
+      take(1),
+      finalize(() => this.sessionLoading.set(false))
+    ).subscribe({
+      next: (session) => {
+        this.applySessionState(session, { clearLocalMessages: false, syncDraftToEditor: false });
+      },
+      error: (err) => {
+        console.error('Assistant session refresh failed', err);
+      }
+    });
   }
 
   private resolveFlowKey(flowId: string | null | undefined): string {
@@ -988,6 +1036,10 @@ export class FlowAssistant implements OnInit, OnDestroy {
       case 'cancelled':
         return 'Assistant request cancelled.';
     }
+  }
+
+  private isActiveCall(call: AssistantCallState | null): call is AssistantCallState {
+    return !!call && (call.status === 'QUEUED' || call.status === 'RUNNING');
   }
 
   private hasMeaningfulFlow(flow: Flow | null): boolean {

@@ -45,6 +45,12 @@ export class AssistantCallService extends AssistantCallServiceBase {
       .pipe(map((raw) => mapAssistantSessionState(raw)));
   }
 
+  override getSession(sessionId: string): Observable<AssistantSessionState> {
+    return this.http
+      .get<unknown>(`${environment.apiUrl}/assistant/sessions/${sessionId}`)
+      .pipe(map((raw) => mapAssistantSessionState(raw)));
+  }
+
   override submitMessage(sessionId: string, request: AssistantSessionMessageRequest): Observable<AssistantCallAccepted> {
     return this.http
       .post<unknown>(`${environment.apiUrl}/assistant/sessions/${sessionId}/messages`, request)

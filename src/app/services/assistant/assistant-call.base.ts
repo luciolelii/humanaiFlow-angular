@@ -17,6 +17,8 @@ export abstract class AssistantCallServiceBase {
 
   abstract createSession(request: AssistantSessionRequest): Observable<AssistantSessionState>;
 
+  abstract getSession(sessionId: string): Observable<AssistantSessionState>;
+
   abstract submitMessage(sessionId: string, request: AssistantSessionMessageRequest): Observable<AssistantCallAccepted>;
 
   abstract getCall(callId: string): Observable<AssistantCallState>;

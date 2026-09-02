@@ -28,6 +28,10 @@ export class AssistantService {
     return this.assistantCall.createSession(request);
   }
 
+  getSession(sessionId: string) {
+    return this.assistantCall.getSession(sessionId);
+  }
+
   submitMessage(sessionId: string, request: AssistantSessionMessageRequest) {
     return this.assistantCall.submitMessage(sessionId, request);
   }

@@ -10,12 +10,13 @@ import {
   AssistantSessionState
 } from '@models/assistant';
 import { FlowData } from '@models/flow';
-import { Observable, of } from 'rxjs';
+import { Observable, of, throwError } from 'rxjs';
 import { AssistantCallServiceBase } from './assistant-call.base';
 
 export class AssistantCallServiceFake extends AssistantCallServiceBase {
   private readonly models = ['llama3.1:8b', 'qwen2.5:7b', 'mistral:7b'];
   private readonly providers = ['InternalOllama', 'OpenAI'];
+  private readonly sessions = new Map<string, AssistantSessionState>();
   private readonly calls = new Map<string, { sessionId: string; intent: AssistantIntent; result: AssistantFlowActionResult }>();
 
   override getConfig(): Observable<AssistantConfig> {
@@ -52,14 +53,46 @@ export class AssistantCallServiceFake extends AssistantCallServiceBase {
       lastValidationErrors: [],
       lastCallId: null
     };
+    this.sessions.set(session.id, session);
+    return of(structuredClone(session));
+  }
+
+  override getSession(sessionId: string): Observable<AssistantSessionState> {
+    const session = this.sessions.get(sessionId);
+    if (!session) {
+      return throwError(() => new Error('Assistant session not found'));
+    }
     return of(structuredClone(session));
   }
 
   override submitMessage(sessionId: string, request: AssistantSessionMessageRequest): Observable<AssistantCallAccepted> {
-    const intent = this.inferIntent(request.message, request.flow);
-    const result = this.buildActionResult(intent, request);
+    const session = this.sessions.get(sessionId);
+    const flow = request.flow ?? session?.currentFlow ?? undefined;
+    const intent = this.inferIntent(request.message, flow);
+    const result = this.buildActionResult(intent, { ...request, flow });
     const callId = crypto.randomUUID();
     this.calls.set(callId, { sessionId, intent, result });
+
+    if (session) {
+      session.messages = [
+        ...session.messages,
+        { id: crypto.randomUUID(), role: 'user', content: request.message },
+        {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: result.message,
+          warnings: result.warnings,
+          validationErrors: result.validationErrors
+        }
+      ];
+      session.lastCallId = callId;
+      if (result.flow) {
+        session.currentFlow = result.flow;
+        session.currentDraftFlow = result.flow;
+      }
+      session.lastValidationErrors = result.validationErrors;
+    }
+
     return of({ sessionId, callId });
   }
 
@@ -91,6 +124,13 @@ export class AssistantCallServiceFake extends AssistantCallServiceBase {
 
   override cancelCall(callId: string): Observable<AssistantCallState> {
     const call = this.calls.get(callId);
+    const session = call ? this.sessions.get(call.sessionId) : undefined;
+    if (session) {
+      session.messages = [
+        ...session.messages,
+        { id: crypto.randomUUID(), role: 'assistant', content: 'Assistant request cancelled.' }
+      ];
+    }
     return of({
       id: callId,
       sessionId: call?.sessionId ?? '',
