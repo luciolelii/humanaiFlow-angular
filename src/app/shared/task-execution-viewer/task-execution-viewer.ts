@@ -55,6 +55,7 @@ import {
 import { BiasCompareDialogService } from '@services/dialogs/bias-compare-dialog';
 import { BiasComparisonViewStateService } from '@services/bias/bias-comparison-view-state';
 import { BiasImpactReportListComponent } from '@shared/bias-impact-report-list/bias-impact-report-list';
+import { JsonViewerComponent } from '@shared/json-viewer/json-viewer';
 import { firstValueFrom, Observable, of, take, tap } from 'rxjs';
 import {
   ExecutionOutputEntry,
@@ -95,7 +96,7 @@ import {
 
 @Component({
   selector: 'app-task-execution-viewer',
-  imports: [CommonModule, FormsModule, ReteEditor, TaskExecutionInputsPanelComponent, MatButtonModule, MatIconModule, MatTooltipModule, MatFormFieldModule, MatSelectModule, BiasImpactReportListComponent],
+  imports: [CommonModule, FormsModule, ReteEditor, TaskExecutionInputsPanelComponent, MatButtonModule, MatIconModule, MatTooltipModule, MatFormFieldModule, MatSelectModule, BiasImpactReportListComponent, JsonViewerComponent],
   templateUrl: './task-execution-viewer.html',
   styleUrl: './task-execution-viewer.css',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -531,6 +532,28 @@ export class TaskExecutionViewerComponent implements OnDestroy {
       lanes: sourceFlow?.lanes ?? []
     };
   });
+
+  /**
+   * Where a flow's answer actually lands when its last block is wired into an End node: the flow
+   * result is built only from unconnected outputs, so that connection moves the value here. Without
+   * surfacing it the run looks like it produced nothing.
+   */
+  readonly outcomes = computed(() => this.execution()?.context.outcomes ?? []);
+
+  readonly hasOutcomePayload = computed(() =>
+    this.outcomes().some((outcome) => outcome.payload !== null && outcome.payload !== undefined));
+
+  /**
+   * A text payload is shown as text, not through the JSON tree: the common case is a generated
+   * document - an email, a report - and the tree would quote it and collapse its line breaks.
+   */
+  isTextPayload(payload: unknown): payload is string {
+    return typeof payload === 'string';
+  }
+
+  stepNameForOutcome(stepId: string): string {
+    return this.execution()?.context.steps?.[stepId]?.node?.name ?? stepId;
+  }
 
   readonly formattedDuration = computed(() => {
     const context = this.execution()?.context;

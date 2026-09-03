@@ -505,3 +505,94 @@
 .execution-bias-legend-dot-changed { background: #b45309; }
 .execution-bias-legend-reset { background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: .4rem; color: #0f172a; cursor: pointer; font-size: .76rem; font-weight: 600; padding: .25rem .55rem; }
 .execution-bias-legend-reset:hover { background: #e2e8f0; }
+
+/*
+ * A flow whose last block is wired into an End node puts its answer here rather than in the flow
+ * result, so this reads as the run's conclusion, not as a footnote.
+ */
+.execution-outcomes {
+  margin: 0.25rem 0.25rem 0;
+  padding: 0.5rem 0.75rem 0.625rem;
+  border: 1px solid #bbf7d0;
+  border-radius: 6px;
+  background: #f0fdf4;
+}
+
+.execution-outcomes-title {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-bottom: 0.375rem;
+  color: #166534;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.execution-outcomes-title .mat-icon {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+  line-height: 16px;
+}
+
+.execution-outcome + .execution-outcome {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed #bbf7d0;
+}
+
+.execution-outcome-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.execution-outcome-code {
+  padding: 0 0.375rem;
+  border-radius: 999px;
+  background: #16a34a;
+  color: #ffffff;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.execution-outcome-label {
+  color: #14532d;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.execution-outcome-step {
+  color: #4d7c5f;
+  font-size: 0.75rem;
+}
+
+.execution-outcome-payload {
+  margin-top: 0.375rem;
+  padding: 0.375rem 0.5rem;
+  border: 1px solid #dcfce7;
+  border-radius: 4px;
+  background: #ffffff;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.execution-outcome-empty {
+  margin-top: 0.25rem;
+  color: #4d7c5f;
+  font-size: 0.75rem;
+  font-style: italic;
+}
+
+/* Generated documents keep their line breaks; the JSON tree would quote and flatten them. */
+.execution-outcome-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: #1f2937;
+}

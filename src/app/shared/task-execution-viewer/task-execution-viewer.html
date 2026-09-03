@@ -95,6 +95,39 @@
       <button type="button" mat-stroked-button (click)="openAuthorizationPanel()">Choose credential</button>
     </div>
     }
+    @if (outcomes().length) {
+    <div class="execution-outcomes">
+      <div class="execution-outcomes-title">
+        <mat-icon fontIcon="flag"></mat-icon>
+        <span>{{ outcomes().length === 1 ? 'Outcome' : 'Outcomes' }}</span>
+      </div>
+
+      @for (outcome of outcomes(); track outcome.stepId + outcome.timestamp) {
+      <div class="execution-outcome">
+        <div class="execution-outcome-head">
+          <span class="execution-outcome-code">{{ outcome.code }}</span>
+          <span class="execution-outcome-label">{{ outcome.label }}</span>
+          <span class="execution-outcome-step">via {{ stepNameForOutcome(outcome.stepId) }}</span>
+        </div>
+
+        @if (outcome.payload !== null && outcome.payload !== undefined) {
+        <div class="execution-outcome-payload">
+          @if (isTextPayload(outcome.payload)) {
+          <div class="execution-outcome-text">{{ outcome.payload }}</div>
+          } @else {
+          <app-json-viewer [value]="outcome.payload" [initiallyExpanded]="true" />
+          }
+        </div>
+        } @else {
+        <div class="execution-outcome-empty">
+          This End node received no value, so the outcome carries only its label.
+        </div>
+        }
+      </div>
+      }
+    </div>
+    }
+
     <div class="flex-1 min-h-0 flex gap-2 p-1">
       <div class="execution-graph-shell flex-1 border border-slate-200 rounded-md bg-slate-50 min-h-0 overflow-hidden">
         <div class="px-3 py-2 text-xs font-semibold text-slate-600 border-b border-slate-200 bg-white">Execution Graph (read-only)</div>

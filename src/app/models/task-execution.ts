@@ -112,8 +112,37 @@ export type TaskExecutionContext = {
   executionVariables?: Record<string, unknown>;
   executionVariableDescriptors?: Record<string, unknown>;
   errorCodes?: Record<string, unknown>;
-  outcomes?: unknown[];
+  /**
+   * One entry per End node the run passed through. This is where a flow's answer lands when the
+   * last block is wired into an End: the flow `result` is built only from *unconnected* outputs, so
+   * connecting one into an End moves its value here, as the outcome payload.
+   */
+  outcomes?: TaskExecutionOutcome[];
 };
+
+export type TaskExecutionOutcome = {
+  stepId: string;
+  code: string;
+  label: string;
+  payload: unknown;
+  timestamp: number;
+};
+
+export function normalizeExecutionOutcomes(raw: unknown): TaskExecutionOutcome[] {
+  if (!Array.isArray(raw)) return [];
+
+  return raw
+    .filter((entry): entry is Record<string, unknown> =>
+      !!entry && typeof entry === 'object' && !Array.isArray(entry))
+    .map((entry) => ({
+      stepId: String(entry['stepId'] ?? ''),
+      code: String(entry['code'] ?? ''),
+      label: String(entry['label'] ?? entry['code'] ?? ''),
+      payload: entry['payload'] ?? null,
+      timestamp: typeof entry['timestamp'] === 'number' ? entry['timestamp'] : 0
+    }))
+    .filter((outcome) => outcome.code.length > 0 || outcome.payload !== null);
+}
 
 export type TaskExecutionGlobalInputDescriptor = {
   name: string;

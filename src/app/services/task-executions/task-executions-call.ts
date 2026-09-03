@@ -13,7 +13,7 @@ import {
   BiasRerunRequest,
   BiasRoutingChangeEntry
 } from '@models/bias-impact';
-import { ExecutionEventLogEntry, TaskExecution, TaskExecutionGroup } from '@models/task-execution';
+import { ExecutionEventLogEntry, TaskExecution, TaskExecutionGroup, normalizeExecutionOutcomes } from '@models/task-execution';
 import { ProjectExecutionPlan, ProjectRun } from '@models/project';
 import { map, Observable } from 'rxjs';
 import { TaskExecutionsCallServiceBase } from './task-executions-call.base';
@@ -347,7 +347,8 @@ export class TaskExecutionsCallService extends TaskExecutionsCallServiceBase {
       context: {
         ...(context as TaskExecution['context']),
         globalInputs,
-        globalInputDescriptors
+        globalInputDescriptors,
+        outcomes: normalizeExecutionOutcomes(context['outcomes'])
       } as TaskExecution['context']
     };
   }
