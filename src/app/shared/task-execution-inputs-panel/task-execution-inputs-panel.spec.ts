@@ -14,13 +14,13 @@ function makeInput(overrides: Partial<EditableExecutionInput> = {}): EditableExe
     type: 'TEXT',
     multiple: false,
     value: '',
+    provided: false,
     ...overrides
   };
 }
 
 async function build(inputs: EditableExecutionInput[], options: {
   pendingKeys?: string[];
-  missing?: string[];
   saving?: Record<string, boolean>;
   readOnly?: boolean;
 } = {}) {
@@ -29,7 +29,6 @@ async function build(inputs: EditableExecutionInput[], options: {
   const fixture = TestBed.createComponent(TaskExecutionInputsPanelComponent);
   fixture.componentRef.setInput('editableInputs', inputs);
   fixture.componentRef.setInput('pendingKeys', options.pendingKeys ?? []);
-  fixture.componentRef.setInput('missingGlobalInputNames', options.missing ?? []);
   fixture.componentRef.setInput('savingInputs', options.saving ?? {});
   fixture.componentRef.setInput('readOnly', options.readOnly ?? false);
   fixture.detectChanges();
@@ -41,30 +40,37 @@ async function build(inputs: EditableExecutionInput[], options: {
 describe('TaskExecutionInputsPanelComponent', () => {
   afterEach(() => TestBed.resetTestingModule());
 
-  it('reports how many flow inputs are still missing', async () => {
-    const fixture = await build(
-      [makeInput({ key: 'g:a', inputName: 'a' }), makeInput({ key: 'g:b', inputName: 'b' })],
-      { missing: ['b'] }
-    );
+  it('counts every input, node ones included, since all of them are required', async () => {
+    // A step without its manual input never reaches READY, so a node input blocks the start just
+    // as a global one does and must be part of the tally.
+    const fixture = await build([
+      makeInput({ key: 'g:a', inputName: 'a', provided: true }),
+      makeInput({ key: 'g:b', inputName: 'b' }),
+      makeInput({ key: 'n:c', scope: 'node', inputName: 'c', title: 'Reviewer' })
+    ]);
 
-    expect(fixture.componentInstance.providedGlobalCount()).toBe(1);
-    expect(fixture.nativeElement.textContent).toContain('1 of 2 provided');
+    expect(fixture.componentInstance.providedCount()).toBe(1);
+    expect(fixture.nativeElement.textContent).toContain('1 of 3 provided');
   });
 
-  it('marks only the inputs the backend still considers unsatisfied', async () => {
-    const provided = makeInput({ key: 'g:a', inputName: 'a' });
-    const missing = makeInput({ key: 'g:b', inputName: 'b' });
-    const fixture = await build([provided, missing], { missing: ['b'] });
+  it('marks exactly the inputs with nothing stored', async () => {
+    const provided = makeInput({ key: 'g:a', inputName: 'a', provided: true });
+    const missing = makeInput({ key: 'n:b', scope: 'node', inputName: 'b', title: 'Reviewer' });
+    const fixture = await build([provided, missing]);
 
     expect(fixture.componentInstance.isMissing(provided)).toBe(false);
     expect(fixture.componentInstance.isMissing(missing)).toBe(true);
   });
 
-  it('never marks a node input as missing, since only globals gate the start', async () => {
-    const nodeInput = makeInput({ key: 'n:x', scope: 'node', inputName: 'x', title: 'Reviewer' });
-    const fixture = await build([nodeInput], { missing: ['x'] });
+  it('names the two groups after the domain: global and node inputs', async () => {
+    const fixture = await build([
+      makeInput({ key: 'g:a', inputName: 'a' }),
+      makeInput({ key: 'n:b', scope: 'node', inputName: 'b', title: 'Reviewer' })
+    ]);
 
-    expect(fixture.componentInstance.isMissing(nodeInput)).toBe(false);
+    const text = fixture.nativeElement.textContent;
+    expect(text).toContain('Global inputs');
+    expect(text).toContain('Node inputs');
   });
 
   it('offers a single save for every pending edit', async () => {

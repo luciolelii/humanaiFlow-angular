@@ -83,6 +83,7 @@ import {
   getConnectedInputs,
   getConnectedOutputs,
   getExecutionErrors,
+  hasStoredValue,
   getExecutionWarnings,
   AuthorizationGate,
   VaultAuthorizationEntry,
@@ -141,8 +142,6 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   /** Edited but not yet sent, so the panel can offer one Save for the lot. */
   readonly pendingInputKeys = computed(() => Object.keys(this.pendingTextInputs()));
 
-  /** The backend's own answer on what still blocks the start, by input name. */
-  readonly missingGlobalInputNames = computed(() => this.execution()?.missingGlobalInputKeys ?? []);
   readonly pendingAuthorizationValues = signal<Record<string, string>>({});
   readonly savingAuthorizations = signal<Record<string, boolean>>({});
   readonly authorizationErrors = signal<Record<string, string>>({});
@@ -699,6 +698,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   });
 
   readonly editableInputs = computed<EditableExecutionInput[]>(() => {
+    const missingGlobalInputNames = new Set(this.execution()?.missingGlobalInputKeys ?? []);
     const execution = this.execution();
     if (!execution) return [];
 
@@ -726,6 +726,9 @@ export class TaskExecutionViewerComponent implements OnDestroy {
         subtitle: inputName,
         type: String(descriptor?.kind ?? 'TEXT').toUpperCase(),
         multiple: Boolean(descriptor?.multiple),
+        // The backend's own answer, and it reports what is stored - so an unsaved edit does not
+        // make an input look satisfied.
+        provided: !missingGlobalInputNames.has(inputName),
         value: pendingValue ?? normalizeEditableInputValue(rawValue, Boolean(descriptor?.multiple))
       });
     }
@@ -752,6 +755,8 @@ export class TaskExecutionViewerComponent implements OnDestroy {
           subtitle: inputName,
           type: String(input.descriptor?.type ?? 'TEXT').toUpperCase(),
           multiple: Boolean(input.descriptor?.multiple),
+          // No per-input flag from the backend here, so judge the stored value, ignoring pending.
+          provided: hasStoredValue(rawValue),
           value: pendingValue ?? normalizeEditableInputValue(rawValue, Boolean(input.descriptor?.multiple))
         });
       }

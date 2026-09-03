@@ -1,11 +1,5 @@
 import { TaskExecution, TaskExecutionStep } from '@models/task-execution';
-import {
-  buildAuthorizationGate,
-  buildVisibleExecutionLogs,
-  getExecutionInputValues,
-  getExecutionOutputValues,
-  isExecutionStartable
-} from './execution-viewer.utils';
+import { buildAuthorizationGate, buildVisibleExecutionLogs, getExecutionInputValues, getExecutionOutputValues, hasStoredValue, isExecutionStartable } from './execution-viewer.utils';
 
 describe('execution viewer runtime values', () => {
   const documentedStep: TaskExecutionStep = {
@@ -170,5 +164,27 @@ describe('authorization gate', () => {
     });
 
     expect(isExecutionStartable(running, buildAuthorizationGate(running, readyState))).toBe(false);
+  });
+});
+
+describe('hasStoredValue', () => {
+  it('treats an empty or blank value as not supplied', () => {
+    expect(hasStoredValue(null)).toBe(false);
+    expect(hasStoredValue(undefined)).toBe(false);
+    expect(hasStoredValue('')).toBe(false);
+    expect(hasStoredValue('   ')).toBe(false);
+  });
+
+  it('treats an empty list, or a list of blanks, as not supplied', () => {
+    // The step would still be waiting for it, so the panel must not report it as provided.
+    expect(hasStoredValue([])).toBe(false);
+    expect(hasStoredValue(['', '  '])).toBe(false);
+  });
+
+  it('accepts any non-blank content', () => {
+    expect(hasStoredValue('Backend Developer')).toBe(true);
+    expect(hasStoredValue(['', 'one'])).toBe(true);
+    expect(hasStoredValue(0)).toBe(true);
+    expect(hasStoredValue(false)).toBe(true);
   });
 });

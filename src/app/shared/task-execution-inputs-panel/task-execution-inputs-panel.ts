@@ -18,6 +18,11 @@ export type EditableExecutionInput = {
   type: string;
   multiple: boolean;
   value: string | string[];
+  /**
+   * Whether a value is actually stored in the execution - unsaved edits do not count. Node inputs
+   * gate the start just as globals do: a step without its manual input never reaches READY.
+   */
+  provided: boolean;
 };
 
 @Component({
@@ -38,8 +43,7 @@ export class TaskExecutionInputsPanelComponent {
   readonly readOnly = input<boolean>(false);
   /** Keys the user has edited but not saved; drives the single Save at the foot of the panel. */
   readonly pendingKeys = input<string[]>([]);
-  /** Names the backend still considers unsatisfied - the ones actually blocking the start. */
-  readonly missingGlobalInputNames = input<string[]>([]);
+
 
   readonly textInputChange = output<{ input: EditableExecutionInput; value: string | string[] }>();
   readonly textInputSubmit = output<EditableExecutionInput>();
@@ -53,7 +57,6 @@ export class TaskExecutionInputsPanelComponent {
   private readonly authorizationVisibility = new Map<string, boolean>();
 
   private readonly pendingKeySet = computed(() => new Set(this.pendingKeys()));
-  private readonly missingNameSet = computed(() => new Set(this.missingGlobalInputNames()));
 
   readonly pendingCount = computed(() => this.editableInputs()
     .filter((input) => this.pendingKeySet().has(input.key)).length);
@@ -63,16 +66,15 @@ export class TaskExecutionInputsPanelComponent {
   readonly canSubmitAll = computed(() =>
     !this.readOnly() && this.pendingCount() > 0 && !this.anySaving());
 
-  /** Completion is reported for globals only: those are what gate the start. */
-  readonly providedGlobalCount = computed(() => this.globalExecutionInputs()
-    .filter((input) => !this.isMissing(input)).length);
+  /** Every manual input is required, node ones included, so the count covers the whole panel. */
+  readonly providedCount = computed(() => this.editableInputs().filter((input) => input.provided).length);
 
   isPending(input: EditableExecutionInput): boolean {
     return this.pendingKeySet().has(input.key);
   }
 
   isMissing(input: EditableExecutionInput): boolean {
-    return input.scope === 'global' && this.missingNameSet().has(input.inputName);
+    return !input.provided;
   }
 
   submitAll(event?: Event) {

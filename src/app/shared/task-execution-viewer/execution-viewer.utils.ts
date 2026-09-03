@@ -535,3 +535,15 @@ export function isExecutionStartable(
 
   return true;
 }
+
+/**
+ * Whether a value counts as supplied. An empty string, an empty list, or a list of blanks is not:
+ * the step would still be waiting for it.
+ */
+export function hasStoredValue(value: unknown): boolean {
+  if (value === null || value === undefined) return false;
+  if (Array.isArray(value)) {
+    return value.some((item) => String(item ?? '').trim().length > 0);
+  }
+  return String(value).trim().length > 0;
+}

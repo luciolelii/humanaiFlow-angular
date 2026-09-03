@@ -71,20 +71,22 @@
   <div class="text-xs text-slate-500">No manual inputs required.</div>
   } @else {
 
-    @if (globalExecutionInputs().length) {
     <div class="flex items-baseline justify-between gap-2">
-      <div class="text-xs font-semibold uppercase tracking-wide text-slate-600">Flow inputs</div>
+      <div class="text-xs font-semibold uppercase tracking-wide text-slate-600">Inputs</div>
       <div class="text-[11px] text-slate-500">
-        {{ providedGlobalCount() }} of {{ globalExecutionInputs().length }} provided
+        {{ providedCount() }} of {{ editableInputs().length }} provided
       </div>
     </div>
+
+    @if (globalExecutionInputs().length) {
+    <div class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Global inputs</div>
     @for (executionInput of globalExecutionInputs(); track executionInput.key) {
       <ng-container *ngTemplateOutlet="inputEditor; context: { $implicit: executionInput }"></ng-container>
     }
     }
 
     @if (nodeExecutionInputs().length) {
-    <div class="text-xs font-semibold uppercase tracking-wide text-slate-600">Manual inputs</div>
+    <div class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Node inputs</div>
     @for (executionInput of nodeExecutionInputs(); track executionInput.key) {
       <ng-container *ngTemplateOutlet="inputEditor; context: { $implicit: executionInput }"></ng-container>
     }
