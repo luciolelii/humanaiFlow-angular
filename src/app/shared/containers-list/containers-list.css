@@ -2,10 +2,24 @@
  * Palette lives here rather than in the markup so the blocks and containers lists, which share
  * these class names, stay identical apart from their accent.
  */
+/*
+ * Without this the host has no height to constrain, so .blocks-list-items grows past the viewport
+ * and its overflow-y never engages: the palette simply runs off the bottom of the sidebar.
+ */
+:host {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
 .blocks-list-root {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
-  height: 100%;
+  width: 100%;
+  min-width: 0;
   min-height: 0;
 }
 

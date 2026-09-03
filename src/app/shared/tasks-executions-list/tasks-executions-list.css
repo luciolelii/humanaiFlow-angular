@@ -36,6 +36,8 @@
 
 .tasks-list-items {
   flex: 1;
+  /* Without min-height a flex item refuses to shrink below its content, so it never scrolls. */
+  min-height: 0;
   overflow-y: auto;
   padding: 10px 8px;
 }

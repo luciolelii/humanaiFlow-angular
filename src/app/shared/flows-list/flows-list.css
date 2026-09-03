@@ -47,11 +47,14 @@
   text-align: center;
 }
 
+/*
+ * Height comes from the flex column, not a hardcoded calc: that 380px was tuned for the old tall
+ * header and now just wastes space, and it would go stale again on the next header change.
+ */
 .flows-list-items {
   flex: 1;
   width: 100%;
   min-height: 0;
-  max-height: calc(100vh - 380px);
   overflow-y: auto;
   box-sizing: border-box;
   padding: 10px 0 20px !important;
@@ -76,15 +79,10 @@
   min-width: 0;
 }
 
-/*
- * The grouped container relies on the flex column for its height instead of the flat list's fixed
- * max-height calc, which does not account for the project filter row above it.
- */
 .flows-list-groups {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  max-height: none;
+  gap: 6px;
   padding: 10px 0 20px;
 }
 
