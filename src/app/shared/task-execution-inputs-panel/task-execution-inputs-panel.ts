@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -68,6 +68,29 @@ export class TaskExecutionInputsPanelComponent {
 
   /** Every manual input is required, node ones included, so the count covers the whole panel. */
   readonly providedCount = computed(() => this.editableInputs().filter((input) => input.provided).length);
+
+  readonly globalMissingCount = computed(() =>
+    this.globalExecutionInputs().filter((input) => !input.provided).length);
+  readonly nodeMissingCount = computed(() =>
+    this.nodeExecutionInputs().filter((input) => !input.provided).length);
+
+  /**
+   * Null until the user decides for themselves; until then a group is open exactly when something
+   * in it is still missing, so what needs attention is what you see.
+   */
+  private readonly globalsOverride = signal<boolean | null>(null);
+  private readonly nodesOverride = signal<boolean | null>(null);
+
+  readonly globalsOpen = computed(() => this.globalsOverride() ?? this.globalMissingCount() > 0);
+  readonly nodesOpen = computed(() => this.nodesOverride() ?? this.nodeMissingCount() > 0);
+
+  toggleGlobals() {
+    this.globalsOverride.set(!this.globalsOpen());
+  }
+
+  toggleNodes() {
+    this.nodesOverride.set(!this.nodesOpen());
+  }
 
   isPending(input: EditableExecutionInput): boolean {
     return this.pendingKeySet().has(input.key);

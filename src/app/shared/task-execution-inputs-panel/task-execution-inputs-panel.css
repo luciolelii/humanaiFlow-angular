@@ -3,6 +3,69 @@
  * centred gradient badge repeating the word "Flow", a "Type:" line and a four-row textarea, so
  * three short answers filled the panel. One line of chrome per input, and the field grows instead.
  */
+.inputs-panel-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 2px 0;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+}
+
+.inputs-panel-group:hover {
+  color: #334155;
+}
+
+.inputs-panel-group .mat-icon {
+  flex: 0 0 auto;
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+  line-height: 16px;
+}
+
+/*
+ * The count of what is still missing, so a collapsed group never hides the fact that it is holding
+ * the run back; a tick replaces it once nothing is.
+ */
+.inputs-panel-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 17px;
+  height: 17px;
+  margin-left: auto;
+  padding: 0 4px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: help;
+}
+
+.inputs-panel-badge-missing {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+.inputs-panel-badge-done {
+  background: #16a34a;
+  color: #ffffff;
+}
+
+.inputs-panel-badge .mat-icon {
+  font-size: 12px;
+  width: 12px;
+  height: 12px;
+  line-height: 12px;
+}
+
 .inputs-panel-item {
   padding: 6px 8px;
   border: 1px solid #e2e8f0;

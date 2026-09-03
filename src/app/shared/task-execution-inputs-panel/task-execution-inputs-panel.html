@@ -79,16 +79,28 @@
     </div>
 
     @if (globalExecutionInputs().length) {
-    <div class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Global inputs</div>
+    <button type="button" class="inputs-panel-group" [attr.aria-expanded]="globalsOpen()" (click)="toggleGlobals()">
+      <mat-icon [fontIcon]="globalsOpen() ? 'expand_less' : 'expand_more'"></mat-icon>
+      <span>Global inputs</span>
+      <ng-container *ngTemplateOutlet="groupBadge; context: { $implicit: globalMissingCount() }"></ng-container>
+    </button>
+    @if (globalsOpen()) {
     @for (executionInput of globalExecutionInputs(); track executionInput.key) {
       <ng-container *ngTemplateOutlet="inputEditor; context: { $implicit: executionInput }"></ng-container>
     }
     }
+    }
 
     @if (nodeExecutionInputs().length) {
-    <div class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Node inputs</div>
+    <button type="button" class="inputs-panel-group" [attr.aria-expanded]="nodesOpen()" (click)="toggleNodes()">
+      <mat-icon [fontIcon]="nodesOpen() ? 'expand_less' : 'expand_more'"></mat-icon>
+      <span>Node inputs</span>
+      <ng-container *ngTemplateOutlet="groupBadge; context: { $implicit: nodeMissingCount() }"></ng-container>
+    </button>
+    @if (nodesOpen()) {
     @for (executionInput of nodeExecutionInputs(); track executionInput.key) {
       <ng-container *ngTemplateOutlet="inputEditor; context: { $implicit: executionInput }"></ng-container>
+    }
     }
     }
 
@@ -187,4 +199,16 @@
     <div class="mt-1 text-[11px] text-red-600">{{ errorMessage }}</div>
     }
   </div>
+</ng-template>
+
+<!-- How many are still missing, or a tick once none are. Readable with the badge collapsed. -->
+<ng-template #groupBadge let-missing>
+  @if (missing > 0) {
+  <span class="inputs-panel-badge inputs-panel-badge-missing"
+        [matTooltip]="missing + ' still to fill in'">{{ missing }}</span>
+  } @else {
+  <span class="inputs-panel-badge inputs-panel-badge-done" matTooltip="All filled in">
+    <mat-icon fontIcon="check"></mat-icon>
+  </span>
+  }
 </ng-template>

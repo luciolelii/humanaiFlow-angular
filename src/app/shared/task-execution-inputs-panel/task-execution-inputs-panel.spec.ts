@@ -124,4 +124,54 @@ describe('TaskExecutionInputsPanelComponent', () => {
     // The type label says it is a list, which is what the editor is offering.
     expect(fixture.nativeElement.textContent).toContain('TEXT[]');
   });
+
+  it('badges each group with how many it is still missing', async () => {
+    const fixture = await build([
+      makeInput({ key: 'g:a', inputName: 'a', provided: true }),
+      makeInput({ key: 'g:b', inputName: 'b' }),
+      makeInput({ key: 'n:c', scope: 'node', inputName: 'c', title: 'Reviewer', provided: true })
+    ]);
+
+    expect(fixture.componentInstance.globalMissingCount()).toBe(1);
+    expect(fixture.componentInstance.nodeMissingCount()).toBe(0);
+
+    const badges = fixture.nativeElement.querySelectorAll('.inputs-panel-badge');
+    expect(badges[0].classList).toContain('inputs-panel-badge-missing');
+    expect(badges[0].textContent.trim()).toBe('1');
+    expect(badges[1].classList).toContain('inputs-panel-badge-done');
+  });
+
+  it('opens a group that is still missing something and collapses a complete one', async () => {
+    // What needs attention is what you see, without having to expand anything first.
+    const fixture = await build([
+      makeInput({ key: 'g:a', inputName: 'a' }),
+      makeInput({ key: 'n:b', scope: 'node', inputName: 'b', title: 'Reviewer', provided: true })
+    ]);
+
+    expect(fixture.componentInstance.globalsOpen()).toBe(true);
+    expect(fixture.componentInstance.nodesOpen()).toBe(false);
+  });
+
+  it('lets the user override either default, in both directions', async () => {
+    const fixture = await build([
+      makeInput({ key: 'g:a', inputName: 'a' }),
+      makeInput({ key: 'n:b', scope: 'node', inputName: 'b', title: 'Reviewer', provided: true })
+    ]);
+
+    fixture.componentInstance.toggleGlobals();
+    fixture.componentInstance.toggleNodes();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.globalsOpen()).toBe(false);
+    expect(fixture.componentInstance.nodesOpen()).toBe(true);
+  });
+
+  it('keeps the save bar reachable even with both groups collapsed', async () => {
+    const fixture = await build([makeInput({ key: 'g:a', inputName: 'a', provided: true })],
+      { pendingKeys: ['g:a'] });
+
+    expect(fixture.componentInstance.globalsOpen()).toBe(false);
+    expect(fixture.nativeElement.querySelector('.inputs-panel-savebar')).not.toBeNull();
+    expect(fixture.componentInstance.canSubmitAll()).toBe(true);
+  });
 });
