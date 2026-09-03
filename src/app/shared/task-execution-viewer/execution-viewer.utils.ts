@@ -331,6 +331,41 @@ export function getExecutionOutputValues(
   return result;
 }
 
+/**
+ * Everything a step produced, including the outputs that were wired onward.
+ *
+ * `context.result` holds only the *unconnected* outputs - it is the flow's result, not a log of
+ * every node - so on a flow whose nodes all feed one another it is nearly empty, and on one that
+ * ends in an End node it is empty outright. The value of a connected output is still observable:
+ * it is what arrived at the input on the other end of the wire. The backend reconstructs node
+ * outputs the same way when it builds a bias report.
+ */
+export function resolveStepOutputs(
+  step: TaskExecutionStep,
+  execution: TaskExecution
+): Record<string, unknown> {
+  const outputs = getExecutionOutputValues(step, execution.context.result ?? {});
+  const contextInputs = execution.context.inputs ?? {};
+  const steps = execution.context.steps ?? {};
+
+  for (const connection of execution.stepConnections ?? []) {
+    if (connection.sourceId !== step.id) continue;
+    if (Object.prototype.hasOwnProperty.call(outputs, connection.sourceName)) continue;
+
+    const key = `${connection.targetId}:${connection.targetName}`;
+    if (Object.prototype.hasOwnProperty.call(contextInputs, key)) {
+      outputs[connection.sourceName] = contextInputs[key];
+      continue;
+    }
+    const targetInput = (steps[connection.targetId]?.inputs ?? [])
+      .find((candidate) => candidate.descriptor?.name === connection.targetName);
+    if (targetInput && targetInput.value != null) {
+      outputs[connection.sourceName] = targetInput.value;
+    }
+  }
+  return outputs;
+}
+
 export function getConnectedInputs(step: TaskExecutionStep): string[] {
   return (step.inputs ?? [])
     .filter((input) => input.registered)
