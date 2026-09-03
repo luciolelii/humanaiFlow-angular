@@ -1,0 +1,208 @@
+/*
+ * A form you fill in before starting a run, in a narrow aside. Each input used to open with a
+ * centred gradient badge repeating the word "Flow", a "Type:" line and a four-row textarea, so
+ * three short answers filled the panel. One line of chrome per input, and the field grows instead.
+ */
+.inputs-panel-item {
+  padding: 6px 8px;
+  border: 1px solid #e2e8f0;
+  border-left: 3px solid transparent;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+/* Still required: the backend says this one blocks the start. */
+.inputs-panel-item-missing {
+  border-left-color: #f59e0b;
+}
+
+.inputs-panel-item-pending {
+  border-left-color: #2563eb;
+  background: #f8fafc;
+}
+
+.inputs-panel-item-head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  margin-bottom: 4px;
+}
+
+.inputs-panel-dot {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #22c55e;
+  cursor: help;
+}
+
+.inputs-panel-dot-missing {
+  background: #f59e0b;
+}
+
+.inputs-panel-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.inputs-panel-type {
+  flex: 0 0 auto;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.inputs-panel-owner {
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-left: auto;
+  color: #94a3b8;
+  font-size: 10px;
+  cursor: help;
+}
+
+/* A plain field, not a Material form-field: those carry ~28px of label and subscript furniture. */
+.inputs-panel-field {
+  display: block;
+  width: 100%;
+  min-height: 34px;
+  padding: 5px 7px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #0f172a;
+  font: inherit;
+  font-size: 12.5px;
+  line-height: 1.4;
+  resize: vertical;
+}
+
+.inputs-panel-field:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
+}
+
+.inputs-panel-field[readonly] {
+  background: #f8fafc;
+  color: #64748b;
+}
+
+.inputs-panel-items {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.inputs-panel-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+}
+
+.inputs-panel-index {
+  flex: 0 0 auto;
+  padding-top: 7px;
+  width: 12px;
+  color: #94a3b8;
+  font-size: 10px;
+  text-align: right;
+}
+
+/* An icon, not a wide "Remove" button: at this width a text button pushed the field out. */
+.inputs-panel-remove {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin-top: 5px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+}
+
+.inputs-panel-remove:hover:not(:disabled) {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.inputs-panel-remove:disabled {
+  color: #e2e8f0;
+  cursor: default;
+}
+
+.inputs-panel-remove .mat-icon {
+  font-size: 15px;
+  width: 15px;
+  height: 15px;
+  line-height: 15px;
+}
+
+.inputs-panel-add {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  align-self: flex-start;
+  padding: 2px 6px 2px 2px;
+  border: none;
+  background: transparent;
+  color: #2563eb;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.inputs-panel-add:disabled {
+  color: #cbd5e1;
+  cursor: default;
+}
+
+.inputs-panel-add .mat-icon {
+  font-size: 15px;
+  width: 15px;
+  height: 15px;
+  line-height: 15px;
+}
+
+/*
+ * One save for the whole panel. Per-input buttons meant a click and a round trip each, and nothing
+ * ever said how much was still unsaved.
+ */
+.inputs-panel-savebar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 4px -12px -12px;
+  padding: 8px 12px;
+  border-top: 1px solid #e2e8f0;
+  background: #ffffff;
+}
+
+.inputs-panel-savebar-status {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #64748b;
+  font-size: 11px;
+}

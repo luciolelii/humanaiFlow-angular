@@ -70,162 +70,119 @@
   @if (!editableInputs().length && !authorizationRequirements().length) {
   <div class="text-xs text-slate-500">No manual inputs required.</div>
   } @else {
+
     @if (globalExecutionInputs().length) {
-    <div>
-      <div class="text-xs font-semibold uppercase tracking-wide text-slate-600">Globals</div>
-      <div class="mt-1 text-[11px] text-slate-500">Provide the shared flow-level inputs once before execution starts.</div>
+    <div class="flex items-baseline justify-between gap-2">
+      <div class="text-xs font-semibold uppercase tracking-wide text-slate-600">Flow inputs</div>
+      <div class="text-[11px] text-slate-500">
+        {{ providedGlobalCount() }} of {{ globalExecutionInputs().length }} provided
+      </div>
     </div>
     @for (executionInput of globalExecutionInputs(); track executionInput.key) {
-    <div class="rounded-md border border-violet-200 bg-violet-50/60 p-2">
-      <div class="mb-3 flex min-h-[52px] flex-col items-center justify-center rounded-[10px] border border-violet-200 bg-gradient-to-b from-violet-50 to-violet-100 px-3 py-2 text-center text-violet-700">
-        <div class="text-[14px] font-extrabold leading-tight">{{ executionInput.title }}</div>
-        <div class="mt-1 text-[11px] font-semibold uppercase tracking-[0.04em] text-violet-600">{{ executionInput.subtitle }}</div>
-      </div>
-      <div class="mb-2 text-[10px] text-slate-500">Type: {{ inputTypeLabel(executionInput) }}</div>
-
-      @if (isFileInput(executionInput)) {
-      <input
-        type="file"
-        class="block w-full text-sm text-slate-700"
-        [attr.multiple]="isMultipleInput(executionInput) ? '' : null"
-        [disabled]="readOnly()"
-        (change)="onFileInputChange(executionInput, $event)" />
-      } @else {
-        @if (isMultipleInput(executionInput)) {
-        <div class="space-y-3">
-          @for (textValue of textValues(executionInput); track $index) {
-          <div class="flex items-start gap-2">
-            <mat-form-field appearance="outline" class="flex-1">
-              <mat-label>{{ executionInput.subtitle }} {{ $index + 1 }}</mat-label>
-              <textarea matInput rows="3" [readonly]="readOnly()" [ngModel]="textValue" (ngModelChange)="updateTextItem(executionInput, $index, $event)"></textarea>
-            </mat-form-field>
-            <button type="button" mat-stroked-button class="shrink-0" [disabled]="readOnly() || textValues(executionInput).length <= 1" (click)="removeTextItem(executionInput, $index)">Remove</button>
-          </div>
-          }
-          <button type="button" mat-stroked-button [disabled]="readOnly()" (click)="addTextItem(executionInput)">Add item</button>
-          <div class="flex justify-end">
-            <button type="button" mat-flat-button [disabled]="!canSubmitTextInput(executionInput)" (click)="submitTextInput(executionInput, $event)">Save</button>
-          </div>
-        </div>
-        } @else {
-        <div class="space-y-3">
-          <mat-form-field appearance="outline" class="w-full">
-            <mat-label>{{ executionInput.subtitle }}</mat-label>
-            <textarea matInput rows="4" [readonly]="readOnly()" [ngModel]="executionInput.value" (ngModelChange)="onTextInputChange(executionInput, $event)"></textarea>
-          </mat-form-field>
-          <div class="flex justify-end">
-            <button type="button" mat-flat-button [disabled]="!canSubmitTextInput(executionInput)" (click)="submitTextInput(executionInput, $event)">Save</button>
-          </div>
-        </div>
-        }
-      }
-
-      @if (isInputSaving(executionInput.key)) {
-      <div class="mt-2 text-[11px] text-blue-600">Saving...</div>
-      }
-      @if (inputSavingError(executionInput.key); as errorMessage) {
-      <div class="mt-2 text-[11px] text-red-600">{{ errorMessage }}</div>
-      }
-    </div>
+      <ng-container *ngTemplateOutlet="inputEditor; context: { $implicit: executionInput }"></ng-container>
     }
     }
 
     @if (nodeExecutionInputs().length) {
-    <div class="text-xs font-semibold uppercase tracking-wide text-slate-600">Manual Inputs</div>
-    }
+    <div class="text-xs font-semibold uppercase tracking-wide text-slate-600">Manual inputs</div>
     @for (executionInput of nodeExecutionInputs(); track executionInput.key) {
-    <div class="rounded-md border border-slate-200 bg-slate-50 p-2">
-      <div class="mb-3 flex min-h-[52px] flex-col items-center justify-center rounded-[10px] border border-blue-200 bg-gradient-to-b from-blue-50 to-blue-100 px-3 py-2 text-center text-blue-700">
-        <div class="text-[14px] font-extrabold leading-tight">{{ executionInput.title }}</div>
-        <div class="mt-1 text-[11px] font-semibold uppercase tracking-[0.04em] text-blue-600">{{ executionInput.subtitle }}</div>
-      </div>
-      <div class="mb-2 text-[10px] text-slate-500">Type: {{ inputTypeLabel(executionInput) }}</div>
+      <ng-container *ngTemplateOutlet="inputEditor; context: { $implicit: executionInput }"></ng-container>
+    }
+    }
 
-      @if (isFileInput(executionInput)) {
-      <input
-        type="file"
-        class="block w-full text-sm text-slate-700"
-        [attr.multiple]="isMultipleInput(executionInput) ? '' : null"
-        [disabled]="readOnly()"
-        (change)="onFileInputChange(executionInput, $event)" />
-      } @else {
-        @if (isMultipleInput(executionInput)) {
-        <div class="space-y-3">
-          @for (textValue of textValues(executionInput); track $index) {
-          <div class="flex items-start gap-2">
-            <mat-form-field appearance="outline" class="flex-1">
-              <mat-label>{{ executionInput.subtitle }} {{ $index + 1 }}</mat-label>
-              <textarea
-                matInput
-                rows="3"
-                [readonly]="readOnly()"
-                [ngModel]="textValue"
-                (ngModelChange)="updateTextItem(executionInput, $index, $event)">
-              </textarea>
-            </mat-form-field>
-
-            <button
-              type="button"
-              mat-stroked-button
-              class="shrink-0"
-              [disabled]="readOnly() || textValues(executionInput).length <= 1"
-              (click)="removeTextItem(executionInput, $index)">
-              Remove
-            </button>
-          </div>
-          }
-
-          <button
-            type="button"
-            mat-stroked-button
-            [disabled]="readOnly()"
-            (click)="addTextItem(executionInput)">
-            Add item
-          </button>
-
-          <div class="flex justify-end">
-            <button
-              type="button"
-              mat-flat-button
-              [disabled]="!canSubmitTextInput(executionInput)"
-              (click)="submitTextInput(executionInput, $event)">
-              Save
-            </button>
-          </div>
-        </div>
+    @if (editableInputs().length && !readOnly()) {
+    <div class="inputs-panel-savebar">
+      <span class="inputs-panel-savebar-status">
+        @if (pendingCount()) {
+        {{ pendingCount() }} unsaved {{ pendingCount() === 1 ? 'change' : 'changes' }}
         } @else {
-        <div class="space-y-3">
-          <mat-form-field appearance="outline" class="w-full">
-            <mat-label>{{ executionInput.subtitle }}</mat-label>
-            <textarea
-              matInput
-              rows="4"
-              [readonly]="readOnly()"
-              [ngModel]="executionInput.value"
-              (ngModelChange)="onTextInputChange(executionInput, $event)">
-            </textarea>
-          </mat-form-field>
-
-          <div class="flex justify-end">
-            <button
-              type="button"
-              mat-flat-button
-              [disabled]="!canSubmitTextInput(executionInput)"
-              (click)="submitTextInput(executionInput, $event)">
-              Save
-            </button>
-          </div>
-        </div>
+        All changes saved
         }
-      }
-
-      @if (isInputSaving(executionInput.key)) {
-      <div class="mt-2 text-[11px] text-blue-600">Saving...</div>
-      }
-      @if (inputSavingError(executionInput.key); as errorMessage) {
-      <div class="mt-2 text-[11px] text-red-600">{{ errorMessage }}</div>
-      }
+      </span>
+      <button type="button" mat-flat-button [disabled]="!canSubmitAll()" (click)="submitAll($event)">
+        {{ anySaving() ? 'Saving…' : 'Save' }}
+      </button>
     </div>
     }
   }
 </div>
+
+<!--
+  One editor for both scopes. It used to be four near-identical copies - global and node, each
+  single and multiple - which is why they drifted apart.
+-->
+<ng-template #inputEditor let-executionInput>
+  <div
+    class="inputs-panel-item"
+    [class.inputs-panel-item-missing]="isMissing(executionInput)"
+    [class.inputs-panel-item-pending]="isPending(executionInput)">
+
+    <div class="inputs-panel-item-head">
+      <span
+        class="inputs-panel-dot"
+        [class.inputs-panel-dot-missing]="isMissing(executionInput)"
+        [matTooltip]="isMissing(executionInput) ? 'Still required before this execution can start' : 'Provided'">
+      </span>
+      <span class="inputs-panel-name">{{ executionInput.subtitle }}</span>
+      <span class="inputs-panel-type">{{ inputTypeLabel(executionInput) }}</span>
+      @if (executionInput.scope === 'node') {
+      <span class="inputs-panel-owner" [matTooltip]="'Input of step ' + executionInput.title">
+        {{ executionInput.title }}
+      </span>
+      }
+    </div>
+
+    @if (isFileInput(executionInput)) {
+    <input
+      type="file"
+      class="block w-full text-sm text-slate-700"
+      [attr.multiple]="isMultipleInput(executionInput) ? '' : null"
+      [disabled]="readOnly()"
+      (change)="onFileInputChange(executionInput, $event)" />
+    } @else if (isMultipleInput(executionInput)) {
+    <div class="inputs-panel-items">
+      @for (textValue of textValues(executionInput); track $index) {
+      <div class="inputs-panel-row">
+        <span class="inputs-panel-index">{{ $index + 1 }}</span>
+        <textarea
+          class="inputs-panel-field"
+          rows="1"
+          [readonly]="readOnly()"
+          [ngModel]="textValue"
+          (ngModelChange)="updateTextItem(executionInput, $index, $event)"></textarea>
+        <button
+          type="button"
+          class="inputs-panel-remove"
+          matTooltip="Remove item"
+          [disabled]="readOnly() || textValues(executionInput).length <= 1"
+          (click)="removeTextItem(executionInput, $index)">
+          <mat-icon fontIcon="close"></mat-icon>
+        </button>
+      </div>
+      }
+      <button
+        type="button"
+        class="inputs-panel-add"
+        [disabled]="readOnly()"
+        (click)="addTextItem(executionInput)">
+        <mat-icon fontIcon="add"></mat-icon>
+        Add item
+      </button>
+    </div>
+    } @else {
+    <textarea
+      class="inputs-panel-field"
+      rows="2"
+      [readonly]="readOnly()"
+      [ngModel]="executionInput.value"
+      (ngModelChange)="onTextInputChange(executionInput, $event)"></textarea>
+    }
+
+    @if (isInputSaving(executionInput.key)) {
+    <div class="mt-1 text-[11px] text-blue-600">Saving…</div>
+    }
+    @if (inputSavingError(executionInput.key); as errorMessage) {
+    <div class="mt-1 text-[11px] text-red-600">{{ errorMessage }}</div>
+    }
+  </div>
+</ng-template>

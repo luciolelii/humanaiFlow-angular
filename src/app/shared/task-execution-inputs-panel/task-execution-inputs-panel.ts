@@ -2,6 +2,8 @@ import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { TaskExecutionAuthorizationRequirement } from '@models/task-execution';
@@ -20,8 +22,9 @@ export type EditableExecutionInput = {
 
 @Component({
   selector: 'app-task-execution-inputs-panel',
-  imports: [CommonModule, FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule],
+  imports: [CommonModule, FormsModule, MatButtonModule, MatFormFieldModule, MatIconModule, MatInputModule, MatTooltipModule],
   templateUrl: './task-execution-inputs-panel.html',
+  styleUrl: './task-execution-inputs-panel.css',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class TaskExecutionInputsPanelComponent {
@@ -33,16 +36,51 @@ export class TaskExecutionInputsPanelComponent {
   readonly savingInputs = input<Record<string, boolean>>({});
   readonly savingErrors = input<Record<string, string>>({});
   readonly readOnly = input<boolean>(false);
+  /** Keys the user has edited but not saved; drives the single Save at the foot of the panel. */
+  readonly pendingKeys = input<string[]>([]);
+  /** Names the backend still considers unsatisfied - the ones actually blocking the start. */
+  readonly missingGlobalInputNames = input<string[]>([]);
 
   readonly textInputChange = output<{ input: EditableExecutionInput; value: string | string[] }>();
   readonly textInputSubmit = output<EditableExecutionInput>();
   readonly fileInputChange = output<{ input: EditableExecutionInput; files: File[] }>();
   readonly authorizationValueChange = output<{ requirement: TaskExecutionAuthorizationRequirement; value: string }>();
   readonly authorizationSubmit = output<TaskExecutionAuthorizationRequirement>();
+  readonly submitAllInputs = output<void>();
   readonly globalExecutionInputs = computed(() => this.editableInputs().filter((input) => input.scope === 'global'));
   readonly nodeExecutionInputs = computed(() => this.editableInputs().filter((input) => input.scope === 'node'));
 
   private readonly authorizationVisibility = new Map<string, boolean>();
+
+  private readonly pendingKeySet = computed(() => new Set(this.pendingKeys()));
+  private readonly missingNameSet = computed(() => new Set(this.missingGlobalInputNames()));
+
+  readonly pendingCount = computed(() => this.editableInputs()
+    .filter((input) => this.pendingKeySet().has(input.key)).length);
+
+  readonly anySaving = computed(() => Object.values(this.savingInputs()).some(Boolean));
+
+  readonly canSubmitAll = computed(() =>
+    !this.readOnly() && this.pendingCount() > 0 && !this.anySaving());
+
+  /** Completion is reported for globals only: those are what gate the start. */
+  readonly providedGlobalCount = computed(() => this.globalExecutionInputs()
+    .filter((input) => !this.isMissing(input)).length);
+
+  isPending(input: EditableExecutionInput): boolean {
+    return this.pendingKeySet().has(input.key);
+  }
+
+  isMissing(input: EditableExecutionInput): boolean {
+    return input.scope === 'global' && this.missingNameSet().has(input.inputName);
+  }
+
+  submitAll(event?: Event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+    if (!this.canSubmitAll()) return;
+    this.submitAllInputs.emit();
+  }
 
   isFileInput(input: EditableExecutionInput): boolean {
     return input.type.includes('FILE') || input.type.includes('BINARY');

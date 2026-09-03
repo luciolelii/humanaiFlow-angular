@@ -137,6 +137,12 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   readonly savingInputs = signal<Record<string, boolean>>({});
   readonly savingErrors = signal<Record<string, string>>({});
   readonly pendingTextInputs = signal<Record<string, string | string[]>>({});
+
+  /** Edited but not yet sent, so the panel can offer one Save for the lot. */
+  readonly pendingInputKeys = computed(() => Object.keys(this.pendingTextInputs()));
+
+  /** The backend's own answer on what still blocks the start, by input name. */
+  readonly missingGlobalInputNames = computed(() => this.execution()?.missingGlobalInputKeys ?? []);
   readonly pendingAuthorizationValues = signal<Record<string, string>>({});
   readonly savingAuthorizations = signal<Record<string, boolean>>({});
   readonly authorizationErrors = signal<Record<string, string>>({});
@@ -1230,6 +1236,18 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   private setAuthorizationError(key: string, message: string) {
     this.savingAuthorizations.update((current) => ({ ...current, [key]: false }));
     this.authorizationErrors.update((current) => ({ ...current, [key]: message }));
+  }
+
+  /**
+   * Saves every edited input in one go. Each still goes through the same single-input request the
+   * per-field button used - only the trigger is shared - so a failure is reported per input.
+   */
+  submitAllTextInputs() {
+    if (this.inputsReadOnly()) return;
+    const pending = new Set(Object.keys(this.pendingTextInputs()));
+    this.editableInputs()
+      .filter((input) => pending.has(input.key))
+      .forEach((input) => this.submitTextInput(input));
   }
 
   private sendPreparedTextInput(input: EditableExecutionInput, executionId: string) {

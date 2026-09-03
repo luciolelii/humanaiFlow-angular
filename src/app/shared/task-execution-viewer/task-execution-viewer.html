@@ -399,10 +399,13 @@
             [savingInputs]="savingInputs()"
             [savingErrors]="savingErrors()"
             [readOnly]="inputsReadOnly()"
+            [pendingKeys]="pendingInputKeys()"
+            [missingGlobalInputNames]="missingGlobalInputNames()"
             (authorizationValueChange)="onAuthorizationValueChange($event.requirement, $event.value)"
             (authorizationSubmit)="submitAuthorization($event)"
             (textInputChange)="onTextInputChange($event.input, $event.value)"
             (textInputSubmit)="submitTextInput($event)"
+            (submitAllInputs)="submitAllTextInputs()"
             (fileInputChange)="onFileInputChange($event.input, $event.files)">
           </app-task-execution-inputs-panel>
           } @else if (activeAsideTab() === 'intermediate') {
