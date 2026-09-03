@@ -4,7 +4,6 @@ import { ContainersService } from '@services/containers/containers';
 import { ListStateViewHolder, OrderViewState } from '@utilities/list-state-holder';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
-import { MatChipsModule } from '@angular/material/chips';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -14,7 +13,7 @@ import { BLOCK_TYPE_DRAG_MIME } from '@shared/blocks-list/block-drag';
 
 @Component({
   selector: 'app-containers-list',
-  imports: [FormsModule, MatCardModule, MatChipsModule, MatFormFieldModule, MatIconModule, MatInputModule, MatProgressSpinnerModule, MatTooltipModule],
+  imports: [FormsModule, MatCardModule, MatFormFieldModule, MatIconModule, MatInputModule, MatProgressSpinnerModule, MatTooltipModule],
   templateUrl: './containers-list.html',
   styleUrl: './containers-list.css',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -25,6 +24,18 @@ export class ContainersList extends ListStateViewHolder<BlockType> {
   private containersService = inject(ContainersService);
 
   loading: WritableSignal<boolean> = signal(true);
+
+  /**
+   * Which card is showing its description, expanded in place. Descriptions run to several hundred
+   * characters, which a tooltip cannot show readably, and a modal is heavy for a hint you read
+   * while dragging.
+   */
+  readonly infoOpenFor = signal<string | null>(null);
+
+  toggleInfo(type: string, event: Event) {
+    event.stopPropagation();
+    this.infoOpenFor.update((current) => (current === type ? null : type));
+  }
   readonly serviceLoading = this.containersService.catalogLoading;
   containerTypes?: Signal<BlockType[]>;
 

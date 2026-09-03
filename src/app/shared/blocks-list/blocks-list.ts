@@ -3,7 +3,6 @@ import { BlockType } from '@models/flow';
 import { BlocksService } from '@services/blocks/blocks';
 import { ListStateViewHolder, OrderViewState } from '@utilities/list-state-holder';
 import { MatCardModule } from '@angular/material/card';
-import { MatChipsModule } from '@angular/material/chips';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -13,7 +12,7 @@ import { BLOCK_TYPE_DRAG_MIME } from './block-drag';
 
 @Component({
   selector: 'app-blocks-list',
-  imports: [MatCardModule, MatChipsModule, MatFormFieldModule, MatIconModule, MatInputModule, MatProgressSpinnerModule, MatTooltipModule],
+  imports: [MatCardModule, MatFormFieldModule, MatIconModule, MatInputModule, MatProgressSpinnerModule, MatTooltipModule],
   templateUrl: './blocks-list.html',
   styleUrl: './blocks-list.css',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -25,6 +24,18 @@ export class BlocksList extends ListStateViewHolder<BlockType> {
   private blocksService = inject(BlocksService);
 
   loading: WritableSignal<boolean> = signal(true);
+
+  /**
+   * Which card is showing its description, expanded in place. Descriptions run to several hundred
+   * characters, which a tooltip cannot show readably, and a modal is heavy for a hint you read
+   * while dragging.
+   */
+  readonly infoOpenFor = signal<string | null>(null);
+
+  toggleInfo(type: string, event: Event) {
+    event.stopPropagation();
+    this.infoOpenFor.update((current) => (current === type ? null : type));
+  }
   readonly serviceLoading = this.blocksService.catalogLoading;
 
   /*
