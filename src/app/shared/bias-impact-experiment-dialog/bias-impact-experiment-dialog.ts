@@ -7,6 +7,7 @@ import { ModalShellComponent } from '@shared/modal-shell/modal-shell';
 import { ConfirmDialogService } from '@services/dialogs/confirm-dialog';
 import { BiasImpactExperimentDialogService } from '@services/dialogs/bias-impact-experiment-dialog';
 import { BiasComparisonViewStateService } from '@services/bias/bias-comparison-view-state';
+import { BiasReportsRevisionService } from '@services/bias/bias-reports-revision';
 import { extractBiasErrorMessage } from '@services/bias/bias-error.util';
 import { NotificationService } from '@services/notifications/notification';
 import { TaskExecutionsService } from '@services/task-executions/task-executions';
@@ -27,6 +28,7 @@ export class BiasImpactExperimentDialogHostComponent {
   private readonly confirmation = inject(ConfirmDialogService);
   private readonly notifications = inject(NotificationService);
   private readonly comparisonViewState = inject(BiasComparisonViewStateService);
+  private readonly reportsRevision = inject(BiasReportsRevisionService);
   private readonly destroyRef = inject(DestroyRef);
   private pollSubscription: Subscription | null = null;
 
@@ -129,7 +131,12 @@ export class BiasImpactExperimentDialogHostComponent {
         if (!nextJob.terminal) return;
         this.submitting.set(false);
         this.cancelPolling();
-        if (nextJob.status === 'COMPLETED' && nextJob.report) this.report.set(nextJob.report);
+        if (nextJob.status === 'COMPLETED' && nextJob.report) {
+          this.report.set(nextJob.report);
+          // The Bias impact tab is mounted behind this dialog and would otherwise keep saying
+          // there are no reports for this execution.
+          this.reportsRevision.reportProduced();
+        }
         else this.inlineError.set(nextJob.errorMessage || 'The bias impact experiment failed.');
       },
       error: (error) => {

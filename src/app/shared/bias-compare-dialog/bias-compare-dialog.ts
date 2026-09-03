@@ -4,6 +4,7 @@ import { BiasImpactReportViewerComponent } from '@shared/bias-impact-report-view
 import { ModalShellComponent } from '@shared/modal-shell/modal-shell';
 import { BiasCompareDialogService } from '@services/dialogs/bias-compare-dialog';
 import { BiasComparisonViewStateService } from '@services/bias/bias-comparison-view-state';
+import { BiasReportsRevisionService } from '@services/bias/bias-reports-revision';
 import { extractBiasErrorMessage } from '@services/bias/bias-error.util';
 import { TaskExecutionsService } from '@services/task-executions/task-executions';
 import { BiasImpactReport } from '@models/bias-impact';
@@ -20,6 +21,7 @@ export class BiasCompareDialogHostComponent {
   private readonly dialog = inject(BiasCompareDialogService);
   private readonly executions = inject(TaskExecutionsService);
   private readonly comparisonViewState = inject(BiasComparisonViewStateService);
+  private readonly reportsRevision = inject(BiasReportsRevisionService);
 
   readonly state = this.dialog.state;
   readonly loading = signal(false);
@@ -62,6 +64,8 @@ export class BiasCompareDialogHostComponent {
       next: (report) => {
         this.loading.set(false);
         this.report.set(report);
+        // The comparison is persisted server-side, so it is a new row the tab behind should list.
+        this.reportsRevision.reportProduced();
       },
       error: (error) => {
         this.loading.set(false);

@@ -4,6 +4,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { BiasImpactReport } from '@models/bias-impact';
 import { TaskExecutionsService } from '@services/task-executions/task-executions';
 import { BiasComparisonViewStateService } from '@services/bias/bias-comparison-view-state';
+import { BiasReportsRevisionService } from '@services/bias/bias-reports-revision';
 import { BiasImpactReportViewerComponent } from '@shared/bias-impact-report-viewer/bias-impact-report-viewer';
 
 @Component({
@@ -17,7 +18,9 @@ import { BiasImpactReportViewerComponent } from '@shared/bias-impact-report-view
 export class BiasImpactReportListComponent {
   private readonly executions = inject(TaskExecutionsService);
   private readonly comparisonViewState = inject(BiasComparisonViewStateService);
+  private readonly reportsRevision = inject(BiasReportsRevisionService);
   private lastExecutionId: string | null = null;
+  private lastReloadToken = 0;
 
   readonly executionId = input<string | null>(null);
 
@@ -36,9 +39,15 @@ export class BiasImpactReportListComponent {
   constructor() {
     effect(() => {
       const executionId = this.executionId();
-      if (executionId === this.lastExecutionId) return;
+      const reloadToken = this.reportsRevision.revision();
+      const executionChanged = executionId !== this.lastExecutionId;
+      const reloadRequested = reloadToken !== this.lastReloadToken;
+      if (!executionChanged && !reloadRequested) return;
       this.lastExecutionId = executionId;
-      this.closeDetail();
+      this.lastReloadToken = reloadToken;
+      // A different execution starts from a clean slate; a reload of the same one keeps whatever
+      // report the user was reading open.
+      if (executionChanged) this.closeDetail();
       this.loadReports(executionId);
     });
   }
