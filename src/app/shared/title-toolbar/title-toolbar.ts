@@ -17,7 +17,7 @@ import { ProjectsService } from '@services/projects/projects';
 import { TaskExecutionsService } from '@services/task-executions/task-executions';
 import { take } from 'rxjs';
 import { EditorStateHolder } from '@stores/flow-editor';
-import { PROJECTS_ENABLED, SWIMLANES_ENABLED } from '@shared/feature-flags';
+import { FLOW_FINALIZATION_ENABLED, PROJECTS_ENABLED, SWIMLANES_ENABLED } from '@shared/feature-flags';
 
 @Component({
   selector: 'app-title-toolbar',
@@ -41,6 +41,7 @@ export class TitleToolbar {
   private projectsService = inject(ProjectsService);
 
   readonly projectsEnabled = PROJECTS_ENABLED;
+  readonly finalizationEnabled = FLOW_FINALIZATION_ENABLED;
   private authorization = inject(Authorization);
   private taskExecutionsService = inject(TaskExecutionsService);
   flow = computed(() => this.editorState.currentFlow());

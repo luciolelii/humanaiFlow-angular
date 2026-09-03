@@ -11,6 +11,7 @@ import { of, throwError } from 'rxjs';
 import { ListState } from '@stores/list-state';
 import { vi } from 'vitest';
 
+import { FLOW_FINALIZATION_ENABLED } from '@shared/feature-flags';
 import { FlowsList } from './flows-list';
 
 function makeFlow(id: string, name: string, projectId?: string): Flow {
@@ -257,5 +258,33 @@ describe('FlowsList', () => {
     fixture.detectChanges();
 
     expect(component.activeFilterCount()).toBe(2);
+  });
+
+  it('offers the Finalized filter only while finalization is enabled', async () => {
+    const fixture = await build([makeFlow('1', 'Alpha')], []);
+    fixture.componentInstance.toggleFilters();
+    fixture.detectChanges();
+
+    const values = Array.from(
+      fixture.nativeElement.querySelectorAll('mat-button-toggle')
+    ).map((toggle: any) => toggle.textContent.trim());
+
+    expect(values).toContain('All');
+    expect(values.includes('Finalized')).toBe(FLOW_FINALIZATION_ENABLED);
+  });
+
+  it('does not keep narrowing the list with a filter whose control is hidden', async () => {
+    // A persisted Finalized filter would otherwise hide flows with nothing on screen to clear it.
+    const fixture = await build([makeFlow('1', 'Alpha')], []);
+    const view = fixture.componentInstance.view;
+    view.filter = 'FINALIZED';
+
+    TestBed.resetTestingModule();
+    const reopened = await build([makeFlow('1', 'Alpha')], []);
+
+    if (!FLOW_FINALIZATION_ENABLED) {
+      expect(reopened.componentInstance.filter()).toBe('all');
+      expect(reopened.componentInstance.orderedFlows()).toHaveLength(1);
+    }
   });
 });

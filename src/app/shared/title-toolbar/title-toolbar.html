@@ -95,6 +95,7 @@
         Published
       </mat-slide-toggle>
 
+      @if (finalizationEnabled || flow()!.finalized) {
       <mat-slide-toggle
         [checked]="!!flow()!.finalized"
         [disabled]="!!flow()!.finalized || finalizeSaving() || notSaved() || blockSyncInProgress()"
@@ -102,6 +103,7 @@
         (change)="onFinalizedToggle($event.checked)">
         Finalized
       </mat-slide-toggle>
+      }
     </div>
     }
     <button

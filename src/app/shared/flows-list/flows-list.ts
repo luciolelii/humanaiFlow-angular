@@ -20,7 +20,7 @@ import { NotificationService } from '@services/notifications/notification';
 import { TaskExecutionsService } from '@services/task-executions/task-executions';
 import { ProjectsService } from '@services/projects/projects';
 import { EditorStateHolder } from '@stores/flow-editor';
-import { PROJECTS_ENABLED } from '@shared/feature-flags';
+import { FLOW_FINALIZATION_ENABLED, PROJECTS_ENABLED } from '@shared/feature-flags';
 import { OrderEvent, OrderField, Ordering, orderDirType } from "@shared/ordering/ordering";
 import { ListStateViewHolder, OrderViewState } from '@utilities/list-state-holder';
 import { FlowsGroup } from './flows-group/flows-group';
@@ -63,6 +63,7 @@ export class FlowsList extends ListStateViewHolder<Flow> {
   private editorState = inject(EditorStateHolder);
 
   readonly projectsEnabled = PROJECTS_ENABLED;
+  readonly finalizationEnabled = FLOW_FINALIZATION_ENABLED;
   readonly ungroupedKey = UNGROUPED_PROJECT_KEY;
 
   readonly projects = this.projectsService.projects;
@@ -98,6 +99,14 @@ export class FlowsList extends ListStateViewHolder<Flow> {
     this.filtersOpen.update((open) => !open);
   }
 
+  /**
+   * A filter whose control is hidden would keep narrowing the list with no way to see or clear it,
+   * so a persisted Finalized filter falls back to showing everything.
+   */
+  private usableFilter(filter: FlowFilter): FlowFilter {
+    return filter === 'FINALIZED' && !FLOW_FINALIZATION_ENABLED ? 'all' : (filter || 'all');
+  }
+
   constructor() {
     super('flowsList', {defaultOrder: { orderBy: 'name', orderDir: 'asc' } as OrderViewState, defaultFilter: 'all'});
     effect(() => {
@@ -125,7 +134,7 @@ export class FlowsList extends ListStateViewHolder<Flow> {
       this.flows = existingState.list;
       this.loading.set(false);
       if (existingState.filter)
-        this.filter.set(existingState.filter as FlowFilter || 'all');
+        this.filter.set(this.usableFilter(existingState.filter as FlowFilter));
       return;
     }
 

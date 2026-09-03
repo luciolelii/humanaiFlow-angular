@@ -76,3 +76,23 @@ Projects group the flow list: one project holds 1..N flows, and a flow's
   persist `project_order` — deliberately not drag-and-drop, for the same reasons
   as flow assignment: a 320px scrolling sidebar where the card is already a click
   target.
+
+## Flow finalization hidden — 2026-09-03
+
+Finalizing a flow makes it permanently read-only and cannot be undone, and it is
+not part of the current workflow, so the controls that create that state are
+hidden. The feature is controlled by `FLOW_FINALIZATION_ENABLED` in
+`src/app/shared/feature-flags.ts`.
+
+- Hidden: the Finalized toggle in the title toolbar, and the Finalized entry in
+  the flows list filter.
+- **Still visible**: the `finalized` badge on a flow row, the disabled delete
+  action, and the read-only editor. Rows finalized before this was switched off
+  still exist, and hiding the explanation of why such a flow cannot be edited
+  would make the app inexplicable.
+- The toggle also reappears for a flow that *is* already finalized, so its state
+  is never invisible in the place that owns it.
+- A persisted `FINALIZED` list filter falls back to `all`: a filter whose control
+  is hidden would keep narrowing the list with nothing on screen to clear it.
+- Nothing was removed from the backend, and `finalized` still gates deletion and
+  editing there. Re-enabling is only this flag.
