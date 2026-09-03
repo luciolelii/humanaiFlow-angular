@@ -104,6 +104,64 @@ describe('TaskStepNodeComponent bias canvas highlighting', () => {
     fixture.detectChanges();
   });
 
+  /**
+   * Re-renders the node with an amended step config. It replaces the whole `data` input rather than
+   * mutating it in place, because that is how the node is updated in the app - the graph hands the
+   * component a fresh payload - and because an OnPush component is not re-checked by a mutation
+   * nothing told it about.
+   */
+  function setStepConfig(config: Record<string, unknown>) {
+    fixture.componentRef.setInput('data', {
+      ...component.data,
+      data: {
+        ...component.data.data,
+        specificConfiguration: { ...component.data.data.specificConfiguration, ...config }
+      }
+    });
+    fixture.detectChanges();
+  }
+
+  it('shows a container working on its subflow, which its own status never said', () => {
+    // The container's status is WAITING_FOR_SUBFLOW, so it took none of the in-progress styling
+    // and sat inert for minutes while its child ran - indistinguishable from a stuck run.
+    setStepConfig({ __stepStatus: 'WAITING_FOR_SUBFLOW', __containerIterationIndex: 3 });
+
+    expect(component.isSubflowRunning()).toBe(true);
+    expect(component.isRunning()).toBe(false);
+    const card = fixture.nativeElement.querySelector('.llm-node');
+    expect(card.classList).toContain('llm-node-subflow-running');
+    // And it names the iteration, so the signal says what is happening, not only that it is.
+    expect(fixture.nativeElement.querySelector('.llm-subflow-badge').textContent).toContain('Iteration 3');
+  });
+
+  it('still marks a container as working when no iteration index is reported', () => {
+    // A generic container runs one subflow with no iteration number; it must not go dark.
+    setStepConfig({ __stepStatus: 'WAITING_FOR_SUBFLOW', __containerIterationIndex: null });
+
+    expect(component.containerIterationIndex()).toBeNull();
+    expect(fixture.nativeElement.querySelector('.llm-node').classList)
+      .toContain('llm-node-subflow-running');
+    expect(fixture.nativeElement.querySelector('.llm-subflow-badge').textContent).toContain('Subflow');
+  });
+
+  it('keeps the two in-progress states apart', () => {
+    setStepConfig({ __stepStatus: 'RUNNING' });
+
+    expect(component.isSubflowRunning()).toBe(false);
+    const card = fixture.nativeElement.querySelector('.llm-node');
+    expect(card.classList).toContain('llm-node-running');
+    expect(card.classList).not.toContain('llm-node-subflow-running');
+    expect(fixture.nativeElement.querySelector('.llm-subflow-badge')).toBeNull();
+  });
+
+  it('does not pulse a container that failed, where the error is what matters', () => {
+    setStepConfig({ __stepStatus: 'WAITING_FOR_SUBFLOW', __executionErrors: ['subflow blew up'] });
+
+    expect(fixture.nativeElement.querySelector('.llm-node').classList)
+      .not.toContain('llm-node-subflow-running');
+    expect(fixture.nativeElement.querySelector('.llm-subflow-badge')).toBeNull();
+  });
+
   it('flags a node as bias-active when it has active annotation ids in its execution config', () => {
     expect(component.isBiasActive()).toBe(true);
   });

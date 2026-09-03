@@ -49,6 +49,17 @@
   animation: llmRunningBorderPulse 0.95s ease-in-out infinite;
 }
 
+/*
+ * A container whose subflow is running. Same rhythm as .llm-node-running so the two read as one
+ * family of "in progress", in indigo rather than yellow because the work is a level down: the node
+ * is not computing, it is waiting on a child, and that is the thing worth opening.
+ */
+.llm-node-subflow-running {
+  border: 2px solid #6366f1;
+  box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.45), 0 10px 24px rgba(15, 23, 42, 0.12);
+  animation: llmSubflowBorderPulse 0.95s ease-in-out infinite;
+}
+
 .llm-node-attention {
   border: 2px solid #f97316;
   animation: llmAttentionBorderPulse 1.2s ease-in-out infinite;
@@ -309,6 +320,71 @@ button.llm-node-bias-summary:focus-visible {
     border-color: #eab308;
     box-shadow: 0 0 0 4px rgba(250, 204, 21, 0.32), 0 10px 24px rgba(15, 23, 42, 0.18);
   }
+}
+
+@keyframes llmSubflowBorderPulse {
+  0%, 100% {
+    border-color: #818cf8;
+    box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.12), 0 10px 24px rgba(15, 23, 42, 0.12);
+  }
+  50% {
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.32), 0 10px 24px rgba(15, 23, 42, 0.18);
+  }
+}
+
+/*
+ * Anyone who has asked not to be shown motion still needs the state, so the pulses settle on their
+ * emphasised frame instead of animating. This covers the pre-existing pulses too: adding another
+ * blinking element is the point at which honouring the setting stops being optional.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .llm-node-running,
+  .llm-node-subflow-running,
+  .llm-node-attention {
+    animation: none;
+  }
+
+  .llm-node-subflow-running {
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.32), 0 10px 24px rgba(15, 23, 42, 0.18);
+  }
+
+  .llm-node-running {
+    box-shadow: 0 0 0 4px rgba(250, 204, 21, 0.32), 0 10px 24px rgba(15, 23, 42, 0.18);
+  }
+}
+
+/* Names the iteration in flight, so the pulse says what is happening and not only that it is. */
+.llm-subflow-badge-wrap {
+  position: absolute;
+  top: -10px;
+  left: 12px;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.llm-subflow-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px;
+  border: 1px solid #c7d2fe;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #3730a3;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
+  pointer-events: auto;
+  cursor: help;
+}
+
+/* No spin on the icon: the border pulse already carries "in progress", and one moving thing beats
+ * two. It also kept this file inside its size budget. */
+.llm-subflow-badge .bi {
+  font-size: 11px;
 }
 
 .llm-header {

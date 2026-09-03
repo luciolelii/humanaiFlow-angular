@@ -552,6 +552,21 @@ export class TaskStepNodeComponent {
     return this.stepStatus() === 'RUNNING';
   }
 
+  /**
+   * A container delegating to a subflow. Its own status is WAITING_FOR_SUBFLOW, so it took none of
+   * the in-progress styling and sat there looking inert for minutes while its child worked - which
+   * is indistinguishable from a stuck run.
+   */
+  isSubflowRunning(): boolean {
+    return this.stepStatus() === 'WAITING_FOR_SUBFLOW';
+  }
+
+  /** The iteration a working container is on, so the signal says what, not just that. */
+  containerIterationIndex(): number | null {
+    const index = this.blockConfiguration?.['__containerIterationIndex'];
+    return typeof index === 'number' ? index : null;
+  }
+
   isSkipped(): boolean {
     return this.stepStatus() === 'SKIPPED';
   }

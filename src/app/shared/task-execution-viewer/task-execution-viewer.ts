@@ -448,6 +448,11 @@ export class TaskExecutionViewerComponent implements OnDestroy {
           __executionStatus: this.execution()?.context.status ?? null,
           __interactionSimulationEnabled: this.execution()?.interactionSimulationEnabled === true,
           __stepStatus: step.status,
+          // Which iteration a container is on, so a node that is visibly working can say what it
+          // is working on rather than only that it is.
+          __containerIterationIndex: typeof step.containerIterationIndex === 'number'
+            ? step.containerIterationIndex
+            : null,
           __stepSkipReason: step.skipReason ?? null,
           __stepSimulated: step.simulated === true,
           __stepUserInteractive: stepNode.userInteractive === true,

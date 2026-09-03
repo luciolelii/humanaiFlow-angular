@@ -2,6 +2,7 @@
   [class.llm-node--human]="isHumanNode()"
   [class.llm-node-skipped]="isSkipped() && !hasExecutionErrors() && !hasExecutionWarnings()"
   [class.llm-node-running]="isRunning() && !hasExecutionErrors()"
+  [class.llm-node-subflow-running]="isSubflowRunning() && !hasExecutionErrors()"
   [class.llm-node-completed]="isCompleted() && !needsAttention() && !hasExecutionErrors() && !hasExecutionWarnings()"
   [class.llm-node-attention]="needsAttention()"
   [class.llm-node-error]="hasExecutionErrors()"
@@ -20,6 +21,21 @@
       <i class="bi bi-arrow-left-right"></i>
     </span>
     }
+  </div>
+  }
+  @if (isSubflowRunning() && !hasExecutionErrors()) {
+  <div class="llm-subflow-badge-wrap">
+    <span class="llm-subflow-badge"
+          [title]="containerIterationIndex()
+            ? 'Running iteration ' + containerIterationIndex() + ' in the subflow - open it in the execution tree'
+            : 'Running its subflow - open it in the execution tree'">
+      <i class="bi bi-arrow-repeat"></i>
+      @if (containerIterationIndex()) {
+      <span>Iteration {{ containerIterationIndex() }}</span>
+      } @else {
+      <span>Subflow</span>
+      }
+    </span>
   </div>
   }
   @if (needsAttention() && isHumanNode()) {
