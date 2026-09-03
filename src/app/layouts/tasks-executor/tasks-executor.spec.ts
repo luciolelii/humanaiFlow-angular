@@ -14,6 +14,24 @@ import { vi } from 'vitest';
 
 import { findInteractiveSubflowTargets, TasksExecutor } from './tasks-executor';
 
+/** The shape the API actually sends: bias and mitigation live in separate collections. */
+function normalBias(): any {
+  return {
+    experimentId: null,
+    mode: 'NORMAL',
+    activeBiasAnnotationIdsByNode: {},
+    activeMitigationAnnotationIdsByNode: {},
+    biasSubflowActivatedContainerIds: [],
+    mitigationSubflowActivatedContainerIds: [],
+    externalSideEffectPolicy: 'BLOCK',
+    externalSideEffectsConfirmed: false
+  };
+}
+
+function variantBias(overrides: Record<string, unknown>): any {
+  return { ...normalBias(), mode: 'BIAS_VARIANT', experimentId: 'x', ...overrides };
+}
+
 describe('TasksExecutor', () => {
   let component: TasksExecutor;
   let fixture: ComponentFixture<TasksExecutor>;
@@ -247,16 +265,13 @@ describe('TasksExecutor', () => {
     // marked everything a variant. Only the mode distinguishes them.
     const plain = {
       id: 'e1', name: 'Plain', creationTime: 1, runNumber: 1,
-      biasExecutionContext: { mode: 'NORMAL', experimentId: '', activeAnnotationIdsByNode: {} },
+      biasExecutionContext: normalBias(),
       context: { inputs: {}, result: {}, errors: {}, warnings: {}, status: 'SUCCESS', waitingSteps: [], steps: {} }
     };
     const rerun = { ...plain, id: 'e2', name: 'Rerun', runNumber: 2, rerunOfExecutionId: 'e1' };
     const variant = {
       ...plain, id: 'e3', name: 'Variant', runNumber: 3, rerunOfExecutionId: 'e1',
-      biasExecutionContext: {
-        mode: 'BIAS_VARIANT', experimentId: 'x', activeAnnotationIdsByNode: {},
-        activeBiasProbes: [{ annotationId: 'a1', direction: 'BIAS', activationMode: 'PROMPT_DIRECTIVE' }]
-      }
+      biasExecutionContext: variantBias({ activeBiasAnnotationIdsByNode: { n1: ['a1'] } })
     };
 
     taskExecutions.set([]);
@@ -278,16 +293,48 @@ describe('TasksExecutor', () => {
   it('reports a mitigation-only variant as such', () => {
     const variant = {
       id: 'e1', name: 'Mitigated', creationTime: 1, runNumber: 1,
-      biasExecutionContext: {
-        mode: 'BIAS_VARIANT', experimentId: 'x', activeAnnotationIdsByNode: {},
-        activeBiasProbes: [{ annotationId: 'a1', direction: 'MITIGATION', activationMode: 'PROMPT_DIRECTIVE' }]
-      },
+      biasExecutionContext: variantBias({ activeMitigationAnnotationIdsByNode: { n1: ['a1'] } }),
       context: { inputs: {}, result: {}, errors: {}, warnings: {}, status: 'SUCCESS', waitingSteps: [], steps: {} }
     };
 
     const rows = (component as any).toGroupListItem({
       id: 'g1', sourceFlowId: 'f1', name: 'G', firstExecutionId: 'e1', latestExecutionId: 'e1',
       creationTime: 1, lastExecutionTime: 1, executionCount: 1, executions: [variant]
+    } as any).executions;
+
+    expect(rows[0].biasDirection).toBe('MITIGATION');
+  });
+
+  it('reports a variant that ran with both directions as mixed', () => {
+    const both = {
+      id: 'e1', name: 'Both', creationTime: 1, runNumber: 1, rerunOfExecutionId: 'e0',
+      biasExecutionContext: variantBias({
+        activeBiasAnnotationIdsByNode: { n1: ['a1'] },
+        activeMitigationAnnotationIdsByNode: { n2: ['a2'] }
+      }),
+      context: { inputs: {}, result: {}, errors: {}, warnings: {}, status: 'SUCCESS', waitingSteps: [], steps: {} }
+    };
+
+    const rows = (component as any).toGroupListItem({
+      id: 'g1', sourceFlowId: 'f1', name: 'G', firstExecutionId: 'e1', latestExecutionId: 'e1',
+      creationTime: 1, lastExecutionTime: 1, executionCount: 1, executions: [both]
+    } as any).executions;
+
+    expect(rows[0].kind).toBe('BIAS_VARIANT');
+    expect(rows[0].biasDirection).toBe('MIXED');
+  });
+
+  it('detects a direction activated only through a container subflow', () => {
+    // An intervention can be turned on for a whole subflow instead of per annotation.
+    const viaSubflow = {
+      id: 'e1', name: 'Subflow mitigation', creationTime: 1, runNumber: 1,
+      biasExecutionContext: variantBias({ mitigationSubflowActivatedContainerIds: ['c1'] }),
+      context: { inputs: {}, result: {}, errors: {}, warnings: {}, status: 'SUCCESS', waitingSteps: [], steps: {} }
+    };
+
+    const rows = (component as any).toGroupListItem({
+      id: 'g1', sourceFlowId: 'f1', name: 'G', firstExecutionId: 'e1', latestExecutionId: 'e1',
+      creationTime: 1, lastExecutionTime: 1, executionCount: 1, executions: [viaSubflow]
     } as any).executions;
 
     expect(rows[0].biasDirection).toBe('MITIGATION');

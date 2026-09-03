@@ -71,9 +71,7 @@
             <div class="execution-bias-variant-context">
               <span>Experiment: {{ biasContext.experimentId || 'not available' }}</span>
               <span>Baseline: {{ execution()!.rerunOfExecutionId || 'not available' }}</span>
-              @for (probe of biasContext.activeBiasProbes ?? []; track probe.annotationId + probe.direction) {
-                <span>{{ probe.direction === 'BIAS' ? 'Bias applied' : 'Mitigation applied' }}: {{ probe.annotationId }}</span>
-              }
+              <span>Interventions: {{ biasVariantLabel() }}</span>
             </div>
             }
           </div>

@@ -23,6 +23,7 @@ import {
 } from '@shared/tasks-executions-list/tasks-executions-list';
 import { TaskExecutionViewerComponent } from '@shared/task-execution-viewer/task-execution-viewer';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { biasInterventionMix, isBiasVariantContext } from '@models/bias-impact';
 import { ExecutionTreeComponent, ExecutionTreeSelection, executionTreeHasContent } from '@shared/execution-tree/execution-tree';
 import { formatDuration } from '@shared/task-execution-viewer/execution-viewer.utils';
 import { BlocksService } from '@services/blocks/blocks';
@@ -331,8 +332,8 @@ export class TasksExecutor {
   private toExecutionListItem(execution: TaskExecution, fallbackRunNumber: number,
       runNumbers: Map<string, number> = new Map()): TaskExecutionListItem {
     const bias = execution.biasExecutionContext;
-    const isBiasVariant = bias?.mode === 'BIAS_VARIANT';
-    const directions = new Set((bias?.activeBiasProbes ?? []).map((probe) => probe.direction));
+    const isBiasVariant = isBiasVariantContext(bias);
+    const mix = biasInterventionMix(bias);
     const rerunOf = execution.rerunOfExecutionId ?? null;
 
     return {
@@ -348,11 +349,7 @@ export class TasksExecutor {
       // A bias variant is reported as such even when it is also a rerun: that it carries probes is
       // the thing that changes how its result should be read.
       kind: isBiasVariant ? 'BIAS_VARIANT' : (rerunOf ? 'RERUN' : 'RUN'),
-      biasDirection: !isBiasVariant
-        ? null
-        : directions.size > 1
-          ? 'MIXED'
-          : directions.has('MITIGATION') ? 'MITIGATION' : 'BIAS',
+      biasDirection: mix,
       duration: this.formatExecutionDuration(execution.context.startTime ?? null, execution.context.endTime ?? null),
       simulated: execution.interactionSimulationEnabled === true
     };

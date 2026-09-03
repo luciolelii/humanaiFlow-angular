@@ -26,6 +26,7 @@ import {
   TaskExecutionAuthorizationRequirement,
   TaskExecutionStep
 } from '@models/task-execution';
+import { activeAnnotationIdsFor, biasInterventionMix, isBiasVariantContext } from '@models/bias-impact';
 import { ExecutionVaultCredential, LlmProviderCapability } from '@models/llm-provider';
 import { VaultSecret } from '@models/assistant';
 import {
@@ -397,7 +398,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     const contextErrors = this.execution()?.context.errors ?? {};
     const contextWarnings = this.execution()?.context.warnings ?? {};
     const waitingSteps = this.execution()?.context.waitingSteps ?? [];
-    const activeAnnotationIdsByNode = this.execution()?.biasExecutionContext?.activeAnnotationIdsByNode ?? {};
+    const biasContext = this.execution()?.biasExecutionContext ?? null;
     const globalInputsValue = this.execution()?.context.globalInputs ?? {};
     const executionVariablesValue = this.execution()?.context.executionVariables ?? {};
     const projectContextValue = this.execution()?.context.projectContext ?? {};
@@ -457,7 +458,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
           __executionWarnings: getExecutionWarnings(step.id, contextWarnings),
           __stepResultData: step.result ?? null,
           __executionPartialResult: this.execution()?.context.partialResult ?? null,
-          __biasActiveAnnotationIds: activeAnnotationIdsByNode[step.id] ?? [],
+          __biasActiveAnnotationIds: activeAnnotationIdsFor(biasContext, step.id),
           __globalInputs: globalInputsValue,
           __executionVariables: executionVariablesValue,
           __projectContext: projectContextValue,
@@ -508,7 +509,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
           __executionWarnings: [],
           __stepResultData: null,
           __executionPartialResult: this.execution()?.context.partialResult ?? null,
-          __biasActiveAnnotationIds: activeAnnotationIdsByNode[sourceNode.id] ?? [],
+          __biasActiveAnnotationIds: activeAnnotationIdsFor(biasContext, sourceNode.id),
           __globalInputs: globalInputsValue,
           __executionVariables: executionVariablesValue,
           __projectContext: projectContextValue,
@@ -550,11 +551,13 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   readonly headerDetailsOpen = signal(false);
 
   readonly biasVariantLabel = computed(() => {
-    const directions = new Set((this.execution()?.biasExecutionContext?.activeBiasProbes ?? [])
-      .map((probe) => probe.direction));
-    if (directions.size > 1) return 'Bias + mitigation';
-    if (directions.has('MITIGATION')) return 'Mitigation variant';
-    return 'Bias variant';
+    switch (biasInterventionMix(this.execution()?.biasExecutionContext)) {
+      case 'MIXED': return 'Bias + mitigation';
+      case 'MITIGATION': return 'Mitigation variant';
+      case 'BIAS': return 'Bias variant';
+      // A variant with nothing recorded as active: say so rather than pick one of the two.
+      default: return 'Bias variant (unspecified)';
+    }
   });
 
   toggleHeaderDetails() {
@@ -659,8 +662,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
    * the object says nothing - only the mode does. Testing for presence marked every run a bias
    * variant, and also offered the bias comparison on any plain rerun.
    */
-  readonly isBiasVariant = computed(() =>
-    this.execution()?.biasExecutionContext?.mode === 'BIAS_VARIANT');
+  readonly isBiasVariant = computed(() => isBiasVariantContext(this.execution()?.biasExecutionContext));
   readonly canCreateBiasedRerun = computed(() =>
     !this.isSubflowExecution()
     && getExecutionStatusGroup(this.execution()?.context.status) === 'FINAL'

@@ -38,19 +38,69 @@ export type BiasRerunRequest = {
 
 export type BiasExecutionMode = 'NORMAL' | 'BIAS_VARIANT' | string;
 
+/**
+ * The shape the API actually sends. Bias and mitigation are tracked in *separate* collections, per
+ * node for annotations and per container for activated subflows, so the direction of a variant is
+ * read from which of them are non-empty.
+ *
+ * There is deliberately no `activeAnnotationIdsByNode` and no `activeBiasProbes` here: neither is
+ * ever sent on this object - probes belong to a step view - and modelling them made code silently
+ * read undefined.
+ */
 export type BiasExecutionContext = {
-  experimentId: string;
+  experimentId: string | null;
   mode: BiasExecutionMode;
-  activeAnnotationIdsByNode: Record<string, string[]>;
+  activeBiasAnnotationIdsByNode: Record<string, string[]>;
+  activeMitigationAnnotationIdsByNode: Record<string, string[]>;
+  biasSubflowActivatedContainerIds: string[];
+  mitigationSubflowActivatedContainerIds: string[];
   externalSideEffectPolicy: ExternalSideEffectPolicy;
   externalSideEffectsConfirmed: boolean;
-  activeBiasProbes?: Array<{
-    annotationId: string;
-    direction: 'BIAS' | 'MITIGATION';
-    activationMode: BiasActivationMode;
-    instruction?: string;
-  }>;
 };
+
+export type BiasInterventionMix = 'BIAS' | 'MITIGATION' | 'MIXED';
+
+function hasAnnotations(byNode: Record<string, string[]> | undefined): boolean {
+  return Object.values(byNode ?? {}).some((ids) => (ids ?? []).length > 0);
+}
+
+/** True only for a real variant: the object is present on every execution, defaulting to NORMAL. */
+export function isBiasVariantContext(context: BiasExecutionContext | null | undefined): boolean {
+  return context?.mode === 'BIAS_VARIANT';
+}
+
+/**
+ * Which interventions a variant actually ran with. Null when it is not a variant, or when it is one
+ * but nothing is recorded as active - which is worth showing as "unspecified" rather than guessing
+ * one of the two.
+ */
+export function biasInterventionMix(
+  context: BiasExecutionContext | null | undefined
+): BiasInterventionMix | null {
+  if (!isBiasVariantContext(context)) return null;
+
+  const bias = hasAnnotations(context!.activeBiasAnnotationIdsByNode)
+    || (context!.biasSubflowActivatedContainerIds ?? []).length > 0;
+  const mitigation = hasAnnotations(context!.activeMitigationAnnotationIdsByNode)
+    || (context!.mitigationSubflowActivatedContainerIds ?? []).length > 0;
+
+  if (bias && mitigation) return 'MIXED';
+  if (mitigation) return 'MITIGATION';
+  if (bias) return 'BIAS';
+  return null;
+}
+
+/** Every annotation active on a node, whichever direction it points in. */
+export function activeAnnotationIdsFor(
+  context: BiasExecutionContext | null | undefined,
+  nodeId: string
+): string[] {
+  if (!context) return [];
+  return [
+    ...(context.activeBiasAnnotationIdsByNode?.[nodeId] ?? []),
+    ...(context.activeMitigationAnnotationIdsByNode?.[nodeId] ?? [])
+  ];
+}
 
 export type BiasImpactJobStatus = 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED';
 

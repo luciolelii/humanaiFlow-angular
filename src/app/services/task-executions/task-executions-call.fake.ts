@@ -681,12 +681,23 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
       map((execution) => {
         const biasedExecution: TaskExecution = {
           ...execution,
+          // Split by direction, like the real payload: it is what tells a bias variant from a
+          // mitigation one, and a fake that flattened them would hide that in development.
           biasExecutionContext: {
             experimentId: crypto.randomUUID(),
             mode: 'BIAS_VARIANT',
-            activeAnnotationIdsByNode: Object.fromEntries(
-              request.activations.map((activation) => [activation.nodeId, activation.annotationIds])
-            ),
+            activeBiasAnnotationIdsByNode: Object.fromEntries(request.activations
+              .filter((activation) => activation.direction === 'BIAS')
+              .map((activation) => [activation.nodeId, activation.annotationIds])),
+            activeMitigationAnnotationIdsByNode: Object.fromEntries(request.activations
+              .filter((activation) => activation.direction === 'MITIGATION')
+              .map((activation) => [activation.nodeId, activation.annotationIds])),
+            biasSubflowActivatedContainerIds: request.activations
+              .filter((activation) => activation.direction === 'BIAS' && activation.includeSubflow)
+              .map((activation) => activation.nodeId),
+            mitigationSubflowActivatedContainerIds: request.activations
+              .filter((activation) => activation.direction === 'MITIGATION' && activation.includeSubflow)
+              .map((activation) => activation.nodeId),
             externalSideEffectPolicy: request.externalSideEffectPolicy,
             externalSideEffectsConfirmed: request.confirmExternalSideEffects
           }

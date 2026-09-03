@@ -1,9 +1,4 @@
-import {
-  BIAS_EXPERIMENT_ERROR_CODES,
-  BIAS_PROBE_ERROR_CODES,
-  BiasImpactJob,
-  BiasImpactReport
-} from './bias-impact';
+import { BIAS_EXPERIMENT_ERROR_CODES, BIAS_PROBE_ERROR_CODES, BiasImpactJob, BiasImpactReport, activeAnnotationIdsFor, biasInterventionMix, isBiasVariantContext } from './bias-impact';
 import { BiasBehavioralProbe, isProbeExecutable } from './flow';
 import { TaskExecution } from './task-execution';
 
@@ -101,5 +96,99 @@ describe('bias impact models', () => {
     expect(BIAS_EXPERIMENT_ERROR_CODES).toContain('BIAS_SUBFLOW_ON_NON_CONTAINER');
     expect(BIAS_EXPERIMENT_ERROR_CODES).toContain('BIAS_SUBFLOW_NOT_EXECUTABLE');
     expect(BIAS_EXPERIMENT_ERROR_CODES).toContain('BIAS_ACTIVATION_ANNOTATIONS_REQUIRED');
+  });
+});
+
+
+/** The shape the API actually sends, taken from a real persisted snapshot. */
+function context(overrides: Record<string, unknown> = {}): any {
+  return {
+    experimentId: null,
+    mode: 'NORMAL',
+    activeBiasAnnotationIdsByNode: {},
+    activeMitigationAnnotationIdsByNode: {},
+    biasSubflowActivatedContainerIds: [],
+    mitigationSubflowActivatedContainerIds: [],
+    externalSideEffectPolicy: 'BLOCK',
+    externalSideEffectsConfirmed: false,
+    ...overrides
+  };
+}
+
+describe('isBiasVariantContext', () => {
+  it('is false for the NORMAL context every execution carries', () => {
+    // The object is always present; only the mode distinguishes a variant. Testing for presence
+    // marked every single run a bias variant.
+    expect(isBiasVariantContext(context())).toBe(false);
+    expect(isBiasVariantContext(null)).toBe(false);
+    expect(isBiasVariantContext(undefined)).toBe(false);
+  });
+
+  it('is true only for BIAS_VARIANT', () => {
+    expect(isBiasVariantContext(context({ mode: 'BIAS_VARIANT' }))).toBe(true);
+  });
+});
+
+describe('biasInterventionMix', () => {
+  it('is null for a run that is not a variant', () => {
+    expect(biasInterventionMix(context())).toBeNull();
+  });
+
+  it('reads bias from active bias annotations', () => {
+    expect(biasInterventionMix(context({
+      mode: 'BIAS_VARIANT',
+      activeBiasAnnotationIdsByNode: { n1: ['a1'] }
+    }))).toBe('BIAS');
+  });
+
+  it('reads mitigation from active mitigation annotations', () => {
+    expect(biasInterventionMix(context({
+      mode: 'BIAS_VARIANT',
+      activeMitigationAnnotationIdsByNode: { n1: ['a1'] }
+    }))).toBe('MITIGATION');
+  });
+
+  it('reports both directions as mixed', () => {
+    expect(biasInterventionMix(context({
+      mode: 'BIAS_VARIANT',
+      activeBiasAnnotationIdsByNode: { n1: ['a1'] },
+      activeMitigationAnnotationIdsByNode: { n2: ['a2'] }
+    }))).toBe('MIXED');
+  });
+
+  it('also counts a direction activated through a container subflow', () => {
+    expect(biasInterventionMix(context({
+      mode: 'BIAS_VARIANT',
+      biasSubflowActivatedContainerIds: ['c1']
+    }))).toBe('BIAS');
+    expect(biasInterventionMix(context({
+      mode: 'BIAS_VARIANT',
+      mitigationSubflowActivatedContainerIds: ['c1']
+    }))).toBe('MITIGATION');
+  });
+
+  it('ignores a node whose annotation list is empty', () => {
+    expect(biasInterventionMix(context({
+      mode: 'BIAS_VARIANT',
+      activeBiasAnnotationIdsByNode: { n1: [] }
+    }))).toBeNull();
+  });
+
+  it('returns null for a variant with nothing recorded, rather than guessing a direction', () => {
+    expect(biasInterventionMix(context({ mode: 'BIAS_VARIANT' }))).toBeNull();
+  });
+});
+
+describe('activeAnnotationIdsFor', () => {
+  it('combines both directions for a node', () => {
+    const ctx = context({
+      mode: 'BIAS_VARIANT',
+      activeBiasAnnotationIdsByNode: { n1: ['bias-1'] },
+      activeMitigationAnnotationIdsByNode: { n1: ['mit-1'] }
+    });
+
+    expect(activeAnnotationIdsFor(ctx, 'n1')).toEqual(['bias-1', 'mit-1']);
+    expect(activeAnnotationIdsFor(ctx, 'other')).toEqual([]);
+    expect(activeAnnotationIdsFor(null, 'n1')).toEqual([]);
   });
 });
