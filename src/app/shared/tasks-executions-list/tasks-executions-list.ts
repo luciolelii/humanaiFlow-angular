@@ -66,6 +66,15 @@ export class TasksExecutionsListComponent {
   readonly orderDir = signal<orderDirType>('desc');
   readonly expandedGroupIds = signal<Set<string>>(new Set<string>());
 
+  /** Same reason as the flows list: the controls must not push the history off a short viewport. */
+  readonly filtersOpen = signal(false);
+
+  readonly activeFilterCount = computed(() => (this.filter() === 'all' ? 0 : 1));
+
+  toggleFilters() {
+    this.filtersOpen.update((open) => !open);
+  }
+
   readonly orderView: OrderViewState = {
     orderBy: this.orderBy(),
     orderDir: this.orderDir()

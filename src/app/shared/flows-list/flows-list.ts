@@ -83,6 +83,21 @@ export class FlowsList extends ListStateViewHolder<Flow> {
 
   private readonly expandedGroupIds = signal<Set<string>>(new Set<string>());
 
+  /**
+   * Collapsed by default: search, visibility, sorting and project together fill most of a short
+   * viewport, leaving the flows themselves off screen. The search box stays out of the panel,
+   * since it is the control people reach for first.
+   */
+  readonly filtersOpen = signal(false);
+
+  /** Shown on the collapsed header, so a filter can never be silently hiding flows. */
+  readonly activeFilterCount = computed(() =>
+    (this.filter() === 'all' ? 0 : 1) + (this.projectFilter() === ALL_PROJECTS ? 0 : 1));
+
+  toggleFilters() {
+    this.filtersOpen.update((open) => !open);
+  }
+
   constructor() {
     super('flowsList', {defaultOrder: { orderBy: 'name', orderDir: 'asc' } as OrderViewState, defaultFilter: 'all'});
     effect(() => {

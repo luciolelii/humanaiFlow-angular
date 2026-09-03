@@ -1,5 +1,6 @@
 .flow-item-card {
   width: 100%;
+  min-width: 0;
   padding: 12px;
   border: 1px solid #bfdbfe;
   border-radius: 14px;
@@ -73,7 +74,11 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  /* The sidebar is 320px and a grouped row also carries reorder arrows, so the row has to be able
+     to give way instead of pushing the action icons past the edge. */
+  flex-wrap: wrap;
+  min-width: 0;
+  gap: 4px 8px;
   margin-top: 10px;
   font-size: 11px;
   color: #475569;
@@ -84,8 +89,22 @@
 .flow-item-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 2px;
   flex-shrink: 0;
+}
+
+/* Compact icon buttons: four of them at Material's default 40px do not fit the sidebar. */
+.flow-item-actions .mat-mdc-icon-button.mat-mdc-button-base {
+  width: 32px;
+  height: 32px;
+  padding: 4px;
+}
+
+.flow-item-actions .mat-mdc-icon-button .mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  line-height: 18px;
 }
 
 .flow-item-visibility-icon {
@@ -109,4 +128,12 @@
   background: rgba(226, 232, 240, 0.82);
   border: 1px solid rgba(148, 163, 184, 0.28);
   opacity: 1;
+}
+
+.flow-item-date {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

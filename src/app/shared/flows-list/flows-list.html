@@ -12,29 +12,42 @@
         </mat-form-field>
     </div>
     
-    <mat-button-toggle-group class="flows-list-filter" [value]="filter()" (valueChange)="filter.set($event)">
-        <mat-button-toggle value="all">All</mat-button-toggle>
-        <mat-button-toggle value="PUBLIC">Public</mat-button-toggle>
-        <mat-button-toggle value="PRIVATE">Private</mat-button-toggle>
-        <mat-button-toggle value="FINALIZED">Finalized</mat-button-toggle>
-    </mat-button-toggle-group>
+    <button type="button" class="flows-list-filters-toggle" (click)="toggleFilters()"
+            [attr.aria-expanded]="filtersOpen()">
+        <mat-icon [fontIcon]="filtersOpen() ? 'expand_less' : 'expand_more'"></mat-icon>
+        <span>Filters &amp; sorting</span>
+        @if (activeFilterCount() > 0) {
+        <span class="flows-list-filters-badge">{{ activeFilterCount() }}</span>
+        }
+    </button>
 
-    <div class="flows-list-ordering">
-        <app-ordering [orderFields]="orderFields" [orderView]="orderView" (orderChanged)="onOrderChanged($event)" ></app-ordering>
-    </div>
+    @if (filtersOpen()) {
+    <div class="flows-list-filters-panel">
+        <mat-button-toggle-group class="flows-list-filter" [value]="filter()" (valueChange)="filter.set($event)">
+            <mat-button-toggle value="all">All</mat-button-toggle>
+            <mat-button-toggle value="PUBLIC">Public</mat-button-toggle>
+            <mat-button-toggle value="PRIVATE">Private</mat-button-toggle>
+            <mat-button-toggle value="FINALIZED">Finalized</mat-button-toggle>
+        </mat-button-toggle-group>
 
-    @if (projectsEnabled && projects().length > 0) {
-    <div class="flows-list-project-filter">
-        <mat-form-field appearance="outline">
-            <mat-label>Project</mat-label>
-            <mat-select [value]="projectFilter()" (valueChange)="onProjectFilterChange($event)">
-                <mat-option value="all">All</mat-option>
-                @for (project of projects(); track project.id) {
-                <mat-option [value]="project.id">{{ project.name }}</mat-option>
-                }
-                <mat-option [value]="ungroupedKey">No project</mat-option>
-            </mat-select>
-        </mat-form-field>
+        <div class="flows-list-ordering">
+            <app-ordering [orderFields]="orderFields" [orderView]="orderView" (orderChanged)="onOrderChanged($event)" ></app-ordering>
+        </div>
+
+        @if (projectsEnabled && projects().length > 0) {
+        <div class="flows-list-project-filter">
+            <mat-form-field appearance="outline">
+                <mat-label>Project</mat-label>
+                <mat-select [value]="projectFilter()" (valueChange)="onProjectFilterChange($event)">
+                    <mat-option value="all">All</mat-option>
+                    @for (project of projects(); track project.id) {
+                    <mat-option [value]="project.id">{{ project.name }}</mat-option>
+                    }
+                    <mat-option [value]="ungroupedKey">No project</mat-option>
+                </mat-select>
+            </mat-form-field>
+        </div>
+        }
     </div>
     }
 

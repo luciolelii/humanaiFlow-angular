@@ -232,4 +232,30 @@ describe('FlowsList', () => {
     // Still navigates, so the user can supply what the run is waiting for.
     expect(navigate).toHaveBeenCalled();
   });
+
+  it('keeps the filters collapsed by default, so the flows are what you see first', async () => {
+    const fixture = await build([makeFlow('1', 'Alpha')], []);
+
+    expect(fixture.componentInstance.filtersOpen()).toBe(false);
+    expect(fixture.nativeElement.querySelector('mat-button-toggle-group')).toBeNull();
+    // The search box is the control people reach for first, so it stays outside the panel.
+    expect(fixture.nativeElement.querySelector('.flows-list-search')).not.toBeNull();
+
+    fixture.componentInstance.toggleFilters();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('mat-button-toggle-group')).not.toBeNull();
+  });
+
+  it('counts the active filters, so a collapsed panel cannot silently hide flows', async () => {
+    const fixture = await build([makeFlow('1', 'Alpha', 'p1')], [makeProject('p1', 'Recruiting')]);
+    const component = fixture.componentInstance;
+
+    expect(component.activeFilterCount()).toBe(0);
+
+    component.filter.set('PUBLIC');
+    component.onProjectFilterChange('p1');
+    fixture.detectChanges();
+
+    expect(component.activeFilterCount()).toBe(2);
+  });
 });
