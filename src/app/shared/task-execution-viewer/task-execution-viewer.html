@@ -535,7 +535,11 @@
             }
           </div>
           } @else {
-          <app-bias-impact-report-list [executionId]="execution()!.id" />
+          <app-bias-impact-report-list
+    [executionId]="execution()!.id"
+    [annotatedNodeCount]="biasAnnotatedNodeCount()"
+    [blockedReason]="biasExperimentBlockedReason()"
+    (startExperimentRequested)="openBiasedRerunDialog()" />
           }
         </div>
       </aside>

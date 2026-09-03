@@ -21,7 +21,25 @@
         <button type="button" mat-stroked-button (click)="retry()">Retry</button>
       </div>
     } @else if (!reports().length) {
-      <p class="bias-report-list__empty">No bias impact reports for this execution yet.</p>
+      <div class="bias-report-list__empty">
+        <p class="bias-report-list__empty-lead">No bias impact reports for this run yet.</p>
+        <p class="bias-report-list__empty-body">
+          A report compares this run against the same run with its bias or mitigation probes turned
+          on, and shows which node outputs it changed. Reports appear here once you produce one.
+        </p>
+        @if (blockedReason(); as reason) {
+          <p class="bias-report-list__empty-blocked">{{ reason }}</p>
+        } @else {
+          <p class="bias-report-list__empty-body">
+            {{ annotatedNodeCount() }}
+            {{ annotatedNodeCount() === 1 ? 'node carries a probe' : 'nodes carry a probe' }}
+            that can be activated on this run.
+          </p>
+          <button type="button" mat-flat-button (click)="startExperimentRequested.emit()">
+            Run a biased rerun
+          </button>
+        }
+      </div>
     } @else {
       @for (report of reports(); track report.id) {
         <button type="button" class="bias-report-list__row" (click)="openDetail(report.id)">

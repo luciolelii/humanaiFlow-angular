@@ -2,7 +2,32 @@
 .bias-report-list__progress { background: #eff6ff; border-left: 3px solid #2563eb; color: #1e3a8a; margin: 0; padding: .6rem .7rem; font-size: .84rem; }
 .bias-report-list__error { background: #fff1f2; border-left: 3px solid #e11d48; color: #9f1239; margin: 0; padding: .6rem .7rem; font-size: .84rem; }
 .bias-report-list__error-row { align-items: center; display: flex; gap: .6rem; justify-content: space-between; }
-.bias-report-list__empty { color: #64748b; font-size: .84rem; margin: 0; padding: .5rem; }
+/* An empty tab that only said "none yet" left the user with no idea how one is produced. */
+.bias-report-list__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: .5rem;
+  color: #64748b;
+  font-size: .84rem;
+  padding: .5rem;
+}
+
+.bias-report-list__empty p { margin: 0; }
+
+.bias-report-list__empty-lead { color: #334155; font-weight: 600; }
+
+.bias-report-list__empty-body { line-height: 1.45; }
+
+/* The precondition that is in the way, stated instead of left to be guessed from a dead button. */
+.bias-report-list__empty-blocked {
+  border-left: 3px solid #f59e0b;
+  background: #fffbeb;
+  border-radius: 4px;
+  padding: .4rem .55rem;
+  color: #92400e;
+  line-height: 1.45;
+}
 
 .bias-report-list__row {
   align-items: center;

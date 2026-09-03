@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, input, output, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { BiasImpactReport } from '@models/bias-impact';
 import { TaskExecutionsService } from '@services/task-executions/task-executions';
@@ -23,6 +23,13 @@ export class BiasImpactReportListComponent {
   private lastReloadToken = 0;
 
   readonly executionId = input<string | null>(null);
+  /** How many nodes an experiment could act on, so the empty state can be concrete. */
+  readonly annotatedNodeCount = input<number>(0);
+  /** Why an experiment cannot be started, or null when it can; supplied by the host. */
+  readonly blockedReason = input<string | null>(null);
+
+  /** The user wants to start one. The host owns the dialog, so it decides what "start" means. */
+  readonly startExperimentRequested = output<void>();
 
   readonly reports = signal<BiasImpactReport[]>([]);
   readonly loading = signal(false);

@@ -501,17 +501,34 @@ export class TaskStepNodeComponent {
     ].join('\n');
   }
 
+  /**
+   * Whether the node shows the measure control at all: it has probes worth measuring.
+   *
+   * It deliberately does *not* require isolatedExperimentSupported. A user-interactive block -
+   * ChatInteraction, HumanDecision - cannot be replayed in isolation, and hiding the button there
+   * left an annotated node looking identical to an unannotated one. The control is shown and
+   * disabled, and the tooltip says which experiment is available instead.
+   */
   hasMeasurableBiasAnnotations(): boolean {
-    return this.isBiasCapable()
-      && this.executableBiasAnnotations().length > 0
-      && this.biasCapabilities?.isolatedExperimentSupported === true;
+    return this.isBiasCapable() && this.executableBiasAnnotations().length > 0;
+  }
+
+  private supportsIsolatedBiasExperiment(): boolean {
+    return this.biasCapabilities?.isolatedExperimentSupported === true;
   }
 
   canMeasureBiasImpact(): boolean {
-    return this.hasMeasurableBiasAnnotations() && this.blockConfiguration?.['__executionStatusGroup'] === 'FINAL';
+    return this.hasMeasurableBiasAnnotations()
+      && this.supportsIsolatedBiasExperiment()
+      && this.blockConfiguration?.['__executionStatusGroup'] === 'FINAL';
   }
 
   measureBiasImpactTooltip(): string {
+    if (!this.supportsIsolatedBiasExperiment()) {
+      // A rule of the domain, not a fault: say what *is* possible rather than only what is not.
+      return 'This node cannot be replayed on its own, so there is no isolated experiment for it. '
+        + 'Use "Create biased rerun" on the toolbar to measure it as part of the whole flow.';
+    }
     if (this.blockConfiguration?.['__executionStatusGroup'] !== 'FINAL') {
       return 'Available once the execution reaches a final state';
     }

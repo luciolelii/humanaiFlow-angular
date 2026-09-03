@@ -121,6 +121,72 @@ describe('TaskStepNodeComponent bias canvas highlighting', () => {
     fixture.detectChanges();
   }
 
+  it('shows the measure control on an interactive node, disabled, saying what is possible instead', () => {
+    // ChatInteraction cannot be replayed in isolation. Hiding the control made an annotated node
+    // look identical to an unannotated one, with nothing to indicate the full-flow route exists.
+    component.data.data.capabilities = {
+      visualRole: 'ACTIVITY',
+      terminal: false,
+      biasAnnotationsAllowed: true,
+      allowsIncomingConnections: true,
+      allowsOutgoingConnections: true,
+      canDependOnOtherNodes: false,
+      canHaveDependentNodes: false
+    };
+    component.data.data.biasAnnotations = [
+      { id: 'a1', biasProbe: { activationMode: 'PROMPT_DIRECTIVE', instruction: 'Nudge it' } }
+    ];
+    (component as any).biasCapabilities = { isolatedExperimentSupported: false };
+    setStepConfig({ __executionStatusGroup: 'FINAL' });
+
+    expect(component.hasMeasurableBiasAnnotations()).toBe(true);
+    expect(component.canMeasureBiasImpact()).toBe(false);
+    const button = fixture.nativeElement.querySelector('.llm-bias-impact-trigger');
+    expect(button).not.toBeNull();
+    expect(button.disabled).toBe(true);
+    expect(button.getAttribute('title')).toContain('Create biased rerun');
+  });
+
+  it('enables the measure control where an isolated experiment is supported and the run is final', () => {
+    component.data.data.capabilities = {
+      visualRole: 'ACTIVITY',
+      terminal: false,
+      biasAnnotationsAllowed: true,
+      allowsIncomingConnections: true,
+      allowsOutgoingConnections: true,
+      canDependOnOtherNodes: false,
+      canHaveDependentNodes: false
+    };
+    component.data.data.biasAnnotations = [
+      { id: 'a1', biasProbe: { activationMode: 'PROMPT_DIRECTIVE', instruction: 'Nudge it' } }
+    ];
+    (component as any).biasCapabilities = { isolatedExperimentSupported: true };
+    setStepConfig({ __executionStatusGroup: 'FINAL' });
+
+    expect(component.canMeasureBiasImpact()).toBe(true);
+    expect(component.measureBiasImpactTooltip()).toBe('Measure bias impact');
+  });
+
+  it('still points at the final-state precondition when the run is not finished', () => {
+    component.data.data.capabilities = {
+      visualRole: 'ACTIVITY',
+      terminal: false,
+      biasAnnotationsAllowed: true,
+      allowsIncomingConnections: true,
+      allowsOutgoingConnections: true,
+      canDependOnOtherNodes: false,
+      canHaveDependentNodes: false
+    };
+    component.data.data.biasAnnotations = [
+      { id: 'a1', biasProbe: { activationMode: 'PROMPT_DIRECTIVE', instruction: 'Nudge it' } }
+    ];
+    (component as any).biasCapabilities = { isolatedExperimentSupported: true };
+    setStepConfig({ __executionStatusGroup: 'RUNNING' });
+
+    expect(component.canMeasureBiasImpact()).toBe(false);
+    expect(component.measureBiasImpactTooltip()).toContain('final state');
+  });
+
   it('shows a container working on its subflow, which its own status never said', () => {
     // The container's status is WAITING_FOR_SUBFLOW, so it took none of the in-progress styling
     // and sat inert for minutes while its child ran - indistinguishable from a stuck run.

@@ -53,6 +53,46 @@ describe('BiasImpactReportListComponent', () => {
     fixture = TestBed.createComponent(BiasImpactReportListComponent);
   });
 
+  it('explains how a report is produced, and offers the action, when there are none', () => {
+    // "No bias impact reports yet" alone left no clue that reports come from an experiment you
+    // have to start, nor where to start one.
+    listBiasImpactReports.mockReturnValue(of([]));
+    fixture.componentRef.setInput('executionId', 'execution-1');
+    fixture.componentRef.setInput('annotatedNodeCount', 3);
+    fixture.componentRef.setInput('blockedReason', null);
+    fixture.detectChanges();
+
+    const text = fixture.nativeElement.textContent;
+    expect(text).toContain('No bias impact reports for this run yet');
+    expect(text).toContain('3 nodes carry a probe');
+
+    const started = vi.fn();
+    fixture.componentInstance.startExperimentRequested.subscribe(started);
+    fixture.nativeElement.querySelector('.bias-report-list__empty button').click();
+    expect(started).toHaveBeenCalledTimes(1);
+  });
+
+  it('states the precondition in the way, instead of offering an action that cannot work', () => {
+    listBiasImpactReports.mockReturnValue(of([]));
+    fixture.componentRef.setInput('executionId', 'execution-1');
+    fixture.componentRef.setInput('annotatedNodeCount', 0);
+    fixture.componentRef.setInput('blockedReason', 'This run has not finished yet.');
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.bias-report-list__empty-blocked').textContent)
+      .toContain('has not finished yet');
+    expect(fixture.nativeElement.querySelector('.bias-report-list__empty button')).toBeNull();
+  });
+
+  it('counts one annotated node in the singular', () => {
+    listBiasImpactReports.mockReturnValue(of([]));
+    fixture.componentRef.setInput('executionId', 'execution-1');
+    fixture.componentRef.setInput('annotatedNodeCount', 1);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('1 node carries a probe');
+  });
+
   it('reloads when a dialog reports that one has just been produced', () => {
     // The experiment and compare dialogs render over this still-mounted tab. Without this the tab
     // kept saying there were no reports for the execution whose report the user was just reading.

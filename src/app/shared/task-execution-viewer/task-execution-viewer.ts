@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ChangeDetectionStrategy, Component, computed, effect, ElementRef, HostListener, inject, input, OnDestroy, signal, viewChild } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
+import { NotificationService } from '@services/notifications/notification';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -120,6 +121,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   private biasRerunDialog = inject(BiasRerunDialogService);
   private biasCompareDialog = inject(BiasCompareDialogService);
   private biasComparisonViewState = inject(BiasComparisonViewStateService);
+  private notifications = inject(NotificationService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private lastExecutionId: string | null = null;
@@ -682,6 +684,28 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     && getExecutionStatusGroup(this.execution()?.context.status) === 'FINAL'
     && !this.biasRerunOpening()
   );
+  /** How many nodes an experiment could act on. Sync, so the empty state can say it for free. */
+  readonly biasAnnotatedNodeCount = computed(() => this.biasAnnotatedNodes().length);
+
+  /**
+   * Why a bias experiment cannot be started here, or null when it can.
+   *
+   * The preconditions were only ever expressed as a disabled control or, worse, a silent return.
+   * Stated as a sentence they are also what the empty Bias impact tab needs to explain itself.
+   */
+  readonly biasExperimentBlockedReason = computed<string | null>(() => {
+    if (this.isSubflowExecution()) {
+      return 'A subflow run cannot be a baseline. Open its parent run to start an experiment.';
+    }
+    if (getExecutionStatusGroup(this.execution()?.context.status) !== 'FINAL') {
+      return 'This run has not finished yet. An experiment compares it against a rerun, so it needs a completed baseline.';
+    }
+    if (this.biasAnnotatedNodeCount() === 0) {
+      return 'No node in this flow carries a bias probe that can be activated. Add an instruction to a bias or mitigation annotation in the editor first.';
+    }
+    return null;
+  });
+
   readonly canCompareBiasExecution = computed(() =>
     !this.isSubflowExecution()
     && this.isBiasVariant()
@@ -1081,7 +1105,18 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     this.biasRerunOpening.set(true);
     try {
       const candidates = await this.biasRerunCandidates();
-      if (!candidates.length) return;
+      if (!candidates.length) {
+        // Returning silently made the button indistinguishable from a broken one. The reason is
+        // knowable: either nothing carries an activatable probe, or the nodes that do are of a
+        // type the backend will not run a full-flow experiment on.
+        this.notifications.show(
+          this.biasExperimentBlockedReason()
+          ?? 'None of the annotated nodes in this flow support a full-flow bias experiment.',
+          'info',
+          6000
+        );
+        return;
+      }
       this.biasRerunDialog.open({
         executionId: execution.id,
         candidates,
@@ -1534,8 +1569,13 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     return this.getExecutionDependencies().some((dependency) => String(dependency.targetId) === stepId);
   }
 
-  private async biasRerunCandidates(): Promise<BiasRerunCandidate[]> {
-    const candidates = this.stepsArray().flatMap((step): Array<{ nodeId: string; nodeName: string; node: FlowNode }> => {
+  /**
+   * The nodes carrying something an experiment could activate. Split out of biasRerunCandidates
+   * because it needs no network: the capability check does, and the empty state wants a count
+   * without firing a request per node type just to render a sentence.
+   */
+  private biasAnnotatedNodes(): Array<{ nodeId: string; nodeName: string; node: FlowNode }> {
+    return this.stepsArray().flatMap((step): Array<{ nodeId: string; nodeName: string; node: FlowNode }> => {
       const node = mergeExecutionStepNode(
         step,
         this.execution()?.flowSnapshot ?? this.sourceFlowData()
@@ -1552,7 +1592,10 @@ export class TaskExecutionViewerComponent implements OnDestroy {
       const annotations = (block.biasAnnotations ?? []).filter((annotation) => isProbeExecutable(annotation.biasProbe) || isProbeExecutable(annotation.mitigationProbe));
       return annotations.length ? [{ nodeId: step.id, nodeName: node.name || step.id, node: { ...block, biasAnnotations: annotations } }] : [];
     });
+  }
 
+  private async biasRerunCandidates(): Promise<BiasRerunCandidate[]> {
+    const candidates = this.biasAnnotatedNodes();
     const resolved = await Promise.all(candidates.map(async (candidate) => {
       const capabilities = await firstValueFrom(
         candidate.node.nodeFamily === 'container'
