@@ -1,10 +1,10 @@
 import { TestBed } from '@angular/core/testing';
 import { vi } from 'vitest';
 
-import { EditableExecutionInput, TaskExecutionInputsPanelComponent } from './task-execution-inputs-panel';
+import { EditableExecutionInput, TaskExecutionInputsPanelComponent, parseJsonArrayInput } from './task-execution-inputs-panel';
 
 function makeInput(overrides: Partial<EditableExecutionInput> = {}): EditableExecutionInput {
-  return {
+  const input: EditableExecutionInput = {
     key: 'global:role',
     scope: 'global',
     nodeId: null,
@@ -17,6 +17,10 @@ function makeInput(overrides: Partial<EditableExecutionInput> = {}): EditableExe
     provided: false,
     ...overrides
   };
+  // The panel labels an input by its subtitle, so keep the two in step unless a test sets both.
+  return overrides.inputName && !overrides.subtitle
+    ? { ...input, subtitle: overrides.inputName }
+    : input;
 }
 
 async function build(inputs: EditableExecutionInput[], options: {
@@ -173,5 +177,93 @@ describe('TaskExecutionInputsPanelComponent', () => {
     expect(fixture.componentInstance.globalsOpen()).toBe(false);
     expect(fixture.nativeElement.querySelector('.inputs-panel-savebar')).not.toBeNull();
     expect(fixture.componentInstance.canSubmitAll()).toBe(true);
+  });
+
+  it('offers the JSON import only on a multi-value input', async () => {
+    const fixture = await build([
+      makeInput({ key: 'g:single', inputName: 'positionTitle' }),
+      makeInput({ key: 'g:many', inputName: 'interviewQuestions', multiple: true, value: [''] })
+    ]);
+
+    const buttons = fixture.nativeElement.querySelectorAll('.inputs-panel-import');
+    expect(buttons.length).toBe(1);
+    expect(buttons[0].getAttribute('aria-label')).toContain('interviewQuestions');
+  });
+
+  it('imports a pasted array as the input items, through the normal pending change', async () => {
+    const input = makeInput({ key: 'g:many', inputName: 'interviewQuestions', multiple: true, value: [''] });
+    const fixture = await build([input]);
+    const changed = vi.fn();
+    fixture.componentInstance.textInputChange.subscribe(changed);
+
+    fixture.componentInstance.openImport(input, new Event('click'));
+    fixture.componentInstance.importText.set('["first question", "second question"]');
+    fixture.componentInstance.applyImport();
+
+    // Emitted like any other edit, so the single Save still governs when it is sent.
+    expect(changed).toHaveBeenCalledWith({ input, value: ['first question', 'second question'] });
+    expect(fixture.componentInstance.importTarget()).toBeNull();
+  });
+
+  it('keeps the dialog open and explains why when the text will not do', async () => {
+    const input = makeInput({ key: 'g:many', inputName: 'q', multiple: true, value: [''] });
+    const fixture = await build([input]);
+    const changed = vi.fn();
+    fixture.componentInstance.textInputChange.subscribe(changed);
+
+    fixture.componentInstance.openImport(input, new Event('click'));
+    fixture.componentInstance.importText.set('not json at all');
+    fixture.componentInstance.applyImport();
+
+    expect(fixture.componentInstance.importTarget()).not.toBeNull();
+    expect(fixture.componentInstance.importError()).toContain('Not valid JSON');
+    expect(changed).not.toHaveBeenCalled();
+  });
+});
+
+describe('parseJsonArrayInput', () => {
+  it('accepts the array of interview questions it exists for', () => {
+    const pasted = `[
+      "Describe a Java and Spring Boot service you built or maintained. What was your specific contribution?",
+      "Give an example of a REST API you designed or improved. How did you handle errors, validation, and API versioning?",
+      "Describe a performance or reliability problem involving a relational database. What did you do and what was the measurable result?",
+      "Explain how you have used Docker and CI/CD in a production or project environment.",
+      "Describe a situation where you collaborated with product, QA, or other engineers to deliver a backend feature. What was the outcome?"
+    ]`;
+
+    const result = parseJsonArrayInput(pasted);
+
+    expect(result.error).toBeNull();
+    expect(result.values).toHaveLength(5);
+    expect(result.values?.[3]).toContain('Docker and CI/CD');
+  });
+
+  it('rejects text that is not JSON, quoting the reason', () => {
+    expect(parseJsonArrayInput('["unterminated').error).toContain('Not valid JSON');
+  });
+
+  it('rejects valid JSON that is not an array', () => {
+    expect(parseJsonArrayInput('{"a": 1}').error).toContain('Expected a JSON array');
+    expect(parseJsonArrayInput('"just a string"').error).toContain('Expected a JSON array');
+  });
+
+  it('rejects an empty array rather than wiping the items', () => {
+    expect(parseJsonArrayInput('[]').error).toContain('empty');
+  });
+
+  it('rejects nothing pasted at all', () => {
+    expect(parseJsonArrayInput('   ').error).toContain('Paste a JSON array');
+  });
+
+  it('names the offending item when one is not a text value', () => {
+    // Silently coercing an object to "[object Object]" would be worse than refusing.
+    expect(parseJsonArrayInput('["ok", {"a": 1}]').error).toBe(
+      'Every item must be a text value; item 2 is an object.');
+    expect(parseJsonArrayInput('["ok", ["nested"]]').error).toContain('item 2 is an array');
+    expect(parseJsonArrayInput('["ok", null]').error).toContain('item 2 is null');
+  });
+
+  it('converts plain numbers and booleans to text', () => {
+    expect(parseJsonArrayInput('[1, true]').values).toEqual(['1', 'true']);
   });
 });

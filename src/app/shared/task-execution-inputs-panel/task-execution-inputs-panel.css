@@ -269,3 +269,83 @@
   color: #64748b;
   font-size: 11px;
 }
+
+/* Pasting a JSON array beats typing five long questions one box at a time. */
+.inputs-panel-import {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+}
+
+.inputs-panel-import:hover:not(:disabled) {
+  background: #e0e7ff;
+  color: #4338ca;
+}
+
+.inputs-panel-import:disabled {
+  color: #e2e8f0;
+  cursor: default;
+}
+
+.inputs-panel-import .mat-icon {
+  font-size: 15px;
+  width: 15px;
+  height: 15px;
+  line-height: 15px;
+}
+
+.inputs-panel-import-field {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #0f172a;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.inputs-panel-import-field:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
+}
+
+.inputs-panel-import-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 12px;
+}
+
+.inputs-panel-import-error .mat-icon {
+  flex: 0 0 auto;
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+  line-height: 16px;
+}
+
+.inputs-panel-import-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 0.75rem 1.25rem 1.25rem;
+}

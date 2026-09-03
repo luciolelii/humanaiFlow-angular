@@ -139,6 +139,17 @@
       </span>
       <span class="inputs-panel-name">{{ executionInput.subtitle }}</span>
       <span class="inputs-panel-type">{{ inputTypeLabel(executionInput) }}</span>
+      @if (isMultipleInput(executionInput) && !isFileInput(executionInput)) {
+      <button
+        type="button"
+        class="inputs-panel-import"
+        matTooltip="Import from JSON array"
+        [attr.aria-label]="'Import ' + executionInput.subtitle + ' from a JSON array'"
+        [disabled]="readOnly()"
+        (click)="openImport(executionInput, $event)">
+        <mat-icon fontIcon="data_array"></mat-icon>
+      </button>
+      }
       @if (executionInput.scope === 'node') {
       <span class="inputs-panel-owner" [matTooltip]="'Input of step ' + executionInput.title">
         {{ executionInput.title }}
@@ -212,3 +223,38 @@
   </span>
   }
 </ng-template>
+
+@if (importTarget(); as importInput) {
+<app-modal-shell
+  title="Import from JSON array"
+  [subtitle]="'Each element becomes one item of ' + importInput.subtitle + '.'"
+  ariaLabel="Import items from a JSON array"
+  maxWidth="640px"
+  closeLabel="Cancel"
+  (backdropClick)="closeImport()"
+  (closeClick)="closeImport()">
+
+  <textarea
+    class="inputs-panel-import-field"
+    rows="12"
+    spellcheck="false"
+    [ngModel]="importText()"
+    (ngModelChange)="importText.set($event)"
+    placeholder='[
+  "Describe a Java and Spring Boot service you built or maintained.",
+  "Give an example of a REST API you designed or improved."
+]'></textarea>
+
+  @if (importError(); as error) {
+  <div class="inputs-panel-import-error">
+    <mat-icon fontIcon="error_outline"></mat-icon>
+    <span>{{ error }}</span>
+  </div>
+  }
+
+  <footer class="inputs-panel-import-footer">
+    <button type="button" mat-stroked-button (click)="closeImport()">Cancel</button>
+    <button type="button" mat-flat-button color="primary" (click)="applyImport()">Import</button>
+  </footer>
+</app-modal-shell>
+}

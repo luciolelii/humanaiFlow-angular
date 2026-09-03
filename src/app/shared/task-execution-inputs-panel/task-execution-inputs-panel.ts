@@ -4,9 +4,57 @@ import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { ModalShellComponent } from '@shared/modal-shell/modal-shell';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { TaskExecutionAuthorizationRequirement } from '@models/task-execution';
+
+export type JsonArrayParseResult =
+  | { values: string[]; error: null }
+  | { values: null; error: string };
+
+/**
+ * Parses the pasted text into the items of a multi-value input.
+ *
+ * Deliberately strict about what it accepts, and specific about what it rejects: the point of the
+ * dialog is to save typing, so a silent misread would be worse than typing the items by hand.
+ */
+export function parseJsonArrayInput(text: string): JsonArrayParseResult {
+  const trimmed = (text ?? '').trim();
+  if (!trimmed) {
+    return { values: null, error: 'Paste a JSON array first.' };
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch (error) {
+    return { values: null, error: `Not valid JSON: ${(error as Error).message}` };
+  }
+
+  if (!Array.isArray(parsed)) {
+    return { values: null, error: 'Expected a JSON array, for example ["first", "second"].' };
+  }
+  if (!parsed.length) {
+    return { values: null, error: 'The array is empty, so there is nothing to import.' };
+  }
+
+  const values: string[] = [];
+  for (let index = 0; index < parsed.length; index++) {
+    const item = parsed[index];
+    if (item === null || typeof item === 'object') {
+      return {
+        values: null,
+        error: `Every item must be a text value; item ${index + 1} is ${Array.isArray(item)
+          ? 'an array'
+          : item === null ? 'null' : 'an object'}.`
+      };
+    }
+    values.push(String(item));
+  }
+
+  return { values, error: null };
+}
 
 export type EditableExecutionInput = {
   key: string;
@@ -27,7 +75,7 @@ export type EditableExecutionInput = {
 
 @Component({
   selector: 'app-task-execution-inputs-panel',
-  imports: [CommonModule, FormsModule, MatButtonModule, MatFormFieldModule, MatIconModule, MatInputModule, MatTooltipModule],
+  imports: [CommonModule, FormsModule, MatButtonModule, MatFormFieldModule, MatIconModule, MatInputModule, MatTooltipModule, ModalShellComponent],
   templateUrl: './task-execution-inputs-panel.html',
   styleUrl: './task-execution-inputs-panel.css',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -90,6 +138,38 @@ export class TaskExecutionInputsPanelComponent {
 
   toggleNodes() {
     this.nodesOverride.set(!this.nodesOpen());
+  }
+
+  readonly importTarget = signal<EditableExecutionInput | null>(null);
+  readonly importText = signal('');
+  readonly importError = signal<string | null>(null);
+
+  openImport(input: EditableExecutionInput, event: Event) {
+    event.stopPropagation();
+    if (this.readOnly()) return;
+    this.importTarget.set(input);
+    this.importText.set('');
+    this.importError.set(null);
+  }
+
+  closeImport() {
+    this.importTarget.set(null);
+  }
+
+  applyImport() {
+    const input = this.importTarget();
+    if (!input) return;
+
+    const result = parseJsonArrayInput(this.importText());
+    if (result.error !== null) {
+      this.importError.set(result.error);
+      return;
+    }
+
+    // Emitted like any other edit, so the imported items land in the panel's single Save rather
+    // than being written straight through.
+    this.onTextInputChange(input, result.values);
+    this.closeImport();
   }
 
   isPending(input: EditableExecutionInput): boolean {
