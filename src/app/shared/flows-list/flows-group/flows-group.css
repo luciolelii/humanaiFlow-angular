@@ -102,3 +102,10 @@
   height: 16px;
   line-height: 16px;
 }
+
+.flows-list-group-empty {
+  padding: 0.25rem;
+  color: #94a3b8;
+  font-size: 0.8125rem;
+  font-style: italic;
+}

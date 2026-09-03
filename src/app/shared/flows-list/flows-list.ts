@@ -176,7 +176,9 @@ export class FlowsList extends ListStateViewHolder<Flow> {
     PROJECTS_ENABLED && this.projects().length > 0 && this.projectFilter() === ALL_PROJECTS);
 
   /** Flows already filtered and sorted, then grouped: the existing pipeline is untouched. */
-  readonly groupedFlows = computed(() => groupFlowsByProject(this.orderedFlows(), this.projects()));
+  readonly groupedFlows = computed(() => groupFlowsByProject(this.orderedFlows(), this.projects(),
+    // While the list is being narrowed, an empty group is noise rather than reassurance.
+    { hideEmpty: this.searchActive() || this.filter() !== 'all' }));
 
   readonly searchActive = computed(() => this.searchTerm().trim().length > 0);
 

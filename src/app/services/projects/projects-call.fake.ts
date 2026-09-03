@@ -57,7 +57,9 @@ export class ProjectsCallServiceFake extends ProjectsCallServiceBase {
 
   override createProject(draft: ProjectDraft): Observable<Project> {
     return defer(() => {
-      const id = `p${Object.keys(this.data).length + 1}`;
+      // Not derived from the current count: after a delete that would reissue a freed id, and any
+      // flow still pointing at it would silently reappear inside the new project.
+      const id = crypto.randomUUID();
       const now = new Date();
       const created: Project = {
         id,

@@ -64,6 +64,11 @@
 
   @if (expanded()) {
   <div class="flows-list-group-flows">
+    @if (!flows().length) {
+    <div class="flows-list-group-empty">
+      No flows yet. Use “Move to project” on a flow to put it here.
+    </div>
+    }
     @for (flow of flows(); track flow.id) {
     <div class="flows-list-group-flow">
       @if (canReorder()) {
