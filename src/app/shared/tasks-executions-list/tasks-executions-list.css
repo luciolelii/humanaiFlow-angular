@@ -66,30 +66,27 @@
   text-align: center;
 }
 
+/* Flat, like the flows list: a scrolling history should not be a stack of raised, tinted panels. */
 .tasks-list-group {
   width: 100%;
-  padding: 12px;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  background:
-    radial-gradient(circle at top right, rgba(16, 185, 129, 0.1), transparent 32%),
-    linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-  box-shadow:
-    0 10px 24px rgba(15, 23, 42, 0.07),
-    inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  padding: 8px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #ffffff;
+  box-shadow: none;
   text-align: left;
   cursor: default;
-  transition: transform 0.15s ease, border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color 0.12s ease, background-color 0.12s ease;
 }
 
-.tasks-list-group:hover,
+.tasks-list-group:hover {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
 .tasks-list-group-expanded {
-  transform: translateY(-3px);
-  border-color: #60a5fa;
-  background:
-    radial-gradient(circle at top right, rgba(96, 165, 250, 0.16), transparent 34%),
-    linear-gradient(180deg, #f8fbff 0%, #dbeafe 100%);
-  box-shadow: 0 18px 28px rgba(37, 99, 235, 0.14);
+  border-color: #cbd5e1;
+  background: #f8fafc;
 }
 
 .tasks-list-group-header {
@@ -199,23 +196,24 @@
 
 .tasks-list-execution {
   position: relative;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 10px;
-  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid #eef2f6;
+  border-left: 3px solid transparent;
+  border-radius: 6px;
+  padding: 7px 8px;
+  background: #ffffff;
   cursor: pointer;
-  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color 0.12s ease, background-color 0.12s ease;
 }
 
 .tasks-list-execution:hover {
-  border-color: #93c5fd;
-  background: #f8fbff;
-  box-shadow: 0 10px 18px rgba(37, 99, 235, 0.1);
+  border-color: #cbd5e1;
+  background: #f8fafc;
 }
 
 .tasks-list-execution-selected {
-  border-color: #2563eb;
-  background: #eff6ff;
+  border-color: #cbd5e1;
+  border-left-color: #2563eb;
+  background: #f1f5f9;
 }
 
 .tasks-list-execution-head {
@@ -333,4 +331,39 @@
   background: #2563eb;
   color: #ffffff;
   font-size: 0.6875rem;
+}
+
+/*
+ * A bias variant had probes activated, so its result is not a baseline: it must be distinguishable
+ * from a plain rerun at a glance, which the raw uuid it used to show never achieved.
+ */
+.tasks-list-kind {
+  padding: 0 0.375rem;
+  border-radius: 999px;
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  cursor: help;
+}
+
+.tasks-list-kind-run {
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.tasks-list-kind-rerun {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.tasks-list-kind-bias {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.tasks-list-kind-mitigation {
+  background: #dcfce7;
+  color: #15803d;
 }

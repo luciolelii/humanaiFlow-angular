@@ -15,6 +15,9 @@ import { OrderViewState } from '@utilities/list-state-holder';
 
 export type TaskExecutionFilter = 'all' | TaskExecutionStatusGroup;
 
+/** What kind of run a row is, so a bias variant is never mistaken for an ordinary rerun. */
+export type TaskExecutionKind = 'RUN' | 'RERUN' | 'BIAS_VARIANT';
+
 export type TaskExecutionListItem = {
   id: string;
   title: string;
@@ -24,6 +27,11 @@ export type TaskExecutionListItem = {
   creationTime: number;
   runNumber: number | null;
   rerunOfExecutionId?: string | null;
+  /** The run number this one reruns - far more readable in a narrow list than its uuid. */
+  rerunOfRunNumber?: number | null;
+  kind: TaskExecutionKind;
+  /** Which way the bias probes point; MIXED when a variant activates both at once. */
+  biasDirection?: 'BIAS' | 'MITIGATION' | 'MIXED' | null;
   duration?: string;
   simulated?: boolean;
 };
@@ -70,6 +78,35 @@ export class TasksExecutionsListComponent {
   readonly filtersOpen = signal(false);
 
   readonly activeFilterCount = computed(() => (this.filter() === 'all' ? 0 : 1));
+
+  kindLabel(execution: TaskExecutionListItem): string {
+    if (execution.kind === 'BIAS_VARIANT') {
+      return execution.biasDirection === 'MITIGATION'
+        ? 'Mitigation'
+        : execution.biasDirection === 'MIXED' ? 'Bias + mitigation' : 'Bias';
+    }
+    return execution.kind === 'RERUN' ? 'Rerun' : 'Run';
+  }
+
+  kindTooltip(execution: TaskExecutionListItem): string {
+    if (execution.kind === 'BIAS_VARIANT') {
+      return 'A bias variant: this run had bias or mitigation probes activated, so its result is not a baseline.';
+    }
+    return execution.kind === 'RERUN' ? 'A plain rerun of an earlier execution.' : 'An original run.';
+  }
+
+  kindBadgeClass(execution: TaskExecutionListItem): string {
+    if (execution.kind === 'BIAS_VARIANT') {
+      return execution.biasDirection === 'MITIGATION'
+        ? 'tasks-list-kind-mitigation'
+        : 'tasks-list-kind-bias';
+    }
+    return execution.kind === 'RERUN' ? 'tasks-list-kind-rerun' : 'tasks-list-kind-run';
+  }
+
+  runCountLabel(count: number): string {
+    return `${count} ${count === 1 ? 'run' : 'runs'}`;
+  }
 
   toggleFilters() {
     this.filtersOpen.update((open) => !open);

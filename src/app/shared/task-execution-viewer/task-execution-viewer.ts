@@ -546,6 +546,21 @@ export class TaskExecutionViewerComponent implements OnDestroy {
    */
   readonly outcomesOpen = signal(true);
 
+  /** Ids, simulator descriptors and probe internals are diagnostics: useful, but not the headline. */
+  readonly headerDetailsOpen = signal(false);
+
+  readonly biasVariantLabel = computed(() => {
+    const directions = new Set((this.execution()?.biasExecutionContext?.activeBiasProbes ?? [])
+      .map((probe) => probe.direction));
+    if (directions.size > 1) return 'Bias + mitigation';
+    if (directions.has('MITIGATION')) return 'Mitigation variant';
+    return 'Bias variant';
+  });
+
+  toggleHeaderDetails() {
+    this.headerDetailsOpen.update((open) => !open);
+  }
+
   /** Kept in the header so the conclusion is still readable while collapsed. */
   readonly outcomeCodes = computed(() => this.outcomes().map((outcome) => outcome.code).join(', '));
 
@@ -639,7 +654,13 @@ export class TaskExecutionViewerComponent implements OnDestroy {
 
   readonly isSubflowExecution = computed(() => this.execution()?.executionKind === 'SUBFLOW');
   readonly isSimulatedExecution = computed(() => this.execution()?.interactionSimulationEnabled === true);
-  readonly isBiasVariant = computed(() => !!this.execution()?.biasExecutionContext);
+  /**
+   * The backend sets a bias context on *every* execution, defaulting to NORMAL, so the presence of
+   * the object says nothing - only the mode does. Testing for presence marked every run a bias
+   * variant, and also offered the bias comparison on any plain rerun.
+   */
+  readonly isBiasVariant = computed(() =>
+    this.execution()?.biasExecutionContext?.mode === 'BIAS_VARIANT');
   readonly canCreateBiasedRerun = computed(() =>
     !this.isSubflowExecution()
     && getExecutionStatusGroup(this.execution()?.context.status) === 'FINAL'

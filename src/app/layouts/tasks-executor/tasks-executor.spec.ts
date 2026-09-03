@@ -241,4 +241,55 @@ describe('TasksExecutor', () => {
     }));
     expect(normalizeExecutionStatus('WAITING_FOR_SUBFLOW')).toBe('WAITING');
   });
+
+  it('tells a bias variant apart from a plain rerun', () => {
+    // The backend sets a bias context on every execution, defaulting to NORMAL, so presence alone
+    // marked everything a variant. Only the mode distinguishes them.
+    const plain = {
+      id: 'e1', name: 'Plain', creationTime: 1, runNumber: 1,
+      biasExecutionContext: { mode: 'NORMAL', experimentId: '', activeAnnotationIdsByNode: {} },
+      context: { inputs: {}, result: {}, errors: {}, warnings: {}, status: 'SUCCESS', waitingSteps: [], steps: {} }
+    };
+    const rerun = { ...plain, id: 'e2', name: 'Rerun', runNumber: 2, rerunOfExecutionId: 'e1' };
+    const variant = {
+      ...plain, id: 'e3', name: 'Variant', runNumber: 3, rerunOfExecutionId: 'e1',
+      biasExecutionContext: {
+        mode: 'BIAS_VARIANT', experimentId: 'x', activeAnnotationIdsByNode: {},
+        activeBiasProbes: [{ annotationId: 'a1', direction: 'BIAS', activationMode: 'PROMPT_DIRECTIVE' }]
+      }
+    };
+
+    taskExecutions.set([]);
+    const group = {
+      id: 'g1', sourceFlowId: 'f1', name: 'Group', firstExecutionId: 'e1', latestExecutionId: 'e3',
+      creationTime: 1, lastExecutionTime: 3, executionCount: 3,
+      executions: [plain, rerun, variant]
+    } as any;
+
+    const rows = (component as any).toGroupListItem(group).executions;
+
+    expect(rows.map((row: any) => row.kind)).toEqual(['RUN', 'RERUN', 'BIAS_VARIANT']);
+    expect(rows[2].biasDirection).toBe('BIAS');
+    // A rerun names the run it came from by number, not by uuid.
+    expect(rows[1].rerunOfRunNumber).toBe(1);
+    expect(rows[0].rerunOfRunNumber).toBeNull();
+  });
+
+  it('reports a mitigation-only variant as such', () => {
+    const variant = {
+      id: 'e1', name: 'Mitigated', creationTime: 1, runNumber: 1,
+      biasExecutionContext: {
+        mode: 'BIAS_VARIANT', experimentId: 'x', activeAnnotationIdsByNode: {},
+        activeBiasProbes: [{ annotationId: 'a1', direction: 'MITIGATION', activationMode: 'PROMPT_DIRECTIVE' }]
+      },
+      context: { inputs: {}, result: {}, errors: {}, warnings: {}, status: 'SUCCESS', waitingSteps: [], steps: {} }
+    };
+
+    const rows = (component as any).toGroupListItem({
+      id: 'g1', sourceFlowId: 'f1', name: 'G', firstExecutionId: 'e1', latestExecutionId: 'e1',
+      creationTime: 1, lastExecutionTime: 1, executionCount: 1, executions: [variant]
+    } as any).executions;
+
+    expect(rows[0].biasDirection).toBe('MITIGATION');
+  });
 });

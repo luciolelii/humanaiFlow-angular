@@ -15,34 +15,66 @@
               <mat-icon [fontIcon]="isFullscreen() ? 'fullscreen_exit' : 'fullscreen'"></mat-icon>
             </button>
           </h2>
-          <p class="text-sm text-slate-500">Execution ID: {{ execution()!.id }}</p>
-          @if (isSubflowExecution()) {
-          <div class="execution-subflow-context">
-            <strong>Interactive container subflow</strong>
-            <span>Parent: {{ parentExecution()?.name || execution()!.parentExecutionId || 'Unknown' }}</span>
-            <span>Container: {{ parentContainerStep()?.node?.name || execution()!.parentStepId || 'Unknown' }}</span>
-            @if (subflowIterationIndex(); as iterationIndex) {
-            <span>Iteration {{ iterationIndex }}</span>
+          <div class="execution-header-badges">
+            @if (isSimulatedExecution()) {
+            <span class="execution-badge execution-badge-simulated"
+                  matTooltip="Interactions were answered by a simulator, not by a person.">
+              Simulated
+            </span>
             }
-            @if (execution()!.subflowRole) {
-            <span>Role: {{ execution()!.subflowRole }}</span>
+            @if (isBiasVariant()) {
+            <span class="execution-badge execution-badge-bias"
+                  matTooltip="Bias or mitigation probes were active, so this result is not a baseline.">
+              {{ biasVariantLabel() }}
+            </span>
             }
+            @if (isSubflowExecution()) {
+            <span class="execution-badge execution-badge-subflow"
+                  matTooltip="This run is one iteration of a container subflow.">
+              Subflow
+            </span>
+            }
+
+            <button
+              type="button"
+              class="execution-header-details-toggle"
+              [attr.aria-expanded]="headerDetailsOpen()"
+              (click)="toggleHeaderDetails()">
+              <mat-icon [fontIcon]="headerDetailsOpen() ? 'expand_less' : 'expand_more'"></mat-icon>
+              <span>Details</span>
+            </button>
           </div>
-          }
-          @if (isSimulatedExecution()) {
-          <p class="text-sm text-sky-700">Simulated interactive execution</p>
-          @if (simulationDescriptorLabel(); as simulationDescriptor) {
-          <p class="text-xs text-sky-900">Simulator: {{ simulationDescriptor }}</p>
-          }
-          }
-          @if (execution()!.biasExecutionContext; as biasContext) {
-          <div class="execution-bias-variant-context">
-            <strong>Bias variant</strong>
-            <span>Experiment: {{ biasContext.experimentId }}</span>
-            <span>Baseline: {{ execution()!.rerunOfExecutionId || 'not available' }}</span>
-            <span>Active annotations: {{ biasContext.activeAnnotationIdsByNode | json }}</span>
-            @for (probe of biasContext.activeBiasProbes ?? []; track probe.annotationId + probe.direction) {
-              <span>{{ probe.direction === 'BIAS' ? 'Bias applicato' : 'Mitigazione applicata' }}: {{ probe.annotationId }}</span>
+
+          @if (headerDetailsOpen()) {
+          <div class="execution-header-detail-list">
+            <p class="text-sm text-slate-500">Execution ID: {{ execution()!.id }}</p>
+
+            @if (isSubflowExecution()) {
+            <div class="execution-subflow-context">
+              <strong>Interactive container subflow</strong>
+              <span>Parent: {{ parentExecution()?.name || execution()!.parentExecutionId || 'Unknown' }}</span>
+              <span>Container: {{ parentContainerStep()?.node?.name || execution()!.parentStepId || 'Unknown' }}</span>
+              @if (subflowIterationIndex(); as iterationIndex) {
+              <span>Iteration {{ iterationIndex }}</span>
+              }
+              @if (execution()!.subflowRole) {
+              <span>Role: {{ execution()!.subflowRole }}</span>
+              }
+            </div>
+            }
+
+            @if (isSimulatedExecution() && simulationDescriptorLabel(); as simulationDescriptor) {
+            <p class="text-xs text-sky-900">Simulator: {{ simulationDescriptor }}</p>
+            }
+
+            @if (isBiasVariant() && execution()!.biasExecutionContext; as biasContext) {
+            <div class="execution-bias-variant-context">
+              <span>Experiment: {{ biasContext.experimentId || 'not available' }}</span>
+              <span>Baseline: {{ execution()!.rerunOfExecutionId || 'not available' }}</span>
+              @for (probe of biasContext.activeBiasProbes ?? []; track probe.annotationId + probe.direction) {
+                <span>{{ probe.direction === 'BIAS' ? 'Bias applied' : 'Mitigation applied' }}: {{ probe.annotationId }}</span>
+              }
+            </div>
             }
           </div>
           }

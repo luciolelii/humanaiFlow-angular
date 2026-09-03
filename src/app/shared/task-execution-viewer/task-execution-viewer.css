@@ -616,3 +616,73 @@
   line-height: 1.45;
   color: #1f2937;
 }
+
+/*
+ * Only what changes how a result should be read stays in the header; ids, simulator descriptors
+ * and probe internals are diagnostics and live behind Details.
+ */
+.execution-header-badges {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin-top: 0.125rem;
+}
+
+.execution-badge {
+  padding: 0 0.375rem;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  cursor: help;
+}
+
+.execution-badge-simulated {
+  background: #e0f2fe;
+  color: #075985;
+}
+
+.execution-badge-bias {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.execution-badge-subflow {
+  background: #ede9fe;
+  color: #6d28d9;
+}
+
+.execution-header-details-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
+  margin-left: auto;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+}
+
+.execution-header-details-toggle:hover {
+  color: #334155;
+}
+
+.execution-header-details-toggle .mat-icon {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+  line-height: 16px;
+}
+
+.execution-header-detail-list {
+  margin-top: 0.25rem;
+  padding-top: 0.25rem;
+  border-top: 1px dashed #e2e8f0;
+}

@@ -295,8 +295,11 @@ export class TasksExecutor {
   }
 
   private toGroupListItem(group: TaskExecutionGroup): TaskExecutionGroupListItem {
+    // Resolved up front so a rerun can name the run it came from by number instead of by uuid.
+    const runNumbers = new Map((group.executions ?? []).map((execution, index) =>
+      [execution.id, typeof execution.runNumber === 'number' ? execution.runNumber : index + 1]));
     const executions = (group.executions ?? []).map((execution, index) =>
-      this.toExecutionListItem(execution, index + 1)
+      this.toExecutionListItem(execution, index + 1, runNumbers)
     );
     const latestExecution = executions.find((execution) => execution.id === group.latestExecutionId)
       ?? executions[executions.length - 1]
@@ -325,7 +328,13 @@ export class TasksExecutor {
     return this.projectsService.projectById().get(flow.projectId)?.name ?? flow.projectName ?? null;
   }
 
-  private toExecutionListItem(execution: TaskExecution, fallbackRunNumber: number): TaskExecutionListItem {
+  private toExecutionListItem(execution: TaskExecution, fallbackRunNumber: number,
+      runNumbers: Map<string, number> = new Map()): TaskExecutionListItem {
+    const bias = execution.biasExecutionContext;
+    const isBiasVariant = bias?.mode === 'BIAS_VARIANT';
+    const directions = new Set((bias?.activeBiasProbes ?? []).map((probe) => probe.direction));
+    const rerunOf = execution.rerunOfExecutionId ?? null;
+
     return {
       id: execution.id,
       title: execution.name,
@@ -334,7 +343,16 @@ export class TasksExecutor {
       startedAt: this.formatDateTime(execution.creationTime),
       creationTime: execution.creationTime,
       runNumber: typeof execution.runNumber === 'number' ? execution.runNumber : fallbackRunNumber,
-      rerunOfExecutionId: execution.rerunOfExecutionId ?? null,
+      rerunOfExecutionId: rerunOf,
+      rerunOfRunNumber: rerunOf ? runNumbers.get(rerunOf) ?? null : null,
+      // A bias variant is reported as such even when it is also a rerun: that it carries probes is
+      // the thing that changes how its result should be read.
+      kind: isBiasVariant ? 'BIAS_VARIANT' : (rerunOf ? 'RERUN' : 'RUN'),
+      biasDirection: !isBiasVariant
+        ? null
+        : directions.size > 1
+          ? 'MIXED'
+          : directions.has('MITIGATION') ? 'MITIGATION' : 'BIAS',
       duration: this.formatExecutionDuration(execution.context.startTime ?? null, execution.context.endTime ?? null),
       simulated: execution.interactionSimulationEnabled === true
     };

@@ -53,11 +53,10 @@
               @if (group.projectName) {
               <span class="tasks-list-project-chip">{{ group.projectName }}</span>
               }
-              <span>{{ group.sourceFlowId }}</span>
             </div>
           </div>
           <div class="tasks-list-group-summary">
-            <span class="tasks-list-count">{{ group.executionCount }} runs</span>
+            <span class="tasks-list-count">{{ runCountLabel(group.executionCount) }}</span>
             <span class="tasks-list-status" [ngClass]="statusBadgeClass(group.latestStatus)">
               {{ group.latestStatus }}
             </span>
@@ -79,7 +78,12 @@
             <div class="tasks-list-execution-head">
               <div class="tasks-list-execution-title">
                 <span class="tasks-list-run">{{ runNumberLabel(execution.runNumber) }}</span>
-                <span class="tasks-list-execution-id">{{ execution.id }}</span>
+                <span
+                  class="tasks-list-kind"
+                  [ngClass]="kindBadgeClass(execution)"
+                  [matTooltip]="kindTooltip(execution)">
+                  {{ kindLabel(execution) }}
+                </span>
               </div>
               <span class="tasks-list-status" [ngClass]="statusBadgeClass(execution.status)">
                 {{ execution.status }}
@@ -87,8 +91,10 @@
             </div>
             <div class="tasks-list-execution-details">
               <span>{{ execution.startedAt }}</span>
-              @if (execution.rerunOfExecutionId) {
-              <span>Rerun of {{ execution.rerunOfExecutionId }}</span>
+              @if (execution.rerunOfRunNumber) {
+              <span>from {{ runNumberLabel(execution.rerunOfRunNumber) }}</span>
+              } @else if (execution.rerunOfExecutionId) {
+              <span>rerun</span>
               }
               @if (execution.simulated) {
               <span class="tasks-list-simulated-badge">Simulated</span>
