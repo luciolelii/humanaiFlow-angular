@@ -29,7 +29,7 @@ function normalBias(): any {
 }
 
 function variantBias(overrides: Record<string, unknown>): any {
-  return { ...normalBias(), mode: 'BIAS_VARIANT', experimentId: 'x', ...overrides };
+  return { ...normalBias(), mode: 'EXPERIMENT', experimentId: 'x', ...overrides };
 }
 
 describe('TasksExecutor', () => {

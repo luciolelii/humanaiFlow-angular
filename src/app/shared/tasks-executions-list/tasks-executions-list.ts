@@ -15,7 +15,13 @@ import { OrderViewState } from '@utilities/list-state-holder';
 
 export type TaskExecutionFilter = 'all' | TaskExecutionStatusGroup;
 
-/** What kind of run a row is, so a bias variant is never mistaken for an ordinary rerun. */
+/**
+ * What kind of run a row is, so a bias variant is never mistaken for an ordinary rerun.
+ *
+ * This is the list's own vocabulary, not an API value: the mode the backend sends for a variant is
+ * `EXPERIMENT` (see BiasExecutionMode). The two names looked interchangeable, and comparing an API
+ * mode against this one is exactly how the variant check came to be always false.
+ */
 export type TaskExecutionKind = 'RUN' | 'RERUN' | 'BIAS_VARIANT';
 
 export type TaskExecutionListItem = {

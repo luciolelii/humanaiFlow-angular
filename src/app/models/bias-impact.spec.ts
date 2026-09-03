@@ -124,8 +124,11 @@ describe('isBiasVariantContext', () => {
     expect(isBiasVariantContext(undefined)).toBe(false);
   });
 
-  it('is true only for BIAS_VARIANT', () => {
-    expect(isBiasVariantContext(context({ mode: 'BIAS_VARIANT' }))).toBe(true);
+  it('is true for the mode the API actually sends, EXPERIMENT', () => {
+    // The backend enum is NORMAL | EXPERIMENT. This used to assert BIAS_VARIANT - a value no
+    // endpoint emits - so the predicate was always false and the fixtures protected the bug.
+    expect(isBiasVariantContext(context({ mode: 'EXPERIMENT' }))).toBe(true);
+    expect(isBiasVariantContext(context({ mode: 'BIAS_VARIANT' }))).toBe(false);
   });
 });
 
@@ -136,21 +139,21 @@ describe('biasInterventionMix', () => {
 
   it('reads bias from active bias annotations', () => {
     expect(biasInterventionMix(context({
-      mode: 'BIAS_VARIANT',
+      mode: 'EXPERIMENT',
       activeBiasAnnotationIdsByNode: { n1: ['a1'] }
     }))).toBe('BIAS');
   });
 
   it('reads mitigation from active mitigation annotations', () => {
     expect(biasInterventionMix(context({
-      mode: 'BIAS_VARIANT',
+      mode: 'EXPERIMENT',
       activeMitigationAnnotationIdsByNode: { n1: ['a1'] }
     }))).toBe('MITIGATION');
   });
 
   it('reports both directions as mixed', () => {
     expect(biasInterventionMix(context({
-      mode: 'BIAS_VARIANT',
+      mode: 'EXPERIMENT',
       activeBiasAnnotationIdsByNode: { n1: ['a1'] },
       activeMitigationAnnotationIdsByNode: { n2: ['a2'] }
     }))).toBe('MIXED');
@@ -158,31 +161,31 @@ describe('biasInterventionMix', () => {
 
   it('also counts a direction activated through a container subflow', () => {
     expect(biasInterventionMix(context({
-      mode: 'BIAS_VARIANT',
+      mode: 'EXPERIMENT',
       biasSubflowActivatedContainerIds: ['c1']
     }))).toBe('BIAS');
     expect(biasInterventionMix(context({
-      mode: 'BIAS_VARIANT',
+      mode: 'EXPERIMENT',
       mitigationSubflowActivatedContainerIds: ['c1']
     }))).toBe('MITIGATION');
   });
 
   it('ignores a node whose annotation list is empty', () => {
     expect(biasInterventionMix(context({
-      mode: 'BIAS_VARIANT',
+      mode: 'EXPERIMENT',
       activeBiasAnnotationIdsByNode: { n1: [] }
     }))).toBeNull();
   });
 
   it('returns null for a variant with nothing recorded, rather than guessing a direction', () => {
-    expect(biasInterventionMix(context({ mode: 'BIAS_VARIANT' }))).toBeNull();
+    expect(biasInterventionMix(context({ mode: 'EXPERIMENT' }))).toBeNull();
   });
 });
 
 describe('activeAnnotationIdsFor', () => {
   it('combines both directions for a node', () => {
     const ctx = context({
-      mode: 'BIAS_VARIANT',
+      mode: 'EXPERIMENT',
       activeBiasAnnotationIdsByNode: { n1: ['bias-1'] },
       activeMitigationAnnotationIdsByNode: { n1: ['mit-1'] }
     });

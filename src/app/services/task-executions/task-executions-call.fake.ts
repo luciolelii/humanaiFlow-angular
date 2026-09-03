@@ -685,7 +685,9 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
           // mitigation one, and a fake that flattened them would hide that in development.
           biasExecutionContext: {
             experimentId: crypto.randomUUID(),
-            mode: 'BIAS_VARIANT',
+            // EXPERIMENT is the value the real API sends; a fake that invents its own would let the
+            // app pass in development and fail against the service.
+            mode: 'EXPERIMENT',
             activeBiasAnnotationIdsByNode: Object.fromEntries(request.activations
               .filter((activation) => activation.direction === 'BIAS')
               .map((activation) => [activation.nodeId, activation.annotationIds])),

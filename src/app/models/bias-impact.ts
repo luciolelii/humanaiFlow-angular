@@ -36,7 +36,14 @@ export type BiasRerunRequest = {
   confirmExternalSideEffects: boolean;
 };
 
-export type BiasExecutionMode = 'NORMAL' | 'BIAS_VARIANT' | string;
+/**
+ * The values the API actually sends: the backend enum is NORMAL | EXPERIMENT.
+ *
+ * The product vocabulary is "variant", and this type used to say `BIAS_VARIANT` - a value no
+ * endpoint has ever emitted, which silently made every run look ordinary. The names differ on
+ * purpose; do not "correct" this one back to match the UI wording.
+ */
+export type BiasExecutionMode = 'NORMAL' | 'EXPERIMENT' | string;
 
 /**
  * The shape the API actually sends. Bias and mitigation are tracked in *separate* collections, per
@@ -66,7 +73,7 @@ function hasAnnotations(byNode: Record<string, string[]> | undefined): boolean {
 
 /** True only for a real variant: the object is present on every execution, defaulting to NORMAL. */
 export function isBiasVariantContext(context: BiasExecutionContext | null | undefined): boolean {
-  return context?.mode === 'BIAS_VARIANT';
+  return context?.mode === 'EXPERIMENT';
 }
 
 /**
