@@ -25,6 +25,43 @@
                 (click)="$event.stopPropagation(); clone()">
                 <mat-icon fontIcon="content_copy"></mat-icon>
             </button>
+            @if (projectsEnabled) {
+            <button
+                mat-icon-button
+                [matTooltip]="assignTooltip()"
+                [disabled]="!canAssignProject()"
+                [matMenuTriggerFor]="projectMenu"
+                (click)="$event.stopPropagation()">
+                <mat-icon fontIcon="drive_file_move"></mat-icon>
+            </button>
+            <mat-menu #projectMenu="matMenu">
+                @for (project of assignableProjects(); track project.id) {
+                <button
+                    mat-menu-item
+                    type="button"
+                    [disabled]="project.id === flow().projectId"
+                    (click)="assignToProject(project)">
+                    @if (project.id === flow().projectId) {
+                    <mat-icon fontIcon="check"></mat-icon>
+                    }
+                    <span>{{ project.name }}</span>
+                </button>
+                }
+                @if (assignableProjects().length === 0) {
+                <button mat-menu-item type="button" disabled>
+                    <span>No projects yet</span>
+                </button>
+                }
+                <button
+                    mat-menu-item
+                    type="button"
+                    [disabled]="!flow().projectId"
+                    (click)="assignToProject(null)">
+                    <mat-icon fontIcon="remove"></mat-icon>
+                    <span>No project</span>
+                </button>
+            </mat-menu>
+            }
             <button
                 mat-icon-button
                 [matTooltip]="deleteTooltip()"

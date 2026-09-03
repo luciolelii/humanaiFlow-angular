@@ -399,6 +399,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     const activeAnnotationIdsByNode = this.execution()?.biasExecutionContext?.activeAnnotationIdsByNode ?? {};
     const globalInputsValue = this.execution()?.context.globalInputs ?? {};
     const executionVariablesValue = this.execution()?.context.executionVariables ?? {};
+    const projectContextValue = this.execution()?.context.projectContext ?? {};
     const executionName = this.execution()?.name ?? null;
     const steps = this.stepsArray();
     const execution = this.execution();
@@ -458,6 +459,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
           __biasActiveAnnotationIds: activeAnnotationIdsByNode[step.id] ?? [],
           __globalInputs: globalInputsValue,
           __executionVariables: executionVariablesValue,
+          __projectContext: projectContextValue,
           __executionName: executionName
         },
         position: stepNode.position ?? {
@@ -508,6 +510,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
           __biasActiveAnnotationIds: activeAnnotationIdsByNode[sourceNode.id] ?? [],
           __globalInputs: globalInputsValue,
           __executionVariables: executionVariablesValue,
+          __projectContext: projectContextValue,
           __executionName: executionName
         }
       };

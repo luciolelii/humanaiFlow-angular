@@ -6,6 +6,7 @@ import {
   BiasRerunRequest
 } from '@models/bias-impact';
 import { ExecutionEventLogEntry, TaskExecution, TaskExecutionGroup } from '@models/task-execution';
+import { ProjectExecutionPlan, ProjectRun } from '@models/project';
 import { map, Observable, of, throwError } from 'rxjs';
 import { TaskExecutionsCallServiceBase } from './task-executions-call.base';
 
@@ -525,6 +526,75 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
     };
     this.data.unshift(execution);
     return of(this.withSimulationAvailability(execution));
+  }
+
+  override createProjectExecutions(projectId: string, _skipNonExecutable: boolean): Observable<ProjectExecutionPlan> {
+    // The dev fake seeds flows '1' and '2' into project 'p1'; one execution per flow, sharing a run id.
+    const projectRunId = crypto.randomUUID();
+    const flowIds = projectId === 'p1' ? ['1'] : projectId === 'p2' ? ['2'] : [];
+    const now = Date.now();
+
+    const executionIds = flowIds.map((flowId) => {
+      const execution: TaskExecution = {
+        id: crypto.randomUUID(),
+        name: `${projectId} - ${flowId}`,
+        creationTime: now,
+        flowId,
+        sourceFlowId: flowId,
+        projectId,
+        projectRunId,
+        runNumber: this.nextRunNumber(flowId),
+        simulationAvailable: false,
+        context: {
+          inputs: {},
+          result: {},
+          startTime: null,
+          endTime: null,
+          errors: {},
+          warnings: {},
+          steps: {},
+          status: 'CREATED',
+          waitingSteps: []
+        }
+      };
+      this.data.unshift(execution);
+      return execution.id;
+    });
+
+    return of({
+      run: {
+        projectRunId,
+        projectId,
+        name: projectId,
+        createdAt: now,
+        executionCount: executionIds.length,
+        status: 'PENDING' as const,
+        currentExecutionId: executionIds[0] ?? null,
+        completedCount: 0,
+        blockedReason: null,
+        executionIds
+      },
+      skipped: []
+    });
+  }
+
+  override startProjectRun(projectId: string, projectRunId: string): Observable<ProjectRun> {
+    const executionIds = this.data
+      .filter((execution) => execution.projectRunId === projectRunId)
+      .map((execution) => execution.id);
+
+    return of({
+      projectRunId,
+      projectId,
+      name: projectId,
+      createdAt: Date.now(),
+      executionCount: executionIds.length,
+      status: 'RUNNING' as const,
+      currentExecutionId: executionIds[0] ?? null,
+      completedCount: 0,
+      blockedReason: null,
+      executionIds
+    });
   }
 
   override rerunTaskExecution(executionId: string): Observable<TaskExecution> {

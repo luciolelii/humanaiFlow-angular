@@ -126,6 +126,33 @@ export class TaskExecutionsService {
     );
   }
 
+  /**
+   * Runs a whole project. Mirrors createExecution so the pending flag and the /tasks refresh come
+   * for free.
+   */
+  createProjectExecutions(projectId: string, skipNonExecutable = false) {
+    this._pendingExecutionCreation.set(true);
+    return this.taskExecutionsCallService.createProjectExecutions(projectId, skipNonExecutable).pipe(
+      finalize(() => this._pendingExecutionCreation.set(false)),
+      tap(() => this.refresh()),
+      catchError((err) => {
+        console.error('Create project executions failed', err);
+        return throwError(() => err);
+      })
+    );
+  }
+
+  /** Starts, or resumes, a project run. */
+  startProjectRun(projectId: string, projectRunId: string) {
+    return this.taskExecutionsCallService.startProjectRun(projectId, projectRunId).pipe(
+      tap(() => this.refresh()),
+      catchError((err) => {
+        console.error('Start project run failed', err);
+        return throwError(() => err);
+      })
+    );
+  }
+
   rerunExecution(executionId: string) {
     this._pendingExecutionCreation.set(true);
     return this.taskExecutionsCallService.rerunTaskExecution(executionId).pipe(

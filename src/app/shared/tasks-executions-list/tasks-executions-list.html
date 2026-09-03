@@ -38,7 +38,12 @@
           <mat-icon class="tasks-list-group-chevron" [fontIcon]="isGroupExpanded(group.id) ? 'expand_less' : 'expand_more'"></mat-icon>
           <div class="tasks-list-group-main">
             <div class="tasks-list-group-title">{{ group.name }}</div>
-            <div class="tasks-list-group-subtitle">{{ group.sourceFlowId }}</div>
+            <div class="tasks-list-group-subtitle">
+              @if (group.projectName) {
+              <span class="tasks-list-project-chip">{{ group.projectName }}</span>
+              }
+              <span>{{ group.sourceFlowId }}</span>
+            </div>
           </div>
           <div class="tasks-list-group-summary">
             <span class="tasks-list-count">{{ group.executionCount }} runs</span>

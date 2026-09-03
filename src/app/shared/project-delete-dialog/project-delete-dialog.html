@@ -1,0 +1,71 @@
+@if (state(); as dialogState) {
+<app-modal-shell
+  [title]="headline()"
+  subtitle="This cannot be undone."
+  ariaLabel="Confirm project deletion"
+  maxWidth="560px"
+  closeLabel="Cancel"
+  (backdropClick)="cancel()"
+  (closeClick)="cancel()">
+
+  <div class="project-delete__body">
+    @if (flowCount() > 0) {
+    <div class="project-delete__warning">
+      <mat-icon fontIcon="warning"></mat-icon>
+      <div>
+        <p>
+          Deleting this project also permanently deletes the
+          {{ flowCount() === 1 ? 'flow' : flowCount() + ' flows' }} it contains.
+        </p>
+        @if (finalizedCount() > 0) {
+        <p class="project-delete__finalized">
+          {{ finalizedCount() }} of them
+          {{ finalizedCount() === 1 ? 'is finalized and would' : 'are finalized and would' }}
+          normally be protected from deletion.
+        </p>
+        }
+      </div>
+    </div>
+
+    <ul class="project-delete__flows">
+      @for (flow of listedFlows(); track flow.id) {
+      <li>
+        <span class="project-delete__flow-name">{{ flow.name }}</span>
+        @if (flow.finalized) {
+        <span class="project-delete__badge">finalized</span>
+        }
+      </li>
+      }
+      @if (hiddenFlowCount() > 0) {
+      <li class="project-delete__more">+ {{ hiddenFlowCount() }} more</li>
+      }
+    </ul>
+    } @else {
+    <p>This project contains no flows.</p>
+    }
+
+    <mat-form-field appearance="outline" class="project-delete__confirm">
+      <mat-label>Type “{{ dialogState.project.name }}” to confirm</mat-label>
+      <input
+        matInput
+        [ngModel]="typedName()"
+        (ngModelChange)="typedName.set($event)"
+        name="projectNameConfirmation"
+        autocomplete="off" />
+    </mat-form-field>
+  </div>
+
+  <footer class="project-delete__footer">
+    <button type="button" mat-stroked-button (click)="cancel()">Cancel</button>
+    <button
+      type="button"
+      mat-flat-button
+      color="warn"
+      class="project-delete__confirm-button"
+      [disabled]="!canConfirm()"
+      (click)="confirm()">
+      Delete project
+    </button>
+  </footer>
+</app-modal-shell>
+}

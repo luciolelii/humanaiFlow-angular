@@ -1,0 +1,89 @@
+@if (state(); as dialogState) {
+<app-modal-shell
+  title="Shared context"
+  [subtitle]="'Values every flow in “' + dialogState.project.name + '” can read at run time.'"
+  ariaLabel="Project shared context"
+  maxWidth="720px"
+  closeLabel="Cancel"
+  (backdropClick)="cancel()"
+  (closeClick)="cancel()">
+
+  <div class="project-context__body">
+    @if (entries().length === 0) {
+    <p class="project-context__empty">No shared variables defined.</p>
+    } @else {
+    <div class="project-context__rows">
+      @for (entry of entries(); track $index) {
+      <div class="project-context__row">
+        <mat-form-field appearance="outline" class="project-context__name">
+          <mat-label>Name</mat-label>
+          <input
+            matInput
+            [ngModel]="entry.name"
+            (ngModelChange)="updateName($index, $event)"
+            [name]="'entry-name-' + $index"
+            autocomplete="off" />
+          @if (validationErrors()[$index]; as error) {
+          <mat-error>{{ error }}</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="project-context__type">
+          <mat-label>Type</mat-label>
+          <mat-select [value]="entry.type" (valueChange)="updateType($index, $event)">
+            @for (type of entryTypes; track type) {
+            <mat-option [value]="type">{{ type }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="project-context__value">
+          <mat-label>Value</mat-label>
+          <input
+            matInput
+            [ngModel]="entry.value"
+            (ngModelChange)="updateValue($index, $event)"
+            [name]="'entry-value-' + $index"
+            autocomplete="off" />
+        </mat-form-field>
+
+        <button
+          mat-icon-button
+          type="button"
+          class="project-context__copy"
+          [disabled]="!entry.name"
+          [matTooltip]="entry.name ? 'Copy ' + templateReference(entry.name) : 'Name the variable first'"
+          (click)="copyReference(entry.name)">
+          <mat-icon fontIcon="content_copy"></mat-icon>
+        </button>
+
+        <button
+          mat-icon-button
+          type="button"
+          matTooltip="Remove variable"
+          (click)="removeEntry($index)">
+          <mat-icon fontIcon="delete"></mat-icon>
+        </button>
+      </div>
+
+      @if (entry.name && !validationErrors()[$index]) {
+      <code class="project-context__reference">{{ templateReference(entry.name) }}</code>
+      }
+      }
+    </div>
+    }
+
+    <button type="button" mat-stroked-button class="project-context__add" (click)="addEntry()">
+      <mat-icon fontIcon="add"></mat-icon>
+      Add variable
+    </button>
+  </div>
+
+  <footer class="project-context__footer">
+    <button type="button" mat-stroked-button (click)="cancel()">Cancel</button>
+    <button type="button" mat-flat-button color="primary" [disabled]="hasErrors()" (click)="save()">
+      Save
+    </button>
+  </footer>
+</app-modal-shell>
+}

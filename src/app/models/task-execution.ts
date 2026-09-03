@@ -45,6 +45,10 @@ export type TaskExecution = {
   creationTime: number;
   flowId?: string | null;
   sourceFlowId?: string | null;
+  /** The project the source flow belonged to when the run was created. */
+  projectId?: string | null;
+  /** Ties together the executions started by one project run; null for a single-flow run. */
+  projectRunId?: string | null;
   runNumber?: number | null;
   rerunOfExecutionId?: string | null;
   executionKind?: ExecutionKind;
@@ -90,6 +94,11 @@ export type TaskExecutionContext = {
   inputs: Record<string, unknown>;
   globalInputs?: Record<string, unknown>;
   globalInputDescriptors?: Record<string, TaskExecutionGlobalInputDescriptor>;
+  /**
+   * Values inherited from the flow's project, frozen when the run was created. Read in prompts as
+   * `${{project.<name>}}`.
+   */
+  projectContext?: Record<string, unknown>;
   result: Record<string, unknown>;
   partialResult?: Record<string, unknown>;
   startTime?: number | null;

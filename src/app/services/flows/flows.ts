@@ -2,7 +2,7 @@ import { Injectable, signal } from '@angular/core';
 import { environment } from '@environment';
 import { Flow } from '@models/flow';
 import { FlowsCallServiceBase } from './flows-call.base';
-import { catchError, firstValueFrom, Observable, of, tap, throwError } from 'rxjs';
+import { catchError, firstValueFrom, Observable, of, switchMap, tap, throwError } from 'rxjs';
 
 @Injectable({
   providedIn: 'root',
@@ -133,6 +133,28 @@ export class FlowsService {
     );
   }
 
+  /**
+   * Moves a flow into a project, or detaches it when projectId is null. Patches the cache in place
+   * so the sidebar re-groups reactively without a refetch.
+   */
+  assignFlowToProject(flowId: string, projectId: string | null) {
+    return this.flowsCallService.assignFlowToProject(flowId, projectId).pipe(
+      tap((updatedFlow) => {
+        this._flows.update((flows) => {
+          const index = flows.findIndex((current) => current.id === updatedFlow.id);
+          if (index < 0) return [updatedFlow, ...flows];
+          const next = [...flows];
+          next[index] = updatedFlow;
+          return next;
+        });
+      }),
+      catchError(err => {
+        console.error('Assign flow to project failed', err);
+        return throwError(() => err);
+      })
+    );
+  }
+
   finalizeFlow(flowId: string) {
     return this.flowsCallService.finalizeFlow(flowId).pipe(
       tap((updatedFlow) => {
@@ -169,13 +191,18 @@ export class FlowsService {
     );
   }
 
-  cloneFlow(flow: Pick<Flow, 'name' | 'description' | 'data' | 'status'>): Observable<Flow> {
+  cloneFlow(flow: Pick<Flow, 'name' | 'description' | 'data' | 'status'> & Pick<Partial<Flow>, 'projectId'>): Observable<Flow> {
     return this.createFlow({
       name: `${flow.name} (cloned)`,
       description: flow.description,
       data: flow.data,
       status: flow.status
     }).pipe(
+      // A clone is made from inside a group, so it belongs there too. Creation cannot carry the
+      // project - that is what keeps it out of the full-replace body - so assign it afterwards.
+      switchMap((created) => flow.projectId
+        ? this.assignFlowToProject(created.id, flow.projectId)
+        : of(created)),
       catchError(err => {
         console.error('Cloning flow failed', err);
         return throwError(() => err);

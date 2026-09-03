@@ -9,13 +9,15 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Router } from '@angular/router';
 import { FlowGlobalInput, FlowLane } from '@models/flow';
+import { projectTemplateReference } from '@models/project';
 import { BlocksService } from '@services/blocks/blocks';
 import { Authorization } from '@services/authorization/authorization';
 import { FlowsService } from '@services/flows/flows';
+import { ProjectsService } from '@services/projects/projects';
 import { TaskExecutionsService } from '@services/task-executions/task-executions';
 import { take } from 'rxjs';
 import { EditorStateHolder } from '@stores/flow-editor';
-import { SWIMLANES_ENABLED } from '@shared/feature-flags';
+import { PROJECTS_ENABLED, SWIMLANES_ENABLED } from '@shared/feature-flags';
 
 @Component({
   selector: 'app-title-toolbar',
@@ -36,6 +38,9 @@ export class TitleToolbar {
   private router = inject(Router);
   private blocksService = inject(BlocksService);
   private flowsService = inject(FlowsService);
+  private projectsService = inject(ProjectsService);
+
+  readonly projectsEnabled = PROJECTS_ENABLED;
   private authorization = inject(Authorization);
   private taskExecutionsService = inject(TaskExecutionsService);
   flow = computed(() => this.editorState.currentFlow());
@@ -229,6 +234,26 @@ export class TitleToolbar {
       ...data,
       globalInputs
     });
+  }
+
+  /**
+   * The values this flow inherits from its project, read-only. Shown here because this is exactly
+   * where prompts are written, so the ${{project.x}} placeholders are discoverable at the point of
+   * use. Editing them lives with the project, in the flows list.
+   */
+  readonly inheritedProject = computed(() => {
+    const projectId = this.flow()?.projectId;
+    return projectId ? this.projectsService.projectById().get(projectId) ?? null : null;
+  });
+
+  readonly inheritedProjectEntries = computed(() => this.inheritedProject()?.sharedContext.entries ?? []);
+
+  projectTemplateReference(name: string): string {
+    return projectTemplateReference(name.trim() || 'name');
+  }
+
+  projectSpelReference(name: string): string {
+    return `#project['${name.trim() || 'name'}']`;
   }
 
   globalTemplateReference(name: string): string {

@@ -76,3 +76,40 @@ describe('flow-mapper', () => {
     });
   });
 });
+
+describe('flowFromApi and toFlowCreateRequest project membership', () => {
+  it('reads projectId and projectName from the API shape', () => {
+    const flow = flowFromApi({
+      id: 'f1',
+      name: 'Flow',
+      projectId: 'p1',
+      projectName: 'Recruiting'
+    });
+
+    expect(flow.projectId).toBe('p1');
+    expect(flow.projectName).toBe('Recruiting');
+  });
+
+  it('also tolerates a nested project object', () => {
+    const flow = flowFromApi({ id: 'f1', name: 'Flow', project: { id: 'p2', name: 'Reporting' } });
+
+    expect(flow.projectId).toBe('p2');
+    expect(flow.projectName).toBe('Reporting');
+  });
+
+  it('leaves project membership undefined when the API withholds it', () => {
+    // A non-owner reading a published flow gets no project, and it must read as unassigned.
+    const flow = flowFromApi({ id: 'f1', name: 'Flow' });
+
+    expect(flow.projectId).toBeUndefined();
+    expect(flow.projectName).toBeUndefined();
+  });
+
+  it('never sends a project in the update body', () => {
+    // This body is a full replace used by every editor save. Carrying projectId here - or worse,
+    // omitting it while the backend honoured it - would silently detach the flow on every save.
+    const body = toFlowCreateRequest('Flow', 'desc', undefined, 'DRAFT') as Record<string, unknown>;
+
+    expect('projectId' in body).toBe(false);
+  });
+});

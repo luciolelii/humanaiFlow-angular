@@ -222,6 +222,31 @@
     </div>
     }
   }
+
+  @if (projectsEnabled && inheritedProject(); as project) {
+  <div class="title-toolbar-project-context">
+    <div class="title-toolbar-project-context-header">
+      <mat-icon fontIcon="folder_shared"></mat-icon>
+      <span>Inherited from project “{{ project.name }}”</span>
+    </div>
+    @if (!inheritedProjectEntries().length) {
+    <div class="title-toolbar-global-inputs-empty">This project shares no values.</div>
+    } @else {
+    @for (entry of inheritedProjectEntries(); track entry.name) {
+    <div class="title-toolbar-project-context-row">
+      <span class="title-toolbar-project-context-name">{{ entry.name }}</span>
+      <span class="title-toolbar-project-context-type">{{ entry.type }}</span>
+    </div>
+    <div class="title-toolbar-global-syntax">
+      Available references: <code>{{ projectTemplateReference(entry.name) }}</code> and <code>{{ projectSpelReference(entry.name) }}</code>
+    </div>
+    }
+    }
+    <div class="title-toolbar-project-context-hint">
+      Edit these in the flows list, from the project's menu.
+    </div>
+  </div>
+  }
   }
 </div>
 

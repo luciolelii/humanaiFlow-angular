@@ -75,6 +75,12 @@
             <mat-icon fontIcon="auto_awesome"></mat-icon>
             <span>Create with AI</span>
           </button>
+          @if (projectsEnabled) {
+          <button type="button" mat-menu-item class="editor-sidebar-new-flow-menu-item" (click)="createProject()">
+            <mat-icon fontIcon="create_new_folder"></mat-icon>
+            <span>New project</span>
+          </button>
+          }
         </mat-menu>
         } @else {
         <button
@@ -86,7 +92,7 @@
         </button>
         }
         </span>
-        <app-flows-list></app-flows-list>
+        <app-flows-list #flowsList></app-flows-list>
       </app-group-holder>
       </div>
       }

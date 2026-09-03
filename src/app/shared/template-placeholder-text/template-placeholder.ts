@@ -26,7 +26,8 @@ export function buildTemplateSubstitutions(
   inputs: Record<string, unknown> | null | undefined,
   globalInputs: Record<string, unknown> | null | undefined,
   executionVariables: Record<string, unknown> | null | undefined,
-  context?: TemplateContextMeta
+  context?: TemplateContextMeta,
+  projectVariables?: Record<string, unknown> | null
 ): Record<string, unknown> {
   const values: Record<string, unknown> = {};
 
@@ -38,6 +39,11 @@ export function buildTemplateSubstitutions(
   }
   for (const [name, value] of Object.entries(executionVariables ?? {})) {
     values[`vars.${name}`] = value;
+  }
+  // Mirrors the backend namespace: project.x, global.x, vars.x and a bare input are distinct keys,
+  // so no source can shadow another.
+  for (const [name, value] of Object.entries(projectVariables ?? {})) {
+    values[`project.${name}`] = value;
   }
   if (context?.executionId) {
     values['context.executionId'] = context.executionId;

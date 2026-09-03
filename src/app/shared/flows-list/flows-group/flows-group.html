@@ -1,0 +1,94 @@
+<mat-card class="flows-list-group" [class.flows-list-group-expanded]="expanded()">
+  <div class="flows-list-group-headrow">
+    <button
+      type="button"
+      class="flows-list-group-header"
+      [attr.aria-expanded]="expanded()"
+      (click)="onHeaderClick($event)">
+      <mat-icon
+        class="flows-list-group-chevron"
+        [fontIcon]="expanded() ? 'expand_less' : 'expand_more'"></mat-icon>
+      <div class="flows-list-group-main">
+        <div class="flows-list-group-title">{{ title() }}</div>
+        @if (project()?.description) {
+        <div class="flows-list-group-subtitle">{{ project()?.description }}</div>
+        }
+      </div>
+      <span class="flows-list-group-count">{{ countLabel() }}</span>
+    </button>
+
+    @if (!isUngrouped()) {
+    <button
+      mat-icon-button
+      class="flows-list-group-run"
+      [matTooltip]="runTooltip()"
+      [disabled]="!canRun()"
+      [attr.aria-label]="'Run project ' + title()"
+      (click)="$event.stopPropagation(); runRequested.emit(project()!)">
+      <mat-icon fontIcon="play_arrow"></mat-icon>
+    </button>
+    <button
+      mat-icon-button
+      class="flows-list-group-actions"
+      matTooltip="Project actions"
+      [attr.aria-label]="'Actions for project ' + title()"
+      [matMenuTriggerFor]="projectMenu"
+      (click)="$event.stopPropagation()">
+      <mat-icon fontIcon="more_vert"></mat-icon>
+    </button>
+
+    <mat-menu #projectMenu="matMenu">
+      <button mat-menu-item type="button" (click)="newFlowRequested.emit(project()!)">
+        <mat-icon fontIcon="note_add"></mat-icon>
+        <span>New flow in this project</span>
+      </button>
+      <button mat-menu-item type="button" [disabled]="!canRun()" (click)="runRequested.emit(project()!)">
+        <mat-icon fontIcon="play_arrow"></mat-icon>
+        <span>Run project</span>
+      </button>
+      <button mat-menu-item type="button" (click)="editRequested.emit(project()!)">
+        <mat-icon fontIcon="edit"></mat-icon>
+        <span>Edit project</span>
+      </button>
+      <button mat-menu-item type="button" (click)="contextRequested.emit(project()!)">
+        <mat-icon fontIcon="data_object"></mat-icon>
+        <span>Shared context…</span>
+      </button>
+      <button mat-menu-item type="button" (click)="deleteRequested.emit(project()!)">
+        <mat-icon fontIcon="delete"></mat-icon>
+        <span>Delete project</span>
+      </button>
+    </mat-menu>
+    }
+  </div>
+
+  @if (expanded()) {
+  <div class="flows-list-group-flows">
+    @for (flow of flows(); track flow.id) {
+    <div class="flows-list-group-flow">
+      @if (canReorder()) {
+      <div class="flows-list-group-move">
+        <button
+          mat-icon-button
+          type="button"
+          matTooltip="Run earlier in this project"
+          [disabled]="$first"
+          (click)="move(flow.id, -1, $event)">
+          <mat-icon fontIcon="keyboard_arrow_up"></mat-icon>
+        </button>
+        <button
+          mat-icon-button
+          type="button"
+          matTooltip="Run later in this project"
+          [disabled]="$last"
+          (click)="move(flow.id, 1, $event)">
+          <mat-icon fontIcon="keyboard_arrow_down"></mat-icon>
+        </button>
+      </div>
+      }
+      <app-flow-item class="flows-list-group-flow-item" [(detailOpenedId)]="detailOpenedId" [flow]="flow"></app-flow-item>
+    </div>
+    }
+  </div>
+  }
+</mat-card>

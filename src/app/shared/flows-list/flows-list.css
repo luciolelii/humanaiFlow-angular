@@ -75,3 +75,27 @@
   overflow: visible !important;
   min-width: 0;
 }
+
+/*
+ * The grouped container relies on the flex column for its height instead of the flat list's fixed
+ * max-height calc, which does not account for the project filter row above it.
+ */
+.flows-list-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: none;
+  padding: 10px 0 20px;
+}
+
+.flows-list-project-filter {
+    padding: 0 0.5rem;
+}
+
+.flows-list-project-filter mat-form-field {
+    width: 100%;
+}
+
+.flows-list-project-filter .mat-mdc-form-field-subscript-wrapper {
+    display: none;
+}

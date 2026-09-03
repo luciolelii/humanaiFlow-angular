@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, Output, computed, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Output, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { GroupHolder } from '@shared/group-holder/group-holder';
 import { FlowsList } from '@shared/flows-list/flows-list';
 import { BlocksList } from '@shared/blocks-list/blocks-list';
@@ -13,6 +13,7 @@ import { finalize } from 'rxjs';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatIconModule } from '@angular/material/icon';
 import { ConfirmDialogService } from '@services/dialogs/confirm-dialog';
+import { PROJECTS_ENABLED } from '@shared/feature-flags';
 
 type OpenedId = 'flows' | 'blocks' | 'containers';
 
@@ -33,6 +34,15 @@ export class EditorSidebar {
   blocksService = inject(BlocksService);
   containersService = inject(ContainersService);
   confirm = inject(ConfirmDialogService);
+
+  readonly projectsEnabled = PROJECTS_ENABLED;
+
+  /** The flows list owns the project dialogs, since it also owns the grouping they act on. */
+  private readonly flowsList = viewChild(FlowsList);
+
+  createProject() {
+    void this.flowsList()?.createProject();
+  }
 
   blockDisabled = computed(() => !this.flowState.hasFlow());
   containerDisabled = computed(() =>

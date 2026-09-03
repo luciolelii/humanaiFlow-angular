@@ -7,6 +7,7 @@ import { ExecutionVaultCredentialsCallServiceFake } from "@services/llm-provider
 import { LlmProviderCallServiceFake } from "@services/llm-provider/llm-provider-call.fake";
 import { VaultCallServiceFake } from "@services/vault/vault-call.fake";
 import { FlowsCallServiceFake } from "@services/flows/flows-call.fake";
+import { ProjectsCallServiceFake } from "@services/projects/projects-call.fake";
 import { FieldRetrieverCallServiceFake } from "@services/retriever/field-retriever-call.fake";
 import { TaskExecutionsCallServiceFake } from "@services/task-executions/task-executions-call.fake";
 
@@ -20,6 +21,7 @@ export const environment = {
     adminCallService: AdminCallFakeService,
     assistantCallService: AssistantCallServiceFake,
     flowsCallService: FlowsCallServiceFake,
+    projectsCallService: ProjectsCallServiceFake,
     blocksCallService: BlocksCallServiceFake,
     containersCallService: ContainersCallServiceFake,
     fieldRetrieverCallService: FieldRetrieverCallServiceFake,

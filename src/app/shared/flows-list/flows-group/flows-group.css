@@ -1,0 +1,104 @@
+.flows-list-group {
+  padding: 0;
+  width: 100%;
+  box-shadow: none;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.flows-list-group-headrow {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding-right: 0.25rem;
+  background: #f8fafc;
+}
+
+.flows-list-group-header {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.25rem 0.5rem 0.5rem;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.flows-list-group-chevron {
+  flex: 0 0 auto;
+  color: #475569;
+}
+
+.flows-list-group-main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.flows-list-group-title {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: #0f172a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.flows-list-group-subtitle {
+  font-size: 0.75rem;
+  color: #64748b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.flows-list-group-count {
+  flex: 0 0 auto;
+  font-size: 0.75rem;
+  color: #475569;
+  white-space: nowrap;
+}
+
+.flows-list-group-flows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: #ffffff;
+}
+
+.flows-list-group-flow {
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.flows-list-group-flow-item {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Compact arrows: the sidebar is 320px, so they must not crowd out the flow card. */
+.flows-list-group-move {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+}
+
+.flows-list-group-move button {
+  width: 22px;
+  height: 18px;
+  line-height: 18px;
+  padding: 0;
+}
+
+.flows-list-group-move mat-icon {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+  line-height: 16px;
+}

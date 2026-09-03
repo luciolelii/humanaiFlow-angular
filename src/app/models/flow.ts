@@ -15,6 +15,12 @@ export type Flow = {
     updatedAt: Date;
     published?: boolean;
     finalized?: boolean;
+    /**
+     * Owning project, or undefined when the flow belongs to none. The backend discloses this only
+     * to the flow's owner, so another user's published flow always reads as unassigned.
+     */
+    projectId?: string;
+    projectName?: string;
     validationErrors?: FlowValidationError[];
 };
 

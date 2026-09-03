@@ -1,0 +1,61 @@
+.project-context__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.project-context__empty {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.875rem;
+}
+
+.project-context__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.project-context__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.project-context__name {
+  flex: 2 1 0;
+  min-width: 0;
+}
+
+.project-context__type {
+  flex: 1 1 0;
+  min-width: 7rem;
+}
+
+.project-context__value {
+  flex: 3 1 0;
+  min-width: 0;
+}
+
+.project-context__reference {
+  display: inline-block;
+  margin: -0.5rem 0 0.5rem;
+  padding: 0.125rem 0.375rem;
+  border-radius: 4px;
+  background: #f1f5f9;
+  color: #334155;
+  font-size: 0.75rem;
+}
+
+.project-context__add {
+  align-self: flex-start;
+}
+
+.project-context__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem 1.25rem;
+}

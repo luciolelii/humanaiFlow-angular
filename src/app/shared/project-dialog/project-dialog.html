@@ -1,0 +1,33 @@
+@if (state(); as dialogState) {
+<app-modal-shell
+  [title]="isEdit() ? 'Edit project' : 'New project'"
+  [subtitle]="isEdit() ? 'Rename the project or change its description.' : 'Group related flows under one project.'"
+  ariaLabel="Project details"
+  maxWidth="520px"
+  closeLabel="Cancel"
+  (backdropClick)="cancel()"
+  (closeClick)="cancel()">
+
+  <form class="project-dialog__form" (submit)="submit($event)">
+    <mat-form-field appearance="outline">
+      <mat-label>Name</mat-label>
+      <input matInput [field]="projectForm.name" placeholder="e.g. Recruiting" />
+      @if (isInvalid(projectForm.name())) {
+      <mat-error>{{ projectForm.name().errors()[0].message }}</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Description (optional)</mat-label>
+      <textarea matInput rows="3" [field]="projectForm.description"></textarea>
+    </mat-form-field>
+  </form>
+
+  <footer class="project-dialog__footer">
+    <button type="button" mat-stroked-button (click)="cancel($event)">Cancel</button>
+    <button type="button" mat-flat-button color="primary" [disabled]="!canSubmit()" (click)="submit($event)">
+      {{ isEdit() ? 'Save' : 'Create project' }}
+    </button>
+  </footer>
+</app-modal-shell>
+}

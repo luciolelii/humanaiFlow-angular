@@ -6,6 +6,7 @@ import {
   BiasRerunRequest
 } from '@models/bias-impact';
 import { ExecutionEventLogEntry, TaskExecution, TaskExecutionGroup } from '@models/task-execution';
+import { ProjectExecutionPlan, ProjectRun } from '@models/project';
 import { Observable } from 'rxjs';
 
 export abstract class TaskExecutionsCallServiceBase {
@@ -15,6 +16,16 @@ export abstract class TaskExecutionsCallServiceBase {
   abstract retrieveStepIterations(executionId: string, stepId: string): Observable<TaskExecution[]>;
   abstract retrieveExecutionEvents(executionId: string): Observable<ExecutionEventLogEntry[]>;
   abstract createTaskExecution(flowId: string): Observable<TaskExecution>;
+  /**
+   * Runs a whole project: creates one execution per flow, all sharing a projectRunId. It does not
+   * start them - the client still supplies inputs and credentials, exactly as for a single flow.
+   */
+  abstract createProjectExecutions(projectId: string, skipNonExecutable: boolean): Observable<ProjectExecutionPlan>;
+  /**
+   * Starts, or resumes, a project run. The flows run one at a time in the project's order; each
+   * step starts only when the previous one succeeded.
+   */
+  abstract startProjectRun(projectId: string, projectRunId: string): Observable<ProjectRun>;
   abstract rerunTaskExecution(executionId: string): Observable<TaskExecution>;
   abstract runBiasImpactExperiment(
     executionId: string,

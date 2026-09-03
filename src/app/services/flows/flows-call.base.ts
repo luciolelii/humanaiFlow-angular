@@ -23,4 +23,11 @@ export abstract class FlowsCallServiceBase {
 
     abstract getGroupedFlowValidation(flowId: string) : Observable<GroupedFlowValidation>;
 
+    /**
+     * Moves a flow into a project, or detaches it when projectId is null. Its own endpoint, not a
+     * field on the update body: that body is a full replace, so a project carried there would be
+     * lost on every editor save. Works on finalized flows - membership is metadata, not content.
+     */
+    abstract assignFlowToProject(flowId: string, projectId: string | null) : Observable<Flow>;
+
 }

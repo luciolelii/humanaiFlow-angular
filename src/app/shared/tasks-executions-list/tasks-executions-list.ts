@@ -38,6 +38,12 @@ export type TaskExecutionGroupListItem = {
   latestExecutionId: string;
   latestStatus: TaskExecutionStatus;
   latestRunNumber: number | null;
+  /**
+   * Name of the project the group's flow belongs to, derived by the host. Execution groups have a
+   * single level and are keyed by source flow, so a project run shows up as N sibling groups: the
+   * chip is what visually clusters them.
+   */
+  projectName?: string | null;
   executions: TaskExecutionListItem[];
 };
 
@@ -69,7 +75,9 @@ export class TasksExecutionsListComponent {
     { field: 'name', label: 'Name' },
     { field: 'executionCount', label: 'Executions' },
     { field: 'lastExecutionTime', label: 'Latest Run' },
-    { field: 'latestStatus', label: 'Status' }
+    { field: 'latestStatus', label: 'Status' },
+    // Sorting by project keeps the sibling groups of one project run adjacent.
+    { field: 'projectName', label: 'Project' }
   ];
 
   readonly filteredGroups = computed(() => {
@@ -85,6 +93,7 @@ export class TasksExecutionsListComponent {
       return (
         group.name.toLowerCase().includes(term) ||
         group.sourceFlowId.toLowerCase().includes(term) ||
+        (group.projectName ?? '').toLowerCase().includes(term) ||
         group.id.toLowerCase().includes(term) ||
         group.executions.some((execution) =>
           execution.title.toLowerCase().includes(term) ||

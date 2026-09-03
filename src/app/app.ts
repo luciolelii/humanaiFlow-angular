@@ -8,10 +8,13 @@ import { SubflowPreviewDialogHostComponent } from '@shared/subflow-preview-dialo
 import { BiasImpactExperimentDialogHostComponent } from '@shared/bias-impact-experiment-dialog/bias-impact-experiment-dialog';
 import { BiasRerunDialogHostComponent } from '@shared/bias-rerun-dialog/bias-rerun-dialog';
 import { BiasCompareDialogHostComponent } from '@shared/bias-compare-dialog/bias-compare-dialog';
+import { ProjectContextDialogComponent } from '@shared/project-context-dialog/project-context-dialog';
+import { ProjectDeleteDialogComponent } from '@shared/project-delete-dialog/project-delete-dialog';
+import { ProjectDialogComponent } from '@shared/project-dialog/project-dialog';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, ConfirmDialogHostComponent, GlobalNotificationComponent, HumanInteractionDialogHostComponent, NodeSettingsDialogHostComponent, SubflowPreviewDialogHostComponent, BiasImpactExperimentDialogHostComponent, BiasRerunDialogHostComponent, BiasCompareDialogHostComponent],
+  imports: [RouterOutlet, ConfirmDialogHostComponent, GlobalNotificationComponent, HumanInteractionDialogHostComponent, NodeSettingsDialogHostComponent, SubflowPreviewDialogHostComponent, BiasImpactExperimentDialogHostComponent, BiasRerunDialogHostComponent, BiasCompareDialogHostComponent, ProjectDialogComponent, ProjectDeleteDialogComponent, ProjectContextDialogComponent],
   templateUrl: './app.html',
   styleUrl: './app.css',
   changeDetection: ChangeDetectionStrategy.OnPush

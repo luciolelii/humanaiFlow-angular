@@ -16,6 +16,13 @@ export class ListView<T> {
   filter?: string;
   list?: Signal<T[]>;
   order: OrderViewState = new OrderViewState();
+  /**
+   * Which collapsible groups the user has expanded. Explicit fields rather than a generic bag,
+   * because ListView already carries domain-shaped state and these keep their types.
+   */
+  expandedGroupIds?: Set<string>;
+  /** A second, independent filter dimension - `filter` is already taken by the primary toggle. */
+  secondaryFilter?: string;
 }
 
 /**

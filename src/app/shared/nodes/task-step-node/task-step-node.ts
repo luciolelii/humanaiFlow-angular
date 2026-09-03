@@ -670,6 +670,11 @@ export class TaskStepNodeComponent {
     return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
   }
 
+  private projectContextValue(): Record<string, unknown> {
+    const value = this.blockConfiguration?.['__projectContext'];
+    return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  }
+
   private executionName(): string | null {
     const value = this.blockConfiguration?.['__executionName'];
     return typeof value === 'string' && value.trim().length > 0 ? value : null;
@@ -680,7 +685,7 @@ export class TaskStepNodeComponent {
     return buildTemplateSubstitutions(inputs, this.globalInputsValue(), this.executionVariablesValue(), {
       executionId: this.executionId(),
       executionName: this.executionName()
-    });
+    }, this.projectContextValue());
   }
 
   private currentInputValue(): string {

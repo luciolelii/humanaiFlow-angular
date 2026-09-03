@@ -14,6 +14,7 @@ import {
   BiasRoutingChangeEntry
 } from '@models/bias-impact';
 import { ExecutionEventLogEntry, TaskExecution, TaskExecutionGroup } from '@models/task-execution';
+import { ProjectExecutionPlan, ProjectRun } from '@models/project';
 import { map, Observable } from 'rxjs';
 import { TaskExecutionsCallServiceBase } from './task-executions-call.base';
 
@@ -53,6 +54,58 @@ export class TaskExecutionsCallService extends TaskExecutionsCallServiceBase {
     return this.http.post<unknown>(`${environment.apiUrl}/executions`, flowId).pipe(
       map((raw) => this.mapExecution(raw))
     );
+  }
+
+  override createProjectExecutions(projectId: string, skipNonExecutable: boolean): Observable<ProjectExecutionPlan> {
+    return this.http
+      .post<unknown>(
+        `${environment.apiUrl}/projects/${encodeURIComponent(projectId)}/execute?skipNonExecutable=${skipNonExecutable}`,
+        {}
+      )
+      .pipe(map((raw) => this.mapProjectExecutionPlan(raw)));
+  }
+
+  override startProjectRun(projectId: string, projectRunId: string): Observable<ProjectRun> {
+    return this.http
+      .post<unknown>(
+        `${environment.apiUrl}/projects/${encodeURIComponent(projectId)}`
+        + `/runs/${encodeURIComponent(projectRunId)}/start`,
+        {}
+      )
+      .pipe(map((raw) => this.mapProjectRun(raw)));
+  }
+
+  private mapProjectRun(raw: unknown): ProjectRun {
+    const run = (raw ?? {}) as Record<string, any>;
+    const executions = Array.isArray(run['executions']) ? run['executions'] : [];
+
+    return {
+      projectRunId: String(run['projectRunId'] ?? ''),
+      projectId: String(run['projectId'] ?? ''),
+      name: String(run['name'] ?? ''),
+      createdAt: typeof run['createdAt'] === 'number' ? run['createdAt'] : Date.now(),
+      executionCount: typeof run['executionCount'] === 'number' ? run['executionCount'] : executions.length,
+      status: (run['status'] ?? 'PENDING') as ProjectRun['status'],
+      currentExecutionId: typeof run['currentExecutionId'] === 'string' ? run['currentExecutionId'] : null,
+      completedCount: typeof run['completedCount'] === 'number' ? run['completedCount'] : 0,
+      blockedReason: typeof run['blockedReason'] === 'string' ? run['blockedReason'] : null,
+      executionIds: executions
+        .map((execution: Record<string, unknown>) => String(execution?.['id'] ?? ''))
+        .filter((id: string) => id.length > 0)
+    };
+  }
+
+  private mapProjectExecutionPlan(raw: unknown): ProjectExecutionPlan {
+    const value = (raw ?? {}) as Record<string, any>;
+
+    return {
+      run: this.mapProjectRun(value['run']),
+      skipped: (Array.isArray(value['skipped']) ? value['skipped'] : []).map((entry: Record<string, unknown>) => ({
+        flowId: String(entry?.['flowId'] ?? ''),
+        flowName: String(entry?.['flowName'] ?? ''),
+        reason: String(entry?.['reason'] ?? 'Flow is not executable')
+      }))
+    };
   }
 
   override rerunTaskExecution(executionId: string): Observable<TaskExecution> {

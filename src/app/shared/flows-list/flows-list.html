@@ -22,9 +22,43 @@
     <div class="flows-list-ordering">
         <app-ordering [orderFields]="orderFields" [orderView]="orderView" (orderChanged)="onOrderChanged($event)" ></app-ordering>
     </div>
+
+    @if (projectsEnabled && projects().length > 0) {
+    <div class="flows-list-project-filter">
+        <mat-form-field appearance="outline">
+            <mat-label>Project</mat-label>
+            <mat-select [value]="projectFilter()" (valueChange)="onProjectFilterChange($event)">
+                <mat-option value="all">All</mat-option>
+                @for (project of projects(); track project.id) {
+                <mat-option [value]="project.id">{{ project.name }}</mat-option>
+                }
+                <mat-option [value]="ungroupedKey">No project</mat-option>
+            </mat-select>
+        </mat-form-field>
+    </div>
+    }
+
     @if (orderedFlows().length === 0) {
     <div class="flows-list-empty">
         No flows found
+    </div>
+    } @else if (groupingActive()) {
+    <div class="flows-list-items flows-list-groups">
+        @for (group of groupedFlows(); track group.key) {
+        <app-flows-group
+            [project]="group.project"
+            [flows]="group.flows"
+            [expanded]="isGroupExpanded(group.key)"
+            [(detailOpenedId)]="detailOpenedId"
+            (toggled)="toggleGroup(group.key)"
+            (editRequested)="editProject($event)"
+            (contextRequested)="editProjectContext($event)"
+            (deleteRequested)="deleteProject($event)"
+            (newFlowRequested)="createFlowInProject($event)"
+            (runRequested)="runProject($event)"
+            (moveRequested)="moveFlowInProject($event)">
+        </app-flows-group>
+        }
     </div>
     } @else {
     <mat-list class="flows-list-items">

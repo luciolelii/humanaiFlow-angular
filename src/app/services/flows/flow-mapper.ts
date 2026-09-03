@@ -16,6 +16,13 @@ export function flowFromApi(raw: unknown): Flow {
     ? value['published']
     : ((value['visibility'] as FlowVisibility | undefined) === 'PUBLIC');
   const visibility: FlowVisibility = published ? 'PUBLIC' : 'PRIVATE';
+  const project = (value['project'] ?? null) as Record<string, unknown> | null;
+  const projectId = typeof value['projectId'] === 'string'
+    ? value['projectId']
+    : (project && typeof project['id'] === 'string' ? project['id'] : undefined);
+  const projectName = typeof value['projectName'] === 'string'
+    ? value['projectName']
+    : (project && typeof project['name'] === 'string' ? project['name'] : undefined);
   const rawStatus = typeof value['status'] === 'string' ? value['status'].toUpperCase() : null;
   const status: FlowStatus = rawStatus === 'EXECUTABLE' ? 'EXECUTABLE' : 'DRAFT';
 
@@ -30,6 +37,8 @@ export function flowFromApi(raw: unknown): Flow {
     visibility,
     published,
     finalized: typeof value['finalized'] === 'boolean' ? value['finalized'] : undefined,
+    projectId,
+    projectName,
     validationErrors: normalizeFlowValidationErrors(value['validationErrors'] ?? value['errors']),
     data: {
       blocks: normalizeNodes(data.blocks, 'block') as FlowBlock[],
@@ -42,6 +51,11 @@ export function flowFromApi(raw: unknown): Flow {
   };
 }
 
+/**
+ * Deliberately omits projectId. This is the body of the full-replace PUT the editor issues on
+ * every save, so carrying a project here would silently detach a flow whenever the field was
+ * missing. Membership is changed only through FlowsCallService.assignFlowToProject.
+ */
 export function toFlowCreateRequest(name: string, description?: string, flow?: FlowData, status: FlowStatus = 'DRAFT') {
   return {
     name,

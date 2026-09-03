@@ -97,3 +97,42 @@ describe('resolveTemplateSegments', () => {
     ]);
   });
 });
+
+describe('buildTemplateSubstitutions project namespace', () => {
+  it('exposes project values under the project prefix', () => {
+    const values = buildTemplateSubstitutions(null, null, null, undefined, { tone: 'formal' });
+
+    expect(values['project.tone']).toBe('formal');
+  });
+
+  it('keeps every namespace distinct, so no source shadows another', () => {
+    // Mirrors the backend: project., global., vars. and a bare input are four different keys.
+    const values = buildTemplateSubstitutions(
+      { tone: 'from-input' },
+      { tone: 'from-global' },
+      { tone: 'from-vars' },
+      undefined,
+      { tone: 'from-project' }
+    );
+
+    expect(values['tone']).toBe('from-input');
+    expect(values['global.tone']).toBe('from-global');
+    expect(values['vars.tone']).toBe('from-vars');
+    expect(values['project.tone']).toBe('from-project');
+  });
+
+  it('adds nothing when a flow has no project', () => {
+    const values = buildTemplateSubstitutions({ a: 1 }, null, null);
+
+    expect(Object.keys(values).some((key) => key.startsWith('project.'))).toBe(false);
+  });
+
+  it('resolves a project placeholder in text', () => {
+    const segments = resolveTemplateSegments(
+      'Write in a ${{project.tone}} tone',
+      buildTemplateSubstitutions(null, null, null, undefined, { tone: 'formal' })
+    );
+
+    expect(segments.map((segment) => segment.value ?? segment.text).join('')).toContain('formal');
+  });
+});

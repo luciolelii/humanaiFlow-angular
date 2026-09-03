@@ -61,6 +61,13 @@ export class FlowsCallService extends FlowsCallServiceBase {
       .pipe(map((raw) => flowFromApi(raw)));
   }
 
+  override assignFlowToProject(flowId: string, projectId: string | null): Observable<Flow> {
+    const encodedId = encodeURIComponent(flowId);
+    return this.http
+      .put<unknown>(`${environment.apiUrl}/flows/${encodedId}/project`, { projectId })
+      .pipe(map((raw) => flowFromApi(raw)));
+  }
+
   override updatePublished(flowId: string, value: boolean): Observable<Flow> {
     const encodedId = encodeURIComponent(flowId);
     return this.http

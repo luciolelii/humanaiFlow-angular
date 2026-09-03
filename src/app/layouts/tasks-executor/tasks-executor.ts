@@ -28,6 +28,8 @@ import { BlocksService } from '@services/blocks/blocks';
 import { ContainersService } from '@services/containers/containers';
 import { ConfirmDialogService } from '@services/dialogs/confirm-dialog';
 import { TaskExecutionsService } from '@services/task-executions/task-executions';
+import { FlowsService } from '@services/flows/flows';
+import { ProjectsService } from '@services/projects/projects';
 import { catchError, EMPTY, exhaustMap, timer } from 'rxjs';
 
 export type InteractiveSubflowTarget = {
@@ -73,6 +75,8 @@ export class TasksExecutor {
   private taskExecutionsService = inject(TaskExecutionsService);
   private confirm = inject(ConfirmDialogService);
   private blocksService = inject(BlocksService);
+  private flowsService = inject(FlowsService);
+  private projectsService = inject(ProjectsService);
   private containersService = inject(ContainersService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
@@ -153,6 +157,13 @@ export class TasksExecutor {
     });
     void this.containersService.getAllContainerTypes().catch((err) => {
       console.error('Error preloading container types for task executor', err);
+    });
+    // Needed only to label a group with its project; failure just leaves the chip off.
+    void this.flowsService.getAllFlows().catch((err) => {
+      console.error('Error preloading flows for task executor', err);
+    });
+    void this.projectsService.getAllProjects().catch((err) => {
+      console.error('Error preloading projects for task executor', err);
     });
     this.taskExecutionsService.init();
     effect(() => {
@@ -291,8 +302,17 @@ export class TasksExecutor {
       latestExecutionId: group.latestExecutionId || latestExecution?.id || '',
       latestStatus: latestExecution?.status ?? 'CREATED',
       latestRunNumber: latestExecution?.runNumber ?? null,
+      projectName: this.projectNameForFlow(group.sourceFlowId),
       executions
     };
+  }
+
+  /** Resolves source flow -> project -> name; null when the flow has no project. */
+  private projectNameForFlow(sourceFlowId: string | null | undefined): string | null {
+    if (!sourceFlowId) return null;
+    const flow = this.flowsService.flows().find((candidate) => candidate.id === sourceFlowId);
+    if (!flow?.projectId) return null;
+    return this.projectsService.projectById().get(flow.projectId)?.name ?? flow.projectName ?? null;
   }
 
   private toExecutionListItem(execution: TaskExecution, fallbackRunNumber: number): TaskExecutionListItem {
