@@ -17,6 +17,7 @@ import {
   TaskExecutionStep,
 } from '@models/task-execution';
 import { LlmProviderCapability } from '@models/llm-provider';
+import { EditableExecutionInput } from '@shared/task-execution-inputs-panel/task-execution-inputs-panel';
 
 export type ExecutionOutputEntry = {
   key: string;
@@ -546,4 +547,49 @@ export function hasStoredValue(value: unknown): boolean {
     return value.some((item) => String(item ?? '').trim().length > 0);
   }
   return String(value).trim().length > 0;
+}
+
+/**
+ * What one Save has to send: every edited global in a single map, and the node inputs one by one.
+ *
+ * Splitting it this way is the point. A request per input, fired in parallel, had them all mutating
+ * the same execution at once - and the bulk global endpoint replaced the whole set, so the list
+ * input's save arrived last and took the neighbouring typed values with it.
+ */
+export type PlannedInputSaves = {
+  globals: EditableExecutionInput[];
+  globalValues: Record<string, string | string[]>;
+  nodeInputs: EditableExecutionInput[];
+};
+
+/** The value as the API wants it: a trimmed list of non-empty items, or a single string. */
+export function preparedInputValue(
+  input: EditableExecutionInput,
+  pendingValue: string | string[] | undefined
+): string | string[] {
+  const value = pendingValue ?? normalizeEditableInputValue(input.value, input.multiple);
+  if (input.multiple) {
+    return (Array.isArray(value) ? value : [String(value)])
+      .map((item) => String(item).trim())
+      .filter((item) => item.length > 0);
+  }
+  return String(Array.isArray(value) ? value[0] ?? '' : value);
+}
+
+export function planInputSaves(
+  editableInputs: EditableExecutionInput[],
+  pending: Record<string, string | string[]>
+): PlannedInputSaves {
+  const edited = editableInputs
+    .filter((input) => Object.prototype.hasOwnProperty.call(pending, input.key));
+  const globals = edited.filter((input) => input.scope === 'global');
+  const globalValues: Record<string, string | string[]> = {};
+  for (const input of globals) {
+    globalValues[input.inputName] = preparedInputValue(input, pending[input.key]);
+  }
+  return {
+    globals,
+    globalValues,
+    nodeInputs: edited.filter((input) => input.scope !== 'global')
+  };
 }

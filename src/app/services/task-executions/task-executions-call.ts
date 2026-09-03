@@ -256,6 +256,14 @@ export class TaskExecutionsCallService extends TaskExecutionsCallServiceBase {
     }).pipe(map((raw) => this.mapExecution(raw)));
   }
 
+  override prepareGlobalInputs(
+    executionId: string,
+    values: Record<string, string | string[]>
+  ): Observable<TaskExecution> {
+    const url = `${environment.apiUrl}/executions/${encodeURIComponent(executionId)}/globals`;
+    return this.http.put<unknown>(url, values).pipe(map((raw) => this.mapExecution(raw)));
+  }
+
   override prepareGlobalFileInput(
     executionId: string,
     inputName: string,

@@ -336,6 +336,13 @@ export class TaskExecutionsService {
     );
   }
 
+  prepareGlobalInputs(executionId: string, values: Record<string, string | string[]>) {
+    return this.withRefreshAndErrorHandling(
+      this.taskExecutionsCallService.prepareGlobalInputs(executionId, values),
+      'Prepare global inputs failed'
+    );
+  }
+
   prepareGlobalFileInput(executionId: string, inputName: string, file: File) {
     return this.withRefreshAndErrorHandling(
       this.taskExecutionsCallService.prepareGlobalFileInput(executionId, inputName, file),

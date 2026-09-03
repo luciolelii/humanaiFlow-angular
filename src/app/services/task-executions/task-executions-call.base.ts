@@ -80,6 +80,14 @@ export abstract class TaskExecutionsCallServiceBase {
     inputName: string,
     values: string[]
   ): Observable<TaskExecution>;
+  /**
+   * Sets several global inputs in one request. The single-key endpoint had to be called once per
+   * input, and those calls raced each other on the same execution.
+   */
+  abstract prepareGlobalInputs(
+    executionId: string,
+    values: Record<string, string | string[]>
+  ): Observable<TaskExecution>;
   abstract prepareGlobalFileInput(
     executionId: string,
     inputName: string,

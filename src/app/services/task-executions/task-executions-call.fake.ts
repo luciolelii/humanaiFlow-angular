@@ -901,6 +901,29 @@ export class TaskExecutionsCallServiceFake extends TaskExecutionsCallServiceBase
     return of(execution);
   }
 
+  override prepareGlobalInputs(
+    executionId: string,
+    values: Record<string, string | string[]>
+  ): Observable<TaskExecution> {
+    const execution = this.findExecution(executionId);
+    // The viewer reads globals from context.globalInputs and the descriptors, so write them there:
+    // the older single-key fakes only ever touched context.inputs, where nothing looks for them.
+    execution.context.globalInputs = { ...(execution.context.globalInputs ?? {}) };
+    execution.context.globalInputDescriptors = { ...(execution.context.globalInputDescriptors ?? {}) };
+    for (const [inputName, value] of Object.entries(values)) {
+      execution.context.globalInputs[inputName] = value;
+      const descriptor = execution.context.globalInputDescriptors[inputName];
+      if (descriptor) {
+        execution.context.globalInputDescriptors[inputName] = { ...descriptor, value };
+      }
+    }
+    const provided = new Set(Object.keys(values));
+    execution.missingGlobalInputKeys = (execution.missingGlobalInputKeys ?? [])
+      .filter((key) => !provided.has(key));
+    execution.context.status = execution.context.waitingSteps.length ? 'WAITING' : execution.context.status;
+    return of(execution);
+  }
+
   override prepareGlobalFileInput(
     executionId: string,
     inputName: string,

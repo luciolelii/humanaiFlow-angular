@@ -57,7 +57,7 @@ import { BiasCompareDialogService } from '@services/dialogs/bias-compare-dialog'
 import { BiasComparisonViewStateService } from '@services/bias/bias-comparison-view-state';
 import { BiasImpactReportListComponent } from '@shared/bias-impact-report-list/bias-impact-report-list';
 import { JsonViewerComponent } from '@shared/json-viewer/json-viewer';
-import { firstValueFrom, Observable, of, take, tap } from 'rxjs';
+import { catchError, concat, firstValueFrom, Observable, of, take, tap } from 'rxjs';
 import {
   ExecutionOutputEntry,
   ExecutionOutputGroup,
@@ -78,6 +78,8 @@ import {
   buildExecutionIntermediateInputGroups,
   buildVisibleExecutionLogs,
   normalizeEditableInputValue,
+  planInputSaves,
+  preparedInputValue,
   getExecutionInputValues,
   getExecutionOutputValues,
   getConnectedInputs,
@@ -1119,11 +1121,17 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     });
   }
 
+  /** Saves one input, over the same requests the Save bar uses - a global batch of exactly one. */
   submitTextInput(input: EditableExecutionInput) {
     if (this.inputsReadOnly()) return;
     const executionId = this.execution()?.id;
     if (!executionId) return;
-    this.sendPreparedTextInput(input, executionId);
+    const request$ = input.scope === 'global'
+      ? this.bulkGlobalRequest([input],
+          { [input.inputName]: preparedInputValue(input, this.pendingTextInputs()[input.key]) },
+          executionId)
+      : this.singleInputRequest(input, executionId);
+    request$.subscribe();
   }
 
   onFileInputChange(input: EditableExecutionInput, files: File[]) {
@@ -1244,65 +1252,77 @@ export class TaskExecutionViewerComponent implements OnDestroy {
   }
 
   /**
-   * Saves every edited input in one go. Each still goes through the same single-input request the
-   * per-field button used - only the trigger is shared - so a failure is reported per input.
+   * Saves every edited input.
+   *
+   * <p>The globals go in a single bulk request, and the node inputs follow one at a time. Firing a
+   * request per input in parallel had them all mutating the same execution at once, and the values
+   * the user had just typed could come back missing.
    */
   submitAllTextInputs() {
     if (this.inputsReadOnly()) return;
-    const pending = new Set(Object.keys(this.pendingTextInputs()));
-    this.editableInputs()
-      .filter((input) => pending.has(input.key))
-      .forEach((input) => this.submitTextInput(input));
+    const executionId = this.execution()?.id;
+    if (!executionId) return;
+
+    const plan = planInputSaves(this.editableInputs(), this.pendingTextInputs());
+    const steps: Observable<unknown>[] = [];
+    if (plan.globals.length) {
+      steps.push(this.bulkGlobalRequest(plan.globals, plan.globalValues, executionId));
+    }
+    for (const input of plan.nodeInputs) {
+      steps.push(this.singleInputRequest(input, executionId));
+    }
+    if (!steps.length) return;
+
+    // Sequential: one request at a time on one execution, which is the whole point of the change.
+    concat(...steps).subscribe();
   }
 
-  private sendPreparedTextInput(input: EditableExecutionInput, executionId: string) {
-    if (this.inputsReadOnly() || this.execution()?.id !== executionId) return;
+  /** One request for every edited global, so they cannot overwrite one another. */
+  private bulkGlobalRequest(
+    globals: EditableExecutionInput[],
+    values: Record<string, string | string[]>,
+    executionId: string
+  ): Observable<unknown> {
+    globals.forEach((input) => this.setInputSaving(input.key, true));
 
-    const value = this.pendingTextInputs()[input.key] ?? normalizeEditableInputValue(input.value, input.multiple);
-    this.setInputSaving(input.key, true);
-    const normalizedValues = (Array.isArray(value) ? value : [String(value)])
-      .map((item) => item.trim())
-      .filter((item) => item.length > 0);
-    const request$ = input.scope === 'global'
-      ? (
-        input.multiple
-          ? this.taskExecutionsService.prepareGlobalStringArrayInput(
-            executionId,
-            input.inputName,
-            normalizedValues
-          )
-          : this.taskExecutionsService.prepareGlobalStringInput(
-            executionId,
-            input.inputName,
-            String(Array.isArray(value) ? value[0] ?? '' : value)
-          )
-      )
-      : (
-        input.multiple
-          ? this.taskExecutionsService.prepareStringArrayInput(
-            executionId,
-            input.nodeId!,
-            input.inputName,
-            normalizedValues
-          )
-          : this.taskExecutionsService.prepareStringInput(
-            executionId,
-            input.nodeId!,
-            input.inputName,
-            String(Array.isArray(value) ? value[0] ?? '' : value)
-          )
-      );
-
-    request$.subscribe({
-      next: () => {
-        this.pendingTextInputs.update((current) => {
-          const next = { ...current };
-          delete next[input.key];
-          return next;
-        });
+    return this.taskExecutionsService.prepareGlobalInputs(executionId, values).pipe(
+      tap(() => globals.forEach((input) => {
+        this.clearPendingInput(input.key);
         this.clearInputSaving(input.key);
-      },
-      error: () => this.setInputError(input.key, 'Failed to update input')
+      })),
+      // The batch failed as a batch, so say so on each input in it rather than guessing a culprit.
+      catchError(() => {
+        globals.forEach((input) => this.setInputError(input.key, 'Failed to update inputs'));
+        return of(null);
+      })
+    );
+  }
+
+  /** A node input still goes one at a time: there is no bulk endpoint per step. */
+  private singleInputRequest(input: EditableExecutionInput, executionId: string): Observable<unknown> {
+    const value = preparedInputValue(input, this.pendingTextInputs()[input.key]);
+    this.setInputSaving(input.key, true);
+    const request$ = Array.isArray(value)
+      ? this.taskExecutionsService.prepareStringArrayInput(executionId, input.nodeId!, input.inputName, value)
+      : this.taskExecutionsService.prepareStringInput(executionId, input.nodeId!, input.inputName, value);
+
+    return request$.pipe(
+      tap(() => {
+        this.clearPendingInput(input.key);
+        this.clearInputSaving(input.key);
+      }),
+      catchError(() => {
+        this.setInputError(input.key, 'Failed to update input');
+        return of(null);
+      })
+    );
+  }
+
+  private clearPendingInput(key: string) {
+    this.pendingTextInputs.update((current) => {
+      const next = { ...current };
+      delete next[key];
+      return next;
     });
   }
 

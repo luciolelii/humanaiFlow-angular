@@ -1,5 +1,14 @@
 import { TaskExecution, TaskExecutionStep } from '@models/task-execution';
-import { buildAuthorizationGate, buildVisibleExecutionLogs, getExecutionInputValues, getExecutionOutputValues, hasStoredValue, isExecutionStartable } from './execution-viewer.utils';
+import {
+  buildAuthorizationGate,
+  buildVisibleExecutionLogs,
+  getExecutionInputValues,
+  getExecutionOutputValues,
+  hasStoredValue,
+  isExecutionStartable,
+  planInputSaves,
+  preparedInputValue
+} from './execution-viewer.utils';
 
 describe('execution viewer runtime values', () => {
   const documentedStep: TaskExecutionStep = {
@@ -186,5 +195,98 @@ describe('hasStoredValue', () => {
     expect(hasStoredValue(['', 'one'])).toBe(true);
     expect(hasStoredValue(0)).toBe(true);
     expect(hasStoredValue(false)).toBe(true);
+  });
+});
+
+describe('planInputSaves', () => {
+  function input(overrides: Record<string, unknown> = {}): any {
+    return {
+      key: 'global:role', scope: 'global', nodeId: null, inputName: 'role',
+      title: 'Flow', subtitle: 'role', type: 'TEXT', multiple: false, value: '', provided: false,
+      ...overrides
+    };
+  }
+
+  it('puts every edited global in one map, so one request can carry them all', () => {
+    // A request per global, fired in parallel, is what lost the values: the bulk endpoint replaced
+    // the whole set, so whichever save landed last wiped its neighbours.
+    const inputs = [
+      input({ key: 'g:title', inputName: 'positionTitle' }),
+      input({ key: 'g:req', inputName: 'jobRequirements' }),
+      input({ key: 'g:questions', inputName: 'interviewQuestions', multiple: true, value: [] })
+    ];
+
+    const plan = planInputSaves(inputs, {
+      'g:title': 'Backend Developer',
+      'g:req': 'At least 3 years',
+      'g:questions': ['first', 'second']
+    });
+
+    expect(plan.globals).toHaveLength(3);
+    expect(plan.globalValues).toEqual({
+      positionTitle: 'Backend Developer',
+      jobRequirements: 'At least 3 years',
+      interviewQuestions: ['first', 'second']
+    });
+    expect(plan.nodeInputs).toEqual([]);
+  });
+
+  it('keeps node inputs separate: there is no bulk endpoint per step', () => {
+    const inputs = [
+      input({ key: 'g:role', inputName: 'role' }),
+      input({ key: 'step-1:cv', scope: 'node', nodeId: 'step-1', inputName: 'cv' })
+    ];
+
+    const plan = planInputSaves(inputs, { 'g:role': 'HR', 'step-1:cv': 'a cv' });
+
+    expect(Object.keys(plan.globalValues)).toEqual(['role']);
+    expect(plan.nodeInputs.map((one) => one.key)).toEqual(['step-1:cv']);
+  });
+
+  it('ignores anything the user has not edited', () => {
+    const inputs = [
+      input({ key: 'g:role', inputName: 'role', value: 'stored' }),
+      input({ key: 'g:other', inputName: 'other', value: 'also stored' })
+    ];
+
+    const plan = planInputSaves(inputs, { 'g:role': 'edited' });
+
+    // Sending an untouched value back would be a write the user did not ask for.
+    expect(plan.globalValues).toEqual({ role: 'edited' });
+    expect(plan.globals).toHaveLength(1);
+  });
+
+  it('sends an emptied field, which is an edit like any other', () => {
+    const plan = planInputSaves([input({ key: 'g:role', inputName: 'role', value: 'was set' })],
+      { 'g:role': '' });
+
+    expect(plan.globalValues).toEqual({ role: '' });
+  });
+});
+
+describe('preparedInputValue', () => {
+  function listInput(): any {
+    return { key: 'g:q', scope: 'global', nodeId: null, inputName: 'q', title: 'Flow',
+      subtitle: 'q', type: 'TEXT', multiple: true, value: [], provided: false };
+  }
+
+  it('drops blank items and trims the rest of a list', () => {
+    expect(preparedInputValue(listInput(), ['  first  ', '', '   ', 'second']))
+      .toEqual(['first', 'second']);
+  });
+
+  it('sends a single value as a string, not as a one-item list', () => {
+    const single: any = { ...listInput(), multiple: false, key: 'g:role', inputName: 'role' };
+    expect(preparedInputValue(single, 'Backend Developer')).toBe('Backend Developer');
+  });
+
+  it('takes the first item when a single-valued input somehow holds a list', () => {
+    const single: any = { ...listInput(), multiple: false };
+    expect(preparedInputValue(single, ['first', 'second'])).toBe('first');
+  });
+
+  it('falls back to the stored value when there is no pending edit', () => {
+    const single: any = { ...listInput(), multiple: false, value: 'stored' };
+    expect(preparedInputValue(single, undefined)).toBe('stored');
   });
 });
