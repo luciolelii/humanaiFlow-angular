@@ -6,7 +6,8 @@
         [groups]="groups()"
         [selectedExecutionId]="selectedExecutionId()"
         (executionSelected)="selectExecution($event)"
-        (executionDeleteRequested)="removeExecution($event)">
+        (executionDeleteRequested)="removeExecution($event)"
+        (compareRequested)="openComparison($event)">
       </app-tasks-executions-list>
 
       @if (selectedExecution(); as run) {
@@ -75,11 +76,19 @@
       @if (childExecutionError(); as childError) {
       <div class="interactive-subflow-error">{{ childError }}</div>
       }
+      @if (comparing()) {
+      <app-execution-compare-view
+        [left]="compareLeft()"
+        [right]="compareRight()"
+        (closed)="closeComparison()">
+      </app-execution-compare-view>
+      } @else {
       <app-task-execution-viewer
         [execution]="displayedExecution()"
         [parentExecution]="displayedParentExecution()"
         [parentContainerStep]="displayedParentContainerStep()">
       </app-task-execution-viewer>
+      }
     </mat-card>
   </div>
 </div>

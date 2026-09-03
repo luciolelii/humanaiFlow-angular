@@ -74,6 +74,19 @@ export class TasksExecutionsListComponent {
   readonly executionSelected = output<string>();
   readonly executionDeleteRequested = output<string>();
   readonly executionRerunRequested = output<string>();
+  /** Two runs of one group, picked to be compared. */
+  readonly compareRequested = output<{ leftId: string; rightId: string }>();
+  /**
+   * Which group is in compare mode, and which of its runs are ticked.
+   *
+   * Kept apart from `selectedExecutionId` on purpose: that one drives which run the main panel
+   * shows, and folding the two together would make ticking a box navigate away from what the user
+   * is reading. Confined to one group because comparing runs of different flows is meaningless -
+   * they share no node ids.
+   */
+  private readonly compareGroupId = signal<string | null>(null);
+  private readonly comparePicks = signal<string[]>([]);
+
   readonly searchTerm = model<string>('');
   readonly filter = signal<TaskExecutionFilter>('all');
   readonly orderBy = signal<string | null>('lastExecutionTime');
@@ -245,5 +258,45 @@ export class TasksExecutionsListComponent {
   private matchesFilter(status: TaskExecutionStatus, filter: TaskExecutionFilter): boolean {
     if (filter === 'all') return true;
     return getExecutionStatusGroup(status) === filter;
+  }
+
+  isComparing(groupId: string): boolean {
+    return this.compareGroupId() === groupId;
+  }
+
+  toggleCompareMode(groupId: string, event?: Event) {
+    event?.stopPropagation();
+    const leaving = this.compareGroupId() === groupId;
+    this.compareGroupId.set(leaving ? null : groupId);
+    this.comparePicks.set([]);
+  }
+
+  isComparePick(executionId: string): boolean {
+    return this.comparePicks().includes(executionId);
+  }
+
+  toggleComparePick(executionId: string, event?: Event) {
+    event?.stopPropagation();
+    this.comparePicks.update((current) => {
+      if (current.includes(executionId)) return current.filter((id) => id !== executionId);
+      // Two at a time: a third pick replaces the older one rather than refusing the click, which
+      // would leave the user hunting for which box to clear.
+      return current.length < 2 ? [...current, executionId] : [current[1], executionId];
+    });
+  }
+
+  comparePickCount(): number {
+    return this.comparePicks().length;
+  }
+
+  canCompare(): boolean {
+    return this.comparePicks().length === 2;
+  }
+
+  submitCompare(event?: Event) {
+    event?.stopPropagation();
+    const [leftId, rightId] = this.comparePicks();
+    if (!leftId || !rightId) return;
+    this.compareRequested.emit({ leftId, rightId });
   }
 }

@@ -66,7 +66,27 @@
         <div class="tasks-list-group-meta">
           <span>Latest {{ group.lastExecutionTimeLabel }}</span>
           <span>Run {{ runNumberLabel(group.latestRunNumber) }}</span>
+          @if (group.executions.length > 1) {
+          <button
+            type="button"
+            class="tasks-list-compare-toggle"
+            [class.active]="isComparing(group.id)"
+            [matTooltip]="isComparing(group.id) ? 'Cancel comparison' : 'Compare two runs of this flow'"
+            (click)="toggleCompareMode(group.id, $event)">
+            <mat-icon fontIcon="compare_arrows"></mat-icon>
+            <span>{{ isComparing(group.id) ? 'Cancel' : 'Compare' }}</span>
+          </button>
+          }
         </div>
+
+        @if (isComparing(group.id)) {
+        <div class="tasks-list-compare-bar">
+          <span>{{ comparePickCount() }} of 2 runs picked</span>
+          <button type="button" mat-flat-button [disabled]="!canCompare()" (click)="submitCompare($event)">
+            Compare
+          </button>
+        </div>
+        }
 
         @if (isGroupExpanded(group.id)) {
         <div class="tasks-list-executions">
@@ -77,6 +97,14 @@
             (click)="selectExecution(execution.id)">
             <div class="tasks-list-execution-head">
               <div class="tasks-list-execution-title">
+                @if (isComparing(group.id)) {
+                <input
+                  type="checkbox"
+                  class="tasks-list-compare-pick"
+                  [attr.aria-label]="'Pick run ' + runNumberLabel(execution.runNumber) + ' for comparison'"
+                  [checked]="isComparePick(execution.id)"
+                  (click)="toggleComparePick(execution.id, $event)" />
+                }
                 <span class="tasks-list-run">{{ runNumberLabel(execution.runNumber) }}</span>
                 <span
                   class="tasks-list-kind"

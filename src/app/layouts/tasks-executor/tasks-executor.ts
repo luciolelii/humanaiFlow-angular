@@ -25,6 +25,7 @@ import { TaskExecutionViewerComponent } from '@shared/task-execution-viewer/task
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { biasInterventionMix, isBiasVariantContext } from '@models/bias-impact';
 import { ExecutionTreeComponent, ExecutionTreeSelection, executionTreeHasContent } from '@shared/execution-tree/execution-tree';
+import { ExecutionCompareViewComponent } from '@shared/execution-compare/execution-compare-view';
 import { formatDuration } from '@shared/task-execution-viewer/execution-viewer.utils';
 import { BlocksService } from '@services/blocks/blocks';
 import { ContainersService } from '@services/containers/containers';
@@ -67,7 +68,7 @@ export function findInteractiveSubflowTargets(
 
 @Component({
   selector: 'app-tasks-executor',
-  imports: [TasksExecutionsListComponent, TaskExecutionViewerComponent, ExecutionTreeComponent, MatCardModule, MatTooltipModule],
+  imports: [TasksExecutionsListComponent, TaskExecutionViewerComponent, ExecutionTreeComponent, ExecutionCompareViewComponent, MatCardModule, MatTooltipModule],
   templateUrl: './tasks-executor.html',
   styleUrl: './tasks-executor.css',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -118,6 +119,29 @@ export class TasksExecutor {
   readonly interactiveSubflowTargets = computed<InteractiveSubflowTarget[]>(() =>
     findInteractiveSubflowTargets(this.selectedExecution())
   );
+
+  /**
+   * The pair being compared, or null. Held apart from selectedExecutionId so that opening a
+   * comparison does not disturb which run the user had open, and closing it returns them there.
+   */
+  private readonly comparePair = signal<{ leftId: string; rightId: string } | null>(null);
+
+  readonly compareLeft = computed(() => this.executionById(this.comparePair()?.leftId));
+  readonly compareRight = computed(() => this.executionById(this.comparePair()?.rightId));
+  readonly comparing = computed(() => !!this.compareLeft() && !!this.compareRight());
+
+  private executionById(id: string | undefined): TaskExecution | null {
+    if (!id) return null;
+    return this.executionDetails().find((execution) => execution.id === id) ?? null;
+  }
+
+  openComparison(pair: { leftId: string; rightId: string }) {
+    this.comparePair.set(pair);
+  }
+
+  closeComparison() {
+    this.comparePair.set(null);
+  }
 
   readonly selectedChildExecutionId = signal<string | null>(null);
   readonly childExecutionLoading = signal(false);

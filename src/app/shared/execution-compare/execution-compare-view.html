@@ -1,0 +1,95 @@
+<div class="compare">
+  <header class="compare-header">
+    <div class="compare-title">
+      <span class="compare-run">{{ runLabel(left()) }}</span>
+      <mat-icon fontIcon="compare_arrows"></mat-icon>
+      <span class="compare-run">{{ runLabel(right()) }}</span>
+    </div>
+    <div class="compare-actions">
+      <button type="button" class="compare-filter" [class.active]="onlyDifferences()"
+              (click)="toggleOnlyDifferences()">
+        {{ onlyDifferences() ? 'Only differences' : 'All values' }}
+      </button>
+      <button type="button" mat-stroked-button (click)="closed.emit()">Close</button>
+    </div>
+  </header>
+
+  @if (comparison(); as comparison) {
+    @if (comparison.disjoint) {
+    <p class="compare-warning">
+      These two runs have no node in common, so there is nothing to line up. They are almost
+      certainly runs of different versions of the flow.
+    </p>
+    } @else {
+    <p class="compare-note">
+      {{ comparison.changedNodeCount }} of {{ comparison.nodes.length }}
+      {{ comparison.nodes.length === 1 ? 'node differs' : 'nodes differ' }}. Model output varies
+      between runs on its own, so a difference is not by itself evidence of a change in behaviour.
+    </p>
+
+    @for (outcome of visibleOutcomes(); track outcome.code) {
+    <section class="compare-node">
+      <h3 class="compare-node-title">
+        <span class="compare-badge outcome">Outcome</span>
+        {{ outcome.label || outcome.code }}
+        <span class="compare-state" [ngClass]="outcome.state">{{ outcome.state }}</span>
+      </h3>
+      <div class="compare-row">
+        <div class="compare-cell">
+          @for (part of parts(outcome.left, outcome.right, 'left'); track $index) {
+          <span [ngClass]="part.kind">{{ part.text }}</span>
+          }
+        </div>
+        <div class="compare-cell">
+          @for (part of parts(outcome.left, outcome.right, 'right'); track $index) {
+          <span [ngClass]="part.kind">{{ part.text }}</span>
+          }
+        </div>
+      </div>
+    </section>
+    }
+
+    @for (node of visibleNodes(); track node.stepId) {
+    @if (hasContent(node)) {
+    <section class="compare-node">
+      <h3 class="compare-node-title">
+        {{ node.title }}
+        <span class="compare-state" [ngClass]="node.state">{{ node.state }}</span>
+      </h3>
+      @if (node.statusChanged) {
+      <p class="compare-status">Status: {{ node.leftStatus }} → {{ node.rightStatus }}</p>
+      }
+      @for (value of visibleValues(node); track value.key) {
+      <div class="compare-value">
+        <div class="compare-value-name">
+          <span class="compare-badge" [ngClass]="value.kind">{{ value.kind }}</span>
+          {{ value.name }}
+        </div>
+        <div class="compare-row">
+          <div class="compare-cell">
+            @for (part of parts(value.left, value.right, 'left'); track $index) {
+            <span [ngClass]="part.kind">{{ part.text }}</span>
+            }
+          </div>
+          <div class="compare-cell">
+            @for (part of parts(value.left, value.right, 'right'); track $index) {
+            <span [ngClass]="part.kind">{{ part.text }}</span>
+            }
+          </div>
+        </div>
+      </div>
+      }
+    </section>
+    }
+    }
+
+    @if (!visibleNodes().length && !visibleOutcomes().length) {
+    <p class="compare-empty">
+      These two runs produced the same values on every node.
+    </p>
+    }
+    }
+  } @else {
+  <p class="compare-empty">Pick two runs to compare.</p>
+  }
+</div>

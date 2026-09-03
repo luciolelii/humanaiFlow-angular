@@ -367,3 +367,59 @@
   background: #dcfce7;
   color: #15803d;
 }
+
+/* Comparing is a mode of the group, so its controls live with the group's own facts. */
+.tasks-list-compare-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: auto;
+  padding: 1px 6px;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #475569;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tasks-list-compare-toggle:hover {
+  border-color: #cbd5e1;
+  color: #1e293b;
+}
+
+.tasks-list-compare-toggle.active {
+  border-color: #c7d2fe;
+  background: #eef2ff;
+  color: #3730a3;
+}
+
+.tasks-list-compare-toggle .mat-icon {
+  font-size: 13px;
+  width: 13px;
+  height: 13px;
+  line-height: 13px;
+}
+
+.tasks-list-compare-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 6px 8px;
+  border: 1px solid #c7d2fe;
+  border-radius: 6px;
+  background: #eef2ff;
+  color: #3730a3;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.tasks-list-compare-pick {
+  flex: 0 0 auto;
+  margin: 0 2px 0 0;
+  accent-color: #4338ca;
+  cursor: pointer;
+}
