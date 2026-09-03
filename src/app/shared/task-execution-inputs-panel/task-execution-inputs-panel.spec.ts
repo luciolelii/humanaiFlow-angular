@@ -269,11 +269,20 @@ describe('TaskExecutionInputsPanelComponent', () => {
       makeInput({ key: 'g:a', inputName: 'a' }),
       makeInput({ key: 'g:b', inputName: 'b' }),
       makeInput({ key: 'g:c', inputName: 'c' })
-    ], { saveError: 'Could not save the global inputs, so none of them were saved.' });
+    ], {
+      pendingKeys: ['g:a', 'g:b', 'g:c'],
+      saveError: 'Could not save the global inputs, so none of them were saved.'
+    });
 
     const alerts = fixture.nativeElement.querySelectorAll('.inputs-panel-alert');
     expect(alerts.length).toBe(1);
     expect(alerts[0].textContent).toContain('none of them were saved');
+    // In the sticky bar, next to the button that triggered it: at the top of a long panel it could
+    // be scrolled out of sight by the very fields it was about.
+    expect(fixture.nativeElement.querySelector('.inputs-panel-savebar .inputs-panel-alert')).not.toBeNull();
+    // The edits are still pending, so the bar still counts them: the save is retryable.
+    expect(fixture.nativeElement.textContent).toContain('3 unsaved changes');
+    expect(fixture.componentInstance.canSubmitAll()).toBe(true);
   });
 
   it('shows no message when nothing has failed', async () => {

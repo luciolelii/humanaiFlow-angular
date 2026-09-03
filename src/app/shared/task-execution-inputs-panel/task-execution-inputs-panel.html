@@ -71,13 +71,6 @@
   <div class="text-xs text-slate-500">No manual inputs required.</div>
   } @else {
 
-    @if (saveError(); as error) {
-    <div class="inputs-panel-alert" role="alert">
-      <mat-icon fontIcon="error_outline"></mat-icon>
-      <span>{{ error }}</span>
-    </div>
-    }
-
     <div class="flex items-baseline justify-between gap-2">
       <div class="text-xs font-semibold uppercase tracking-wide text-slate-600">Inputs</div>
       <div class="text-[11px] text-slate-500">
@@ -113,16 +106,24 @@
 
     @if (editableInputs().length && !readOnly()) {
     <div class="inputs-panel-savebar">
-      <span class="inputs-panel-savebar-status">
-        @if (pendingCount()) {
-        {{ pendingCount() }} unsaved {{ pendingCount() === 1 ? 'change' : 'changes' }}
-        } @else {
-        All changes saved
-        }
-      </span>
-      <button type="button" mat-flat-button [disabled]="!canSubmitAll()" (click)="submitAll($event)">
-        {{ anySaving() ? 'Saving…' : 'Save' }}
-      </button>
+      @if (saveError(); as error) {
+      <div class="inputs-panel-alert" role="alert">
+        <mat-icon fontIcon="error_outline"></mat-icon>
+        <span>{{ error }}</span>
+      </div>
+      }
+      <div class="inputs-panel-savebar-row">
+        <span class="inputs-panel-savebar-status">
+          @if (pendingCount()) {
+          {{ pendingCount() }} unsaved {{ pendingCount() === 1 ? 'change' : 'changes' }}
+          } @else {
+          All changes saved
+          }
+        </span>
+        <button type="button" mat-flat-button [disabled]="!canSubmitAll()" (click)="submitAll($event)">
+          {{ anySaving() ? 'Saving…' : 'Save' }}
+        </button>
+      </div>
     </div>
     }
   }
