@@ -70,4 +70,17 @@ describe('FlowItem', () => {
   it('should create', () => {
     expect(component).toBeTruthy();
   });
+
+  it('puts every action behind one menu, leaving the row quiet', () => {
+    // The card used to carry four icon buttons, which overflowed a 320px sidebar.
+    const triggers = fixture.nativeElement.querySelectorAll('.flow-item-menu-trigger');
+    expect(triggers.length).toBe(1);
+    expect(fixture.nativeElement.querySelectorAll('button').length).toBe(1);
+  });
+
+  it('shows visibility as an indicator rather than a disabled button', () => {
+    const indicator = fixture.nativeElement.querySelector('.flow-item-visibility');
+    expect(indicator).not.toBeNull();
+    expect(indicator.tagName.toLowerCase()).toBe('mat-icon');
+  });
 });

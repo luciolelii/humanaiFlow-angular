@@ -5,71 +5,84 @@
 
     <div class="flow-item-head">
         <div class="flow-item-meta">
-            <div class="flow-item-title">{{ flow().name }}</div>
-            <div class="flow-item-author">{{ flow().author }}</div>
+            <div class="flow-item-title-row">
+                <mat-icon
+                    class="flow-item-visibility"
+                    [class.flow-item-visibility-public]="flow().visibility !== 'PRIVATE'"
+                    [matTooltip]="flow().visibility === 'PRIVATE' ? 'Private flow' : 'Public flow'"
+                    [fontIcon]="flow().visibility === 'PRIVATE' ? 'lock' : 'public'"></mat-icon>
+                <span class="flow-item-title">{{ flow().name }}</span>
+            </div>
+            <div class="flow-item-sub">
+                <span class="flow-item-author">{{ flow().author }}</span>
+                <span class="flow-item-dot">·</span>
+                <span class="flow-item-date">{{ flow().createdAt | date:'dd/MM/yyyy' }}</span>
+                @if (flow().finalized) {
+                <span class="flow-item-badge">finalized</span>
+                }
+            </div>
         </div>
+
+        <button
+            mat-icon-button
+            class="flow-item-menu-trigger"
+            matTooltip="Flow actions"
+            [attr.aria-label]="'Actions for ' + flow().name"
+            [matMenuTriggerFor]="flowMenu"
+            (click)="$event.stopPropagation()">
+            <mat-icon fontIcon="more_vert"></mat-icon>
+        </button>
     </div>
 
-    <div class="flow-item-footer">
-        <span class="flow-item-date">{{ flow().createdAt | date:'dd/MM/yyyy' }}</span>
-        <div class="flow-item-actions">
-            <button
-                mat-icon-button
-                [matTooltip]="flow().visibility === 'PRIVATE' ? 'Private flow' : 'Public flow'"
-                class="flow-item-visibility-icon"
-                (click)="$event.stopPropagation()"
-                disabled>
-                <mat-icon [fontIcon]="flow().visibility === 'PRIVATE' ? 'lock' : 'public'"></mat-icon>
-            </button>
-            <button mat-icon-button matTooltip="Clone flow"
-                (click)="$event.stopPropagation(); clone()">
-                <mat-icon fontIcon="content_copy"></mat-icon>
-            </button>
-            @if (projectsEnabled) {
-            <button
-                mat-icon-button
-                [matTooltip]="assignTooltip()"
-                [disabled]="!canAssignProject()"
-                [matMenuTriggerFor]="projectMenu"
-                (click)="$event.stopPropagation()">
-                <mat-icon fontIcon="drive_file_move"></mat-icon>
-            </button>
-            <mat-menu #projectMenu="matMenu">
-                @for (project of assignableProjects(); track project.id) {
-                <button
-                    mat-menu-item
-                    type="button"
-                    [disabled]="project.id === flow().projectId"
-                    (click)="assignToProject(project)">
-                    @if (project.id === flow().projectId) {
-                    <mat-icon fontIcon="check"></mat-icon>
-                    }
-                    <span>{{ project.name }}</span>
-                </button>
-                }
-                @if (assignableProjects().length === 0) {
-                <button mat-menu-item type="button" disabled>
-                    <span>No projects yet</span>
-                </button>
-                }
-                <button
-                    mat-menu-item
-                    type="button"
-                    [disabled]="!flow().projectId"
-                    (click)="assignToProject(null)">
-                    <mat-icon fontIcon="remove"></mat-icon>
-                    <span>No project</span>
-                </button>
-            </mat-menu>
-            }
-            <button
-                mat-icon-button
-                [matTooltip]="deleteTooltip()"
-                (click)="$event.stopPropagation(); remove()"
-                [disabled]="!canDelete()">
-                <mat-icon fontIcon="delete"></mat-icon>
-            </button>
-        </div>
-    </div>
+    <mat-menu #flowMenu="matMenu">
+        <button mat-menu-item type="button" (click)="clone()">
+            <mat-icon fontIcon="content_copy"></mat-icon>
+            <span>Clone flow</span>
+        </button>
+
+        @if (projectsEnabled) {
+        <button
+            mat-menu-item
+            type="button"
+            [disabled]="!canAssignProject()"
+            [matMenuTriggerFor]="projectMenu">
+            <mat-icon fontIcon="drive_file_move"></mat-icon>
+            <span>Move to project</span>
+        </button>
+        }
+
+        <button
+            mat-menu-item
+            type="button"
+            [disabled]="!canDelete()"
+            (click)="remove()">
+            <mat-icon fontIcon="delete"></mat-icon>
+            <span>Delete flow</span>
+        </button>
+    </mat-menu>
+
+    <mat-menu #projectMenu="matMenu">
+        @for (project of assignableProjects(); track project.id) {
+        <button
+            mat-menu-item
+            type="button"
+            [disabled]="project.id === flow().projectId"
+            (click)="assignToProject(project)">
+            <span>{{ project.name }}</span>
+        </button>
+        }
+        @if (assignableProjects().length === 0) {
+        <button mat-menu-item type="button" disabled>
+            <span>No projects yet</span>
+        </button>
+        }
+        <button
+            mat-menu-item
+            type="button"
+            [disabled]="!flow().projectId"
+            (click)="assignToProject(null)">
+            <span>Remove from project</span>
+        </button>
+    </mat-menu>
 
 </mat-card>

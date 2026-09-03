@@ -100,24 +100,40 @@
     display: none;
 }
 
+/*
+ * A control, not a section: the project groups are bordered cards, so this stays borderless and
+ * muted or the two read as the same kind of thing.
+ */
 .flows-list-filters-toggle {
   display: flex;
   align-items: center;
-  gap: 0.375rem;
+  gap: 0.25rem;
   width: 100%;
-  padding: 0.375rem 0.5rem;
+  padding: 0.25rem 0.125rem;
   margin-bottom: 0.25rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  background: #f8fafc;
-  color: #475569;
-  font-size: 0.8125rem;
-  font-weight: 600;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
   cursor: pointer;
 }
 
+.flows-list-filters-toggle:hover {
+  color: #334155;
+}
+
+.flows-list-filters-toggle .mat-icon {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+  line-height: 16px;
+}
+
 .flows-list-filters-badge {
-  margin-left: auto;
+  margin-left: 0.25rem;
   padding: 0 0.375rem;
   border-radius: 999px;
   background: #2563eb;
@@ -129,5 +145,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding-bottom: 0.25rem;
+  padding: 0 0 0.5rem;
+  margin-bottom: 0.25rem;
+  border-bottom: 1px solid #e2e8f0;
 }
