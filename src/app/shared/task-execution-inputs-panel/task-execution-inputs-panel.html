@@ -71,6 +71,13 @@
   <div class="text-xs text-slate-500">No manual inputs required.</div>
   } @else {
 
+    @if (saveError(); as error) {
+    <div class="inputs-panel-alert" role="alert">
+      <mat-icon fontIcon="error_outline"></mat-icon>
+      <span>{{ error }}</span>
+    </div>
+    }
+
     <div class="flex items-baseline justify-between gap-2">
       <div class="text-xs font-semibold uppercase tracking-wide text-slate-600">Inputs</div>
       <div class="text-[11px] text-slate-500">

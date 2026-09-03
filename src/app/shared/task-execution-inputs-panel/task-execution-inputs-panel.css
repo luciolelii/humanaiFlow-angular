@@ -419,3 +419,24 @@
   background: #f8fafc;
   color: #64748b;
 }
+
+/* One message for the whole panel, kept above the fields it concerns. */
+.inputs-panel-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 7px 9px;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 12px;
+}
+
+.inputs-panel-alert .mat-icon {
+  flex: 0 0 auto;
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+  line-height: 16px;
+}

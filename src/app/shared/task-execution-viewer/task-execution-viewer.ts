@@ -143,6 +143,8 @@ export class TaskExecutionViewerComponent implements OnDestroy {
 
   /** Edited but not yet sent, so the panel can offer one Save for the lot. */
   readonly pendingInputKeys = computed(() => Object.keys(this.pendingTextInputs()));
+  /** Set when the single request carrying every edited global fails; cleared on the next edit. */
+  readonly globalSaveError = signal<string | null>(null);
 
   readonly pendingAuthorizationValues = signal<Record<string, string>>({});
   readonly savingAuthorizations = signal<Record<string, boolean>>({});
@@ -1113,6 +1115,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
 
   onTextInputChange(input: EditableExecutionInput, value: string | string[]) {
     if (this.inputsReadOnly()) return;
+    this.globalSaveError.set(null);
     this.pendingTextInputs.update((current) => ({ ...current, [input.key]: value }));
     this.savingErrors.update((current) => {
       const next = { ...current };
@@ -1283,6 +1286,7 @@ export class TaskExecutionViewerComponent implements OnDestroy {
     values: Record<string, string | string[]>,
     executionId: string
   ): Observable<unknown> {
+    this.globalSaveError.set(null);
     globals.forEach((input) => this.setInputSaving(input.key, true));
 
     return this.taskExecutionsService.prepareGlobalInputs(executionId, values).pipe(
@@ -1290,9 +1294,11 @@ export class TaskExecutionViewerComponent implements OnDestroy {
         this.clearPendingInput(input.key);
         this.clearInputSaving(input.key);
       })),
-      // The batch failed as a batch, so say so on each input in it rather than guessing a culprit.
+      // One request, so either every global was saved or none was: one message says that, where
+      // the same text on each field implied as many separate problems as there were inputs.
       catchError(() => {
-        globals.forEach((input) => this.setInputError(input.key, 'Failed to update inputs'));
+        globals.forEach((input) => this.clearInputSaving(input.key));
+        this.globalSaveError.set('Could not save the global inputs, so none of them were saved.');
         return of(null);
       })
     );

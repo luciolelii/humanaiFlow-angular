@@ -91,6 +91,12 @@ export class TaskExecutionInputsPanelComponent {
   readonly readOnly = input<boolean>(false);
   /** Keys the user has edited but not saved; drives the single Save at the foot of the panel. */
   readonly pendingKeys = input<string[]>([]);
+  /**
+   * One message for a save that failed as a whole. The globals go in a single request, so a failure
+   * is not attributable to any one of them - repeating it on each field said the same thing N times
+   * and implied N separate problems.
+   */
+  readonly saveError = input<string | null>(null);
 
 
   readonly textInputChange = output<{ input: EditableExecutionInput; value: string | string[] }>();

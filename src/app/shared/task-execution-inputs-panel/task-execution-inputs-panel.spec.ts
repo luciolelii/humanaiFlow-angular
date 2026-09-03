@@ -27,6 +27,7 @@ async function build(inputs: EditableExecutionInput[], options: {
   pendingKeys?: string[];
   saving?: Record<string, boolean>;
   readOnly?: boolean;
+  saveError?: string | null;
 } = {}) {
   await TestBed.configureTestingModule({ imports: [TaskExecutionInputsPanelComponent] }).compileComponents();
 
@@ -35,6 +36,7 @@ async function build(inputs: EditableExecutionInput[], options: {
   fixture.componentRef.setInput('pendingKeys', options.pendingKeys ?? []);
   fixture.componentRef.setInput('savingInputs', options.saving ?? {});
   fixture.componentRef.setInput('readOnly', options.readOnly ?? false);
+  fixture.componentRef.setInput('saveError', options.saveError ?? null);
   fixture.detectChanges();
   await fixture.whenStable();
   fixture.detectChanges();
@@ -258,6 +260,26 @@ describe('TaskExecutionInputsPanelComponent', () => {
     fixture.componentInstance.applyEditor();
 
     expect(changed).not.toHaveBeenCalled();
+  });
+
+  it('shows one message for a save that failed as a whole, not one per field', async () => {
+    // The globals travel in a single request, so a failure belongs to the batch. The same text
+    // repeated on three fields read as three separate problems.
+    const fixture = await build([
+      makeInput({ key: 'g:a', inputName: 'a' }),
+      makeInput({ key: 'g:b', inputName: 'b' }),
+      makeInput({ key: 'g:c', inputName: 'c' })
+    ], { saveError: 'Could not save the global inputs, so none of them were saved.' });
+
+    const alerts = fixture.nativeElement.querySelectorAll('.inputs-panel-alert');
+    expect(alerts.length).toBe(1);
+    expect(alerts[0].textContent).toContain('none of them were saved');
+  });
+
+  it('shows no message when nothing has failed', async () => {
+    const fixture = await build([makeInput()]);
+
+    expect(fixture.nativeElement.querySelector('.inputs-panel-alert')).toBeNull();
   });
 
   it('offers the JSON import only on a multi-value input', async () => {
