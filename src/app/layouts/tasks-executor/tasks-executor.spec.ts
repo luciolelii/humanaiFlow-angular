@@ -17,8 +17,11 @@ import { findInteractiveSubflowTargets, TasksExecutor } from './tasks-executor';
 describe('TasksExecutor', () => {
   let component: TasksExecutor;
   let fixture: ComponentFixture<TasksExecutor>;
+  /** Hoisted so a test can feed the component a run; the component only exposes it read-only. */
+  let taskExecutions: ReturnType<typeof signal<TaskExecution[]>>;
 
   beforeEach(async () => {
+    taskExecutions = signal<TaskExecution[]>([]);
     await TestBed.configureTestingModule({
       imports: [TasksExecutor],
       providers: [
@@ -41,7 +44,7 @@ describe('TasksExecutor', () => {
         {
           provide: TaskExecutionsService,
           useValue: {
-            taskExecutions: signal([]),
+            taskExecutions,
             taskExecutionGroups: signal([]),
             followedExecutions: signal({}),
             pendingExecutionCreation: signal(false),
@@ -105,8 +108,39 @@ describe('TasksExecutor', () => {
     expect(component).toBeTruthy();
   });
 
-  it('toggles the execution tree panel', () => {
+  it('does not let the tree panel be opened onto nothing', () => {
+    // No run selected, so no container steps: the toggle is inert rather than opening an empty panel.
+    expect(component.executionTreeAvailable()).toBe(false);
+
+    component.toggleExecutionTree();
     expect(component.executionTreeOpen()).toBe(true);
+  });
+
+  it('toggles the execution tree panel once a run has a subtree', () => {
+    component.selectedExecutionId.set('parent-1');
+    taskExecutions.set([{
+      id: 'parent-1',
+      name: 'Parent',
+      creationTime: 1,
+      context: {
+        inputs: {},
+        result: {},
+        errors: {},
+        warnings: {},
+        status: 'RUNNING',
+        waitingSteps: [],
+        steps: {
+          'step-1': {
+            id: 'step-1',
+            status: 'RUNNING',
+            simulated: false,
+            node: { nodeFamily: 'container' }
+          }
+        }
+      }
+    } as any]);
+
+    expect(component.executionTreeAvailable()).toBe(true);
 
     component.toggleExecutionTree();
     expect(component.executionTreeOpen()).toBe(false);

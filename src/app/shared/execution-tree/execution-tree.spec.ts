@@ -6,7 +6,7 @@ import { TaskExecutionsService } from '@services/task-executions/task-executions
 import { of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 
-import { ExecutionTreeComponent } from './execution-tree';
+import { ExecutionTreeComponent, executionTreeHasContent } from './execution-tree';
 
 function containerStep(overrides: Partial<TaskExecution['context']['steps'][string]> = {}) {
   return {
@@ -185,5 +185,45 @@ describe('ExecutionTreeComponent', () => {
 
     expect(component.isStepLoaded('root-1', 'container-1')).toBe(false);
     expect(component.isExecutionExpanded('root-2')).toBe(true);
+  });
+});
+
+describe('executionTreeHasContent', () => {
+  const known = (typeName: string) => typeName === 'IteratorContainer';
+
+  function run(steps: Record<string, any>): any {
+    return { id: 'e1', name: 'run', creationTime: 0, context: { steps } };
+  }
+
+  it('reports nothing to show for a run without container steps', () => {
+    expect(executionTreeHasContent(run({
+      s1: { id: 's1', status: 'COMPLETED', simulated: false, node: { nodeFamily: 'block' } }
+    }), known)).toBe(false);
+  });
+
+  it('reports nothing for a missing run or a run with no steps', () => {
+    expect(executionTreeHasContent(null, known)).toBe(false);
+    expect(executionTreeHasContent(run({}), known)).toBe(false);
+  });
+
+  it('detects an explicit container node', () => {
+    expect(executionTreeHasContent(run({
+      s1: { id: 's1', status: 'RUNNING', simulated: false, node: { nodeFamily: 'container' } }
+    }), known)).toBe(true);
+  });
+
+  it('detects a step that already spawned a child execution', () => {
+    expect(executionTreeHasContent(run({
+      s1: { id: 's1', status: 'RUNNING', simulated: false, activeInnerExecutionId: 'child' }
+    }), known)).toBe(true);
+  });
+
+  it('detects a container by its registered type name', () => {
+    expect(executionTreeHasContent(run({
+      s1: { id: 's1', status: 'READY', simulated: false, node: { typeName: 'IteratorContainer' } }
+    }), known)).toBe(true);
+    expect(executionTreeHasContent(run({
+      s1: { id: 's1', status: 'READY', simulated: false, node: { typeName: 'LLMBlock' } }
+    }), known)).toBe(false);
   });
 });

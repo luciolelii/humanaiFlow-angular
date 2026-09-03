@@ -34,6 +34,29 @@ export type ContainerStepView = {
  * TaskExecutionsService.retrieveStepIterations). Each iteration is itself a full
  * execution that may contain further container steps, so the tree recurses.
  */
+/**
+ * Whether a step opens a subtree. Exported as a function taking the container-type predicate rather
+ * than living only on the component, so the panel hosting the tree decides "is there anything to
+ * show" with the very same rule the tree uses to show it - otherwise the two drift and the panel
+ * offers to open onto nothing.
+ */
+export function isContainerStep(step: TaskExecutionStep,
+    isKnownContainerType: (typeName: string) => boolean): boolean {
+  if (step.node?.nodeFamily === 'container') return true;
+  if (step.activeInnerExecutionId) return true;
+  if (step.containerContinuationPhase) return true;
+  if (typeof step.containerIterationIndex === 'number') return true;
+  const typeName = step.node?.typeName;
+  return !!typeName && isKnownContainerType(typeName);
+}
+
+export function executionTreeHasContent(execution: TaskExecution | null | undefined,
+    isKnownContainerType: (typeName: string) => boolean): boolean {
+  if (!execution) return false;
+  return Object.values(execution.context.steps ?? {})
+      .some((step) => isContainerStep(step, isKnownContainerType));
+}
+
 @Component({
   selector: 'app-execution-tree',
   imports: [CommonModule],
@@ -92,12 +115,7 @@ export class ExecutionTreeComponent {
   }
 
   private isContainerStep(step: TaskExecutionStep): boolean {
-    if (step.node?.nodeFamily === 'container') return true;
-    if (step.activeInnerExecutionId) return true;
-    if (step.containerContinuationPhase) return true;
-    if (typeof step.containerIterationIndex === 'number') return true;
-    const typeName = step.node?.typeName;
-    return !!typeName && !!this.containersService.peekContainerType(typeName);
+    return isContainerStep(step, (typeName) => !!this.containersService.peekContainerType(typeName));
   }
 
   /** Iterations for a step, minus GUARD subflows (debug-only, see backend doc). */

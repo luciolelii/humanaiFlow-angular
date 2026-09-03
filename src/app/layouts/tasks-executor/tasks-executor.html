@@ -10,17 +10,22 @@
       </app-tasks-executions-list>
 
       @if (selectedExecution(); as run) {
-      <section class="tasks-executor-tree-panel" [class.tasks-executor-tree-panel-collapsed]="!executionTreeOpen()">
+      <section class="tasks-executor-tree-panel"
+        [class.tasks-executor-tree-panel-collapsed]="!executionTreeAvailable() || !executionTreeOpen()">
         <button
           type="button"
           class="tasks-executor-tree-toggle"
-          [attr.aria-expanded]="executionTreeOpen()"
+          [disabled]="!executionTreeAvailable()"
+          [attr.aria-expanded]="executionTreeAvailable() && executionTreeOpen()"
+          [matTooltip]="executionTreeAvailable() ? '' : 'This run has no container steps, so there is no subtree to show.'"
           (click)="toggleExecutionTree()">
           <span>Execution tree</span>
+          @if (executionTreeAvailable()) {
           <span class="tasks-executor-tree-toggle-icon" [class.tasks-executor-tree-toggle-icon-open]="executionTreeOpen()">⌃</span>
+          }
         </button>
 
-        @if (executionTreeOpen()) {
+        @if (executionTreeAvailable() && executionTreeOpen()) {
         <app-execution-tree
           class="tasks-executor-rail-tree"
           [rootExecution]="run"

@@ -50,6 +50,14 @@
   box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
 }
 
+/* No subtree to open: say so by looking inert rather than by opening onto an empty panel. */
+.tasks-executor-tree-toggle:disabled {
+  border-color: #e8edf3;
+  background: #f8fafc;
+  color: #94a3b8;
+  cursor: default;
+}
+
 .tasks-executor-tree-toggle-icon {
   display: inline-flex;
   align-items: center;

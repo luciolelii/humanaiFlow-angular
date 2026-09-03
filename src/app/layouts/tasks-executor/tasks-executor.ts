@@ -22,7 +22,8 @@ import {
   TasksExecutionsListComponent
 } from '@shared/tasks-executions-list/tasks-executions-list';
 import { TaskExecutionViewerComponent } from '@shared/task-execution-viewer/task-execution-viewer';
-import { ExecutionTreeComponent, ExecutionTreeSelection } from '@shared/execution-tree/execution-tree';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { ExecutionTreeComponent, ExecutionTreeSelection, executionTreeHasContent } from '@shared/execution-tree/execution-tree';
 import { formatDuration } from '@shared/task-execution-viewer/execution-viewer.utils';
 import { BlocksService } from '@services/blocks/blocks';
 import { ContainersService } from '@services/containers/containers';
@@ -65,7 +66,7 @@ export function findInteractiveSubflowTargets(
 
 @Component({
   selector: 'app-tasks-executor',
-  imports: [TasksExecutionsListComponent, TaskExecutionViewerComponent, ExecutionTreeComponent, MatCardModule],
+  imports: [TasksExecutionsListComponent, TaskExecutionViewerComponent, ExecutionTreeComponent, MatCardModule, MatTooltipModule],
   templateUrl: './tasks-executor.html',
   styleUrl: './tasks-executor.css',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -96,6 +97,14 @@ export class TasksExecutor {
   readonly selectedExecutionId = signal<string | null>(null);
   readonly requestedExecutionId = signal<string | null>(null);
   readonly executionTreeOpen = signal(true);
+
+  /**
+   * A run with no container steps has no subtree to show, so the panel would open onto nothing.
+   * Uses the tree's own rule, not a second guess at it.
+   */
+  readonly executionTreeAvailable = computed(() => executionTreeHasContent(
+    this.selectedExecution(),
+    (typeName) => !!this.containersService.peekContainerType(typeName)));
 
   readonly selectedExecution = computed<TaskExecution | null>(() => {
     const selectedId = this.selectedExecutionId();
@@ -253,6 +262,7 @@ export class TasksExecutor {
   }
 
   toggleExecutionTree() {
+    if (!this.executionTreeAvailable()) return;
     this.executionTreeOpen.update((open) => !open);
   }
 
