@@ -140,6 +140,76 @@ export class TaskExecutionInputsPanelComponent {
     this.nodesOverride.set(!this.nodesOpen());
   }
 
+  /**
+   * A list input is folded once it is satisfied and unfolded while it still needs attention - the
+   * same rule the two groups follow. Five long answers otherwise fill the whole aside on their own.
+   */
+  private readonly itemsOverrides = signal<Record<string, boolean>>({});
+
+  itemsOpen(input: EditableExecutionInput): boolean {
+    return this.itemsOverrides()[input.key] ?? !input.provided;
+  }
+
+  toggleItems(input: EditableExecutionInput, event?: Event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+    this.itemsOverrides.update((current) => ({ ...current, [input.key]: !this.itemsOpen(input) }));
+  }
+
+  itemCountLabel(input: EditableExecutionInput): string {
+    const count = this.textValues(input).length;
+    return count === 1 ? '1 item' : `${count} items`;
+  }
+
+  /** A list of texts: the file inputs are multiple too, but the browser picker handles those. */
+  isListInput(input: EditableExecutionInput): boolean {
+    return this.isMultipleInput(input) && !this.isFileInput(input);
+  }
+
+  /**
+   * The value being edited in the large box: `index` names one item of a list input, null the
+   * whole single-valued input.
+   */
+  readonly editorTarget = signal<{ input: EditableExecutionInput; index: number | null } | null>(null);
+  readonly editorText = signal('');
+
+  readonly editorSubtitle = computed(() => {
+    const target = this.editorTarget();
+    if (!target) return null;
+    return target.index === null
+      ? `Value of ${target.input.subtitle}.`
+      : `Item ${target.index + 1} of ${target.input.subtitle}.`;
+  });
+
+  openEditor(input: EditableExecutionInput, index: number | null, event?: Event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+    const current = index === null
+      ? (Array.isArray(input.value) ? input.value.join('\n') : input.value ?? '')
+      : this.textValues(input)[index] ?? '';
+    this.editorTarget.set({ input, index });
+    this.editorText.set(current);
+  }
+
+  closeEditor() {
+    this.editorTarget.set(null);
+  }
+
+  applyEditor() {
+    const target = this.editorTarget();
+    if (!target || this.readOnly()) return;
+
+    // Routed through the ordinary edit path, so the box is only a bigger way to type: the panel's
+    // single Save still decides when the value is sent.
+    const input = this.liveInput(target.input);
+    if (target.index === null) {
+      this.onTextInputChange(input, this.editorText());
+    } else {
+      this.updateTextItem(input, target.index, this.editorText());
+    }
+    this.closeEditor();
+  }
+
   readonly importTarget = signal<EditableExecutionInput | null>(null);
   readonly importText = signal('');
   readonly importError = signal<string | null>(null);
@@ -168,8 +238,16 @@ export class TaskExecutionInputsPanelComponent {
 
     // Emitted like any other edit, so the imported items land in the panel's single Save rather
     // than being written straight through.
-    this.onTextInputChange(input, result.values);
+    this.onTextInputChange(this.liveInput(input), result.values);
     this.closeImport();
+  }
+
+  /**
+   * The current copy of an input the dialogs were opened on. `editableInputs` is rebuilt on every
+   * poll, so the captured object can be a stale snapshot to rebase an edit onto.
+   */
+  private liveInput(input: EditableExecutionInput): EditableExecutionInput {
+    return this.editableInputs().find((candidate) => candidate.key === input.key) ?? input;
   }
 
   isPending(input: EditableExecutionInput): boolean {

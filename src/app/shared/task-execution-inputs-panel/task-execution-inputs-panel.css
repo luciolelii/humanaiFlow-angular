@@ -86,10 +86,48 @@
 
 .inputs-panel-item-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 6px;
   min-width: 0;
   margin-bottom: 4px;
+}
+
+.inputs-panel-fold {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-left: -4px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+}
+
+.inputs-panel-fold:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.inputs-panel-fold .mat-icon {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+  line-height: 16px;
+}
+
+.inputs-panel-count {
+  flex: 0 0 auto;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #4338ca;
+  font-size: 10px;
+  font-weight: 600;
 }
 
 .inputs-panel-dot {
@@ -192,7 +230,6 @@
   justify-content: center;
   width: 24px;
   height: 24px;
-  margin-top: 5px;
   padding: 0;
   border: none;
   border-radius: 4px;
@@ -270,8 +307,11 @@
   font-size: 11px;
 }
 
-/* Pasting a JSON array beats typing five long questions one box at a time. */
-.inputs-panel-import {
+/*
+ * The two secondary actions on a value: paste a whole JSON array instead of typing five long
+ * questions one box at a time, and open the value in a box wide enough to read it.
+ */
+.inputs-panel-icon {
   display: flex;
   flex: 0 0 auto;
   align-items: center;
@@ -286,21 +326,26 @@
   cursor: pointer;
 }
 
-.inputs-panel-import:hover:not(:disabled) {
+.inputs-panel-icon:hover:not(:disabled) {
   background: #e0e7ff;
   color: #4338ca;
 }
 
-.inputs-panel-import:disabled {
+.inputs-panel-icon:disabled {
   color: #e2e8f0;
   cursor: default;
 }
 
-.inputs-panel-import .mat-icon {
+.inputs-panel-icon .mat-icon {
   font-size: 15px;
   width: 15px;
   height: 15px;
   line-height: 15px;
+}
+
+/* On an item row the actions sit beside a textarea, so they line up with its first line. */
+.inputs-panel-row-action {
+  margin-top: 5px;
 }
 
 .inputs-panel-import-field {
@@ -348,4 +393,29 @@
   justify-content: flex-end;
   gap: 8px;
   padding: 0.75rem 1.25rem 1.25rem;
+}
+
+.inputs-panel-editor-field {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #0f172a;
+  font: inherit;
+  font-size: 13.5px;
+  line-height: 1.55;
+  resize: vertical;
+}
+
+.inputs-panel-editor-field:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
+}
+
+.inputs-panel-editor-field[readonly] {
+  background: #f8fafc;
+  color: #64748b;
 }

@@ -179,6 +179,87 @@ describe('TaskExecutionInputsPanelComponent', () => {
     expect(fixture.componentInstance.canSubmitAll()).toBe(true);
   });
 
+  it('unfolds a list that still needs attention and folds a satisfied one', async () => {
+    // Five long answers otherwise fill the whole aside, so a finished list gets out of the way.
+    const missing = makeInput({ key: 'g:many', inputName: 'questions', multiple: true, value: ['', ''] });
+    const done = makeInput({
+      key: 'g:done', inputName: 'answers', multiple: true, value: ['a', 'b'], provided: true
+    });
+    const fixture = await build([missing, done]);
+
+    expect(fixture.componentInstance.itemsOpen(missing)).toBe(true);
+    expect(fixture.componentInstance.itemsOpen(done)).toBe(false);
+    // Only the unfolded one renders its rows.
+    expect(fixture.nativeElement.querySelectorAll('.inputs-panel-row').length).toBe(2);
+    // Folded, it still says how much it is hiding.
+    expect(fixture.nativeElement.textContent).toContain('2 items');
+  });
+
+  it('lets the user fold either list, in both directions', async () => {
+    const missing = makeInput({ key: 'g:many', inputName: 'questions', multiple: true, value: [''] });
+    const fixture = await build([missing]);
+
+    fixture.componentInstance.toggleItems(missing);
+    fixture.detectChanges();
+    expect(fixture.componentInstance.itemsOpen(missing)).toBe(false);
+    expect(fixture.nativeElement.querySelectorAll('.inputs-panel-row').length).toBe(0);
+    expect(fixture.nativeElement.textContent).toContain('1 item');
+
+    fixture.componentInstance.toggleItems(missing);
+    fixture.detectChanges();
+    expect(fixture.componentInstance.itemsOpen(missing)).toBe(true);
+  });
+
+  it('offers a larger box for a single value, and edits it through the pending change', async () => {
+    const input = makeInput({ key: 'g:brief', inputName: 'jobRequirements', value: 'short' });
+    const fixture = await build([input]);
+    const changed = vi.fn();
+    fixture.componentInstance.textInputChange.subscribe(changed);
+
+    const enlarge = fixture.nativeElement.querySelector('.inputs-panel-icon:not(.inputs-panel-import)');
+    expect(enlarge).not.toBeNull();
+
+    fixture.componentInstance.openEditor(input, null, new Event('click'));
+    // It opens on the value that is there, rather than on an empty box.
+    expect(fixture.componentInstance.editorText()).toBe('short');
+
+    fixture.componentInstance.editorText.set('a much longer requirement');
+    fixture.componentInstance.applyEditor();
+
+    expect(changed).toHaveBeenCalledWith({ input, value: 'a much longer requirement' });
+    expect(fixture.componentInstance.editorTarget()).toBeNull();
+  });
+
+  it('edits one item of a list in the larger box, leaving its siblings alone', async () => {
+    const input = makeInput({
+      key: 'g:many', inputName: 'questions', multiple: true, value: ['first', 'second']
+    });
+    const fixture = await build([input]);
+    const changed = vi.fn();
+    fixture.componentInstance.textInputChange.subscribe(changed);
+
+    fixture.componentInstance.openEditor(input, 1, new Event('click'));
+    expect(fixture.componentInstance.editorText()).toBe('second');
+
+    fixture.componentInstance.editorText.set('second, at length');
+    fixture.componentInstance.applyEditor();
+
+    expect(changed).toHaveBeenCalledWith({ input, value: ['first', 'second, at length'] });
+  });
+
+  it('does not write back from the larger box while the panel is read-only', async () => {
+    const input = makeInput({ key: 'g:brief', inputName: 'jobRequirements', value: 'short' });
+    const fixture = await build([input], { readOnly: true });
+    const changed = vi.fn();
+    fixture.componentInstance.textInputChange.subscribe(changed);
+
+    fixture.componentInstance.openEditor(input, null, new Event('click'));
+    fixture.componentInstance.editorText.set('edited anyway');
+    fixture.componentInstance.applyEditor();
+
+    expect(changed).not.toHaveBeenCalled();
+  });
+
   it('offers the JSON import only on a multi-value input', async () => {
     const fixture = await build([
       makeInput({ key: 'g:single', inputName: 'positionTitle' }),

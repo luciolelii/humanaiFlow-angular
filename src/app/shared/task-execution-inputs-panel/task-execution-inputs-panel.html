@@ -132,6 +132,18 @@
     [class.inputs-panel-item-pending]="isPending(executionInput)">
 
     <div class="inputs-panel-item-head">
+      @if (isListInput(executionInput)) {
+      <button
+        type="button"
+        class="inputs-panel-fold"
+        [attr.aria-expanded]="itemsOpen(executionInput)"
+        [attr.aria-label]="(itemsOpen(executionInput) ? 'Collapse ' : 'Expand ') + executionInput.subtitle"
+        [matTooltip]="itemsOpen(executionInput) ? 'Collapse items' : 'Expand items'"
+        (click)="toggleItems(executionInput, $event)">
+        <mat-icon [fontIcon]="itemsOpen(executionInput) ? 'expand_less' : 'expand_more'"></mat-icon>
+      </button>
+      }
+
       <span
         class="inputs-panel-dot"
         [class.inputs-panel-dot-missing]="isMissing(executionInput)"
@@ -139,17 +151,33 @@
       </span>
       <span class="inputs-panel-name">{{ executionInput.subtitle }}</span>
       <span class="inputs-panel-type">{{ inputTypeLabel(executionInput) }}</span>
-      @if (isMultipleInput(executionInput) && !isFileInput(executionInput)) {
+
+      <!-- Collapsed, the row must still say how much it is hiding. -->
+      @if (isListInput(executionInput) && !itemsOpen(executionInput)) {
+      <span class="inputs-panel-count">{{ itemCountLabel(executionInput) }}</span>
+      }
+
+      @if (isListInput(executionInput)) {
       <button
         type="button"
-        class="inputs-panel-import"
+        class="inputs-panel-icon inputs-panel-import"
         matTooltip="Import from JSON array"
         [attr.aria-label]="'Import ' + executionInput.subtitle + ' from a JSON array'"
         [disabled]="readOnly()"
         (click)="openImport(executionInput, $event)">
-        <mat-icon fontIcon="data_array"></mat-icon>
+        <mat-icon fontIcon="upload"></mat-icon>
+      </button>
+      } @else if (!isFileInput(executionInput)) {
+      <button
+        type="button"
+        class="inputs-panel-icon"
+        matTooltip="Edit in a larger box"
+        [attr.aria-label]="'Edit ' + executionInput.subtitle + ' in a larger box'"
+        (click)="openEditor(executionInput, null, $event)">
+        <mat-icon fontIcon="open_in_full"></mat-icon>
       </button>
       }
+
       @if (executionInput.scope === 'node') {
       <span class="inputs-panel-owner" [matTooltip]="'Input of step ' + executionInput.title">
         {{ executionInput.title }}
@@ -165,6 +193,7 @@
       [disabled]="readOnly()"
       (change)="onFileInputChange(executionInput, $event)" />
     } @else if (isMultipleInput(executionInput)) {
+    @if (itemsOpen(executionInput)) {
     <div class="inputs-panel-items">
       @for (textValue of textValues(executionInput); track $index) {
       <div class="inputs-panel-row">
@@ -177,7 +206,15 @@
           (ngModelChange)="updateTextItem(executionInput, $index, $event)"></textarea>
         <button
           type="button"
-          class="inputs-panel-remove"
+          class="inputs-panel-icon inputs-panel-row-action"
+          matTooltip="Edit in a larger box"
+          [attr.aria-label]="'Edit item ' + ($index + 1) + ' of ' + executionInput.subtitle + ' in a larger box'"
+          (click)="openEditor(executionInput, $index, $event)">
+          <mat-icon fontIcon="open_in_full"></mat-icon>
+        </button>
+        <button
+          type="button"
+          class="inputs-panel-remove inputs-panel-row-action"
           matTooltip="Remove item"
           [disabled]="readOnly() || textValues(executionInput).length <= 1"
           (click)="removeTextItem(executionInput, $index)">
@@ -194,6 +231,7 @@
         Add item
       </button>
     </div>
+    }
     } @else {
     <textarea
       class="inputs-panel-field"
@@ -255,6 +293,34 @@
   <footer class="inputs-panel-import-footer">
     <button type="button" mat-stroked-button (click)="closeImport()">Cancel</button>
     <button type="button" mat-flat-button color="primary" (click)="applyImport()">Import</button>
+  </footer>
+</app-modal-shell>
+}
+
+<!--
+  The panel lives in a ~320px aside, so a long answer is edited through a slit. This is the same
+  value, in a box with room to read it.
+-->
+@if (editorTarget(); as target) {
+<app-modal-shell
+  [title]="'Edit ' + target.input.subtitle"
+  [subtitle]="editorSubtitle()"
+  ariaLabel="Edit the input value in a larger box"
+  maxWidth="720px"
+  closeLabel="Cancel"
+  (backdropClick)="closeEditor()"
+  (closeClick)="closeEditor()">
+
+  <textarea
+    class="inputs-panel-editor-field"
+    rows="16"
+    [readonly]="readOnly()"
+    [ngModel]="editorText()"
+    (ngModelChange)="editorText.set($event)"></textarea>
+
+  <footer class="inputs-panel-import-footer">
+    <button type="button" mat-stroked-button (click)="closeEditor()">Cancel</button>
+    <button type="button" mat-flat-button color="primary" [disabled]="readOnly()" (click)="applyEditor()">Done</button>
   </footer>
 </app-modal-shell>
 }
