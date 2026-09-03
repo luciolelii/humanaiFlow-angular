@@ -97,11 +97,20 @@
     }
     @if (outcomes().length) {
     <div class="execution-outcomes">
-      <div class="execution-outcomes-title">
+      <button
+        type="button"
+        class="execution-outcomes-title"
+        [attr.aria-expanded]="outcomesOpen()"
+        (click)="toggleOutcomes()">
+        <mat-icon [fontIcon]="outcomesOpen() ? 'expand_less' : 'expand_more'"></mat-icon>
         <mat-icon fontIcon="flag"></mat-icon>
         <span>{{ outcomes().length === 1 ? 'Outcome' : 'Outcomes' }}</span>
-      </div>
+        @if (!outcomesOpen()) {
+        <span class="execution-outcomes-summary">{{ outcomeCodes() }}</span>
+        }
+      </button>
 
+      @if (outcomesOpen()) {
       @for (outcome of outcomes(); track outcome.stepId + outcome.timestamp) {
       <div class="execution-outcome">
         <div class="execution-outcome-head">
@@ -124,6 +133,7 @@
         </div>
         }
       </div>
+      }
       }
     </div>
     }

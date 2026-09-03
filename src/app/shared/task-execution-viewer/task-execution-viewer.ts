@@ -540,6 +540,19 @@ export class TaskExecutionViewerComponent implements OnDestroy {
    */
   readonly outcomes = computed(() => this.execution()?.context.outcomes ?? []);
 
+  /**
+   * Open by default: this is the flow's answer, and it was invisible until now. Collapsing gives
+   * the graph its height back when the payload is a long document.
+   */
+  readonly outcomesOpen = signal(true);
+
+  /** Kept in the header so the conclusion is still readable while collapsed. */
+  readonly outcomeCodes = computed(() => this.outcomes().map((outcome) => outcome.code).join(', '));
+
+  toggleOutcomes() {
+    this.outcomesOpen.update((open) => !open);
+  }
+
   readonly hasOutcomePayload = computed(() =>
     this.outcomes().some((outcome) => outcome.payload !== null && outcome.payload !== undefined));
 
