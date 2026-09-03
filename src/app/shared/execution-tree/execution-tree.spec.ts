@@ -126,6 +126,89 @@ describe('ExecutionTreeComponent', () => {
     expect(retrieveStepIterations).toHaveBeenCalledTimes(1);
   });
 
+  it('picks up new iterations and changed statuses on a poll tick', () => {
+    // The list endpoint is the only source both for which children exist and for what each is
+    // doing. Fetched once on expand, the tree showed a three-iteration run as "Iteration 1,
+    // RUNNING" for its whole life: a working run looked stuck, then looked like it had run once.
+    const running = { ...iteration('it-1', 1, 'MAIN') };
+    running.context = { ...running.context, status: 'RUNNING' };
+    retrieveStepIterations.mockReturnValue(of([running]));
+
+    const steps = { 'container-1': containerStep({ status: 'WAITING_FOR_SUBFLOW' }) };
+    fixture.componentRef.setInput('rootExecution', rootExecution(steps));
+    fixture.detectChanges();
+    component.toggleStep('root-1', 'container-1');
+    fixture.detectChanges();
+
+    expect(component.iterationsFor('root-1', 'container-1').map((one) => one.context.status))
+      .toEqual(['RUNNING']);
+
+    retrieveStepIterations.mockReturnValue(of([
+      iteration('it-1', 1, 'MAIN'),
+      iteration('it-2', 2, 'MAIN')
+    ]));
+    // Polling hands the component a new object with the same id, which is the refresh signal.
+    fixture.componentRef.setInput('rootExecution', rootExecution(steps));
+    fixture.detectChanges();
+
+    expect(component.iterationsFor('root-1', 'container-1').map((one) => one.id))
+      .toEqual(['it-1', 'it-2']);
+    expect(component.iterationsFor('root-1', 'container-1').map((one) => one.context.status))
+      .toEqual(['SUCCESS', 'SUCCESS']);
+  });
+
+  it('refreshes once more on the tick that reports the run finished', () => {
+    // That tick carries the final status, and with it the last child's real state.
+    retrieveStepIterations.mockReturnValue(of([iteration('it-1', 1, 'MAIN')]));
+    const steps = { 'container-1': containerStep() };
+    fixture.componentRef.setInput('rootExecution', rootExecution(steps));
+    fixture.detectChanges();
+    component.toggleStep('root-1', 'container-1');
+    fixture.detectChanges();
+    const afterExpand = retrieveStepIterations.mock.calls.length;
+
+    const finished = rootExecution(steps);
+    finished.context.status = 'SUCCESS';
+    fixture.componentRef.setInput('rootExecution', finished);
+    fixture.detectChanges();
+    expect(retrieveStepIterations.mock.calls.length).toBe(afterExpand + 1);
+
+    // And then stops: nothing more will change, so further ticks cost nothing.
+    const settled = rootExecution(steps);
+    settled.context.status = 'SUCCESS';
+    fixture.componentRef.setInput('rootExecution', settled);
+    fixture.detectChanges();
+    expect(retrieveStepIterations.mock.calls.length).toBe(afterExpand + 1);
+  });
+
+  it('refreshes nothing while no step has been opened', () => {
+    retrieveStepIterations.mockReturnValue(of([iteration('it-1', 1, 'MAIN')]));
+    const steps = { 'container-1': containerStep() };
+    fixture.componentRef.setInput('rootExecution', rootExecution(steps));
+    fixture.detectChanges();
+    fixture.componentRef.setInput('rootExecution', rootExecution(steps));
+    fixture.detectChanges();
+
+    expect(retrieveStepIterations).not.toHaveBeenCalled();
+  });
+
+  it('keeps the iterations on screen when a refresh fails', () => {
+    retrieveStepIterations.mockReturnValue(of([iteration('it-1', 1, 'MAIN')]));
+    const steps = { 'container-1': containerStep() };
+    fixture.componentRef.setInput('rootExecution', rootExecution(steps));
+    fixture.detectChanges();
+    component.toggleStep('root-1', 'container-1');
+    fixture.detectChanges();
+
+    retrieveStepIterations.mockReturnValue(throwError(() => ({ status: 500 })));
+    fixture.componentRef.setInput('rootExecution', rootExecution(steps));
+    fixture.detectChanges();
+
+    // Replacing a list with an error would hide iterations that are still perfectly valid.
+    expect(component.iterationsFor('root-1', 'container-1').map((one) => one.id)).toEqual(['it-1']);
+    expect(component.stepError('root-1', 'container-1')).toBeNull();
+  });
+
   it('filters out GUARD subflows from a LoopContainer iteration list', () => {
     retrieveStepIterations.mockReturnValue(of([
       iteration('main-1', 1, 'MAIN'),

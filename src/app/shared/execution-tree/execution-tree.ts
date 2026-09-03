@@ -10,10 +10,13 @@ import {
   signal,
   untracked
 } from '@angular/core';
-import { TaskExecution, TaskExecutionStep } from '@models/task-execution';
+import { getExecutionStatusGroup, TaskExecution, TaskExecutionStep } from '@models/task-execution';
 import { ContainersService } from '@services/containers/containers';
 import { TaskExecutionsService } from '@services/task-executions/task-executions';
 import { take } from 'rxjs';
+
+/** Joins the two ids a loaded list is keyed by, and splits them again when refreshing it. */
+const STEP_KEY_SEPARATOR = '::';
 
 export type ExecutionTreeSelection = {
   executionId: string;
@@ -80,6 +83,7 @@ export class ExecutionTreeComponent {
   private readonly stepErrors = signal<Record<string, string>>({});
   private readonly iterationsByStep = signal<Record<string, TaskExecution[]>>({});
   private lastRootId: string | null = null;
+  private lastRootStatus: string | null = null;
 
   readonly hasContainerContent = computed(() => {
     const root = this.rootExecution();
@@ -101,6 +105,51 @@ export class ExecutionTreeComponent {
         this.stepErrors.set({});
       });
     });
+
+    /*
+     * Keeps the loaded iteration lists fresh while the run is live.
+     *
+     * A container spawns one child per iteration, and the endpoint that lists them is the only
+     * source both for *which* children exist and for what state each is in. Fetching it once, when
+     * the step was expanded, meant the tree kept showing the run as it was at that instant: a
+     * three-iteration run displayed "Iteration 1, RUNNING" from start to finish, so a run that was
+     * working looked stuck and then looked like it had done one iteration and produced nothing.
+     *
+     * Polling hands us a new root object every tick, which is the signal to refresh. The last tick
+     * matters too - it is the one carrying the final status - so a status change is refreshed even
+     * when it is the transition into a final state.
+     */
+    effect(() => {
+      const root = this.rootExecution();
+      if (!root) return;
+      const status = String(root.context?.status ?? '');
+      const live = getExecutionStatusGroup(status) !== 'FINAL';
+      const statusChanged = status !== this.lastRootStatus;
+      this.lastRootStatus = status;
+      if (!live && !statusChanged) return;
+      untracked(() => this.refreshLoadedIterations());
+    });
+  }
+
+  /**
+   * Refetches every list already loaded, leaving the previous values in place until the new ones
+   * arrive so the tree does not blink, and skipping anything already in flight.
+   */
+  private refreshLoadedIterations() {
+    for (const key of Object.keys(this.iterationsByStep())) {
+      if (this.loadingStepKeys().has(key)) continue;
+      const separator = key.indexOf(STEP_KEY_SEPARATOR);
+      if (separator < 0) continue;
+      const executionId = key.slice(0, separator);
+      const stepId = key.slice(separator + STEP_KEY_SEPARATOR.length);
+      this.taskExecutionsService.retrieveStepIterations(executionId, stepId).pipe(take(1)).subscribe({
+        next: (iterations) => this.iterationsByStep
+          .update((current) => ({ ...current, [key]: iterations })),
+        // A failed refresh keeps what was on screen: the run itself is unaffected, and replacing a
+        // list with an error would hide iterations that are still perfectly valid.
+        error: () => undefined
+      });
+    }
   }
 
   containerSteps(execution: TaskExecution): ContainerStepView[] {
@@ -245,6 +294,6 @@ export class ExecutionTreeComponent {
   }
 
   private stepKey(executionId: string, stepId: string): string {
-    return `${executionId}::${stepId}`;
+    return `${executionId}${STEP_KEY_SEPARATOR}${stepId}`;
   }
 }
